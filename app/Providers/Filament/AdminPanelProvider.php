@@ -28,6 +28,8 @@ class AdminPanelProvider extends PanelProvider
             ->default()->id('admin')->path('admin')->login()
             ->brandName('SPMB Taruna Bakti')
             ->colors(['primary' => Color::Blue])
+            ->databaseNotifications()
+            ->databaseNotificationsPolling(config('spmb.notifications.polling', '15s'))
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->pages([Pages\Dashboard::class])
