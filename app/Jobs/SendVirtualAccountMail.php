@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Mail\VirtualAccountMail;
 use App\Models\Payment;
 use App\Services\AuditTrail;
+use App\Services\SpmbNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
@@ -43,13 +44,22 @@ class SendVirtualAccountMail implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $payment = Payment::query()->find($this->paymentId);
+        $payment = Payment::query()->with('registration')->find($this->paymentId);
+        $message = $exception?->getMessage() ?: 'Unknown queue failure';
 
         app(AuditTrail::class)->record(
             'mail.virtual_account_failed',
             $payment,
-            metadata: ['error' => $exception?->getMessage()],
+            metadata: ['error' => $message],
             description: 'Email virtual account gagal setelah seluruh retry',
+        );
+
+        app(SpmbNotificationService::class)->deliveryFailure(
+            $payment,
+            'email.virtual_account',
+            $message,
+            $payment?->registration?->unit_id,
+            $payment?->registration_id,
         );
     }
 }
