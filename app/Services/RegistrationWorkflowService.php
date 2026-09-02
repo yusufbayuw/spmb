@@ -19,6 +19,8 @@ class RegistrationWorkflowService
 {
     public const REQUIRED_DOCUMENTS = ['report_card', 'family_card', 'birth_certificate', 'photo'];
 
+    public function __construct(private SpmbNotificationService $notifications) {}
+
     public function validateData(Registration $registration, User $staff, bool $approved, ?string $notes = null): void
     {
         $registration = Registration::query()->findOrFail($registration->id);
@@ -35,6 +37,8 @@ class RegistrationWorkflowService
                 'status' => $approved ? 'verified' : 'submitted',
             ],
         );
+
+        $this->notifications->dataValidationResult($registration, $approved, $notes);
 
         if ($approved) {
             $this->assignAvailableVirtualAccount($registration, $staff);
@@ -137,6 +141,9 @@ class RegistrationWorkflowService
 
         if ($payment && $assignedNow) {
             SendVirtualAccountMail::dispatch($payment->id);
+            $this->notifications->virtualAccountIssued($payment);
+        } elseif (! $payment) {
+            $this->notifications->virtualAccountPoolEmpty($registration->fresh());
         }
 
         return $payment;
@@ -201,6 +208,7 @@ class RegistrationWorkflowService
         });
 
         SendVirtualAccountMail::dispatch($payment->id);
+        $this->notifications->virtualAccountIssued($payment);
 
         return $payment;
     }
@@ -229,6 +237,8 @@ class RegistrationWorkflowService
                 'status' => 'payment_uploaded',
             ]);
         });
+
+        $this->notifications->paymentProofUploaded($payment->fresh(['registration.unit']));
     }
 
     public function verifyPayment(Payment $payment, User $staff, bool $approved, ?string $reason = null): void
@@ -267,6 +277,8 @@ class RegistrationWorkflowService
                 'status' => 'payment_pending',
             ]);
         });
+
+        $this->notifications->paymentVerificationResult($payment->fresh(['registration.user']), $approved, $reason);
     }
 
     public function issueApplicantCard(Registration $registration, User $staff): void
@@ -281,11 +293,15 @@ class RegistrationWorkflowService
                 'applicant_card_issued_at' => now(),
             ]);
         });
+
+        $this->notifications->applicantCardIssued($registration->fresh());
     }
 
     public function refreshDocumentStage(Registration $registration): bool
     {
-        return DB::transaction(function () use ($registration): bool {
+        $hasTests = false;
+
+        $complete = DB::transaction(function () use ($registration, &$hasTests): bool {
             $lockedRegistration = Registration::query()
                 ->with('unit')
                 ->lockForUpdate()
@@ -314,6 +330,8 @@ class RegistrationWorkflowService
                 ->admissionTests()
                 ->where('is_active', true)
                 ->get();
+
+            $hasTests = $tests->isNotEmpty();
 
             foreach ($tests as $test) {
                 AdmissionTestResult::firstOrCreate(
@@ -345,11 +363,20 @@ class RegistrationWorkflowService
 
             return true;
         });
+
+        if ($complete) {
+            $this->notifications->documentsVerified($registration->fresh(), $hasTests);
+        }
+
+        return $complete;
     }
 
     public function recordTestResult(AdmissionTestResult $result, User $staff, array $data): void
     {
-        DB::transaction(function () use ($result, $staff, $data): void {
+        $completedNow = false;
+        $registrationId = $result->registration_id;
+
+        DB::transaction(function () use ($result, $staff, $data, &$completedNow): void {
             $lockedResult = AdmissionTestResult::query()->lockForUpdate()->findOrFail($result->id);
             $registration = Registration::query()->lockForUpdate()->findOrFail($lockedResult->registration_id);
             $registration->assertCurrentStage('tests');
@@ -370,8 +397,13 @@ class RegistrationWorkflowService
                 );
 
                 $registration->transitionTo('selection');
+                $completedNow = true;
             }
         });
+
+        if ($completedNow) {
+            $this->notifications->testsCompleted(Registration::query()->findOrFail($registrationId));
+        }
     }
 
     public function decide(Registration $registration, User $staff, string $decision, ?float $score = null, ?string $notes = null): Selection
@@ -382,7 +414,7 @@ class RegistrationWorkflowService
             ]);
         }
 
-        return DB::transaction(function () use ($registration, $staff, $decision, $score, $notes): Selection {
+        $selection = DB::transaction(function () use ($registration, $staff, $decision, $score, $notes): Selection {
             $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $lockedRegistration->assertCurrentStage('selection');
 
@@ -409,6 +441,10 @@ class RegistrationWorkflowService
 
             return $selection;
         });
+
+        $this->notifications->selectionDecided($registration->fresh(), $decision);
+
+        return $selection;
     }
 
     public function publish(Registration $registration, User $staff, ?string $title = null, ?string $message = null): Announcement
@@ -452,6 +488,7 @@ class RegistrationWorkflowService
         });
 
         SendAnnouncementPublishedMail::dispatch($announcement->id);
+        $this->notifications->announcementPublished($announcement);
 
         return $announcement;
     }
