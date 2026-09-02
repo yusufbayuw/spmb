@@ -2,20 +2,21 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/laravel",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "SPMB Taruna Bakti built with Laravel and Filament.",
+    "keywords": ["laravel", "filament", "spmb"],
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "bezhansalleh/filament-shield": "^3.3",
         "filament/filament": "^3.2",
-        "laravel/framework": "^13.17",
-        "laravel/tinker": "^3.0"
+        "laravel/framework": "^12.0",
+        "laravel/tinker": "^2.10|^3.0",
+        "spatie/laravel-permission": "^6.25"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
         "laravel/breeze": "^2.4",
         "laravel/pail": "^1.2.5",
-        "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
