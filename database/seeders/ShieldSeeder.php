@@ -13,7 +13,7 @@ class ShieldSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $standard = ['view','view_any','create','update','delete','delete_any'];
-        $resources = ['registration','registrationopening','parentinfo','document','payment','virtualaccount','unit','user','admissiontest','admissiontestresult','selection','announcement'];
+        $resources = ['registration','registrationopening','parentinfo','document','payment','virtualaccount','unit','user','admissiontest','admissiontestresult','selection','announcement','auditlog'];
         foreach ($resources as $resource) {
             foreach ($standard as $prefix) Permission::firstOrCreate(['name' => $prefix.'_'.$resource,'guard_name' => 'web']);
         }
@@ -37,6 +37,7 @@ class ShieldSeeder extends Seeder
             'view_admissiontestresult','view_any_admissiontestresult','create_admissiontestresult','update_admissiontestresult','record_result_admissiontestresult',
             'view_selection','view_any_selection','create_selection','update_selection','decide_selection',
             'view_announcement','view_any_announcement','create_announcement','update_announcement','publish_announcement',
+            'view_auditlog','view_any_auditlog',
         ];
         $tu->syncPermissions($tuPermissions);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
