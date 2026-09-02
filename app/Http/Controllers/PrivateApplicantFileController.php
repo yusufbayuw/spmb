@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
+use App\Services\AuditTrail;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -17,6 +18,7 @@ class PrivateApplicantFileController extends Controller
         Request $request,
         Document $document,
         ApplicantFileStorage $storage,
+        AuditTrail $audit,
     ): BinaryFileResponse {
         $document->loadMissing('registration');
 
@@ -29,6 +31,9 @@ class PrivateApplicantFileController extends Controller
         return $this->serve(
             $request,
             $storage,
+            $audit,
+            $document,
+            'document',
             $document->file_path,
             $document->original_name ?: basename($document->file_path),
         );
@@ -38,6 +43,7 @@ class PrivateApplicantFileController extends Controller
         Request $request,
         Payment $payment,
         ApplicantFileStorage $storage,
+        AuditTrail $audit,
     ): BinaryFileResponse {
         $payment->loadMissing('registration');
 
@@ -52,6 +58,9 @@ class PrivateApplicantFileController extends Controller
         return $this->serve(
             $request,
             $storage,
+            $audit,
+            $payment,
+            'payment_proof',
             $payment->proof_path,
             $payment->proof_original_name ?: basename($payment->proof_path),
         );
@@ -89,6 +98,9 @@ class PrivateApplicantFileController extends Controller
     private function serve(
         Request $request,
         ApplicantFileStorage $storage,
+        AuditTrail $audit,
+        Document|Payment $subject,
+        string $eventPrefix,
         string $path,
         string $fileName,
     ): BinaryFileResponse {
@@ -98,6 +110,17 @@ class PrivateApplicantFileController extends Controller
         $absolutePath = $disk->path($path);
         $mimeType = $disk->mimeType($path) ?: 'application/octet-stream';
         $safeName = trim(str_replace(["\r", "\n"], '', $fileName)) ?: 'file';
+        $isDownload = $request->boolean('download');
+
+        $audit->record(
+            $eventPrefix.'.'.($isDownload ? 'downloaded' : 'viewed'),
+            $subject,
+            metadata: [
+                'file_name' => $safeName,
+                'mime_type' => $mimeType,
+            ],
+            description: $isDownload ? 'File privat diunduh' : 'File privat dilihat',
+        );
 
         $headers = [
             'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
@@ -108,7 +131,7 @@ class PrivateApplicantFileController extends Controller
             'Content-Type' => $mimeType,
         ];
 
-        if ($request->boolean('download')) {
+        if ($isDownload) {
             return response()->download($absolutePath, $safeName, $headers);
         }
 
