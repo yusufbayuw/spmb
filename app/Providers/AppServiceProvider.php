@@ -16,7 +16,13 @@ use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Models\VirtualAccountBatch;
 use App\Observers\SensitiveModelObserver;
+use App\Services\AuditTrail;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -52,5 +58,52 @@ class AppServiceProvider extends ServiceProvider
         ] as $model) {
             $model::observe(SensitiveModelObserver::class);
         }
+
+        Event::listen(Login::class, function (Login $event): void {
+            if ($event->user instanceof User) {
+                app(AuditTrail::class)->record(
+                    'auth.login',
+                    $event->user,
+                    actor: $event->user,
+                    metadata: ['guard' => $event->guard, 'remember' => $event->remember],
+                    description: 'Login berhasil',
+                );
+            }
+        });
+
+        Event::listen(Logout::class, function (Logout $event): void {
+            if ($event->user instanceof User) {
+                app(AuditTrail::class)->record(
+                    'auth.logout',
+                    $event->user,
+                    actor: $event->user,
+                    metadata: ['guard' => $event->guard],
+                    description: 'Logout',
+                );
+            }
+        });
+
+        Event::listen(Failed::class, function (Failed $event): void {
+            app(AuditTrail::class)->record(
+                'auth.login_failed',
+                $event->user instanceof User ? $event->user : null,
+                metadata: [
+                    'guard' => $event->guard,
+                    'email' => $event->credentials['email'] ?? null,
+                ],
+                description: 'Percobaan login gagal',
+            );
+        });
+
+        Event::listen(PasswordReset::class, function (PasswordReset $event): void {
+            if ($event->user instanceof User) {
+                app(AuditTrail::class)->record(
+                    'auth.password_reset',
+                    $event->user,
+                    actor: $event->user,
+                    description: 'Password berhasil direset',
+                );
+            }
+        });
     }
 }
