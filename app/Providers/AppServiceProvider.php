@@ -15,8 +15,10 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Models\VirtualAccountBatch;
+use App\Observers\RegistrationNotificationObserver;
 use App\Observers\SensitiveModelObserver;
 use App\Services\AuditTrail;
+use App\Services\SpmbNotificationService;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -59,6 +61,8 @@ class AppServiceProvider extends ServiceProvider
         ] as $model) {
             $model::observe(SensitiveModelObserver::class);
         }
+
+        Registration::observe(RegistrationNotificationObserver::class);
 
         Event::listen(Login::class, function (Login $event): void {
             if ($event->user instanceof User) {
@@ -104,6 +108,13 @@ class AppServiceProvider extends ServiceProvider
                     actor: $event->user,
                     description: 'Password berhasil direset',
                 );
+
+                app(SpmbNotificationService::class)->securityNotice(
+                    $event->user,
+                    'security.password_reset',
+                    'Password berhasil diubah',
+                    'Password akun Anda baru saja direset. Jika bukan Anda yang melakukan perubahan ini, segera hubungi administrator.',
+                );
             }
         });
 
@@ -115,6 +126,13 @@ class AppServiceProvider extends ServiceProvider
                     actor: $event->user,
                     metadata: ['email' => $event->user->email],
                     description: 'Alamat email berhasil diverifikasi',
+                );
+
+                app(SpmbNotificationService::class)->securityNotice(
+                    $event->user,
+                    'security.email_verified',
+                    'Email berhasil diverifikasi',
+                    'Alamat email akun telah terverifikasi. Anda dapat melanjutkan proses SPMB.',
                 );
             }
         });
