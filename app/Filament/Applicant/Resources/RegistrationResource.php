@@ -96,6 +96,18 @@ class RegistrationResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')->label('Dibuat')->date('d M Y')->sortable(),
             ])
             ->actions([
+                Tables\Actions\Action::make('progress')
+                    ->label('Lihat Progres')
+                    ->icon('heroicon-o-list-bullet')
+                    ->color('gray')
+                    ->modalHeading(fn (Registration $record) => 'Progres '.$record->full_name)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalWidth('2xl')
+                    ->modalContent(fn (Registration $record) => view('filament.applicant.registration-progress', [
+                        'record' => $record->loadMissing(['latestPayment', 'selection', 'announcement']),
+                    ])),
+
                 Tables\Actions\EditAction::make()
                     ->label('Perbaiki Data')
                     ->visible(fn (Registration $record) => static::canEdit($record)),
