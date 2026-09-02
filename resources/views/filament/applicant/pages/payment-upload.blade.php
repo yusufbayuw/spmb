@@ -26,6 +26,26 @@
 
         <x-filament::section>
             <x-slot name="heading">Bukti Pembayaran</x-slot>
+            <x-slot name="description">Bukti pembayaran disimpan privat dan tidak memiliki URL publik.</x-slot>
+
+            @if ($payment->proof_path)
+                <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 p-4 dark:border-white/10">
+                    <div class="min-w-0">
+                        <div class="text-sm font-semibold text-gray-950 dark:text-white">Bukti yang tersimpan</div>
+                        <div class="truncate text-xs text-gray-500">{{ $payment->proof_original_name ?: basename($payment->proof_path) }}</div>
+                    </div>
+                    <a
+                        href="{{ route('files.applicant.payments.proof', $payment) }}"
+                        data-file-preview
+                        data-file-name="{{ $payment->proof_original_name ?: basename($payment->proof_path) }}"
+                        class="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-500"
+                    >
+                        <x-heroicon-m-eye class="h-4 w-4" />
+                        Lihat bukti
+                    </a>
+                </div>
+            @endif
+
             @if ($this->registrationRecord->current_stage === 'payment_verification')
                 <div class="flex items-center gap-3 rounded-xl bg-warning-50 p-4 dark:bg-warning-500/10">
                     <x-heroicon-o-clock class="h-6 w-6 text-warning-600" />

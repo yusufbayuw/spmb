@@ -6,16 +6,21 @@
             'family_card' => 'Kartu Keluarga',
             'birth_certificate' => 'Akta Kelahiran',
             'photo' => 'Pas Foto',
+            'supporting_document' => 'Dokumen Pendukung',
         ];
     @endphp
 
     <div class="space-y-6">
         <x-filament::section>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <x-slot name="heading">File Tersimpan</x-slot>
+            <x-slot name="description">Semua file di bawah disimpan privat dan hanya dapat dibuka setelah autentikasi.</x-slot>
+
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($labels as $type => $label)
                     @php($document = $documents->get($type))
                     <div class="rounded-xl border border-gray-200 p-4 dark:border-white/10">
                         <div class="text-sm font-semibold text-gray-950 dark:text-white">{{ $label }}</div>
+
                         <div class="mt-2">
                             @if ($document?->is_verified)
                                 <x-filament::badge color="success" icon="heroicon-m-check-circle">Terverifikasi</x-filament::badge>
@@ -25,6 +30,18 @@
                                 <x-filament::badge color="gray">Belum diunggah</x-filament::badge>
                             @endif
                         </div>
+
+                        @if ($document)
+                            <a
+                                href="{{ route('files.applicant.documents.show', $document) }}"
+                                data-file-preview
+                                data-file-name="{{ $document->original_name }}"
+                                class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-500"
+                            >
+                                <x-heroicon-m-eye class="h-4 w-4" />
+                                Lihat file
+                            </a>
+                        @endif
                     </div>
                 @endforeach
             </div>

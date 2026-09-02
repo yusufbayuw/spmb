@@ -4,6 +4,7 @@ namespace App\Filament\Applicant\Pages;
 
 use App\Models\Document;
 use App\Models\Registration;
+use App\Services\ApplicantFileStorage;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
@@ -39,15 +40,10 @@ class DocumentsUpload extends Page implements HasForms
             403,
         );
 
-        $documents = $this->registrationRecord->documents->keyBy('type');
-
-        $this->form->fill([
-            'report_card' => $documents->get('report_card')?->file_path,
-            'family_card' => $documents->get('family_card')?->file_path,
-            'birth_certificate' => $documents->get('birth_certificate')?->file_path,
-            'photo' => $documents->get('photo')?->file_path,
-            'supporting_document' => $documents->get('supporting_document')?->file_path,
-        ]);
+        // Existing files are shown via authenticated preview links in the Blade view.
+        // Do not hydrate private storage paths into FileUpload because that would make
+        // Filament generate temporary file URLs outside our authorization controller.
+        $this->form->fill([]);
     }
 
     public function getMaxContentWidth(): MaxWidth|string|null
@@ -59,19 +55,19 @@ class DocumentsUpload extends Page implements HasForms
     {
         $documentUpload = fn (string $field, string $label, bool $imageOnly = false): FileUpload => FileUpload::make($field)
             ->label($label)
-            ->disk('public')
+            ->disk(ApplicantFileStorage::PRIVATE_DISK)
             ->directory(fn (): string => 'documents/'.$this->registrationRecord->id)
+            ->visibility('private')
+            ->previewable(false)
             ->acceptedFileTypes($imageOnly ? ['image/jpeg', 'image/png'] : ['application/pdf', 'image/jpeg', 'image/png'])
             ->maxSize(5120)
-            ->downloadable()
-            ->openable()
-            ->helperText(($imageOnly ? 'JPG/PNG' : 'PDF/JPG/PNG').' · maksimal 5 MB');
+            ->helperText(($imageOnly ? 'JPG/PNG' : 'PDF/JPG/PNG').' · maksimal 5 MB · tersimpan privat');
 
         return $form
             ->schema([
                 Section::make('Dokumen Wajib')
-                    ->description('Lengkapi empat dokumen wajib. Dokumen akan diperiksa oleh Tata Usaha.')
-                    ->icon('heroicon-o-document-check')
+                    ->description('Lengkapi empat dokumen wajib. File tersimpan privat dan hanya dapat diakses oleh akun berwenang.')
+                    ->icon('heroicon-o-shield-check')
                     ->schema([
                         $documentUpload('report_card', 'Rapor'),
                         $documentUpload('family_card', 'Kartu Keluarga'),
@@ -87,7 +83,7 @@ class DocumentsUpload extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function submit(): void
+    public function submit(ApplicantFileStorage $storage): void
     {
         abort_unless(
             in_array($this->registrationRecord->fresh()->current_stage, ['documents', 'document_verification'], true),
@@ -95,9 +91,11 @@ class DocumentsUpload extends Page implements HasForms
         );
 
         $data = $this->form->getState();
+        $private = Storage::disk(ApplicantFileStorage::PRIVATE_DISK);
 
         foreach (['report_card', 'family_card', 'birth_certificate', 'photo', 'supporting_document'] as $type) {
             $newPath = $data[$type] ?? null;
+
             if (! $newPath) {
                 continue;
             }
@@ -105,7 +103,7 @@ class DocumentsUpload extends Page implements HasForms
             $existing = $this->registrationRecord->documents()->where('type', $type)->first();
 
             if ($existing?->file_path && $existing->file_path !== $newPath) {
-                Storage::disk('public')->delete($existing->file_path);
+                $storage->delete($existing->file_path);
             }
 
             if ($existing?->file_path === $newPath) {
@@ -118,7 +116,7 @@ class DocumentsUpload extends Page implements HasForms
                     'file_path' => $newPath,
                     'original_name' => basename($newPath),
                     'file_type' => pathinfo($newPath, PATHINFO_EXTENSION),
-                    'file_size' => Storage::disk('public')->exists($newPath) ? Storage::disk('public')->size($newPath) : null,
+                    'file_size' => $private->exists($newPath) ? $private->size($newPath) : null,
                     'is_verified' => false,
                     'verified_at' => null,
                     'verified_by' => null,
@@ -135,9 +133,11 @@ class DocumentsUpload extends Page implements HasForms
             'documents_completed_at' => $complete ? ($this->registrationRecord->documents_completed_at ?: now()) : null,
         ]);
 
+        $this->registrationRecord->load('documents');
+
         Notification::make()
             ->title($complete ? 'Dokumen wajib sudah lengkap' : 'Dokumen berhasil disimpan')
-            ->body($complete ? 'Dokumen menunggu verifikasi Tata Usaha.' : 'Anda masih dapat kembali untuk melengkapi dokumen wajib lainnya.')
+            ->body($complete ? 'Dokumen tersimpan privat dan menunggu verifikasi Tata Usaha.' : 'Anda masih dapat kembali untuk melengkapi dokumen wajib lainnya.')
             ->success()
             ->send();
 

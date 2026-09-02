@@ -1,11 +1,20 @@
 <?php
 
+use App\Http\Controllers\PrivateApplicantFileController;
 use App\Http\Controllers\RegistrationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => view('welcome'))->name('home');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/files/applicant/documents/{document}', [PrivateApplicantFileController::class, 'document'])
+        ->whereNumber('document')
+        ->name('files.applicant.documents.show');
+
+    Route::get('/files/applicant/payments/{payment}/proof', [PrivateApplicantFileController::class, 'paymentProof'])
+        ->whereNumber('payment')
+        ->name('files.applicant.payments.proof');
+
     Route::get('/dashboard', function () {
         return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar');
     })->name('dashboard');

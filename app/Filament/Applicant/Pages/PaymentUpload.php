@@ -3,6 +3,7 @@
 namespace App\Filament\Applicant\Pages;
 
 use App\Models\Registration;
+use App\Services\ApplicantFileStorage;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -12,7 +13,6 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
-use Illuminate\Support\Facades\Storage;
 
 class PaymentUpload extends Page implements HasForms
 {
@@ -39,11 +39,8 @@ class PaymentUpload extends Page implements HasForms
             403,
         );
 
-        $payment = $this->registrationRecord->latestPayment;
-
         $this->form->fill([
-            'proof' => $payment->proof_path,
-            'payment_method' => $payment->payment_method,
+            'payment_method' => $this->registrationRecord->latestPayment->payment_method,
         ]);
     }
 
@@ -58,13 +55,13 @@ class PaymentUpload extends Page implements HasForms
             ->schema([
                 FileUpload::make('proof')
                     ->label('Bukti pembayaran')
-                    ->helperText('PDF/JPG/PNG, maksimal 5 MB. Pastikan nominal dan informasi transaksi terbaca jelas.')
-                    ->disk('public')
+                    ->helperText('PDF/JPG/PNG, maksimal 5 MB. File tersimpan privat dan hanya dapat diakses oleh akun berwenang.')
+                    ->disk(ApplicantFileStorage::PRIVATE_DISK)
                     ->directory(fn (): string => 'payments/'.$this->registrationRecord->id)
+                    ->visibility('private')
+                    ->previewable(false)
                     ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                     ->maxSize(5120)
-                    ->downloadable()
-                    ->openable()
                     ->required(),
                 Select::make('payment_method')
                     ->label('Metode pembayaran')
@@ -79,8 +76,10 @@ class PaymentUpload extends Page implements HasForms
             ->statePath('data');
     }
 
-    public function submit(RegistrationWorkflowService $workflow): void
-    {
+    public function submit(
+        RegistrationWorkflowService $workflow,
+        ApplicantFileStorage $storage,
+    ): void {
         abort_unless($this->registrationRecord->fresh()->current_stage === 'payment', 403);
 
         $data = $this->form->getState();
@@ -89,7 +88,7 @@ class PaymentUpload extends Page implements HasForms
         $newPath = $data['proof'];
 
         if ($oldPath && $oldPath !== $newPath) {
-            Storage::disk('public')->delete($oldPath);
+            $storage->delete($oldPath);
         }
 
         $payment->update([
@@ -102,7 +101,7 @@ class PaymentUpload extends Page implements HasForms
 
         Notification::make()
             ->title('Bukti pembayaran berhasil dikirim')
-            ->body('Tata Usaha akan memverifikasi pembayaran Anda.')
+            ->body('Bukti tersimpan privat. Tata Usaha akan memverifikasi pembayaran Anda.')
             ->success()
             ->send();
 
