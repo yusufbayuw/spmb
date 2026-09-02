@@ -16,4 +16,9 @@ return [
     'mail' => [
         'queue' => env('SPMB_MAIL_QUEUE', 'emails'),
     ],
+
+    'notifications' => [
+        'queue' => env('SPMB_NOTIFICATION_QUEUE', 'notifications'),
+        'polling' => env('SPMB_NOTIFICATION_POLLING', '15s'),
+    ],
 ];
