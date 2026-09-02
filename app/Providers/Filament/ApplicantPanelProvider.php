@@ -28,6 +28,10 @@ class ApplicantPanelProvider extends PanelProvider
             ->login()
             ->brandName('SPMB Taruna Bakti')
             ->colors(['primary' => Color::Blue])
+            ->discoverResources(
+                in: app_path('Filament/Applicant/Resources'),
+                for: 'App\\Filament\\Applicant\\Resources',
+            )
             ->discoverPages(
                 in: app_path('Filament/Applicant/Pages'),
                 for: 'App\\Filament\\Applicant\\Pages',
