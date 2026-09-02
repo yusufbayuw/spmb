@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\OperationalReportController;
 use App\Http\Controllers\PrivateApplicantFileController;
 use App\Http\Controllers\RegistrationController;
 use Illuminate\Support\Facades\Route;
@@ -15,11 +16,13 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('payment')
         ->name('files.applicant.payments.proof');
 
+    Route::get('/admin/reports/operational.xlsx', OperationalReportController::class)
+        ->name('reports.operational.xlsx');
+
     Route::get('/dashboard', function () {
         return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar');
     })->name('dashboard');
 
-    // Legacy applicant URLs are compatibility redirects only.
     Route::get('/registration/create', fn () => redirect('/pendaftar/pendaftaran'))
         ->name('registration.create');
     Route::get('/registration/{registration}', fn (int $registration) => redirect("/pendaftar/status/{$registration}"))
