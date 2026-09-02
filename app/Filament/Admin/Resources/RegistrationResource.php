@@ -79,11 +79,28 @@ class RegistrationResource extends Resource
             Tables\Actions\Action::make('validateData')->label('Validasi Data')->icon('heroicon-o-check-badge')->color('info')
                 ->visible(fn (Registration $record) => auth()->user()?->can('validate_data_registration') && $record->current_stage === 'data_validation')
                 ->form([Forms\Components\Toggle::make('approved')->label('Data Valid')->default(true),Forms\Components\Textarea::make('notes')->label('Catatan')])
-                ->action(function (Registration $record, array $data) { app(RegistrationWorkflowService::class)->validateData($record, auth()->user(), (bool) $data['approved'], $data['notes'] ?? null); Notification::make()->title('Validasi data diperbarui')->success()->send(); }),
-            Tables\Actions\Action::make('sendVa')->label('Kirim VA')->icon('heroicon-o-paper-airplane')->color('warning')
+                ->action(function (Registration $record, array $data) {
+                    app(RegistrationWorkflowService::class)->validateData($record, auth()->user(), (bool) $data['approved'], $data['notes'] ?? null);
+                    $record->refresh();
+
+                    if (! (bool) $data['approved']) {
+                        Notification::make()->title('Data dikembalikan untuk revisi')->warning()->send();
+                    } elseif ($record->current_stage === 'payment') {
+                        Notification::make()->title('Data valid & VA otomatis dikirim')->success()->send();
+                    } else {
+                        Notification::make()->title('Data valid, tetapi pool VA unit kosong')->body('Upload pool VA agar sistem dapat melakukan assignment otomatis.')->warning()->send();
+                    }
+                }),
+            Tables\Actions\Action::make('assignVa')->label('Assign VA dari Pool')->icon('heroicon-o-credit-card')->color('warning')->requiresConfirmation()
                 ->visible(fn (Registration $record) => auth()->user()?->can('send_va_registration') && $record->current_stage === 'virtual_account')
-                ->form([Forms\Components\TextInput::make('va_number')->label('Virtual Account')->required()->maxLength(50),Forms\Components\TextInput::make('amount')->label('Nominal')->prefix('Rp')->numeric()->required()->minValue(1)])
-                ->action(function (Registration $record, array $data) { app(RegistrationWorkflowService::class)->issueVirtualAccount($record, auth()->user(), $data['va_number'], (float) $data['amount']); Notification::make()->title('VA dikirim ke email pendaftar')->success()->send(); }),
+                ->action(function (Registration $record) {
+                    $payment = app(RegistrationWorkflowService::class)->assignAvailableVirtualAccount($record, auth()->user());
+                    if ($payment) {
+                        Notification::make()->title('VA berhasil di-assign dan dikirim ke email pendaftar')->success()->send();
+                    } else {
+                        Notification::make()->title('Pool VA unit kosong')->body('Upload nomor VA terlebh dahulu pada menu Pool Virtual Account.')->warning()->send();
+                    }
+                }),
             Tables\Actions\Action::make('issueCard')->label('Terbitkan Kartu')->icon('heroicon-o-identification')->color('success')->requiresConfirmation()
                 ->visible(fn (Registration $record) => auth()->user()?->can('issue_card_registration') && $record->current_stage === 'applicant_card')
                 ->action(function (Registration $record) { app(RegistrationWorkflowService::class)->issueApplicantCard($record, auth()->user()); Notification::make()->title('Kartu pendaftar diterbitkan')->success()->send(); }),

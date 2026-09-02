@@ -9,7 +9,9 @@ use App\Models\Announcement;
 use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\Selection;
+use App\Models\Unit;
 use App\Models\User;
+use App\Models\VirtualAccount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
@@ -28,6 +30,118 @@ class RegistrationWorkflowService
             'status' => $approved ? 'verified' : 'submitted',
             'current_stage' => $approved ? 'virtual_account' : 'data_validation',
         ]);
+
+        if ($approved) {
+            $this->assignAvailableVirtualAccount($registration->fresh(), $staff);
+        }
+    }
+
+    public function assignAvailableVirtualAccount(Registration $registration, User $staff): ?Payment
+    {
+        VirtualAccount::query()
+            ->where('status', 'available')
+            ->whereNotNull('expired_at')
+            ->where('expired_at', '<=', now())
+            ->update(['status' => 'expired']);
+
+        $assignedNow = false;
+
+        $payment = DB::transaction(function () use ($registration, $staff, &$assignedNow): ?Payment {
+            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+
+            $existingVa = VirtualAccount::query()
+                ->where('registration_id', $lockedRegistration->id)
+                ->first();
+
+            if ($existingVa) {
+                $existingPayment = Payment::query()
+                    ->where('virtual_account_id', $existingVa->id)
+                    ->first();
+
+                if ($existingPayment) {
+                    return $existingPayment->load(['registration.user', 'registration.unit']);
+                }
+
+                $assignedNow = true;
+                $payment = Payment::create([
+                    'registration_id' => $lockedRegistration->id,
+                    'virtual_account_id' => $existingVa->id,
+                    'va_number' => $existingVa->va_number,
+                    'amount' => $existingVa->amount,
+                    'status' => 'pending',
+                    'va_sent_at' => now(),
+                    'va_sent_by' => $staff->id,
+                ]);
+
+                $lockedRegistration->update(['status' => 'payment_pending', 'current_stage' => 'payment']);
+
+                return $payment->load(['registration.user', 'registration.unit']);
+            }
+
+            $va = VirtualAccount::query()
+                ->available()
+                ->where('unit_id', $lockedRegistration->unit_id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $va) {
+                return null;
+            }
+
+            $va->update([
+                'status' => 'assigned',
+                'registration_id' => $lockedRegistration->id,
+                'assigned_by' => $staff->id,
+                'assigned_at' => now(),
+            ]);
+
+            $payment = Payment::create([
+                'registration_id' => $lockedRegistration->id,
+                'virtual_account_id' => $va->id,
+                'va_number' => $va->va_number,
+                'amount' => $va->amount,
+                'status' => 'pending',
+                'va_sent_at' => now(),
+                'va_sent_by' => $staff->id,
+            ]);
+
+            $lockedRegistration->update([
+                'status' => 'payment_pending',
+                'current_stage' => 'payment',
+            ]);
+
+            $assignedNow = true;
+
+            return $payment->load(['registration.user', 'registration.unit']);
+        });
+
+        if ($payment && $assignedNow) {
+            Mail::to($payment->registration->user->email)->send(new VirtualAccountMail($payment));
+        }
+
+        return $payment;
+    }
+
+    public function assignWaitingRegistrationsForUnit(Unit $unit, User $staff): int
+    {
+        $assigned = 0;
+
+        $registrations = Registration::query()
+            ->where('unit_id', $unit->id)
+            ->where('current_stage', 'virtual_account')
+            ->where('data_validation_status', 'valid')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($registrations as $registration) {
+            if (! $this->assignAvailableVirtualAccount($registration, $staff)) {
+                break;
+            }
+            $assigned++;
+        }
+
+        return $assigned;
     }
 
     public function issueVirtualAccount(Registration $registration, User $staff, string $vaNumber, float $amount): Payment
@@ -77,18 +191,22 @@ class RegistrationWorkflowService
     public function verifyPayment(Payment $payment, User $staff, bool $approved, ?string $reason = null): void
     {
         if ($approved) {
-            $payment->update([
-                'status' => 'verified',
-                'verified_by' => $staff->id,
-                'verified_at' => now(),
-                'rejection_reason' => null,
-            ]);
+            DB::transaction(function () use ($payment, $staff): void {
+                $payment->update([
+                    'status' => 'verified',
+                    'verified_by' => $staff->id,
+                    'verified_at' => now(),
+                    'rejection_reason' => null,
+                ]);
 
-            $payment->registration->update([
-                'status' => 'payment_verified',
-                'payment_verified_at' => now(),
-                'current_stage' => 'applicant_card',
-            ]);
+                $payment->virtualAccount?->update(['status' => 'paid']);
+
+                $payment->registration->update([
+                    'status' => 'payment_verified',
+                    'payment_verified_at' => now(),
+                    'current_stage' => 'applicant_card',
+                ]);
+            });
 
             return;
         }

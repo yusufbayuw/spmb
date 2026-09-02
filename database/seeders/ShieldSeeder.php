@@ -13,7 +13,7 @@ class ShieldSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $standard = ['view','view_any','create','update','delete','delete_any'];
-        $resources = ['registration','parentinfo','document','payment','unit','user','admissiontest','admissiontestresult','selection','announcement'];
+        $resources = ['registration','parentinfo','document','payment','virtualaccount','unit','user','admissiontest','admissiontestresult','selection','announcement'];
         foreach ($resources as $resource) {
             foreach ($standard as $prefix) Permission::firstOrCreate(['name' => $prefix.'_'.$resource,'guard_name' => 'web']);
         }
@@ -30,6 +30,7 @@ class ShieldSeeder extends Seeder
             'view_parentinfo','view_any_parentinfo','update_parentinfo',
             'view_document','view_any_document','update_document','verify_document_document',
             'view_payment','view_any_payment','create_payment','update_payment','verify_payment_payment',
+            'view_virtualaccount','view_any_virtualaccount','create_virtualaccount','update_virtualaccount',
             'view_unit','view_any_unit',
             'view_admissiontest','view_any_admissiontest','create_admissiontest','update_admissiontest','delete_admissiontest',
             'view_admissiontestresult','view_any_admissiontestresult','create_admissiontestresult','update_admissiontestresult','record_result_admissiontestresult',

@@ -46,6 +46,7 @@ class Registration extends Model
     public function documents() { return $this->hasMany(Document::class); }
     public function payments() { return $this->hasMany(Payment::class); }
     public function latestPayment() { return $this->hasOne(Payment::class)->latestOfMany(); }
+    public function virtualAccount() { return $this->hasOne(VirtualAccount::class); }
     public function testResults() { return $this->hasMany(AdmissionTestResult::class); }
     public function selection() { return $this->hasOne(Selection::class); }
     public function announcement() { return $this->hasOne(Announcement::class); }
