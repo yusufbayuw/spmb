@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\AuditTrail;
+use App\Services\SpmbNotificationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
@@ -156,6 +157,8 @@ class Registration extends Model
             'lifecycle_changed_by' => $actor->id,
             'lifecycle_changed_at' => now(),
         ]);
+
+        app(SpmbNotificationService::class)->lifecycleChanged($this->fresh(), $status, $actor, $reason);
     }
 
     public function canTransitionTo(string $targetStage): bool
