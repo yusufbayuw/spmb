@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Mail\AnnouncementPublishedMail;
 use App\Models\Announcement;
 use App\Services\AuditTrail;
+use App\Services\SpmbNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
@@ -45,13 +46,22 @@ class SendAnnouncementPublishedMail implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $announcement = Announcement::query()->find($this->announcementId);
+        $announcement = Announcement::query()->with('registration')->find($this->announcementId);
+        $message = $exception?->getMessage() ?: 'Unknown queue failure';
 
         app(AuditTrail::class)->record(
             'mail.announcement_failed',
             $announcement,
-            metadata: ['error' => $exception?->getMessage()],
+            metadata: ['error' => $message],
             description: 'Email pengumuman gagal setelah seluruh retry',
+        );
+
+        app(SpmbNotificationService::class)->deliveryFailure(
+            $announcement,
+            'email.announcement',
+            $message,
+            $announcement?->registration?->unit_id,
+            $announcement?->registration_id,
         );
     }
 }
