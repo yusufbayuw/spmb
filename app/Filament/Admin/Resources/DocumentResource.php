@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\DocumentResource\Pages;
 use App\Models\Document;
 use App\Services\ApplicantUploadSecurity;
 use App\Services\RegistrationWorkflowService;
+use App\Services\SpmbNotificationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -100,6 +101,11 @@ class DocumentResource extends Resource
                         $record->registration->assertCurrentStage(['documents', 'document_verification']);
                         $record->update(['is_verified' => false, 'verified_at' => null, 'verified_by' => null]);
                         $record->registration->transitionTo('document_verification', ['documents_verified_at' => null]);
+                        app(SpmbNotificationService::class)->documentNeedsAttention(
+                            $record->registration->fresh(),
+                            str($record->type)->headline()->toString(),
+                        );
+                        Notification::make()->title('Verifikasi berkas dibatalkan; pendaftar telah diberi notifikasi')->warning()->send();
                     }),
             ]);
     }
