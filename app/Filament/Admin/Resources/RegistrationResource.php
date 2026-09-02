@@ -62,15 +62,12 @@ class RegistrationResource extends Resource
                                 ? $query->where('unit_id', auth()->user()->unit_id)
                                 : $query,
                         )
-                        ->getOptionLabelFromRecordUsing(
-                            fn (RegistrationOpening $record): string => $record->loadMissing('unit')->label()
-                        )
+                        ->getOptionLabelFromRecordUsing(fn (RegistrationOpening $record): string => $record->loadMissing('unit')->label())
                         ->searchable(['academic_year', 'wave', 'pathway'])
                         ->preload()
                         ->live()
                         ->afterStateUpdated(function ($state, Forms\Set $set): void {
                             $opening = RegistrationOpening::query()->find($state);
-
                             if ($opening) {
                                 $set('unit_id', $opening->unit_id);
                             }
@@ -88,46 +85,27 @@ class RegistrationResource extends Resource
                         )
                         ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
                         ->disabled(fn (Forms\Get $get): bool => filled($get('registration_opening_id')) || (auth()->user()?->isTU() ?? false))
-                        ->dehydrated()
-                        ->searchable()
-                        ->preload()
-                        ->required(),
+                        ->dehydrated()->searchable()->preload()->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Yang Mendaftarkan')
-                        ->options([
-                            'parent' => 'Orang Tua / Wali',
-                            'self' => 'Calon Siswa Sendiri',
-                        ])
-                        ->required()
-                        ->live(),
+                        ->options(['parent' => 'Orang Tua / Wali', 'self' => 'Calon Siswa Sendiri'])
+                        ->required()->live(),
                     Forms\Components\Select::make('registrant_relationship')
                         ->label('Hubungan dengan Calon Siswa')
-                        ->options([
-                            'father' => 'Ayah',
-                            'mother' => 'Ibu',
-                            'guardian' => 'Wali',
-                            'self' => 'Diri Sendiri',
-                            'other' => 'Lainnya',
-                        ])
+                        ->options(['father'=>'Ayah','mother'=>'Ibu','guardian'=>'Wali','self'=>'Diri Sendiri','other'=>'Lainnya'])
                         ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
-                    Forms\Components\TextInput::make('registration_number')
-                        ->label('No. Registrasi')
-                        ->disabled()
-                        ->dehydrated(false),
+                    Forms\Components\TextInput::make('registration_number')->label('No. Registrasi')->disabled()->dehydrated(false),
                     Forms\Components\TextInput::make('current_stage')
                         ->label('Tahap Saat Ini')
                         ->formatStateUsing(fn ($state) => Registration::STAGES[$state] ?? $state)
-                        ->disabled()
-                        ->dehydrated(false),
+                        ->disabled()->dehydrated(false),
                 ]),
 
             Forms\Components\Section::make('Identitas Calon Siswa')
                 ->columns(3)
                 ->schema([
                     Forms\Components\TextInput::make('nik')
-                        ->label('NIK')
-                        ->required()
-                        ->length(16)
+                        ->label('NIK')->required()->length(16)
                         ->unique(
                             ignoreRecord: true,
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
@@ -157,30 +135,15 @@ class RegistrationResource extends Resource
                 ->schema([
                     Forms\Components\Select::make('data_validation_status')
                         ->label('Status Validasi')
-                        ->options([
-                            'pending' => 'Menunggu Validasi',
-                            'valid' => 'Valid',
-                            'revision' => 'Perlu Revisi',
-                        ])
+                        ->options(['pending'=>'Menunggu Validasi','valid'=>'Valid','revision'=>'Perlu Revisi'])
                         ->required()
-                        ->disabled(fn (?Registration $record): bool => ! (
-                            $record
-                            && $record->current_stage === 'data_validation'
-                            && (auth()->user()?->can('validate_data_registration') ?? false)
-                        )),
-                    Forms\Components\DateTimePicker::make('data_validated_at')
-                        ->label('Divalidasi pada')
-                        ->disabled()
-                        ->dehydrated(false),
+                        ->disabled(fn (?Registration $record): bool => ! ($record && $record->isOperational() && $record->current_stage === 'data_validation' && (auth()->user()?->can('validate_data_registration') ?? false))),
+                    Forms\Components\DateTimePicker::make('data_validated_at')->label('Divalidasi pada')->disabled()->dehydrated(false),
                     Forms\Components\Textarea::make('data_validation_notes')
                         ->label('Catatan Validasi')
                         ->helperText('Wajib diisi bila meminta revisi.')
                         ->required(fn (Forms\Get $get): bool => $get('data_validation_status') === 'revision')
-                        ->disabled(fn (?Registration $record): bool => ! (
-                            $record
-                            && $record->current_stage === 'data_validation'
-                            && (auth()->user()?->can('validate_data_registration') ?? false)
-                        ))
+                        ->disabled(fn (?Registration $record): bool => ! ($record && $record->isOperational() && $record->current_stage === 'data_validation' && (auth()->user()?->can('validate_data_registration') ?? false)))
                         ->columnSpanFull(),
                 ])
                 ->hiddenOn('create'),
@@ -198,9 +161,17 @@ class RegistrationResource extends Resource
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.pathway')->label('Jalur')->badge()->placeholder('-'),
-                Tables\Columns\TextColumn::make('user.name')->label('Akun Pendaftar')->searchable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('registrant_type')->label('Pendaftaran Oleh')->badge()->formatStateUsing(fn ($state) => $state === 'parent' ? 'Orang Tua/Wali' : 'Anak Langsung')->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya')->money('IDR', locale: 'id')->placeholder('-'),
                 Tables\Columns\TextColumn::make('current_stage')->label('Tahap')->badge()->formatStateUsing(fn ($state) => Registration::STAGES[$state] ?? $state),
+                Tables\Columns\TextColumn::make('lifecycle_status')
+                    ->label('Lifecycle')->badge()
+                    ->formatStateUsing(fn ($state) => Registration::LIFECYCLE_STATUSES[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'active' => 'success',
+                        'withdrawn' => 'warning',
+                        'cancelled' => 'danger',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')->dateTime('d M Y H:i')->sortable(),
             ])
             ->filters([
@@ -209,23 +180,18 @@ class RegistrationResource extends Resource
                     ->label('Pembukaan')
                     ->options(fn (): array => RegistrationOpening::query()
                         ->with('unit')
-                        ->when(
-                            auth()->user()?->isTU() && auth()->user()?->unit_id,
-                            fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id),
-                        )
-                        ->latest()
-                        ->get()
+                        ->when(auth()->user()?->isTU() && auth()->user()?->unit_id, fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id))
+                        ->latest()->get()
                         ->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])
                         ->all()),
                 Tables\Filters\SelectFilter::make('current_stage')->label('Tahap')->options(Registration::STAGES),
+                Tables\Filters\SelectFilter::make('lifecycle_status')->label('Lifecycle')->options(Registration::LIFECYCLE_STATUSES),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent'=>'Orang Tua/Wali','self'=>'Anak Langsung']),
             ])
             ->actions([
                 Tables\Actions\Action::make('validateData')
-                    ->label('Validasi Data')
-                    ->icon('heroicon-o-check-badge')
-                    ->color('info')
-                    ->visible(fn (Registration $record) => auth()->user()?->can('validate_data_registration') && $record->current_stage === 'data_validation')
+                    ->label('Validasi Data')->icon('heroicon-o-check-badge')->color('info')
+                    ->visible(fn (Registration $record) => $record->isOperational() && auth()->user()?->can('validate_data_registration') && $record->current_stage === 'data_validation')
                     ->form([
                         Forms\Components\Toggle::make('approved')->label('Data Valid')->default(true),
                         Forms\Components\Textarea::make('notes')->label('Catatan'),
@@ -233,42 +199,54 @@ class RegistrationResource extends Resource
                     ->action(function (Registration $record, array $data) {
                         app(RegistrationWorkflowService::class)->validateData($record, auth()->user(), (bool) $data['approved'], $data['notes'] ?? null);
                         $record->refresh();
-
                         if (! (bool) $data['approved']) {
                             Notification::make()->title('Data dikembalikan untuk revisi')->warning()->send();
                         } elseif ($record->current_stage === 'payment') {
-                            Notification::make()->title('Data valid & VA otomatis dikirim')->success()->send();
+                            Notification::make()->title('Data valid & VA masuk antrean email')->success()->send();
                         } else {
                             Notification::make()->title('Data valid, tetapi pool VA unit kosong')->body('Upload pool VA agar sistem dapat melakukan assignment otomatis.')->warning()->send();
                         }
                     }),
                 Tables\Actions\Action::make('assignVa')
-                    ->label('Assign VA dari Pool')
-                    ->icon('heroicon-o-credit-card')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->visible(fn (Registration $record) => auth()->user()?->can('send_va_registration') && $record->current_stage === 'virtual_account')
+                    ->label('Assign VA dari Pool')->icon('heroicon-o-credit-card')->color('warning')->requiresConfirmation()
+                    ->visible(fn (Registration $record) => $record->isOperational() && auth()->user()?->can('send_va_registration') && $record->current_stage === 'virtual_account')
                     ->action(function (Registration $record) {
                         $payment = app(RegistrationWorkflowService::class)->assignAvailableVirtualAccount($record, auth()->user());
-
-                        if ($payment) {
-                            Notification::make()->title('VA berhasil di-assign dan dikirim ke email pendaftar')->success()->send();
-                        } else {
-                            Notification::make()->title('Pool VA unit kosong')->body('Upload nomor VA terlebih dahulu pada menu Pool Virtual Account.')->warning()->send();
-                        }
+                        $payment
+                            ? Notification::make()->title('VA berhasil di-assign; email masuk queue')->success()->send()
+                            : Notification::make()->title('Pool VA unit kosong')->body('Upload nomor VA terlebih dahulu pada menu Pool Virtual Account.')->warning()->send();
                     }),
                 Tables\Actions\Action::make('issueCard')
-                    ->label('Terbitkan Kartu')
-                    ->icon('heroicon-o-identification')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (Registration $record) => auth()->user()?->can('issue_card_registration') && $record->current_stage === 'applicant_card')
+                    ->label('Terbitkan Kartu')->icon('heroicon-o-identification')->color('success')->requiresConfirmation()
+                    ->visible(fn (Registration $record) => $record->isOperational() && auth()->user()?->can('issue_card_registration') && $record->current_stage === 'applicant_card')
                     ->action(function (Registration $record) {
                         app(RegistrationWorkflowService::class)->issueApplicantCard($record, auth()->user());
                         Notification::make()->title('Kartu pendaftar diterbitkan')->success()->send();
                     }),
+                Tables\Actions\Action::make('cancel')
+                    ->label('Batalkan')->icon('heroicon-o-x-circle')->color('danger')
+                    ->visible(fn (Registration $record): bool => $record->isOperational() && $record->current_stage !== 'completed' && (auth()->user()?->can('update_registration') ?? false))
+                    ->form([Forms\Components\Textarea::make('reason')->label('Alasan pembatalan')->required()])
+                    ->requiresConfirmation()
+                    ->action(function (Registration $record, array $data): void {
+                        $record->changeLifecycle('cancelled', auth()->user(), $data['reason']);
+                        Notification::make()->title('Pendaftaran dibatalkan tanpa menghapus data')->warning()->send();
+                    }),
+                Tables\Actions\Action::make('archive')
+                    ->label('Arsipkan')->icon('heroicon-o-archive-box')->color('gray')->requiresConfirmation()
+                    ->visible(fn (Registration $record): bool => $record->lifecycle_status !== 'archived' && ($record->current_stage === 'completed' || ! $record->isOperational()) && (auth()->user()?->can('update_registration') ?? false))
+                    ->action(function (Registration $record): void {
+                        $record->changeLifecycle('archived', auth()->user(), $record->lifecycle_reason ?: 'Diarsipkan setelah proses selesai.');
+                        Notification::make()->title('Pendaftaran diarsipkan')->success()->send();
+                    }),
+                Tables\Actions\Action::make('reactivate')
+                    ->label('Aktifkan Kembali')->icon('heroicon-o-arrow-path')->color('success')->requiresConfirmation()
+                    ->visible(fn (Registration $record): bool => in_array($record->lifecycle_status, ['withdrawn', 'cancelled'], true) && (auth()->user()?->can('update_registration') ?? false))
+                    ->action(function (Registration $record): void {
+                        $record->changeLifecycle('active', auth()->user());
+                        Notification::make()->title('Pendaftaran diaktifkan kembali')->success()->send();
+                    }),
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
             ]);
     }
 
@@ -284,26 +262,21 @@ class RegistrationResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit']);
-
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
         }
-
         return $query;
     }
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) static::getEloquentQuery()->whereNotIn('current_stage', ['completed'])->count();
+        return (string) static::getEloquentQuery()
+            ->where('lifecycle_status', 'active')
+            ->whereNotIn('current_stage', ['completed'])
+            ->count();
     }
 
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return 'warning';
-    }
-
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['registration_number', 'full_name', 'nik', 'email', 'phone'];
-    }
+    public static function getNavigationBadgeColor(): ?string { return 'warning'; }
+    public static function getGloballySearchableAttributes(): array { return ['registration_number', 'full_name', 'nik', 'email', 'phone']; }
+    public static function canDelete($record): bool { return false; }
 }
