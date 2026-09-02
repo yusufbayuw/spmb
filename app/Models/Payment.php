@@ -9,8 +9,20 @@ class Payment extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['registration_id','virtual_account_id','va_number','amount','status','payment_date','payment_method','proof_path','proof_original_name','proof_uploaded_at','note','rejection_reason','verified_by','verified_at','va_sent_at','va_sent_by'];
-    protected $casts = ['amount' => 'decimal:2','payment_date' => 'datetime','proof_uploaded_at' => 'datetime','verified_at' => 'datetime','va_sent_at' => 'datetime'];
+    protected $fillable = [
+        'registration_id','virtual_account_id','va_number','amount','status','payment_date','payment_method',
+        'proof_path','proof_original_name','proof_mime_type','proof_sha256','proof_malware_scan_status','proof_security_scanned_at','proof_uploaded_at',
+        'note','rejection_reason','verified_by','verified_at','va_sent_at','va_sent_by',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'payment_date' => 'datetime',
+        'proof_uploaded_at' => 'datetime',
+        'proof_security_scanned_at' => 'datetime',
+        'verified_at' => 'datetime',
+        'va_sent_at' => 'datetime',
+    ];
 
     public function registration() { return $this->belongsTo(Registration::class); }
     public function virtualAccount() { return $this->belongsTo(VirtualAccount::class); }
