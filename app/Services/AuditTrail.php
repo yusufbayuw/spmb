@@ -33,6 +33,19 @@ class AuditTrail
         'updated_at',
     ];
 
+    private const ACTOR_KEYS = [
+        'verified_by',
+        'decided_by',
+        'published_by',
+        'assessed_by',
+        'assigned_by',
+        'va_sent_by',
+        'data_validated_by',
+        'applicant_card_issued_by',
+        'imported_by',
+        'created_by',
+    ];
+
     public function record(
         string $event,
         ?Model $subject = null,
@@ -44,7 +57,7 @@ class AuditTrail
         ?int $registrationId = null,
         ?string $description = null,
     ): AuditLog {
-        $actor ??= auth()->user();
+        $actor ??= auth()->user() ?? $this->inferActor($subject);
 
         [$inferredUnitId, $inferredRegistrationId] = $this->inferContext($subject);
         $unitId ??= $inferredUnitId;
@@ -135,6 +148,23 @@ class AuditTrail
         }
 
         return $values;
+    }
+
+    private function inferActor(?Model $subject): ?User
+    {
+        if (! $subject) {
+            return null;
+        }
+
+        foreach (self::ACTOR_KEYS as $key) {
+            $actorId = $subject->getAttribute($key);
+
+            if ($actorId) {
+                return User::query()->find($actorId);
+            }
+        }
+
+        return null;
     }
 
     private function inferContext(?Model $subject): array
