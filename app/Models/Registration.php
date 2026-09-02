@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AuditTrail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
@@ -129,7 +130,9 @@ class Registration extends Model
 
     /**
      * Transition atomically from the model's current stage. The conditional
-     * update also protects against stale/concurrent requests.
+     * update also protects against stale/concurrent requests. Because query
+     * updates intentionally bypass Eloquent observers, the transition writes
+     * its own immutable audit entry after a successful compare-and-swap.
      */
     public function transitionTo(string $targetStage, array $attributes = []): void
     {
@@ -142,6 +145,11 @@ class Registration extends Model
             throw ValidationException::withMessages([
                 'current_stage' => "Perpindahan tahap {$sourceLabel} → {$targetLabel} tidak diizinkan.",
             ]);
+        }
+
+        $oldValues = ['current_stage' => $sourceStage];
+        foreach (array_keys($attributes) as $key) {
+            $oldValues[$key] = $this->getRawOriginal($key);
         }
 
         $updated = static::query()
@@ -158,5 +166,22 @@ class Registration extends Model
         }
 
         $this->refresh();
+
+        $newValues = ['current_stage' => $targetStage];
+        foreach (array_keys($attributes) as $key) {
+            $newValues[$key] = $this->getRawOriginal($key);
+        }
+
+        app(AuditTrail::class)->record(
+            'registration.stage_transition',
+            $this,
+            oldValues: $oldValues,
+            newValues: $newValues,
+            metadata: [
+                'from_stage' => $sourceStage,
+                'to_stage' => $targetStage,
+            ],
+            description: (self::STAGES[$sourceStage] ?? $sourceStage).' → '.(self::STAGES[$targetStage] ?? $targetStage),
+        );
     }
 }
