@@ -34,6 +34,8 @@ class ApplicantPanelProvider extends PanelProvider
             ->profile(isSimple: false)
             ->brandName('SPMB Taruna Bakti')
             ->colors(['primary' => Color::Blue])
+            ->databaseNotifications()
+            ->databaseNotificationsPolling(config('spmb.notifications.polling', '15s'))
             ->discoverResources(
                 in: app_path('Filament/Applicant/Resources'),
                 for: 'App\\Filament\\Applicant\\Resources',
