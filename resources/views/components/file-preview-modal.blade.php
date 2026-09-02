@@ -77,6 +77,8 @@
     const videoExtensions = new Set(['mp4', 'webm', 'mov', 'm4v', 'ogv']);
     const audioExtensions = new Set(['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac']);
     const textExtensions = new Set(['txt', 'csv', 'log', 'json', 'xml', 'md']);
+    const microsoftOfficeExtensions = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']);
+    const googleDocumentExtensions = new Set(['odt', 'ods', 'odp', 'rtf']);
 
     const getFileName = (url, fallback = 'File') => {
         try {
@@ -93,13 +95,54 @@
         return parts.length > 1 ? parts.pop() : '';
     };
 
+    const isPrivateHostname = (hostname) => {
+        const normalized = hostname.toLowerCase();
+
+        if (
+            normalized === 'localhost' ||
+            normalized === '127.0.0.1' ||
+            normalized === '::1' ||
+            normalized.endsWith('.test') ||
+            normalized.endsWith('.local') ||
+            normalized.endsWith('.localhost')
+        ) {
+            return true;
+        }
+
+        const ipv4 = normalized.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+        if (!ipv4) {
+            return false;
+        }
+
+        const octets = ipv4.slice(1).map(Number);
+        return octets[0] === 10 ||
+            octets[0] === 127 ||
+            (octets[0] === 192 && octets[1] === 168) ||
+            (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31);
+    };
+
+    const canUseExternalViewer = (url) => {
+        try {
+            const parsed = new URL(url, window.location.href);
+            return ['http:', 'https:'].includes(parsed.protocol) && !isPrivateHostname(parsed.hostname);
+        } catch (_) {
+            return false;
+        }
+    };
+
+    const microsoftViewerUrl = (url) =>
+        `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+
+    const googleViewerUrl = (url) =>
+        `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
+
     const emptyContent = () => {
         while (content.firstChild) {
             content.removeChild(content.firstChild);
         }
     };
 
-    const makeFallback = (fileName, extension) => {
+    const makeFallback = (fileName, extension, messageText = null) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'flex min-h-[28rem] items-center justify-center';
 
@@ -116,7 +159,7 @@
 
         const message = document.createElement('p');
         message.className = 'mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400';
-        message.textContent = 'Format ini tidak dapat dirender langsung oleh browser. File tetap dapat diunduh melalui tombol di bawah.';
+        message.textContent = messageText || 'Format ini tidak dapat dirender langsung oleh browser. File tetap dapat diunduh melalui tombol di bawah.';
 
         const type = document.createElement('span');
         type.className = 'mt-4 inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium uppercase text-gray-600 dark:bg-white/10 dark:text-gray-300';
@@ -124,6 +167,72 @@
 
         card.append(icon, heading, message, type);
         wrapper.appendChild(card);
+        return wrapper;
+    };
+
+    const makeOfficeViewer = (url, fileName, extension, defaultViewer = 'microsoft') => {
+        if (!canUseExternalViewer(url)) {
+            meta.textContent = `Format: ${extension.toUpperCase()} · Viewer eksternal membutuhkan URL publik`;
+            return makeFallback(
+                fileName,
+                extension,
+                'Microsoft Office Viewer dan Google Docs Viewer harus dapat mengakses file melalui URL publik. Pada domain lokal/private, gunakan tombol Unduh File. Preview akan bekerja saat aplikasi memakai domain publik.'
+            );
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'space-y-3';
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-white/10 dark:bg-gray-900';
+
+        const description = document.createElement('p');
+        description.className = 'text-xs text-gray-500 dark:text-gray-400';
+        description.textContent = 'Viewer dokumen eksternal';
+
+        const buttons = document.createElement('div');
+        buttons.className = 'flex items-center gap-2';
+
+        const microsoftButton = document.createElement('button');
+        microsoftButton.type = 'button';
+        microsoftButton.textContent = 'Microsoft Office';
+        microsoftButton.className = 'rounded-lg px-3 py-1.5 text-xs font-semibold transition';
+
+        const googleButton = document.createElement('button');
+        googleButton.type = 'button';
+        googleButton.textContent = 'Google Docs';
+        googleButton.className = 'rounded-lg px-3 py-1.5 text-xs font-semibold transition';
+
+        const frame = document.createElement('iframe');
+        frame.title = fileName;
+        frame.className = 'h-[72vh] w-full rounded-xl bg-white shadow-sm';
+        frame.setAttribute('loading', 'lazy');
+        frame.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+
+        const setViewer = (viewer) => {
+            const microsoftActive = viewer === 'microsoft';
+
+            frame.src = microsoftActive ? microsoftViewerUrl(url) : googleViewerUrl(url);
+            meta.textContent = `Format: ${extension.toUpperCase()} · Viewer: ${microsoftActive ? 'Microsoft Office' : 'Google Docs'}`;
+
+            microsoftButton.className = microsoftActive
+                ? 'rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition'
+                : 'rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15';
+
+            googleButton.className = !microsoftActive
+                ? 'rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition'
+                : 'rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15';
+        };
+
+        microsoftButton.addEventListener('click', () => setViewer('microsoft'));
+        googleButton.addEventListener('click', () => setViewer('google'));
+
+        buttons.append(microsoftButton, googleButton);
+        toolbar.append(description, buttons);
+        wrapper.append(toolbar, frame);
+
+        setViewer(defaultViewer);
+
         return wrapper;
     };
 
@@ -149,6 +258,10 @@
             frame.title = fileName;
             frame.className = 'h-[72vh] w-full rounded-xl bg-white shadow-sm';
             content.appendChild(frame);
+        } else if (microsoftOfficeExtensions.has(extension)) {
+            content.appendChild(makeOfficeViewer(url, fileName, extension, 'microsoft'));
+        } else if (googleDocumentExtensions.has(extension)) {
+            content.appendChild(makeOfficeViewer(url, fileName, extension, 'google'));
         } else if (videoExtensions.has(extension)) {
             const video = document.createElement('video');
             video.src = url;
