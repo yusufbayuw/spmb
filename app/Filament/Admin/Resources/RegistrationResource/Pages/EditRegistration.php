@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\RegistrationResource\Pages;
 
 use App\Filament\Admin\Resources\RegistrationResource;
 use App\Models\Registration;
+use App\Models\RegistrationOpening;
 use App\Services\RegistrationWorkflowService;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -26,6 +27,14 @@ class EditRegistration extends EditRecord
         /** @var Registration $record */
         $validationStatus = $data['data_validation_status'] ?? $record->data_validation_status;
         $validationNotes = $data['data_validation_notes'] ?? $record->data_validation_notes;
+
+        if (! empty($data['registration_opening_id'])) {
+            $opening = RegistrationOpening::query()->find($data['registration_opening_id']);
+
+            if ($opening) {
+                $data['unit_id'] = $opening->unit_id;
+            }
+        }
 
         unset(
             $data['data_validation_status'],

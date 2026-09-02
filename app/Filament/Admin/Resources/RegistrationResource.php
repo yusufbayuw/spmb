@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
 use App\Models\Registration;
+use App\Models\RegistrationOpening;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -13,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rules\Unique;
 
 class RegistrationResource extends Resource
 {
@@ -51,6 +53,30 @@ class RegistrationResource extends Resource
                         ->searchable(['name', 'email'])
                         ->preload()
                         ->required(),
+                    Forms\Components\Select::make('registration_opening_id')
+                        ->label('Pembukaan Pendaftaran')
+                        ->relationship(
+                            'opening',
+                            'academic_year',
+                            fn (Builder $query): Builder => auth()->user()?->isTU() && auth()->user()?->unit_id
+                                ? $query->where('unit_id', auth()->user()->unit_id)
+                                : $query,
+                        )
+                        ->getOptionLabelFromRecordUsing(
+                            fn (RegistrationOpening $record): string => $record->loadMissing('unit')->label()
+                        )
+                        ->searchable(['academic_year', 'wave', 'pathway'])
+                        ->preload()
+                        ->live()
+                        ->afterStateUpdated(function ($state, Forms\Set $set): void {
+                            $opening = RegistrationOpening::query()->find($state);
+
+                            if ($opening) {
+                                $set('unit_id', $opening->unit_id);
+                            }
+                        })
+                        ->disabled(fn (?Registration $record): bool => filled($record?->registration_opening_id))
+                        ->dehydrated(),
                     Forms\Components\Select::make('unit_id')
                         ->label('Unit Sekolah')
                         ->relationship(
@@ -61,7 +87,7 @@ class RegistrationResource extends Resource
                                 : $query,
                         )
                         ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
-                        ->disabled(fn (): bool => auth()->user()?->isTU() ?? false)
+                        ->disabled(fn (Forms\Get $get): bool => filled($get('registration_opening_id')) || (auth()->user()?->isTU() ?? false))
                         ->dehydrated()
                         ->searchable()
                         ->preload()
@@ -98,7 +124,15 @@ class RegistrationResource extends Resource
             Forms\Components\Section::make('Identitas Calon Siswa')
                 ->columns(3)
                 ->schema([
-                    Forms\Components\TextInput::make('nik')->label('NIK')->required()->length(16)->unique(ignoreRecord: true),
+                    Forms\Components\TextInput::make('nik')
+                        ->label('NIK')
+                        ->required()
+                        ->length(16)
+                        ->unique(
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
+                                ->where('registration_opening_id', $get('registration_opening_id')),
+                        ),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
                     Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L'=>'Laki-laki','P'=>'Perempuan'])->required(),
@@ -160,14 +194,29 @@ class RegistrationResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable(),
                 Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable(['full_name','nik'])->description(fn (Registration $record) => $record->nik),
-                Tables\Columns\TextColumn::make('user.name')->label('Akun Pendaftar')->searchable(),
-                Tables\Columns\TextColumn::make('registrant_type')->label('Pendaftaran Oleh')->badge()->formatStateUsing(fn ($state) => $state === 'parent' ? 'Orang Tua/Wali' : 'Anak Langsung'),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
+                Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
+                Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
+                Tables\Columns\TextColumn::make('opening.pathway')->label('Jalur')->badge()->placeholder('-'),
+                Tables\Columns\TextColumn::make('user.name')->label('Akun Pendaftar')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('registrant_type')->label('Pendaftaran Oleh')->badge()->formatStateUsing(fn ($state) => $state === 'parent' ? 'Orang Tua/Wali' : 'Anak Langsung')->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('current_stage')->label('Tahap')->badge()->formatStateUsing(fn ($state) => Registration::STAGES[$state] ?? $state),
                 Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')->dateTime('d M Y H:i')->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit','name'),
+                Tables\Filters\SelectFilter::make('registration_opening_id')
+                    ->label('Pembukaan')
+                    ->options(fn (): array => RegistrationOpening::query()
+                        ->with('unit')
+                        ->when(
+                            auth()->user()?->isTU() && auth()->user()?->unit_id,
+                            fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id),
+                        )
+                        ->latest()
+                        ->get()
+                        ->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])
+                        ->all()),
                 Tables\Filters\SelectFilter::make('current_stage')->label('Tahap')->options(Registration::STAGES),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent'=>'Orang Tua/Wali','self'=>'Anak Langsung']),
             ])
@@ -234,7 +283,7 @@ class RegistrationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo']);
+        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit']);
 
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
