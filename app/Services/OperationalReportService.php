@@ -18,15 +18,15 @@ class OperationalReportService
     {
         return Registration::query()
             ->with(['unit', 'opening', 'latestPayment', 'selection'])
-            ->when($staff->isTU(), fn (Builder $q) => $q->where('unit_id', $staff->unit_id))
-            ->when(! $staff->isTU() && filled($filters['unit_id'] ?? null), fn (Builder $q) => $q->where('unit_id', $filters['unit_id']))
-            ->when(filled($filters['registration_opening_id'] ?? null), fn (Builder $q) => $q->where('registration_opening_id', $filters['registration_opening_id']))
-            ->when(filled($filters['current_stage'] ?? null), fn (Builder $q) => $q->where('current_stage', $filters['current_stage']))
-            ->when(filled($filters['lifecycle_status'] ?? null), fn (Builder $q) => $q->where('lifecycle_status', $filters['lifecycle_status']))
+            ->when($staff->isTU(), fn (Builder $q) => $q->where('registrations.unit_id', $staff->unit_id))
+            ->when(! $staff->isTU() && filled($filters['unit_id'] ?? null), fn (Builder $q) => $q->where('registrations.unit_id', $filters['unit_id']))
+            ->when(filled($filters['registration_opening_id'] ?? null), fn (Builder $q) => $q->where('registrations.registration_opening_id', $filters['registration_opening_id']))
+            ->when(filled($filters['current_stage'] ?? null), fn (Builder $q) => $q->where('registrations.current_stage', $filters['current_stage']))
+            ->when(filled($filters['lifecycle_status'] ?? null), fn (Builder $q) => $q->where('registrations.lifecycle_status', $filters['lifecycle_status']))
             ->when(filled($filters['payment_status'] ?? null), fn (Builder $q) => $q->whereHas('latestPayment', fn (Builder $p) => $p->where('status', $filters['payment_status'])))
             ->when(filled($filters['decision'] ?? null), fn (Builder $q) => $q->whereHas('selection', fn (Builder $s) => $s->where('decision', $filters['decision'])))
-            ->when(filled($filters['date_from'] ?? null), fn (Builder $q) => $q->whereDate('created_at', '>=', $filters['date_from']))
-            ->when(filled($filters['date_until'] ?? null), fn (Builder $q) => $q->whereDate('created_at', '<=', $filters['date_until']));
+            ->when(filled($filters['date_from'] ?? null), fn (Builder $q) => $q->whereDate('registrations.created_at', '>=', $filters['date_from']))
+            ->when(filled($filters['date_until'] ?? null), fn (Builder $q) => $q->whereDate('registrations.created_at', '<=', $filters['date_until']));
     }
 
     public function summary(User $staff, array $filters = []): array
@@ -45,9 +45,9 @@ class OperationalReportService
 
         return [
             'total' => (clone $base)->count(),
-            'active' => (clone $base)->where('lifecycle_status', 'active')->count(),
-            'completed' => (clone $base)->where('current_stage', 'completed')->count(),
-            'accepted' => (clone $base)->where('status', 'accepted')->count(),
+            'active' => (clone $base)->where('registrations.lifecycle_status', 'active')->count(),
+            'completed' => (clone $base)->where('registrations.current_stage', 'completed')->count(),
+            'accepted' => (clone $base)->where('registrations.status', 'accepted')->count(),
             'payment_verified' => (clone $base)->whereHas('latestPayment', fn (Builder $q) => $q->where('status', 'verified'))->count(),
             'expected_fee' => $expectedFee,
             'verified_revenue' => $verifiedRevenue,
