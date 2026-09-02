@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
     use HasFactory, HasRoles, Notifiable;
 
@@ -27,6 +28,10 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
+        // Email verification is enforced by Filament's emailVerification()
+        // middleware on the applicant panel. Do not gate it here, otherwise
+        // unverified applicants would receive a 403 before Filament can show
+        // the verification prompt.
         return match ($panel->getId()) {
             'admin' => $this->hasAnyRole(['super_admin', 'tu']),
             'pendaftar' => $this->hasRole('pendaftar'),
