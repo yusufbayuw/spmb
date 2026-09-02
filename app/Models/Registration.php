@@ -25,10 +25,13 @@ class Registration extends Model
         'completed' => 'Selesai',
     ];
 
-    /**
-     * The only legal workflow transitions. A transition to the same stage is
-     * allowed for in-stage updates (for example a validation revision).
-     */
+    public const LIFECYCLE_STATUSES = [
+        'active' => 'Aktif',
+        'withdrawn' => 'Mengundurkan Diri',
+        'cancelled' => 'Dibatalkan',
+        'archived' => 'Diarsipkan',
+    ];
+
     public const STAGE_TRANSITIONS = [
         'data_validation' => ['virtual_account'],
         'virtual_account' => ['payment'],
@@ -44,11 +47,11 @@ class Registration extends Model
     ];
 
     protected $fillable = [
-        'user_id','unit_id','registration_opening_id','registrant_type','registrant_relationship','registration_number','nik','full_name','nickname','gender','birth_place','birth_date','religion','child_order','siblings_count','home_address','rt','rw','village','district','city','province','postal_code','phone','email','previous_school','previous_school_address','graduation_year','status','current_stage','data_validation_status','data_validation_notes','data_validated_by','data_validated_at','applicant_card_number','applicant_card_issued_by','applicant_card_issued_at','documents_completed_at','documents_verified_at','rejection_reason','submitted_at','verified_at','payment_verified_at','accepted_at',
+        'user_id','unit_id','registration_opening_id','registrant_type','registrant_relationship','registration_number','nik','full_name','nickname','gender','birth_place','birth_date','religion','child_order','siblings_count','home_address','rt','rw','village','district','city','province','postal_code','phone','email','previous_school','previous_school_address','graduation_year','status','current_stage','lifecycle_status','lifecycle_reason','lifecycle_changed_by','lifecycle_changed_at','data_validation_status','data_validation_notes','data_validated_by','data_validated_at','applicant_card_number','applicant_card_issued_by','applicant_card_issued_at','documents_completed_at','documents_verified_at','rejection_reason','submitted_at','verified_at','payment_verified_at','accepted_at',
     ];
 
     protected $casts = [
-        'birth_date' => 'date','submitted_at' => 'datetime','verified_at' => 'datetime','payment_verified_at' => 'datetime','accepted_at' => 'datetime','data_validated_at' => 'datetime','applicant_card_issued_at' => 'datetime','documents_completed_at' => 'datetime','documents_verified_at' => 'datetime',
+        'birth_date' => 'date','submitted_at' => 'datetime','verified_at' => 'datetime','payment_verified_at' => 'datetime','accepted_at' => 'datetime','data_validated_at' => 'datetime','applicant_card_issued_at' => 'datetime','documents_completed_at' => 'datetime','documents_verified_at' => 'datetime','lifecycle_changed_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -73,6 +76,7 @@ class Registration extends Model
     public function announcement() { return $this->hasOne(Announcement::class); }
     public function dataValidator() { return $this->belongsTo(User::class, 'data_validated_by'); }
     public function cardIssuer() { return $this->belongsTo(User::class, 'applicant_card_issued_by'); }
+    public function lifecycleChangedBy() { return $this->belongsTo(User::class, 'lifecycle_changed_by'); }
 
     public function generateRegistrationNumber(): string
     {
@@ -94,6 +98,62 @@ class Registration extends Model
         return self::STAGES[$this->current_stage] ?? $this->current_stage;
     }
 
+    public function lifecycleLabel(): string
+    {
+        return self::LIFECYCLE_STATUSES[$this->lifecycle_status] ?? $this->lifecycle_status;
+    }
+
+    public function registrationFee(): float
+    {
+        return (float) ($this->opening?->registration_fee ?? 0);
+    }
+
+    public function isOperational(): bool
+    {
+        return $this->lifecycle_status === 'active';
+    }
+
+    public function assertOperational(): void
+    {
+        if ($this->isOperational()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'lifecycle_status' => 'Pendaftaran tidak aktif ('.$this->lifecycleLabel().') dan tidak dapat melanjutkan proses.',
+        ]);
+    }
+
+    public function changeLifecycle(string $status, User $actor, ?string $reason = null): void
+    {
+        if (! array_key_exists($status, self::LIFECYCLE_STATUSES)) {
+            throw ValidationException::withMessages(['lifecycle_status' => 'Status lifecycle tidak valid.']);
+        }
+
+        if ($status === $this->lifecycle_status) {
+            return;
+        }
+
+        if ($status === 'archived' && $this->lifecycle_status === 'active' && $this->current_stage !== 'completed') {
+            throw ValidationException::withMessages([
+                'lifecycle_status' => 'Pendaftaran aktif hanya dapat diarsipkan setelah workflow selesai.',
+            ]);
+        }
+
+        if (in_array($status, ['withdrawn', 'cancelled'], true) && blank($reason)) {
+            throw ValidationException::withMessages([
+                'lifecycle_reason' => 'Alasan wajib diisi untuk pengunduran diri atau pembatalan.',
+            ]);
+        }
+
+        $this->update([
+            'lifecycle_status' => $status,
+            'lifecycle_reason' => $status === 'active' ? null : $reason,
+            'lifecycle_changed_by' => $actor->id,
+            'lifecycle_changed_at' => now(),
+        ]);
+    }
+
     public function canTransitionTo(string $targetStage): bool
     {
         if (! array_key_exists($targetStage, self::STAGES)) {
@@ -104,15 +164,12 @@ class Registration extends Model
             return true;
         }
 
-        return in_array(
-            $targetStage,
-            self::STAGE_TRANSITIONS[$this->current_stage] ?? [],
-            true,
-        );
+        return in_array($targetStage, self::STAGE_TRANSITIONS[$this->current_stage] ?? [], true);
     }
 
     public function assertCurrentStage(string|array $expectedStages): void
     {
+        $this->assertOperational();
         $expectedStages = (array) $expectedStages;
 
         if (in_array($this->current_stage, $expectedStages, true)) {
@@ -128,14 +185,9 @@ class Registration extends Model
         ]);
     }
 
-    /**
-     * Transition atomically from the model's current stage. The conditional
-     * update also protects against stale/concurrent requests. Because query
-     * updates intentionally bypass Eloquent observers, the transition writes
-     * its own immutable audit entry after a successful compare-and-swap.
-     */
     public function transitionTo(string $targetStage, array $attributes = []): void
     {
+        $this->assertOperational();
         $sourceStage = (string) $this->current_stage;
 
         if (! $this->canTransitionTo($targetStage)) {
@@ -155,13 +207,14 @@ class Registration extends Model
         $updated = static::query()
             ->whereKey($this->getKey())
             ->where('current_stage', $sourceStage)
+            ->where('lifecycle_status', 'active')
             ->update(array_merge($attributes, ['current_stage' => $targetStage]));
 
         if ($updated !== 1) {
             $this->refresh();
 
             throw ValidationException::withMessages([
-                'current_stage' => 'Tahap pendaftaran berubah oleh proses lain. Muat ulang data sebelum melanjutkan.',
+                'current_stage' => 'Tahap atau lifecycle pendaftaran berubah oleh proses lain. Muat ulang data sebelum melanjutkan.',
             ]);
         }
 
@@ -177,10 +230,7 @@ class Registration extends Model
             $this,
             oldValues: $oldValues,
             newValues: $newValues,
-            metadata: [
-                'from_stage' => $sourceStage,
-                'to_stage' => $targetStage,
-            ],
+            metadata: ['from_stage' => $sourceStage, 'to_stage' => $targetStage],
             description: (self::STAGES[$sourceStage] ?? $sourceStage).' → '.(self::STAGES[$targetStage] ?? $targetStage),
         );
     }
