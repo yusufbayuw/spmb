@@ -2,13 +2,13 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegistrationController;
-use App\Http\Controllers\UserDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => view('welcome'));
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', fn () => redirect('/pendaftar'))->name('dashboard');
+
     Route::get('/registration/create', [RegistrationController::class, 'create'])->name('registration.create');
     Route::post('/registration', [RegistrationController::class, 'store'])->name('registration.store');
     Route::get('/registration/{registration}', [RegistrationController::class, 'show'])->whereNumber('registration')->name('registration.show');
