@@ -27,6 +27,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('SPMB Taruna Bakti')
             ->colors([
                 'primary' => Color::Blue,
             ])
@@ -38,8 +39,13 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
             ])
+            ->navigationGroups([
+                'SPMB',
+                'Verifikasi',
+                'Master Data',
+            ])
+            ->sidebarCollapsibleOnDesktop()
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -53,12 +59,6 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ])
-            ->brandName('SPMB Taruna Bakti')
-            ->navigationGroups([
-                'Master Data',
-                'SPMB',
-            ])
-            ->sidebarCollapsibleOnDesktop();
+            ]);
     }
 }

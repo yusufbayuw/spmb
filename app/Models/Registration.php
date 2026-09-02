@@ -51,6 +51,17 @@ class Registration extends Model
         'accepted_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::created(function (Registration $registration): void {
+            if (blank($registration->registration_number) && $registration->unit) {
+                $registration->forceFill([
+                    'registration_number' => $registration->generateRegistrationNumber(),
+                ])->saveQuietly();
+            }
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -76,11 +87,12 @@ class Registration extends Model
         return $this->hasMany(Payment::class);
     }
 
-    public function generateRegistrationNumber()
+    public function generateRegistrationNumber(): string
     {
-        $year = date('Y');
+        $year = $this->created_at?->format('Y') ?? now()->format('Y');
         $unitCode = $this->unit->code;
-        $sequence = str_pad($this->id, 4, '0', STR_PAD_LEFT);
+        $sequence = str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
+
         return "REG-{$unitCode}-{$year}-{$sequence}";
     }
 }
