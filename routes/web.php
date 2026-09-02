@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => view('welcome'))->name('home');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', fn () => redirect('/pendaftar'))->name('dashboard');
+    Route::get('/dashboard', function () {
+        return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar');
+    })->name('dashboard');
 
     // Legacy applicant URLs are compatibility redirects only. All applicant data
     // changes now happen inside the Filament applicant panel.
@@ -25,7 +27,9 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('registration')
         ->name('registration.card');
 
-    Route::get('/profile', fn () => redirect('/pendaftar/profile'))->name('profile.edit');
+    Route::get('/profile', function () {
+        return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar/profile');
+    })->name('profile.edit');
 });
 
 require __DIR__.'/auth.php';
