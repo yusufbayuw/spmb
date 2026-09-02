@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\DocumentResource\Pages;
 use App\Models\Document;
+use App\Services\ApplicantUploadSecurity;
 use App\Services\RegistrationWorkflowService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -31,6 +32,21 @@ class DocumentResource extends Resource
                 Tables\Columns\TextColumn::make('original_name')
                     ->label('File')
                     ->url(fn (Document $record): string => route('files.applicant.documents.show', $record)),
+                Tables\Columns\TextColumn::make('malware_scan_status')
+                    ->label('Security')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'clean' => 'AV Clean',
+                        'unavailable' => 'AV Opsional',
+                        'scan_error' => 'AV Error',
+                        default => 'Belum Scan',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'clean' => 'success',
+                        'unavailable' => 'warning',
+                        'scan_error' => 'danger',
+                        default => 'gray',
+                    }),
                 Tables\Columns\IconColumn::make('is_verified')->label('Valid')->boolean(),
             ])
             ->filters([
@@ -44,10 +60,22 @@ class DocumentResource extends Resource
                     ->visible(fn (Document $record) =>
                         auth()->user()?->can('verify_document_document')
                         && ! $record->is_verified
+                        && $record->registration?->isOperational()
                         && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
                     )
                     ->action(function (Document $record): void {
                         $record->registration->assertCurrentStage(['documents', 'document_verification']);
+
+                        if (! $record->security_scanned_at || ! $record->sha256) {
+                            $inspection = app(ApplicantUploadSecurity::class)->inspect($record->file_path);
+                            $record->update([
+                                'mime_type' => $inspection['mime_type'],
+                                'file_size' => $inspection['size'],
+                                'sha256' => $inspection['sha256'],
+                                'malware_scan_status' => $inspection['malware_scan_status'],
+                                'security_scanned_at' => $inspection['security_scanned_at'],
+                            ]);
+                        }
 
                         $record->update([
                             'is_verified' => true,
@@ -56,7 +84,7 @@ class DocumentResource extends Resource
                         ]);
 
                         app(RegistrationWorkflowService::class)->refreshDocumentStage($record->registration);
-                        Notification::make()->title('Berkas diverifikasi')->success()->send();
+                        Notification::make()->title('Berkas lolos pemeriksaan keamanan dan diverifikasi')->success()->send();
                     }),
                 Tables\Actions\Action::make('reset')
                     ->label('Batalkan')
@@ -65,22 +93,14 @@ class DocumentResource extends Resource
                     ->visible(fn (Document $record) =>
                         auth()->user()?->can('verify_document_document')
                         && $record->is_verified
+                        && $record->registration?->isOperational()
                         && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
                     )
                     ->action(function (Document $record): void {
                         $record->registration->assertCurrentStage(['documents', 'document_verification']);
-
-                        $record->update([
-                            'is_verified' => false,
-                            'verified_at' => null,
-                            'verified_by' => null,
-                        ]);
-
-                        $record->registration->transitionTo('document_verification', [
-                            'documents_verified_at' => null,
-                        ]);
+                        $record->update(['is_verified' => false, 'verified_at' => null, 'verified_by' => null]);
+                        $record->registration->transitionTo('document_verification', ['documents_verified_at' => null]);
                     }),
-                Tables\Actions\DeleteAction::make(),
             ]);
     }
 
@@ -92,19 +112,19 @@ class DocumentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with('registration.unit');
-
         if (auth()->user()?->isTU()) {
-            $query->whereHas(
-                'registration',
-                fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id),
-            );
+            $query->whereHas('registration', fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id));
         }
-
         return $query;
     }
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) static::getEloquentQuery()->where('is_verified', false)->count();
+        return (string) static::getEloquentQuery()
+            ->where('is_verified', false)
+            ->whereHas('registration', fn (Builder $q) => $q->where('lifecycle_status', 'active'))
+            ->count();
     }
+
+    public static function canDelete($record): bool { return false; }
 }
