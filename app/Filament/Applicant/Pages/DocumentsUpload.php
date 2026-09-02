@@ -85,10 +85,10 @@ class DocumentsUpload extends Page implements HasForms
 
     public function submit(ApplicantFileStorage $storage): void
     {
-        abort_unless(
-            in_array($this->registrationRecord->fresh()->current_stage, ['documents', 'document_verification'], true),
-            403,
-        );
+        $this->registrationRecord = Registration::query()
+            ->with('documents')
+            ->findOrFail($this->registrationRecord->id);
+        $this->registrationRecord->assertCurrentStage(['documents', 'document_verification']);
 
         $data = $this->form->getState();
         $private = Storage::disk(ApplicantFileStorage::PRIVATE_DISK);
@@ -128,10 +128,15 @@ class DocumentsUpload extends Page implements HasForms
         $uploaded = $this->registrationRecord->documents()->whereIn('type', $required)->pluck('type')->unique();
         $complete = collect($required)->every(fn (string $type): bool => $uploaded->contains($type));
 
-        $this->registrationRecord->update([
-            'current_stage' => $complete ? 'document_verification' : 'documents',
-            'documents_completed_at' => $complete ? ($this->registrationRecord->documents_completed_at ?: now()) : null,
-        ]);
+        $this->registrationRecord->transitionTo(
+            $complete ? 'document_verification' : 'documents',
+            [
+                'documents_completed_at' => $complete
+                    ? ($this->registrationRecord->documents_completed_at ?: now())
+                    : null,
+                'documents_verified_at' => null,
+            ],
+        );
 
         $this->registrationRecord->load('documents');
 
