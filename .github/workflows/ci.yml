@@ -28,17 +28,6 @@ jobs:
       - name: Resolve Composer dependencies
         run: composer update --with-all-dependencies --no-interaction --prefer-dist
 
-      - name: Prepare application
-        run: |
-          cp .env.example .env
-          touch database/database.sqlite
-          php artisan key:generate
-          php artisan migrate --force
-          php artisan db:seed --force
-
-      - name: Run tests
-        run: php artisan test
-
       - name: Sync composer.lock
         run: |
           if ! git diff --quiet -- composer.lock; then
@@ -49,3 +38,14 @@ jobs:
             git pull --rebase origin main
             git push origin HEAD:main
           fi
+
+      - name: Prepare application
+        run: |
+          cp .env.example .env
+          touch database/database.sqlite
+          php artisan key:generate
+          php artisan migrate --force
+          php artisan db:seed --force
+
+      - name: Run tests
+        run: php artisan test
