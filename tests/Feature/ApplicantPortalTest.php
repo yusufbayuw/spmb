@@ -3,11 +3,18 @@
 namespace Tests\Feature;
 
 use App\Filament\Applicant\Pages\Auth\Register as ApplicantRegister;
+use App\Filament\Applicant\Resources\RegistrationResource as ApplicantRegistrationResource;
+use App\Models\RegistrationOpening;
+use App\Models\Unit;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Filament\Notifications\Auth\VerifyEmail;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 use ReflectionMethod;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -30,7 +37,7 @@ class ApplicantPortalTest extends TestCase
         $this->get('/pendaftar/password-reset/request')->assertOk();
     }
 
-    public function test_applicant_registration_handler_assigns_pendaftar_role(): void
+    public function test_applicant_registration_handler_assigns_pendaftar_role_and_leaves_email_unverified(): void
     {
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
 
@@ -49,6 +56,95 @@ class ApplicantPortalTest extends TestCase
         $this->assertSame('user', $user->role);
         $this->assertTrue($user->is_active);
         $this->assertTrue($user->hasRole('pendaftar'));
+        $this->assertFalse($user->hasVerifiedEmail());
+    }
+
+    public function test_registration_sends_queueable_filament_verification_email(): void
+    {
+        Notification::fake();
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $user = $this->userWithRole('pendaftar', ['email_verified_at' => null]);
+        $page = app(ApplicantRegister::class);
+        $method = new ReflectionMethod($page, 'sendEmailVerificationNotification');
+        $method->setAccessible(true);
+        $method->invoke($page, $user);
+
+        Notification::assertSentTo(
+            $user,
+            VerifyEmail::class,
+            function (VerifyEmail $notification): bool {
+                return $notification instanceof ShouldQueue
+                    && str_contains($notification->url, '/pendaftar/email-verification/verify/');
+            },
+        );
+    }
+
+    public function test_unverified_applicant_is_forced_to_verification_prompt(): void
+    {
+        $applicant = $this->userWithRole('pendaftar', ['email_verified_at' => null]);
+
+        $response = $this->actingAs($applicant)->get('/pendaftar');
+
+        $response->assertRedirect();
+        $this->assertStringContainsString(
+            '/pendaftar/email-verification/prompt',
+            (string) $response->headers->get('Location'),
+        );
+
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+        $this->actingAs($applicant)
+            ->get(Filament::getEmailVerificationPromptUrl())
+            ->assertOk();
+    }
+
+    public function test_signed_verification_link_verifies_email_and_is_audited(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+        $applicant = $this->userWithRole('pendaftar', ['email_verified_at' => null]);
+
+        $url = URL::temporarySignedRoute(
+            'filament.pendaftar.auth.email-verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $applicant->getKey(),
+                'hash' => sha1($applicant->getEmailForVerification()),
+            ],
+        );
+
+        $this->actingAs($applicant)->get($url)->assertRedirect();
+
+        $this->assertTrue($applicant->fresh()->hasVerifiedEmail());
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'auth.email_verified',
+            'user_id' => $applicant->id,
+        ]);
+    }
+
+    public function test_unverified_applicant_cannot_create_registration_even_if_opening_exists(): void
+    {
+        $unit = Unit::create([
+            'name' => 'SMA Taruna Bakti',
+            'code' => 'SMA',
+            'is_active' => true,
+        ]);
+
+        RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'pathway' => 'Reguler',
+            'registration_fee' => 300000,
+            'status' => 'open',
+        ]);
+
+        $applicant = $this->userWithRole('pendaftar', ['email_verified_at' => null]);
+        $this->actingAs($applicant);
+
+        $this->assertFalse(ApplicantRegistrationResource::canCreate());
+
+        $applicant->markEmailAsVerified();
+        $this->assertTrue(ApplicantRegistrationResource::canCreate());
     }
 
     public function test_dashboard_alias_routes_users_to_the_correct_portal(): void
