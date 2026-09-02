@@ -2,16 +2,19 @@
 
 namespace App\Filament\Applicant\Resources;
 
+use App\Filament\Applicant\Pages\RegistrationOpenings;
 use App\Filament\Applicant\Pages\RegistrationStatus;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
 use App\Models\Registration;
+use App\Models\RegistrationOpening;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rules\Unique;
 
 class RegistrationResource extends Resource
 {
@@ -20,21 +23,27 @@ class RegistrationResource extends Resource
     protected static ?string $navigationLabel = 'Pendaftaran Saya';
     protected static ?string $modelLabel = 'Pendaftaran';
     protected static ?string $pluralModelLabel = 'Pendaftaran Saya';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Tujuan Pendaftaran')
-                ->description('Pilih unit sekolah dan siapa yang melakukan pendaftaran.')
+            Forms\Components\Section::make('Pilihan Pendaftaran')
+                ->description('Unit, tahun ajaran, gelombang, dan jalur mengikuti pembukaan yang Anda pilih.')
                 ->columns(2)
                 ->schema([
-                    Forms\Components\Select::make('unit_id')
-                        ->label('Unit Sekolah')
-                        ->relationship('unit', 'name', fn (Builder $query) => $query->where('is_active', true))
-                        ->searchable()
-                        ->preload()
-                        ->required(),
+                    Forms\Components\Hidden::make('registration_opening_id')->required(),
+                    Forms\Components\Hidden::make('unit_id')->required(),
+                    Forms\Components\Placeholder::make('opening_summary')
+                        ->label('Pembukaan Pendaftaran')
+                        ->content(function (Forms\Get $get): string {
+                            $opening = RegistrationOpening::query()
+                                ->with('unit')
+                                ->find($get('registration_opening_id'));
+
+                            return $opening?->label() ?? 'Pilih pembukaan pendaftaran terlebih dahulu.';
+                        })
+                        ->columnSpanFull(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Pendaftaran dilakukan oleh')
                         ->options([
@@ -64,7 +73,11 @@ class RegistrationResource extends Resource
                         ->label('NIK')
                         ->required()
                         ->rule('digits:16')
-                        ->unique(ignoreRecord: true),
+                        ->unique(
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
+                                ->where('registration_opening_id', $get('registration_opening_id')),
+                        ),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
                     Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
@@ -96,6 +109,10 @@ class RegistrationResource extends Resource
                     ->weight('medium')
                     ->description(fn (Registration $record): ?string => $record->registration_number),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
+                Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran'),
+                Tables\Columns\TextColumn::make('opening.wave')
+                    ->label('Gelombang')
+                    ->description(fn (Registration $record): ?string => $record->opening?->pathway),
                 Tables\Columns\TextColumn::make('current_stage')
                     ->label('Tahap Saat Ini')
                     ->badge()
@@ -113,11 +130,6 @@ class RegistrationResource extends Resource
                         'revision' => 'warning',
                         default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->date('d M Y')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
                 Tables\Actions\Action::make('progress')
@@ -136,10 +148,13 @@ class RegistrationResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->emptyStateHeading('Belum ada calon siswa')
-            ->emptyStateDescription('Tambahkan calon siswa pertama untuk memulai proses SPMB.')
+            ->emptyStateDescription('Pilih pembukaan pendaftaran yang tersedia untuk mendaftarkan calon siswa.')
             ->emptyStateIcon('heroicon-o-user-plus')
             ->emptyStateActions([
-                Tables\Actions\CreateAction::make()->label('Daftarkan Calon Siswa'),
+                Tables\Actions\Action::make('chooseOpening')
+                    ->label('Pilih Pendaftaran')
+                    ->icon('heroicon-o-calendar-days')
+                    ->url(RegistrationOpenings::getUrl()),
             ]);
     }
 
@@ -147,7 +162,7 @@ class RegistrationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('user_id', auth()->id())
-            ->with(['unit', 'latestPayment']);
+            ->with(['unit', 'opening', 'latestPayment']);
     }
 
     public static function canViewAny(): bool
@@ -157,7 +172,8 @@ class RegistrationResource extends Resource
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->isUser() ?? false;
+        return (auth()->user()?->isUser() ?? false)
+            && RegistrationOpening::query()->where('status', 'open')->exists();
     }
 
     public static function canEdit($record): bool

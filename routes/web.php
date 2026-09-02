@@ -10,9 +10,8 @@ Route::middleware('auth')->group(function () {
         return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar');
     })->name('dashboard');
 
-    // Legacy applicant URLs are compatibility redirects only. All applicant data
-    // changes now happen inside the Filament applicant panel.
-    Route::get('/registration/create', fn () => redirect('/pendaftar/registrations/create'))
+    // Legacy applicant URLs are compatibility redirects only.
+    Route::get('/registration/create', fn () => redirect('/pendaftar/pendaftaran'))
         ->name('registration.create');
     Route::get('/registration/{registration}', fn (int $registration) => redirect("/pendaftar/status/{$registration}"))
         ->whereNumber('registration')

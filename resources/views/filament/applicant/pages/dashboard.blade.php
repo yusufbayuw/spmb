@@ -5,16 +5,16 @@
                 <div>
                     <h2 class="text-lg font-semibold text-gray-950 dark:text-white">Pendaftaran Calon Siswa</h2>
                     <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-                        Satu akun dapat digunakan untuk mendaftarkan beberapa calon siswa dan memantau seluruh proses SPMB.
+                        Pilih pembukaan berdasarkan unit, tahun ajaran, gelombang, dan jalur. Satu akun dapat digunakan untuk beberapa calon siswa.
                     </p>
                 </div>
 
                 <x-filament::button
                     tag="a"
-                    href="{{ \App\Filament\Applicant\Resources\RegistrationResource::getUrl('create') }}"
-                    icon="heroicon-m-plus"
+                    href="{{ \App\Filament\Applicant\Pages\RegistrationOpenings::getUrl() }}"
+                    icon="heroicon-m-calendar-days"
                 >
-                    Daftarkan Calon Siswa
+                    Pilih Pendaftaran
                 </x-filament::button>
             </div>
         </x-filament::section>
@@ -27,15 +27,15 @@
                     </div>
                     <h3 class="mt-4 text-base font-semibold text-gray-950 dark:text-white">Belum ada pendaftaran</h3>
                     <p class="mx-auto mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-                        Isi data calon siswa terlebih dahulu. Setelah dikirim, validasi, pembayaran, dokumen, tes, seleksi, dan pengumuman dapat dipantau dari portal ini.
+                        Pilih pembukaan pendaftaran yang tersedia. Unit akan otomatis mengikuti pilihan tersebut.
                     </p>
                     <div class="mt-5">
                         <x-filament::button
                             tag="a"
-                            href="{{ \App\Filament\Applicant\Resources\RegistrationResource::getUrl('create') }}"
+                            href="{{ \App\Filament\Applicant\Pages\RegistrationOpenings::getUrl() }}"
                             icon="heroicon-m-arrow-right"
                         >
-                            Mulai Pendaftaran
+                            Lihat Pendaftaran Tersedia
                         </x-filament::button>
                     </div>
                 </div>
@@ -44,7 +44,7 @@
             <div class="grid gap-5 xl:grid-cols-2">
                 @foreach ($registrations as $registration)
                     @php
-                        $stages = \App\Models\Registration::STAGES;
+                        $stages = array_keys(\App\Models\Registration::STAGES);
                         $stageIndex = array_search($registration->current_stage, $stages, true);
                         $stageIndex = $stageIndex === false ? 0 : $stageIndex;
                         $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
@@ -57,6 +57,17 @@
                         </x-slot>
 
                         <div class="space-y-5">
+                            @if ($registration->opening)
+                                <div class="rounded-xl bg-gray-50 p-4 text-sm dark:bg-white/5">
+                                    <div class="font-semibold text-gray-950 dark:text-white">
+                                        TA {{ $registration->opening->academic_year }} · {{ $registration->opening->wave }}
+                                    </div>
+                                    <div class="mt-1 text-gray-500 dark:text-gray-400">
+                                        Jalur {{ $registration->opening->pathway }}
+                                    </div>
+                                </div>
+                            @endif
+
                             <div class="flex flex-wrap items-center gap-2">
                                 <x-filament::badge color="primary">{{ $registration->stageLabel() }}</x-filament::badge>
                                 <x-filament::badge color="gray">

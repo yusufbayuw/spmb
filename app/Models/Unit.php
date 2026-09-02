@@ -12,6 +12,7 @@ class Unit extends Model
     protected $fillable = ['name','code','description','is_active'];
 
     public function registrations() { return $this->hasMany(Registration::class); }
+    public function registrationOpenings() { return $this->hasMany(RegistrationOpening::class); }
     public function users() { return $this->hasMany(User::class); }
     public function admissionTests() { return $this->hasMany(AdmissionTest::class)->orderBy('sort_order'); }
     public function virtualAccounts() { return $this->hasMany(VirtualAccount::class); }

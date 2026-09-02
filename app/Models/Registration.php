@@ -24,7 +24,7 @@ class Registration extends Model
     ];
 
     protected $fillable = [
-        'user_id','unit_id','registrant_type','registrant_relationship','registration_number','nik','full_name','nickname','gender','birth_place','birth_date','religion','child_order','siblings_count','home_address','rt','rw','village','district','city','province','postal_code','phone','email','previous_school','previous_school_address','graduation_year','status','current_stage','data_validation_status','data_validation_notes','data_validated_by','data_validated_at','applicant_card_number','applicant_card_issued_by','applicant_card_issued_at','documents_completed_at','documents_verified_at','rejection_reason','submitted_at','verified_at','payment_verified_at','accepted_at',
+        'user_id','unit_id','registration_opening_id','registrant_type','registrant_relationship','registration_number','nik','full_name','nickname','gender','birth_place','birth_date','religion','child_order','siblings_count','home_address','rt','rw','village','district','city','province','postal_code','phone','email','previous_school','previous_school_address','graduation_year','status','current_stage','data_validation_status','data_validation_notes','data_validated_by','data_validated_at','applicant_card_number','applicant_card_issued_by','applicant_card_issued_at','documents_completed_at','documents_verified_at','rejection_reason','submitted_at','verified_at','payment_verified_at','accepted_at',
     ];
 
     protected $casts = [
@@ -42,6 +42,7 @@ class Registration extends Model
 
     public function user() { return $this->belongsTo(User::class); }
     public function unit() { return $this->belongsTo(Unit::class); }
+    public function opening() { return $this->belongsTo(RegistrationOpening::class, 'registration_opening_id'); }
     public function parentInfo() { return $this->hasOne(ParentInfo::class); }
     public function documents() { return $this->hasMany(Document::class); }
     public function payments() { return $this->hasMany(Payment::class); }
@@ -55,7 +56,10 @@ class Registration extends Model
 
     public function generateRegistrationNumber(): string
     {
-        $year = $this->created_at?->format('Y') ?? now()->format('Y');
+        $year = $this->opening?->academic_year
+            ? str_replace(['/', '-'], '', $this->opening->academic_year)
+            : ($this->created_at?->format('Y') ?? now()->format('Y'));
+
         return 'REG-'.$this->unit->code.'-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
     }
 

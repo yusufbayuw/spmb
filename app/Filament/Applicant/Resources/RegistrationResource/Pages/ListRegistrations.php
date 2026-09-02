@@ -2,6 +2,7 @@
 
 namespace App\Filament\Applicant\Resources\RegistrationResource\Pages;
 
+use App\Filament\Applicant\Pages\RegistrationOpenings;
 use App\Filament\Applicant\Resources\RegistrationResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
@@ -13,7 +14,10 @@ class ListRegistrations extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()->label('Daftarkan Calon Siswa'),
+            Actions\Action::make('chooseOpening')
+                ->label('Daftarkan Calon Siswa')
+                ->icon('heroicon-o-plus')
+                ->url(RegistrationOpenings::getUrl()),
         ];
     }
 
