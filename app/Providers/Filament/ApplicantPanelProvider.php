@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Applicant\Pages\Auth\Register;
 use App\Filament\Applicant\Pages\Dashboard;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -26,6 +27,9 @@ class ApplicantPanelProvider extends PanelProvider
             ->id('pendaftar')
             ->path('pendaftar')
             ->login()
+            ->registration(Register::class)
+            ->passwordReset()
+            ->profile(isSimple: false)
             ->brandName('SPMB Taruna Bakti')
             ->colors(['primary' => Color::Blue])
             ->discoverResources(
