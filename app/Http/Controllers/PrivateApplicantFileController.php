@@ -115,7 +115,7 @@ class PrivateApplicantFileController extends Controller
         $response = response()->file($absolutePath, $headers);
         $response->headers->set(
             'Content-Disposition',
-            ResponseHeaderBag::makeDisposition(
+            $response->headers->makeDisposition(
                 ResponseHeaderBag::DISPOSITION_INLINE,
                 $safeName,
                 'file',
