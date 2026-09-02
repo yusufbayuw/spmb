@@ -25,8 +25,8 @@ class RegistrationOpeningResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Periode dan Jalur')
-                ->description('Satu pembukaan berlaku untuk satu unit, tahun ajaran, gelombang, dan jalur.')
+            Forms\Components\Section::make('Periode, Jalur, dan Biaya')
+                ->description('Biaya merupakan source of truth nominal formulir. Virtual Account hanya menjadi instrumen pembayaran.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\Select::make('unit_id')
@@ -61,15 +61,23 @@ class RegistrationOpeningResource extends Resource
                         ->placeholder('Reguler / Prestasi / lainnya')
                         ->required()
                         ->maxLength(100),
-                    Forms\Components\Textarea::make('description')
-                        ->label('Keterangan')
-                        ->rows(3)
-                        ->columnSpanFull(),
+                    Forms\Components\TextInput::make('registration_fee')
+                        ->label('Biaya Pendaftaran')
+                        ->prefix('Rp')
+                        ->numeric()
+                        ->minValue(0)
+                        ->default(0)
+                        ->required()
+                        ->helperText('Nominal ini otomatis disalin ke transaksi pembayaran saat VA di-assign.'),
                     Forms\Components\Select::make('status')
                         ->label('Status')
                         ->options(RegistrationOpening::STATUSES)
                         ->default('draft')
                         ->required(),
+                    Forms\Components\Textarea::make('description')
+                        ->label('Keterangan')
+                        ->rows(3)
+                        ->columnSpanFull(),
                 ]),
         ]);
     }
@@ -83,6 +91,10 @@ class RegistrationOpeningResource extends Resource
                 Tables\Columns\TextColumn::make('academic_year')->label('Tahun Ajaran')->sortable(),
                 Tables\Columns\TextColumn::make('wave')->label('Gelombang')->searchable(),
                 Tables\Columns\TextColumn::make('pathway')->label('Jalur')->searchable(),
+                Tables\Columns\TextColumn::make('registration_fee')
+                    ->label('Biaya')
+                    ->money('IDR', locale: 'id')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -98,11 +110,8 @@ class RegistrationOpeningResource extends Resource
                     ->label('Pendaftar'),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->options(RegistrationOpening::STATUSES),
-                Tables\Filters\SelectFilter::make('unit_id')
-                    ->label('Unit')
-                    ->relationship('unit', 'name'),
+                Tables\Filters\SelectFilter::make('status')->options(RegistrationOpening::STATUSES),
+                Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
                 Tables\Filters\SelectFilter::make('academic_year')
                     ->options(fn (): array => RegistrationOpening::query()
                         ->orderByDesc('academic_year')
@@ -111,30 +120,21 @@ class RegistrationOpeningResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('open')
-                    ->label('Buka')
-                    ->icon('heroicon-o-play')
-                    ->color('success')
-                    ->requiresConfirmation()
+                    ->label('Buka')->icon('heroicon-o-play')->color('success')->requiresConfirmation()
                     ->visible(fn (RegistrationOpening $record): bool => $record->status !== 'open')
                     ->action(function (RegistrationOpening $record): void {
                         $record->open();
                         Notification::make()->title('Pendaftaran dibuka')->success()->send();
                     }),
                 Tables\Actions\Action::make('close')
-                    ->label('Tutup')
-                    ->icon('heroicon-o-pause')
-                    ->color('warning')
-                    ->requiresConfirmation()
+                    ->label('Tutup')->icon('heroicon-o-pause')->color('warning')->requiresConfirmation()
                     ->visible(fn (RegistrationOpening $record): bool => $record->status === 'open')
                     ->action(function (RegistrationOpening $record): void {
                         $record->close();
                         Notification::make()->title('Pendaftaran ditutup')->warning()->send();
                     }),
                 Tables\Actions\Action::make('archive')
-                    ->label('Archive')
-                    ->icon('heroicon-o-archive-box')
-                    ->color('gray')
-                    ->requiresConfirmation()
+                    ->label('Archive')->icon('heroicon-o-archive-box')->color('gray')->requiresConfirmation()
                     ->visible(fn (RegistrationOpening $record): bool => $record->status !== 'archived')
                     ->action(function (RegistrationOpening $record): void {
                         $record->archive();
@@ -155,10 +155,7 @@ class RegistrationOpeningResource extends Resource
         return $query;
     }
 
-    public static function canDelete($record): bool
-    {
-        return false;
-    }
+    public static function canDelete($record): bool { return false; }
 
     public static function getPages(): array
     {
