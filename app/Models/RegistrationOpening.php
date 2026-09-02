@@ -22,6 +22,7 @@ class RegistrationOpening extends Model
         'academic_year',
         'wave',
         'pathway',
+        'registration_fee',
         'description',
         'status',
         'opened_at',
@@ -31,6 +32,7 @@ class RegistrationOpening extends Model
     ];
 
     protected $casts = [
+        'registration_fee' => 'decimal:2',
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
         'archived_at' => 'datetime',
@@ -43,34 +45,21 @@ class RegistrationOpening extends Model
         });
     }
 
-    public function unit()
-    {
-        return $this->belongsTo(Unit::class);
-    }
-
-    public function creator()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function registrations()
-    {
-        return $this->hasMany(Registration::class);
-    }
+    public function unit() { return $this->belongsTo(Unit::class); }
+    public function creator() { return $this->belongsTo(User::class, 'created_by'); }
+    public function registrations() { return $this->hasMany(Registration::class); }
 
     public function scopeVisibleToApplicants(Builder $query): Builder
     {
         return $query->whereIn('status', ['open', 'closed']);
     }
 
-    public function isOpen(): bool
-    {
-        return $this->status === 'open';
-    }
+    public function isOpen(): bool { return $this->status === 'open'; }
+    public function statusLabel(): string { return self::STATUSES[$this->status] ?? $this->status; }
 
-    public function statusLabel(): string
+    public function formattedFee(): string
     {
-        return self::STATUSES[$this->status] ?? $this->status;
+        return 'Rp '.number_format((float) $this->registration_fee, 0, ',', '.');
     }
 
     public function label(): string
@@ -95,17 +84,11 @@ class RegistrationOpening extends Model
 
     public function close(): void
     {
-        $this->update([
-            'status' => 'closed',
-            'closed_at' => now(),
-        ]);
+        $this->update(['status' => 'closed', 'closed_at' => now()]);
     }
 
     public function archive(): void
     {
-        $this->update([
-            'status' => 'archived',
-            'archived_at' => now(),
-        ]);
+        $this->update(['status' => 'archived', 'archived_at' => now()]);
     }
 }
