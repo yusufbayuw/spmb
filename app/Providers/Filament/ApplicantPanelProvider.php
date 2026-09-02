@@ -30,6 +30,7 @@ class ApplicantPanelProvider extends PanelProvider
             ->login()
             ->registration(Register::class)
             ->passwordReset()
+            ->emailVerification()
             ->profile(isSimple: false)
             ->brandName('SPMB Taruna Bakti')
             ->colors(['primary' => Color::Blue])
