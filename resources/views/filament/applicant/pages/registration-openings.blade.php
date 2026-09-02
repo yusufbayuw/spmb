@@ -20,7 +20,7 @@
                         <x-slot name="description">Tahun Ajaran {{ $opening->academic_year }}</x-slot>
 
                         <div class="space-y-5">
-                            <div class="grid gap-3 sm:grid-cols-2">
+                            <div class="grid gap-3 sm:grid-cols-3">
                                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
                                     <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Gelombang</div>
                                     <div class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $opening->wave }}</div>
@@ -28,6 +28,10 @@
                                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
                                     <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Jalur</div>
                                     <div class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $opening->pathway }}</div>
+                                </div>
+                                <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
+                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Biaya Formulir</div>
+                                    <div class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $opening->formattedFee() }}</div>
                                 </div>
                             </div>
 
