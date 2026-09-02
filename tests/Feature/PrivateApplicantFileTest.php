@@ -35,6 +35,7 @@ class PrivateApplicantFileTest extends TestCase
             'type' => 'family_card',
             'file_path' => 'documents/'.$registration->id.'/kk.pdf',
             'original_name' => 'kk.pdf',
+            'file_type' => 'pdf',
         ]);
 
         $this->get(route('files.applicant.documents.show', $document))
@@ -54,6 +55,7 @@ class PrivateApplicantFileTest extends TestCase
             'type' => 'report_card',
             'file_path' => $path,
             'original_name' => 'rapor.pdf',
+            'file_type' => 'pdf',
         ]);
 
         $response = $this->actingAs($owner)
@@ -82,6 +84,7 @@ class PrivateApplicantFileTest extends TestCase
             'type' => 'birth_certificate',
             'file_path' => $path,
             'original_name' => 'akta.pdf',
+            'file_type' => 'pdf',
         ]);
 
         $this->actingAs($owner)
@@ -190,6 +193,7 @@ class PrivateApplicantFileTest extends TestCase
             'type' => 'supporting_document',
             'file_path' => $path,
             'original_name' => $name,
+            'file_type' => 'pdf',
         ]);
     }
 
