@@ -36,6 +36,7 @@ class PrivateApplicantFileTest extends TestCase
             'file_path' => 'documents/'.$registration->id.'/kk.pdf',
             'original_name' => 'kk.pdf',
             'file_type' => 'pdf',
+            'file_size' => 1,
         ]);
 
         $this->get(route('files.applicant.documents.show', $document))
@@ -56,6 +57,7 @@ class PrivateApplicantFileTest extends TestCase
             'file_path' => $path,
             'original_name' => 'rapor.pdf',
             'file_type' => 'pdf',
+            'file_size' => 16,
         ]);
 
         $response = $this->actingAs($owner)
@@ -85,6 +87,7 @@ class PrivateApplicantFileTest extends TestCase
             'file_path' => $path,
             'original_name' => 'akta.pdf',
             'file_type' => 'pdf',
+            'file_size' => 15,
         ]);
 
         $this->actingAs($owner)
@@ -194,6 +197,7 @@ class PrivateApplicantFileTest extends TestCase
             'file_path' => $path,
             'original_name' => $name,
             'file_type' => 'pdf',
+            'file_size' => 8,
         ]);
     }
 
