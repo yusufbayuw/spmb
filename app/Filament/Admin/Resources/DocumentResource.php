@@ -41,13 +41,20 @@ class DocumentResource extends Resource
                     ->label('Verifikasi')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (Document $record) => auth()->user()?->can('verify_document_document') && ! $record->is_verified)
+                    ->visible(fn (Document $record) =>
+                        auth()->user()?->can('verify_document_document')
+                        && ! $record->is_verified
+                        && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
+                    )
                     ->action(function (Document $record): void {
+                        $record->registration->assertCurrentStage(['documents', 'document_verification']);
+
                         $record->update([
                             'is_verified' => true,
                             'verified_at' => now(),
                             'verified_by' => auth()->id(),
                         ]);
+
                         app(RegistrationWorkflowService::class)->refreshDocumentStage($record->registration);
                         Notification::make()->title('Berkas diverifikasi')->success()->send();
                     }),
@@ -55,15 +62,21 @@ class DocumentResource extends Resource
                     ->label('Batalkan')
                     ->color('gray')
                     ->requiresConfirmation()
-                    ->visible(fn (Document $record) => auth()->user()?->can('verify_document_document') && $record->is_verified)
+                    ->visible(fn (Document $record) =>
+                        auth()->user()?->can('verify_document_document')
+                        && $record->is_verified
+                        && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
+                    )
                     ->action(function (Document $record): void {
+                        $record->registration->assertCurrentStage(['documents', 'document_verification']);
+
                         $record->update([
                             'is_verified' => false,
                             'verified_at' => null,
                             'verified_by' => null,
                         ]);
-                        $record->registration->update([
-                            'current_stage' => 'document_verification',
+
+                        $record->registration->transitionTo('document_verification', [
                             'documents_verified_at' => null,
                         ]);
                     }),
