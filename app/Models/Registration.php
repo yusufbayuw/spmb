@@ -95,12 +95,14 @@ class Registration extends Model
 
     public function stageLabel(): string
     {
-        return self::STAGES[$this->current_stage] ?? $this->current_stage;
+        return self::STAGES[$this->current_stage] ?? (string) $this->current_stage;
     }
 
     public function lifecycleLabel(): string
     {
-        return self::LIFECYCLE_STATUSES[$this->lifecycle_status] ?? $this->lifecycle_status;
+        $status = $this->lifecycle_status ?: 'active';
+
+        return self::LIFECYCLE_STATUSES[$status] ?? $status;
     }
 
     public function registrationFee(): float
@@ -110,7 +112,7 @@ class Registration extends Model
 
     public function isOperational(): bool
     {
-        return $this->lifecycle_status === 'active';
+        return ($this->lifecycle_status ?: 'active') === 'active';
     }
 
     public function assertOperational(): void
@@ -130,11 +132,13 @@ class Registration extends Model
             throw ValidationException::withMessages(['lifecycle_status' => 'Status lifecycle tidak valid.']);
         }
 
-        if ($status === $this->lifecycle_status) {
+        $currentStatus = $this->lifecycle_status ?: 'active';
+
+        if ($status === $currentStatus) {
             return;
         }
 
-        if ($status === 'archived' && $this->lifecycle_status === 'active' && $this->current_stage !== 'completed') {
+        if ($status === 'archived' && $currentStatus === 'active' && $this->current_stage !== 'completed') {
             throw ValidationException::withMessages([
                 'lifecycle_status' => 'Pendaftaran aktif hanya dapat diarsipkan setelah workflow selesai.',
             ]);
