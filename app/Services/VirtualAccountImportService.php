@@ -33,6 +33,17 @@ class VirtualAccountImportService
         $seen = [];
         $touchedUnits = [];
 
+        $staffUnit = null;
+        if ($staff->isTU()) {
+            $staffUnit = Unit::query()->where('is_active', true)->find($staff->unit_id);
+
+            if (! $staffUnit) {
+                throw ValidationException::withMessages([
+                    'file' => 'Akun TU belum memiliki unit aktif. Hubungkan akun TU dengan unit sekolah terlebih dahulu.',
+                ]);
+            }
+        }
+
         try {
             $firstLine = fgets($handle);
 
@@ -65,7 +76,7 @@ class VirtualAccountImportService
 
             $process = function (array $row, int $rowNumber) use (
                 &$total, &$imported, &$failed, &$errors, &$seen, &$touchedUnits,
-                $headerMap, $batch, $staff
+                $headerMap, $batch, $staff, $staffUnit
             ): void {
                 $total++;
 
@@ -82,17 +93,25 @@ class VirtualAccountImportService
                         throw new RuntimeException('Bank kosong atau lebih dari 50 karakter.');
                     }
 
-                    if ($unitValue === '') {
-                        throw new RuntimeException('Unit kosong. Gunakan kode unit seperti SMA, SMP, atau nama unit.');
-                    }
+                    if ($staff->isTU()) {
+                        $unit = $staffUnit;
 
-                    $unit = $this->resolveUnit($unitValue);
-                    if (! $unit) {
-                        throw new RuntimeException("Unit '{$unitValue}' tidak ditemukan atau tidak aktif.");
-                    }
+                        if ($unitValue !== '') {
+                            $rowUnit = $this->resolveUnit($unitValue);
 
-                    if ($staff->isTU() && (int) $staff->unit_id !== (int) $unit->id) {
-                        throw new RuntimeException('Petugas TU hanya dapat mengimpor VA untuk unitnya sendiri.');
+                            if (! $rowUnit || (int) $rowUnit->id !== (int) $staffUnit->id) {
+                                throw new RuntimeException('Unit pada baris tidak sesuai dengan unit akun TU.');
+                            }
+                        }
+                    } else {
+                        if ($unitValue === '') {
+                            throw new RuntimeException('Unit kosong. Super admin harus menyertakan unit pada setiap baris.');
+                        }
+
+                        $unit = $this->resolveUnit($unitValue);
+                        if (! $unit) {
+                            throw new RuntimeException("Unit '{$unitValue}' tidak ditemukan atau tidak aktif.");
+                        }
                     }
 
                     $duplicateKey = $bank.'|'.$vaNumber;
@@ -187,6 +206,7 @@ class VirtualAccountImportService
     private function normalizeHeader(string $value): string
     {
         $value = str_replace("\xEF\xBB\xBF", '', $value);
+
         return strtolower(trim(str_replace([' ', '-'], '_', $value)));
     }
 
