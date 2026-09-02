@@ -8,7 +8,9 @@ use App\Models\VirtualAccount;
 use App\Models\VirtualAccountBatch;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use OpenSpout\Reader\XLSX\Reader;
 use RuntimeException;
 use Throwable;
 
@@ -17,6 +19,78 @@ class VirtualAccountImportService
     public function __construct(private readonly RegistrationWorkflowService $workflow) {}
 
     public function importFile(string $storedPath, User $staff): array
+    {
+        $extension = strtolower(pathinfo($storedPath, PATHINFO_EXTENSION));
+
+        if ($extension === 'xlsx') {
+            return $this->importXlsx($storedPath, $staff);
+        }
+
+        return $this->importDelimitedFile($storedPath, $staff);
+    }
+
+    public function importCsv(string $storedPath, array $options, User $staff): array
+    {
+        return $this->importFile($storedPath, $staff);
+    }
+
+    private function importXlsx(string $storedPath, User $staff): array
+    {
+        $absolutePath = Storage::disk('local')->path($storedPath);
+
+        if (! is_file($absolutePath)) {
+            throw ValidationException::withMessages(['file' => 'File XLSX pool VA tidak ditemukan.']);
+        }
+
+        $temporaryPath = 'imports/virtual-accounts/'.Str::uuid().'.csv';
+        Storage::disk('local')->makeDirectory('imports/virtual-accounts');
+        $temporaryAbsolutePath = Storage::disk('local')->path($temporaryPath);
+        $handle = fopen($temporaryAbsolutePath, 'wb');
+
+        if ($handle === false) {
+            throw ValidationException::withMessages(['file' => 'File XLSX tidak dapat diproses.']);
+        }
+
+        $reader = new Reader();
+
+        try {
+            $reader->open($absolutePath);
+            $hasSheet = false;
+
+            foreach ($reader->getSheetIterator() as $sheet) {
+                $hasSheet = true;
+
+                foreach ($sheet->getRowIterator() as $row) {
+                    $values = array_map(
+                        fn ($cell) => $cell->getValue(),
+                        $row->getCells(),
+                    );
+
+                    fputcsv($handle, $values);
+                }
+
+                break;
+            }
+
+            if (! $hasSheet) {
+                throw ValidationException::withMessages(['file' => 'File XLSX tidak memiliki worksheet yang dapat dibaca.']);
+            }
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            throw ValidationException::withMessages([
+                'file' => 'File XLSX tidak valid atau tidak dapat dibaca: '.$exception->getMessage(),
+            ]);
+        } finally {
+            $reader->close();
+            fclose($handle);
+            Storage::disk('local')->delete($storedPath);
+        }
+
+        return $this->importDelimitedFile($temporaryPath, $staff, basename($storedPath));
+    }
+
+    private function importDelimitedFile(string $storedPath, User $staff, ?string $batchFilename = null): array
     {
         $absolutePath = Storage::disk('local')->path($storedPath);
         $handle = fopen($absolutePath, 'rb');
@@ -69,7 +143,7 @@ class VirtualAccountImportService
             $headerMap = $hasHeader ? array_flip($normalized) : null;
 
             $batch = VirtualAccountBatch::create([
-                'filename' => basename($storedPath),
+                'filename' => $batchFilename ?? basename($storedPath),
                 'imported_by' => $staff->id,
                 'imported_at' => now(),
             ]);
@@ -181,11 +255,6 @@ class VirtualAccountImportService
         }
 
         return compact('batch', 'total', 'imported', 'failed', 'assigned');
-    }
-
-    public function importCsv(string $storedPath, array $options, User $staff): array
-    {
-        return $this->importFile($storedPath, $staff);
     }
 
     private function detectDelimiter(string $line): string

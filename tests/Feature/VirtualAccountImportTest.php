@@ -6,9 +6,13 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\VirtualAccountImportService;
+use App\Services\VirtualAccountTemplateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Reader\XLSX\Reader;
+use OpenSpout\Writer\XLSX\Writer;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -77,6 +81,89 @@ class VirtualAccountImportTest extends TestCase
         ]);
     }
 
+    public function test_tu_can_import_xlsx_and_unit_is_automatic(): void
+    {
+        Storage::fake('local');
+
+        $sma = Unit::create(['name' => 'Sekolah Menengah Atas', 'code' => 'SMA', 'is_active' => true]);
+        $staff = $this->staffWithRole('tu', ['unit_id' => $sma->id, 'role' => 'tu']);
+
+        $path = 'imports/virtual-accounts/pool-tu.xlsx';
+        Storage::disk('local')->makeDirectory('imports/virtual-accounts');
+
+        $writer = new Writer();
+        $writer->openToFile(Storage::disk('local')->path($path));
+        $writer->addRow(Row::fromValues(['va_number', 'bank']));
+        $writer->addRow(Row::fromValues(['8432572985', 'MANDIRI']));
+        $writer->addRow(Row::fromValues(['8432572986', 'BCA']));
+        $writer->close();
+
+        $result = app(VirtualAccountImportService::class)->importFile($path, $staff);
+
+        $this->assertSame(2, $result['total']);
+        $this->assertSame(2, $result['imported']);
+        $this->assertSame(0, $result['failed']);
+
+        $this->assertDatabaseHas('virtual_accounts', [
+            'va_number' => '8432572985',
+            'bank' => 'MANDIRI',
+            'unit_id' => $sma->id,
+        ]);
+        $this->assertDatabaseHas('virtual_accounts', [
+            'va_number' => '8432572986',
+            'bank' => 'BCA',
+            'unit_id' => $sma->id,
+        ]);
+    }
+
+    public function test_super_admin_can_import_xlsx_with_unit_column(): void
+    {
+        Storage::fake('local');
+
+        $sma = Unit::create(['name' => 'Sekolah Menengah Atas', 'code' => 'SMA', 'is_active' => true]);
+        $staff = $this->staffWithRole('super_admin');
+
+        $path = 'imports/virtual-accounts/pool-admin.xlsx';
+        Storage::disk('local')->makeDirectory('imports/virtual-accounts');
+
+        $writer = new Writer();
+        $writer->openToFile(Storage::disk('local')->path($path));
+        $writer->addRow(Row::fromValues(['va_number', 'bank', 'unit']));
+        $writer->addRow(Row::fromValues(['8432572985', 'MANDIRI', 'SMA']));
+        $writer->close();
+
+        $result = app(VirtualAccountImportService::class)->importFile($path, $staff);
+
+        $this->assertSame(1, $result['imported']);
+        $this->assertSame(0, $result['failed']);
+        $this->assertDatabaseHas('virtual_accounts', [
+            'va_number' => '8432572985',
+            'bank' => 'MANDIRI',
+            'unit_id' => $sma->id,
+        ]);
+    }
+
+    public function test_download_template_has_role_appropriate_xlsx_headers(): void
+    {
+        Storage::fake('local');
+
+        $sma = Unit::create(['name' => 'Sekolah Menengah Atas', 'code' => 'SMA', 'is_active' => true]);
+        $tu = $this->staffWithRole('tu', ['unit_id' => $sma->id, 'role' => 'tu']);
+        $superAdmin = $this->staffWithRole('super_admin');
+
+        $service = app(VirtualAccountTemplateService::class);
+
+        $tuTemplate = $service->generate($tu);
+        $this->assertSame(['va_number', 'bank'], $tuTemplate['headers']);
+        $this->assertSame('template-pool-va-sma.xlsx', $tuTemplate['filename']);
+        $this->assertSame(['va_number', 'bank'], $this->firstXlsxRow($tuTemplate['path']));
+
+        $adminTemplate = $service->generate($superAdmin);
+        $this->assertSame(['va_number', 'bank', 'unit'], $adminTemplate['headers']);
+        $this->assertSame('template-pool-va-super-admin.xlsx', $adminTemplate['filename']);
+        $this->assertSame(['va_number', 'bank', 'unit'], $this->firstXlsxRow($adminTemplate['path']));
+    }
+
     public function test_tu_cannot_import_virtual_account_for_another_unit(): void
     {
         Storage::fake('local');
@@ -93,6 +180,24 @@ class VirtualAccountImportTest extends TestCase
         $this->assertSame(0, $result['imported']);
         $this->assertSame(1, $result['failed']);
         $this->assertFalse(VirtualAccount::query()->where('va_number', '8432572985')->exists());
+    }
+
+    private function firstXlsxRow(string $path): array
+    {
+        $reader = new Reader();
+        $reader->open($path);
+
+        try {
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $row) {
+                    return array_map(fn ($cell) => (string) $cell->getValue(), $row->getCells());
+                }
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return [];
     }
 
     private function staffWithRole(string $roleName, array $attributes = []): User

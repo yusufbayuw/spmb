@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\VirtualAccountResource\Pages;
 
 use App\Filament\Admin\Resources\VirtualAccountResource;
 use App\Services\VirtualAccountImportService;
+use App\Services\VirtualAccountTemplateService;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -16,6 +17,13 @@ class ListVirtualAccounts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('downloadTemplate')
+                ->label('Download Template XLSX')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->visible(fn (): bool => auth()->user()?->can('create_virtualaccount') ?? false)
+                ->action(fn () => app(VirtualAccountTemplateService::class)->download(auth()->user())),
+
             Actions\Action::make('importPool')
                 ->label('Upload Pool VA')
                 ->icon('heroicon-o-arrow-up-tray')
@@ -28,21 +36,26 @@ class ListVirtualAccounts extends ListRecords
                             if (auth()->user()?->isTU()) {
                                 $unit = auth()->user()?->unit?->code ?? auth()->user()?->unit?->name ?? '-';
 
-                                return "Unit otomatis mengikuti akun TU ({$unit}). Format: nomor VA | BANK. Contoh: 8432572985 | MANDIRI.";
+                                return "Unit otomatis mengikuti akun TU ({$unit}). XLSX: kolom va_number, bank. TXT/CSV: nomor VA | BANK.";
                             }
 
-                            return 'Super admin wajib menyertakan unit. Format: nomor VA | BANK | UNIT. Contoh: 8432572985 | MANDIRI | SMA.';
+                            return 'Super admin wajib menyertakan unit. XLSX: kolom va_number, bank, unit. TXT/CSV: nomor VA | BANK | UNIT.';
                         }),
                     Forms\Components\FileUpload::make('file')
                         ->label('File Pool VA')
                         ->disk('local')
                         ->directory('imports/virtual-accounts')
-                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
+                        ->acceptedFileTypes([
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'text/csv',
+                            'text/plain',
+                            'application/vnd.ms-excel',
+                        ])
                         ->maxSize(10240)
                         ->required()
                         ->helperText(fn (): string => auth()->user()?->isTU()
-                            ? 'Header opsional: va_number | bank. Kolom unit tidak diperlukan karena otomatis memakai unit akun TU.'
-                            : 'Header opsional: va_number | bank | unit. Unit dapat berupa kode seperti SMA/SMP atau nama unit.'),
+                            ? 'Mendukung XLSX, CSV, dan TXT. Untuk TU, unit otomatis memakai unit akun dan kolom unit tidak diperlukan.'
+                            : 'Mendukung XLSX, CSV, dan TXT. Untuk super admin, setiap baris wajib memiliki unit.'),
                 ])
                 ->action(function (array $data): void {
                     $result = app(VirtualAccountImportService::class)->importFile($data['file'], auth()->user());
