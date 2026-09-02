@@ -4,6 +4,7 @@ namespace App\Filament\Applicant\Resources;
 
 use App\Filament\Applicant\Pages\RegistrationStatus;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages;
+use App\Filament\Forms\ParentInfoFields;
 use App\Models\Registration;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -77,22 +78,10 @@ class RegistrationResource extends Resource
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric()->minValue(2000)->maxValue(now()->year + 2),
                 ]),
 
-            Forms\Components\Section::make('Data Orang Tua / Wali')
-                ->description('Data kontak keluarga untuk kebutuhan administrasi SPMB.')
+            Forms\Components\Section::make('Data Orang Tua')
+                ->description('Data ayah dan ibu dipisahkan agar lebih mudah diisi dan diperiksa.')
                 ->relationship('parentInfo')
-                ->columns(2)
-                ->schema([
-                    Forms\Components\TextInput::make('father_name')->label('Nama Ayah')->required()->maxLength(150),
-                    Forms\Components\TextInput::make('father_nik')->label('NIK Ayah')->rule('digits:16'),
-                    Forms\Components\TextInput::make('father_occupation')->label('Pekerjaan Ayah')->maxLength(100),
-                    Forms\Components\TextInput::make('father_phone')->label('Telepon Ayah')->tel()->maxLength(20),
-                    Forms\Components\TextInput::make('father_income')->label('Penghasilan Ayah')->numeric()->minValue(0)->prefix('Rp'),
-                    Forms\Components\TextInput::make('mother_name')->label('Nama Ibu')->required()->maxLength(150),
-                    Forms\Components\TextInput::make('mother_nik')->label('NIK Ibu')->rule('digits:16'),
-                    Forms\Components\TextInput::make('mother_occupation')->label('Pekerjaan Ibu')->maxLength(100),
-                    Forms\Components\TextInput::make('mother_phone')->label('Telepon Ibu')->tel()->maxLength(20),
-                    Forms\Components\TextInput::make('mother_income')->label('Penghasilan Ibu')->numeric()->minValue(0)->prefix('Rp'),
-                ]),
+                ->schema(ParentInfoFields::schema()),
         ]);
     }
 
