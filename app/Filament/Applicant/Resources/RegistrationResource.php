@@ -157,12 +157,14 @@ class RegistrationResource extends Resource
     public static function canCreate(): bool
     {
         return (auth()->user()?->isUser() ?? false)
+            && (auth()->user()?->hasVerifiedEmail() ?? false)
             && RegistrationOpening::query()->where('status', 'open')->exists();
     }
 
     public static function canEdit($record): bool
     {
         return $record->user_id === auth()->id()
+            && (auth()->user()?->hasVerifiedEmail() ?? false)
             && $record->isOperational()
             && $record->current_stage === 'data_validation'
             && in_array($record->data_validation_status, ['pending', 'revision'], true);
