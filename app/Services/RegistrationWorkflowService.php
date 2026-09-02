@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\VirtualAccount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 class RegistrationWorkflowService
 {
@@ -21,18 +22,23 @@ class RegistrationWorkflowService
 
     public function validateData(Registration $registration, User $staff, bool $approved, ?string $notes = null): void
     {
-        $registration->update([
-            'data_validation_status' => $approved ? 'valid' : 'revision',
-            'data_validation_notes' => $notes,
-            'data_validated_by' => $staff->id,
-            'data_validated_at' => now(),
-            'verified_at' => $approved ? now() : null,
-            'status' => $approved ? 'verified' : 'submitted',
-            'current_stage' => $approved ? 'virtual_account' : 'data_validation',
-        ]);
+        $registration = Registration::query()->findOrFail($registration->id);
+        $registration->assertCurrentStage('data_validation');
+
+        $registration->transitionTo(
+            $approved ? 'virtual_account' : 'data_validation',
+            [
+                'data_validation_status' => $approved ? 'valid' : 'revision',
+                'data_validation_notes' => $notes,
+                'data_validated_by' => $staff->id,
+                'data_validated_at' => now(),
+                'verified_at' => $approved ? now() : null,
+                'status' => $approved ? 'verified' : 'submitted',
+            ],
+        );
 
         if ($approved) {
-            $this->assignAvailableVirtualAccount($registration->fresh(), $staff);
+            $this->assignAvailableVirtualAccount($registration, $staff);
         }
     }
 
@@ -48,6 +54,13 @@ class RegistrationWorkflowService
 
         $payment = DB::transaction(function () use ($registration, $staff, &$assignedNow): ?Payment {
             $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration->assertCurrentStage('virtual_account');
+
+            if ($lockedRegistration->data_validation_status !== 'valid') {
+                throw ValidationException::withMessages([
+                    'data_validation_status' => 'Virtual account hanya dapat diterbitkan setelah data pendaftaran dinyatakan valid.',
+                ]);
+            }
 
             $existingVa = VirtualAccount::query()
                 ->where('registration_id', $lockedRegistration->id)
@@ -59,21 +72,23 @@ class RegistrationWorkflowService
                     ->first();
 
                 if ($existingPayment) {
+                    $lockedRegistration->transitionTo('payment', ['status' => 'payment_pending']);
+
                     return $existingPayment->load(['registration.user', 'registration.unit']);
                 }
 
-                $assignedNow = true;
                 $payment = Payment::create([
                     'registration_id' => $lockedRegistration->id,
                     'virtual_account_id' => $existingVa->id,
                     'va_number' => $existingVa->va_number,
-                    'amount' => $existingVa->amount,
+                    'amount' => null,
                     'status' => 'pending',
                     'va_sent_at' => now(),
                     'va_sent_by' => $staff->id,
                 ]);
 
-                $lockedRegistration->update(['status' => 'payment_pending', 'current_stage' => 'payment']);
+                $lockedRegistration->transitionTo('payment', ['status' => 'payment_pending']);
+                $assignedNow = true;
 
                 return $payment->load(['registration.user', 'registration.unit']);
             }
@@ -100,15 +115,14 @@ class RegistrationWorkflowService
                 'registration_id' => $lockedRegistration->id,
                 'virtual_account_id' => $va->id,
                 'va_number' => $va->va_number,
-                'amount' => $va->amount,
+                'amount' => null,
                 'status' => 'pending',
                 'va_sent_at' => now(),
                 'va_sent_by' => $staff->id,
             ]);
 
-            $lockedRegistration->update([
+            $lockedRegistration->transitionTo('payment', [
                 'status' => 'payment_pending',
-                'current_stage' => 'payment',
             ]);
 
             $assignedNow = true;
@@ -138,6 +152,7 @@ class RegistrationWorkflowService
             if (! $this->assignAvailableVirtualAccount($registration, $staff)) {
                 break;
             }
+
             $assigned++;
         }
 
@@ -147,8 +162,17 @@ class RegistrationWorkflowService
     public function issueVirtualAccount(Registration $registration, User $staff, string $vaNumber, float $amount): Payment
     {
         $payment = DB::transaction(function () use ($registration, $staff, $vaNumber, $amount): Payment {
-            $payment = $registration->latestPayment()->first() ?? new Payment([
-                'registration_id' => $registration->id,
+            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration->assertCurrentStage('virtual_account');
+
+            if ($lockedRegistration->data_validation_status !== 'valid') {
+                throw ValidationException::withMessages([
+                    'data_validation_status' => 'Virtual account hanya dapat diterbitkan setelah data pendaftaran dinyatakan valid.',
+                ]);
+            }
+
+            $payment = $lockedRegistration->latestPayment()->first() ?? new Payment([
+                'registration_id' => $lockedRegistration->id,
             ]);
 
             $payment->fill([
@@ -160,106 +184,117 @@ class RegistrationWorkflowService
                 'rejection_reason' => null,
             ])->save();
 
-            $registration->update([
+            $lockedRegistration->transitionTo('payment', [
                 'status' => 'payment_pending',
-                'current_stage' => 'payment',
             ]);
 
             return $payment->fresh(['registration.user', 'registration.unit']);
         });
 
-        Mail::to($registration->user->email)->send(new VirtualAccountMail($payment));
+        Mail::to($payment->registration->user->email)->send(new VirtualAccountMail($payment));
 
         return $payment;
     }
 
     public function markPaymentUploaded(Payment $payment): void
     {
-        $payment->update([
-            'status' => 'paid',
-            'payment_date' => now(),
-            'proof_uploaded_at' => now(),
-            'rejection_reason' => null,
-        ]);
+        DB::transaction(function () use ($payment): void {
+            $lockedPayment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
+            $registration = Registration::query()->lockForUpdate()->findOrFail($lockedPayment->registration_id);
+            $registration->assertCurrentStage('payment');
 
-        $payment->registration->update([
-            'status' => 'payment_uploaded',
-            'current_stage' => 'payment_verification',
-        ]);
+            $lockedPayment->update([
+                'status' => 'paid',
+                'payment_date' => now(),
+                'proof_uploaded_at' => now(),
+                'rejection_reason' => null,
+            ]);
+
+            $registration->transitionTo('payment_verification', [
+                'status' => 'payment_uploaded',
+            ]);
+        });
     }
 
     public function verifyPayment(Payment $payment, User $staff, bool $approved, ?string $reason = null): void
     {
-        if ($approved) {
-            DB::transaction(function () use ($payment, $staff): void {
-                $payment->update([
+        DB::transaction(function () use ($payment, $staff, $approved, $reason): void {
+            $lockedPayment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
+            $registration = Registration::query()->lockForUpdate()->findOrFail($lockedPayment->registration_id);
+            $registration->assertCurrentStage('payment_verification');
+
+            if ($approved) {
+                $lockedPayment->update([
                     'status' => 'verified',
                     'verified_by' => $staff->id,
                     'verified_at' => now(),
                     'rejection_reason' => null,
                 ]);
 
-                $payment->virtualAccount?->update(['status' => 'paid']);
+                $lockedPayment->virtualAccount?->update(['status' => 'paid']);
 
-                $payment->registration->update([
+                $registration->transitionTo('applicant_card', [
                     'status' => 'payment_verified',
                     'payment_verified_at' => now(),
-                    'current_stage' => 'applicant_card',
                 ]);
-            });
 
-            return;
-        }
+                return;
+            }
 
-        $payment->update([
-            'status' => 'rejected',
-            'verified_by' => $staff->id,
-            'verified_at' => now(),
-            'rejection_reason' => $reason,
-        ]);
+            $lockedPayment->update([
+                'status' => 'rejected',
+                'verified_by' => $staff->id,
+                'verified_at' => now(),
+                'rejection_reason' => $reason,
+            ]);
 
-        $payment->registration->update([
-            'status' => 'payment_pending',
-            'current_stage' => 'payment',
-        ]);
+            $registration->transitionTo('payment', [
+                'status' => 'payment_pending',
+            ]);
+        });
     }
 
     public function issueApplicantCard(Registration $registration, User $staff): void
     {
-        $registration->update([
-            'applicant_card_number' => $registration->applicant_card_number ?: $registration->generateApplicantCardNumber(),
-            'applicant_card_issued_by' => $staff->id,
-            'applicant_card_issued_at' => now(),
-            'current_stage' => 'documents',
-        ]);
+        DB::transaction(function () use ($registration, $staff): void {
+            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration->assertCurrentStage('applicant_card');
+
+            $lockedRegistration->transitionTo('documents', [
+                'applicant_card_number' => $lockedRegistration->applicant_card_number ?: $lockedRegistration->generateApplicantCardNumber(),
+                'applicant_card_issued_by' => $staff->id,
+                'applicant_card_issued_at' => now(),
+            ]);
+        });
     }
 
     public function refreshDocumentStage(Registration $registration): bool
     {
-        $types = $registration->documents()
-            ->where('is_verified', true)
-            ->pluck('type')
-            ->unique();
+        return DB::transaction(function () use ($registration): bool {
+            $lockedRegistration = Registration::query()
+                ->with('unit')
+                ->lockForUpdate()
+                ->findOrFail($registration->id);
 
-        $complete = collect(self::REQUIRED_DOCUMENTS)
-            ->every(fn (string $type): bool => $types->contains($type));
+            $lockedRegistration->assertCurrentStage(['documents', 'document_verification']);
 
-        if (! $complete) {
-            $registration->update([
-                'current_stage' => 'document_verification',
-                'documents_verified_at' => null,
-            ]);
+            $types = $lockedRegistration->documents()
+                ->where('is_verified', true)
+                ->pluck('type')
+                ->unique();
 
-            return false;
-        }
+            $complete = collect(self::REQUIRED_DOCUMENTS)
+                ->every(fn (string $type): bool => $types->contains($type));
 
-        DB::transaction(function () use ($registration): void {
-            $registration->update([
-                'documents_completed_at' => $registration->documents_completed_at ?: now(),
-                'documents_verified_at' => now(),
-            ]);
+            if (! $complete) {
+                $lockedRegistration->transitionTo('document_verification', [
+                    'documents_verified_at' => null,
+                ]);
 
-            $tests = $registration->unit
+                return false;
+            }
+
+            $tests = $lockedRegistration->unit
                 ->admissionTests()
                 ->where('is_active', true)
                 ->get();
@@ -267,7 +302,7 @@ class RegistrationWorkflowService
             foreach ($tests as $test) {
                 AdmissionTestResult::firstOrCreate(
                     [
-                        'registration_id' => $registration->id,
+                        'registration_id' => $lockedRegistration->id,
                         'admission_test_id' => $test->id,
                     ],
                     [
@@ -279,96 +314,127 @@ class RegistrationWorkflowService
 
             if ($tests->isEmpty()) {
                 Selection::firstOrCreate(
-                    ['registration_id' => $registration->id],
+                    ['registration_id' => $lockedRegistration->id],
                     ['decision' => 'pending'],
                 );
             }
 
-            $registration->update([
-                'current_stage' => $tests->isEmpty() ? 'selection' : 'tests',
-            ]);
-        });
+            $lockedRegistration->transitionTo(
+                $tests->isEmpty() ? 'selection' : 'tests',
+                [
+                    'documents_completed_at' => $lockedRegistration->documents_completed_at ?: now(),
+                    'documents_verified_at' => now(),
+                ],
+            );
 
-        return true;
+            return true;
+        });
     }
 
     public function recordTestResult(AdmissionTestResult $result, User $staff, array $data): void
     {
-        $result->update($data + [
-            'assessed_by' => $staff->id,
-            'assessed_at' => now(),
-        ]);
+        DB::transaction(function () use ($result, $staff, $data): void {
+            $lockedResult = AdmissionTestResult::query()->lockForUpdate()->findOrFail($result->id);
+            $registration = Registration::query()->lockForUpdate()->findOrFail($lockedResult->registration_id);
+            $registration->assertCurrentStage('tests');
 
-        $registration = $result->registration;
-        $pending = $registration->testResults()
-            ->whereNotIn('status', ['completed', 'exempted', 'absent'])
-            ->exists();
+            $lockedResult->update($data + [
+                'assessed_by' => $staff->id,
+                'assessed_at' => now(),
+            ]);
 
-        if (! $pending) {
-            Selection::firstOrCreate(
-                ['registration_id' => $registration->id],
-                ['decision' => 'pending'],
-            );
+            $pending = $registration->testResults()
+                ->whereNotIn('status', ['completed', 'exempted', 'absent'])
+                ->exists();
 
-            $registration->update(['current_stage' => 'selection']);
-        }
+            if (! $pending) {
+                Selection::firstOrCreate(
+                    ['registration_id' => $registration->id],
+                    ['decision' => 'pending'],
+                );
+
+                $registration->transitionTo('selection');
+            }
+        });
     }
 
     public function decide(Registration $registration, User $staff, string $decision, ?float $score = null, ?string $notes = null): Selection
     {
-        $selection = Selection::updateOrCreate(
-            ['registration_id' => $registration->id],
-            [
-                'decision' => $decision,
-                'final_score' => $score,
-                'notes' => $notes,
-                'decided_by' => $staff->id,
-                'decided_at' => now(),
-            ],
-        );
+        if (! in_array($decision, ['accepted', 'rejected', 'waiting_list'], true)) {
+            throw ValidationException::withMessages([
+                'decision' => 'Keputusan seleksi harus Diterima, Ditolak, atau Daftar Tunggu.',
+            ]);
+        }
 
-        Announcement::firstOrCreate(
-            ['registration_id' => $registration->id],
-            [
-                'status' => 'draft',
-                'title' => 'Pengumuman Hasil SPMB',
-            ],
-        );
+        return DB::transaction(function () use ($registration, $staff, $decision, $score, $notes): Selection {
+            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration->assertCurrentStage('selection');
 
-        $registration->update(['current_stage' => 'announcement']);
+            $selection = Selection::updateOrCreate(
+                ['registration_id' => $lockedRegistration->id],
+                [
+                    'decision' => $decision,
+                    'final_score' => $score,
+                    'notes' => $notes,
+                    'decided_by' => $staff->id,
+                    'decided_at' => now(),
+                ],
+            );
 
-        return $selection;
+            Announcement::firstOrCreate(
+                ['registration_id' => $lockedRegistration->id],
+                [
+                    'status' => 'draft',
+                    'title' => 'Pengumuman Hasil SPMB',
+                ],
+            );
+
+            $lockedRegistration->transitionTo('announcement');
+
+            return $selection;
+        });
     }
 
     public function publish(Registration $registration, User $staff, ?string $title = null, ?string $message = null): Announcement
     {
-        $selection = $registration->selection;
+        $announcement = DB::transaction(function () use ($registration, $staff, $title, $message): Announcement {
+            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration->assertCurrentStage('announcement');
 
-        $announcement = Announcement::updateOrCreate(
-            ['registration_id' => $registration->id],
-            [
-                'status' => 'published',
-                'title' => $title ?: 'Pengumuman Hasil SPMB',
-                'message' => $message,
-                'published_by' => $staff->id,
-                'published_at' => now(),
-            ],
-        );
+            $selection = $lockedRegistration->selection()->first();
 
-        $legacyStatus = match ($selection?->decision) {
-            'accepted' => 'accepted',
-            'rejected' => 'rejected',
-            'waiting_list' => 'waiting_list',
-            default => $registration->status,
-        };
+            if (! $selection || ! in_array($selection->decision, ['accepted', 'rejected', 'waiting_list'], true)) {
+                throw ValidationException::withMessages([
+                    'selection' => 'Pengumuman tidak dapat diterbitkan sebelum keputusan seleksi final tersedia.',
+                ]);
+            }
 
-        $registration->update([
-            'status' => $legacyStatus,
-            'accepted_at' => $legacyStatus === 'accepted' ? now() : $registration->accepted_at,
-            'current_stage' => 'completed',
-        ]);
+            $announcement = Announcement::updateOrCreate(
+                ['registration_id' => $lockedRegistration->id],
+                [
+                    'status' => 'published',
+                    'title' => $title ?: 'Pengumuman Hasil SPMB',
+                    'message' => $message,
+                    'published_by' => $staff->id,
+                    'published_at' => now(),
+                ],
+            );
 
-        Mail::to($registration->user->email)
+            $legacyStatus = match ($selection->decision) {
+                'accepted' => 'accepted',
+                'rejected' => 'rejected',
+                'waiting_list' => 'waiting_list',
+            };
+
+            $lockedRegistration->transitionTo('completed', [
+                'status' => $legacyStatus,
+                'accepted_at' => $legacyStatus === 'accepted' ? now() : $lockedRegistration->accepted_at,
+            ]);
+
+            return $announcement->fresh(['registration.user']);
+        });
+
+        Mail::to($announcement->registration->user->email)
             ->send(new AnnouncementPublishedMail($announcement));
 
         $announcement->update(['email_sent_at' => now()]);
