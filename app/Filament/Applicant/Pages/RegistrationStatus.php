@@ -48,7 +48,11 @@ class RegistrationStatus extends Page
 
     public function stageIndex(): int
     {
-        $index = array_search($this->registrationRecord->current_stage, Registration::STAGES, true);
+        $index = array_search(
+            $this->registrationRecord->current_stage,
+            array_keys(Registration::STAGES),
+            true,
+        );
 
         return $index === false ? 0 : $index;
     }

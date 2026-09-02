@@ -76,8 +76,8 @@ class ApplicantPortalTest extends TestCase
         $this->actingAs($applicant);
 
         $this->post('/registration')->assertNotFound();
-        $this->post('/registration/1/payment')->assertNotFound();
-        $this->post('/registration/1/documents')->assertNotFound();
+        $this->post('/registration/1/payment')->assertStatus(405);
+        $this->post('/registration/1/documents')->assertStatus(405);
         $this->patch('/profile')->assertStatus(405);
         $this->delete('/profile')->assertStatus(405);
     }
