@@ -49,6 +49,34 @@ class VirtualAccountImportTest extends TestCase
         ]);
     }
 
+    public function test_tu_import_automatically_uses_its_unit_when_unit_column_is_omitted(): void
+    {
+        Storage::fake('local');
+
+        $sma = Unit::create(['name' => 'Sekolah Menengah Atas', 'code' => 'SMA', 'is_active' => true]);
+        $staff = $this->staffWithRole('tu', ['unit_id' => $sma->id, 'role' => 'tu']);
+
+        $path = 'imports/virtual-accounts/pool-tu.txt';
+        Storage::disk('local')->put($path, "8432572985 | MANDIRI\n8432572986 | MANDIRI\n");
+
+        $result = app(VirtualAccountImportService::class)->importFile($path, $staff);
+
+        $this->assertSame(2, $result['imported']);
+        $this->assertSame(0, $result['failed']);
+
+        $this->assertDatabaseHas('virtual_accounts', [
+            'va_number' => '8432572985',
+            'bank' => 'MANDIRI',
+            'unit_id' => $sma->id,
+        ]);
+
+        $this->assertDatabaseHas('virtual_accounts', [
+            'va_number' => '8432572986',
+            'bank' => 'MANDIRI',
+            'unit_id' => $sma->id,
+        ]);
+    }
+
     public function test_tu_cannot_import_virtual_account_for_another_unit(): void
     {
         Storage::fake('local');
