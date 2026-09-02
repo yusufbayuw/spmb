@@ -22,6 +22,7 @@ use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
@@ -102,6 +103,18 @@ class AppServiceProvider extends ServiceProvider
                     $event->user,
                     actor: $event->user,
                     description: 'Password berhasil direset',
+                );
+            }
+        });
+
+        Event::listen(Verified::class, function (Verified $event): void {
+            if ($event->user instanceof User) {
+                app(AuditTrail::class)->record(
+                    'auth.email_verified',
+                    $event->user,
+                    actor: $event->user,
+                    metadata: ['email' => $event->user->email],
+                    description: 'Alamat email berhasil diverifikasi',
                 );
             }
         });
