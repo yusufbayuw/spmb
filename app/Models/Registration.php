@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class Registration extends Model
 {
@@ -21,6 +22,24 @@ class Registration extends Model
         'selection' => 'Seleksi Calon Siswa',
         'announcement' => 'Pengumuman',
         'completed' => 'Selesai',
+    ];
+
+    /**
+     * The only legal workflow transitions. A transition to the same stage is
+     * allowed for in-stage updates (for example a validation revision).
+     */
+    public const STAGE_TRANSITIONS = [
+        'data_validation' => ['virtual_account'],
+        'virtual_account' => ['payment'],
+        'payment' => ['payment_verification'],
+        'payment_verification' => ['payment', 'applicant_card'],
+        'applicant_card' => ['documents'],
+        'documents' => ['document_verification'],
+        'document_verification' => ['documents', 'tests', 'selection'],
+        'tests' => ['selection'],
+        'selection' => ['announcement'],
+        'announcement' => ['completed'],
+        'completed' => [],
     ];
 
     protected $fillable = [
@@ -72,5 +91,72 @@ class Registration extends Model
     public function stageLabel(): string
     {
         return self::STAGES[$this->current_stage] ?? $this->current_stage;
+    }
+
+    public function canTransitionTo(string $targetStage): bool
+    {
+        if (! array_key_exists($targetStage, self::STAGES)) {
+            return false;
+        }
+
+        if ($this->current_stage === $targetStage) {
+            return true;
+        }
+
+        return in_array(
+            $targetStage,
+            self::STAGE_TRANSITIONS[$this->current_stage] ?? [],
+            true,
+        );
+    }
+
+    public function assertCurrentStage(string|array $expectedStages): void
+    {
+        $expectedStages = (array) $expectedStages;
+
+        if (in_array($this->current_stage, $expectedStages, true)) {
+            return;
+        }
+
+        $expectedLabels = collect($expectedStages)
+            ->map(fn (string $stage): string => self::STAGES[$stage] ?? $stage)
+            ->implode(' / ');
+
+        throw ValidationException::withMessages([
+            'current_stage' => "Tahap pendaftaran sudah berubah. Proses ini hanya dapat dilakukan pada tahap {$expectedLabels}. Tahap saat ini: {$this->stageLabel()}.",
+        ]);
+    }
+
+    /**
+     * Transition atomically from the model's current stage. The conditional
+     * update also protects against stale/concurrent requests.
+     */
+    public function transitionTo(string $targetStage, array $attributes = []): void
+    {
+        $sourceStage = (string) $this->current_stage;
+
+        if (! $this->canTransitionTo($targetStage)) {
+            $sourceLabel = self::STAGES[$sourceStage] ?? $sourceStage;
+            $targetLabel = self::STAGES[$targetStage] ?? $targetStage;
+
+            throw ValidationException::withMessages([
+                'current_stage' => "Perpindahan tahap {$sourceLabel} → {$targetLabel} tidak diizinkan.",
+            ]);
+        }
+
+        $updated = static::query()
+            ->whereKey($this->getKey())
+            ->where('current_stage', $sourceStage)
+            ->update(array_merge($attributes, ['current_stage' => $targetStage]));
+
+        if ($updated !== 1) {
+            $this->refresh();
+
+            throw ValidationException::withMessages([
+                'current_stage' => 'Tahap pendaftaran berubah oleh proses lain. Muat ulang data sebelum melanjutkan.',
+            ]);
+        }
+
+        $this->refresh();
     }
 }
