@@ -19,14 +19,12 @@ class VirtualAccount extends Model
     ];
 
     protected $fillable = [
-        'batch_id', 'unit_id', 'bank', 'va_number', 'amount', 'status', 'registration_id',
-        'assigned_by', 'assigned_at', 'expired_at',
+        'batch_id', 'unit_id', 'bank', 'va_number', 'status', 'registration_id',
+        'assigned_by', 'assigned_at',
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
         'assigned_at' => 'datetime',
-        'expired_at' => 'datetime',
     ];
 
     public function batch() { return $this->belongsTo(VirtualAccountBatch::class, 'batch_id'); }
@@ -35,13 +33,15 @@ class VirtualAccount extends Model
     public function assignedBy() { return $this->belongsTo(User::class, 'assigned_by'); }
     public function payment() { return $this->hasOne(Payment::class); }
 
+    public function getAmountAttribute(mixed $value = null): mixed
+    {
+        return null;
+    }
+
     public function scopeAvailable(Builder $query): Builder
     {
         return $query
             ->where('status', 'available')
-            ->whereNull('registration_id')
-            ->where(function (Builder $query): void {
-                $query->whereNull('expired_at')->orWhere('expired_at', '>', now());
-            });
+            ->whereNull('registration_id');
     }
 }

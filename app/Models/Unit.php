@@ -15,5 +15,4 @@ class Unit extends Model
     public function users() { return $this->hasMany(User::class); }
     public function admissionTests() { return $this->hasMany(AdmissionTest::class)->orderBy('sort_order'); }
     public function virtualAccounts() { return $this->hasMany(VirtualAccount::class); }
-    public function virtualAccountBatches() { return $this->hasMany(VirtualAccountBatch::class); }
 }

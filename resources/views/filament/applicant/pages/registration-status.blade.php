@@ -1,8 +1,8 @@
 <x-filament-panels::page>
     @php
         $registration = $this->registrationRecord;
+        $stages = array_keys(\App\Models\Registration::STAGES);
         $stageLabels = \App\Models\Registration::STAGES;
-        $stages = array_keys($stageLabels);
         $stageIndex = $this->stageIndex();
         $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
         $requiredDocuments = \App\Services\RegistrationWorkflowService::REQUIRED_DOCUMENTS;
@@ -23,13 +23,7 @@
                     </p>
                 </div>
 
-                <x-filament::button
-                    tag="a"
-                    href="{{ \App\Filament\Applicant\Pages\Dashboard::getUrl() }}"
-                    color="gray"
-                    outlined
-                    icon="heroicon-m-arrow-left"
-                >
+                <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\Dashboard::getUrl() }}" color="gray" outlined icon="heroicon-m-arrow-left">
                     Semua Pendaftaran
                 </x-filament::button>
             </div>
@@ -43,7 +37,7 @@
             <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning">
                 <x-slot name="heading">Data perlu diperbaiki</x-slot>
                 <p class="text-sm text-gray-600 dark:text-gray-300">
-                    {{ $registration->data_validation_notes ?: 'Tata Usaha meminta perbaikan data pendaftaran. Silakan perbaiki data lalu kirim kembali.' }}
+                    {{ $registration->data_validation_notes ?: 'Tata Usaha meminta perbaikan data pendaftaran. Silakan gunakan menu Perbaiki Data pada Pendaftaran Saya.' }}
                 </p>
                 <div class="mt-4">
                     <x-filament::button
@@ -66,27 +60,19 @@
 
                     <div class="flex flex-wrap gap-3">
                         @if ($registration->current_stage === 'payment')
-                            <x-filament::button
-                                tag="a"
-                                href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->id]) }}"
-                                icon="heroicon-m-banknotes"
-                            >
+                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->id]) }}" icon="heroicon-m-banknotes">
                                 Upload Bukti Pembayaran
                             </x-filament::button>
                         @elseif ($registration->current_stage === 'payment_verification')
                             <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu verifikasi pembayaran TU</x-filament::badge>
                         @elseif (in_array($registration->current_stage, ['documents', 'document_verification'], true))
-                            <x-filament::button
-                                tag="a"
-                                href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->id]) }}"
-                                icon="heroicon-m-document-arrow-up"
-                            >
+                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->id]) }}" icon="heroicon-m-document-arrow-up">
                                 {{ $registration->current_stage === 'documents' ? 'Lengkapi Dokumen' : 'Lihat Dokumen' }}
                             </x-filament::button>
                         @elseif ($registration->current_stage === 'data_validation')
                             <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu validasi data oleh TU</x-filament::badge>
                         @elseif ($registration->current_stage === 'virtual_account')
-                            <x-filament::badge color="warning" icon="heroicon-m-envelope">Menunggu Virtual Account</x-filament::badge>
+                            <x-filament::badge color="warning" icon="heroicon-m-envelope">Menunggu Virtual Account dari TU</x-filament::badge>
                         @elseif ($registration->current_stage === 'applicant_card')
                             <x-filament::badge color="warning" icon="heroicon-m-identification">Menunggu penerbitan kartu pendaftar</x-filament::badge>
                         @elseif ($registration->current_stage === 'tests')
@@ -100,14 +86,7 @@
                         @endif
 
                         @if ($registration->applicant_card_number)
-                            <x-filament::button
-                                tag="a"
-                                href="{{ route('registration.card', $registration) }}"
-                                target="_blank"
-                                color="gray"
-                                outlined
-                                icon="heroicon-m-printer"
-                            >
+                            <x-filament::button tag="a" href="{{ route('registration.card', $registration) }}" target="_blank" color="gray" outlined icon="heroicon-m-printer">
                                 Cetak Kartu Pendaftar
                             </x-filament::button>
                         @endif
@@ -152,7 +131,11 @@
                                     <div>
                                         <div class="font-medium text-gray-950 dark:text-white">{{ $result->admissionTest?->name ?? 'Tes' }}</div>
                                         <div class="mt-1 text-xs text-gray-500">
-                                            {{ $result->admissionTest?->scheduled_at?->format('d M Y H:i') ?? 'Jadwal akan diinformasikan' }}
+                                            @if ($result->admissionTest?->scheduled_at)
+                                                {{ $result->admissionTest->scheduled_at->format('d M Y H:i') }}
+                                            @else
+                                                Jadwal akan diinformasikan
+                                            @endif
                                             @if ($result->admissionTest?->location)
                                                 · {{ $result->admissionTest->location }}
                                             @endif
@@ -197,12 +180,17 @@
                     <x-slot name="heading">Pembayaran</x-slot>
                     @if ($registration->latestPayment)
                         <dl class="space-y-3 text-sm">
+                            @if ($registration->latestPayment->virtualAccount?->bank)
+                                <div><dt class="text-gray-500">Bank</dt><dd class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $registration->latestPayment->virtualAccount->bank }}</dd></div>
+                            @endif
                             <div><dt class="text-gray-500">Virtual Account</dt><dd class="mt-1 font-mono font-semibold text-gray-950 dark:text-white">{{ $registration->latestPayment->va_number ?? 'Belum tersedia' }}</dd></div>
-                            <div><dt class="text-gray-500">Nominal</dt><dd class="mt-1 font-semibold text-gray-950 dark:text-white">Rp {{ number_format((float) $registration->latestPayment->amount, 0, ',', '.') }}</dd></div>
+                            @if (! is_null($registration->latestPayment->amount))
+                                <div><dt class="text-gray-500">Nominal</dt><dd class="mt-1 font-semibold text-gray-950 dark:text-white">Rp {{ number_format((float) $registration->latestPayment->amount, 0, ',', '.') }}</dd></div>
+                            @endif
                             <div><dt class="text-gray-500">Status</dt><dd class="mt-1"><x-filament::badge>{{ str($registration->latestPayment->status)->replace('_', ' ')->title() }}</x-filament::badge></dd></div>
                         </dl>
                     @else
-                        <p class="text-sm text-gray-500">Belum ada tagihan pembayaran.</p>
+                        <p class="text-sm text-gray-500">Belum ada Virtual Account yang diberikan.</p>
                     @endif
                 </x-filament::section>
 

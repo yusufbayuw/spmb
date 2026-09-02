@@ -23,7 +23,7 @@ class RegistrationStatus extends Page
                 'unit',
                 'parentInfo',
                 'documents',
-                'latestPayment',
+                'latestPayment.virtualAccount',
                 'testResults.admissionTest',
                 'selection',
                 'announcement',
@@ -48,11 +48,7 @@ class RegistrationStatus extends Page
 
     public function stageIndex(): int
     {
-        $index = array_search(
-            $this->registrationRecord->current_stage,
-            array_keys(Registration::STAGES),
-            true,
-        );
+        $index = array_search($this->registrationRecord->current_stage, array_keys(Registration::STAGES), true);
 
         return $index === false ? 0 : $index;
     }

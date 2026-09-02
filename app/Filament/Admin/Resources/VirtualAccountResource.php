@@ -24,10 +24,13 @@ class VirtualAccountResource extends Resource
         return $table
             ->defaultSort('id', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('bank')->label('Bank')->badge()->searchable(),
                 Tables\Columns\TextColumn::make('va_number')->label('Nomor VA')->searchable()->copyable(),
-                Tables\Columns\TextColumn::make('amount')->label('Nominal')->money('IDR')->sortable(),
+                Tables\Columns\TextColumn::make('bank')->label('Bank')->badge()->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('unit.name')
+                    ->label('Unit')
+                    ->badge()
+                    ->description(fn (VirtualAccount $record): ?string => $record->unit?->code)
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -42,7 +45,6 @@ class VirtualAccountResource extends Resource
                 Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi')->searchable()->default('-'),
                 Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable()->default('-'),
                 Tables\Columns\TextColumn::make('assigned_at')->label('Assigned')->dateTime('d M Y H:i')->placeholder('-')->toggleable(),
-                Tables\Columns\TextColumn::make('expired_at')->label('Kedaluwarsa')->dateTime('d M Y H:i')->placeholder('-')->sortable(),
                 Tables\Columns\TextColumn::make('batch.id')->label('Batch')->formatStateUsing(fn ($state) => $state ? '#'.$state : '-')->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
