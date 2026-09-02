@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Mail\AnnouncementPublishedMail;
-use App\Mail\VirtualAccountMail;
+use App\Jobs\SendAnnouncementPublishedMail;
+use App\Jobs\SendVirtualAccountMail;
 use App\Models\AdmissionTest;
 use App\Models\Document;
 use App\Models\Registration;
@@ -13,7 +13,7 @@ use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\RegistrationWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -23,7 +23,7 @@ class RegistrationWorkflowStateMachineTest extends TestCase
 
     public function test_complete_spmb_journey_runs_only_through_legal_stage_transitions(): void
     {
-        Mail::fake();
+        Queue::fake();
 
         [$registration, $staff, $unit] = $this->registrationFixture();
 
@@ -44,25 +44,26 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         ]);
 
         $workflow = app(RegistrationWorkflowService::class);
-
-        $this->assertSame('data_validation', $registration->current_stage);
-
         $workflow->validateData($registration, $staff, true);
         $registration->refresh();
 
-        // Validasi langsung melakukan auto assignment VA jika pool tersedia.
         $this->assertSame('payment', $registration->current_stage);
         $this->assertSame('valid', $registration->data_validation_status);
 
         $payment = $registration->payments()->firstOrFail();
         $this->assertSame('pending', $payment->status);
         $this->assertSame('8432572985', $payment->va_number);
+        $this->assertSame('350000.00', $payment->amount);
         $this->assertSame('assigned', VirtualAccount::query()->firstOrFail()->status);
-        Mail::assertSent(VirtualAccountMail::class, 1);
+        Queue::assertPushed(SendVirtualAccountMail::class, fn ($job) => $job->paymentId === $payment->id);
 
         $payment->update([
             'proof_path' => 'payments/'.$registration->id.'/proof.pdf',
             'proof_original_name' => 'proof.pdf',
+            'proof_mime_type' => 'application/pdf',
+            'proof_sha256' => str_repeat('a', 64),
+            'proof_malware_scan_status' => 'clean',
+            'proof_security_scanned_at' => now(),
         ]);
         $workflow->markPaymentUploaded($payment);
         $registration->refresh();
@@ -85,18 +86,18 @@ class RegistrationWorkflowStateMachineTest extends TestCase
                 'file_path' => 'documents/'.$registration->id.'/'.$type.'.pdf',
                 'original_name' => $type.'.pdf',
                 'file_type' => 'pdf',
+                'mime_type' => 'application/pdf',
                 'file_size' => 1024,
+                'sha256' => hash('sha256', $type),
+                'malware_scan_status' => 'clean',
+                'security_scanned_at' => now(),
                 'is_verified' => true,
                 'verified_at' => now(),
                 'verified_by' => $staff->id,
             ]);
         }
 
-        // Upload lengkap membawa pendaftar ke antrean verifikasi dokumen.
-        $registration->transitionTo('document_verification', [
-            'documents_completed_at' => now(),
-        ]);
-
+        $registration->transitionTo('document_verification', ['documents_completed_at' => now()]);
         $this->assertTrue($workflow->refreshDocumentStage($registration));
         $registration->refresh();
         $this->assertSame('tests', $registration->current_stage);
@@ -129,23 +130,17 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertNotNull($registration->accepted_at);
         $this->assertSame('published', $announcement->status);
         $this->assertNotNull($announcement->published_at);
-        $this->assertNotNull($announcement->fresh()->email_sent_at);
-        Mail::assertSent(AnnouncementPublishedMail::class, 1);
+        $this->assertNull($announcement->fresh()->email_sent_at);
+        Queue::assertPushed(SendAnnouncementPublishedMail::class, fn ($job) => $job->announcementId === $announcement->id);
     }
 
     public function test_workflow_service_rejects_skipping_required_stages(): void
     {
         [$registration, $staff] = $this->registrationFixture();
-
-        $registration->forceFill([
-            'current_stage' => 'payment',
-            'status' => 'payment_pending',
-        ])->save();
+        $registration->forceFill(['current_stage' => 'payment', 'status' => 'payment_pending'])->save();
 
         try {
-            app(RegistrationWorkflowService::class)
-                ->decide($registration, $staff, 'accepted', 100);
-
+            app(RegistrationWorkflowService::class)->decide($registration, $staff, 'accepted', 100);
             $this->fail('Invalid workflow transition should have been rejected.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('current_stage', $exception->errors());
@@ -153,31 +148,24 @@ class RegistrationWorkflowStateMachineTest extends TestCase
 
         $registration->refresh();
         $this->assertSame('payment', $registration->current_stage);
-        $this->assertDatabaseMissing('selections', [
-            'registration_id' => $registration->id,
-        ]);
+        $this->assertDatabaseMissing('selections', ['registration_id' => $registration->id]);
     }
 
     public function test_state_machine_rejects_direct_illegal_transition(): void
     {
         [$registration] = $this->registrationFixture();
-
         $registration->forceFill(['current_stage' => 'payment'])->save();
-
         $this->expectException(ValidationException::class);
-
         $registration->transitionTo('selection');
     }
 
     public function test_stale_concurrent_transition_cannot_overwrite_newer_stage(): void
     {
         [$registration] = $this->registrationFixture();
-
         $registration->forceFill(['current_stage' => 'payment'])->save();
 
         $firstRequest = Registration::query()->findOrFail($registration->id);
         $staleRequest = Registration::query()->findOrFail($registration->id);
-
         $firstRequest->transitionTo('payment_verification');
 
         try {
@@ -187,37 +175,37 @@ class RegistrationWorkflowStateMachineTest extends TestCase
             $this->assertArrayHasKey('current_stage', $exception->errors());
         }
 
-        $this->assertSame(
-            'payment_verification',
-            Registration::query()->findOrFail($registration->id)->current_stage,
-        );
+        $this->assertSame('payment_verification', Registration::query()->findOrFail($registration->id)->current_stage);
+    }
+
+    public function test_non_active_registration_cannot_continue_workflow_and_can_be_reactivated(): void
+    {
+        [$registration, $staff] = $this->registrationFixture();
+        $registration->changeLifecycle('cancelled', $staff, 'Duplikasi pendaftaran');
+
+        try {
+            app(RegistrationWorkflowService::class)->validateData($registration, $staff, true);
+            $this->fail('Cancelled registration must not continue workflow.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('lifecycle_status', $exception->errors());
+        }
+
+        $registration->refresh()->changeLifecycle('active', $staff);
+        $this->assertSame('active', $registration->fresh()->lifecycle_status);
     }
 
     private function registrationFixture(): array
     {
-        $unit = Unit::create([
-            'name' => 'SMA Taruna Bakti',
-            'code' => 'SMA',
-            'is_active' => true,
-        ]);
-
-        $applicant = User::factory()->create([
-            'role' => 'user',
-            'is_active' => true,
-            'email' => 'parent@example.test',
-        ]);
-
-        $staff = User::factory()->create([
-            'role' => 'admin',
-            'is_active' => true,
-            'unit_id' => $unit->id,
-        ]);
+        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $applicant = User::factory()->create(['role' => 'user', 'is_active' => true, 'email' => 'parent@example.test']);
+        $staff = User::factory()->create(['role' => 'admin', 'is_active' => true, 'unit_id' => $unit->id]);
 
         $opening = RegistrationOpening::create([
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 1',
             'pathway' => 'Reguler',
+            'registration_fee' => 350000,
             'status' => 'open',
         ]);
 
