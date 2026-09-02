@@ -2,13 +2,11 @@
 
 namespace App\Filament\Applicant\Resources;
 
+use App\Filament\Applicant\Pages\RegistrationStatus;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages;
-use App\Models\Document;
 use App\Models\Registration;
-use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -38,21 +36,34 @@ class RegistrationResource extends Resource
                         ->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Pendaftaran dilakukan oleh')
-                        ->options(['parent' => 'Orang Tua / Wali', 'self' => 'Calon Siswa Sendiri'])
+                        ->options([
+                            'parent' => 'Orang Tua / Wali',
+                            'self' => 'Calon Siswa Sendiri',
+                        ])
                         ->default('parent')
                         ->required()
                         ->live(),
                     Forms\Components\Select::make('registrant_relationship')
                         ->label('Hubungan dengan calon siswa')
-                        ->options(['father' => 'Ayah', 'mother' => 'Ibu', 'guardian' => 'Wali', 'other' => 'Lainnya'])
-                        ->required(fn (Forms\Get $get) => $get('registrant_type') === 'parent')
-                        ->visible(fn (Forms\Get $get) => $get('registrant_type') === 'parent'),
+                        ->options([
+                            'father' => 'Ayah',
+                            'mother' => 'Ibu',
+                            'guardian' => 'Wali',
+                            'other' => 'Lainnya',
+                        ])
+                        ->required(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent')
+                        ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
                 ]),
 
             Forms\Components\Section::make('Identitas Calon Siswa')
+                ->description('Gunakan data yang sama dengan dokumen resmi calon siswa.')
                 ->columns(3)
                 ->schema([
-                    Forms\Components\TextInput::make('nik')->label('NIK')->required()->rule('digits:16')->unique(ignoreRecord: true),
+                    Forms\Components\TextInput::make('nik')
+                        ->label('NIK')
+                        ->required()
+                        ->rule('digits:16')
+                        ->unique(ignoreRecord: true),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
                     Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
@@ -67,6 +78,7 @@ class RegistrationResource extends Resource
                 ]),
 
             Forms\Components\Section::make('Data Orang Tua / Wali')
+                ->description('Data kontak keluarga untuk kebutuhan administrasi SPMB.')
                 ->relationship('parentInfo')
                 ->columns(2)
                 ->schema([
@@ -74,12 +86,12 @@ class RegistrationResource extends Resource
                     Forms\Components\TextInput::make('father_nik')->label('NIK Ayah')->rule('digits:16'),
                     Forms\Components\TextInput::make('father_occupation')->label('Pekerjaan Ayah')->maxLength(100),
                     Forms\Components\TextInput::make('father_phone')->label('Telepon Ayah')->tel()->maxLength(20),
-                    Forms\Components\TextInput::make('father_income')->label('Penghasilan Ayah')->numeric()->prefix('Rp'),
+                    Forms\Components\TextInput::make('father_income')->label('Penghasilan Ayah')->numeric()->minValue(0)->prefix('Rp'),
                     Forms\Components\TextInput::make('mother_name')->label('Nama Ibu')->required()->maxLength(150),
                     Forms\Components\TextInput::make('mother_nik')->label('NIK Ibu')->rule('digits:16'),
                     Forms\Components\TextInput::make('mother_occupation')->label('Pekerjaan Ibu')->maxLength(100),
                     Forms\Components\TextInput::make('mother_phone')->label('Telepon Ibu')->tel()->maxLength(20),
-                    Forms\Components\TextInput::make('mother_income')->label('Penghasilan Ibu')->numeric()->prefix('Rp'),
+                    Forms\Components\TextInput::make('mother_income')->label('Penghasilan Ibu')->numeric()->minValue(0)->prefix('Rp'),
                 ]),
         ]);
     }
@@ -89,108 +101,49 @@ class RegistrationResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable()->description(fn (Registration $record) => $record->registration_number),
+                Tables\Columns\TextColumn::make('full_name')
+                    ->label('Calon Siswa')
+                    ->searchable()
+                    ->weight('medium')
+                    ->description(fn (Registration $record): ?string => $record->registration_number),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
-                Tables\Columns\TextColumn::make('current_stage')->label('Tahap Saat Ini')->badge()->formatStateUsing(fn ($state) => Registration::STAGES[$state] ?? $state),
-                Tables\Columns\TextColumn::make('data_validation_status')->label('Validasi')->badge()->formatStateUsing(fn ($state) => match ($state) { 'approved' => 'Valid', 'revision' => 'Perlu Revisi', default => 'Menunggu' }),
-                Tables\Columns\TextColumn::make('created_at')->label('Dibuat')->date('d M Y')->sortable(),
+                Tables\Columns\TextColumn::make('current_stage')
+                    ->label('Tahap Saat Ini')
+                    ->badge()
+                    ->formatStateUsing(fn (Registration $record): string => $record->stageLabel()),
+                Tables\Columns\TextColumn::make('data_validation_status')
+                    ->label('Validasi')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'valid' => 'Valid',
+                        'revision' => 'Perlu Revisi',
+                        default => 'Menunggu',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'valid' => 'success',
+                        'revision' => 'warning',
+                        default => 'gray',
+                    }),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat')
+                    ->date('d M Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
                 Tables\Actions\Action::make('progress')
                     ->label('Lihat Progres')
-                    ->icon('heroicon-o-list-bullet')
-                    ->color('gray')
-                    ->modalHeading(fn (Registration $record) => 'Progres '.$record->full_name)
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Tutup')
-                    ->modalWidth('2xl')
-                    ->modalContent(fn (Registration $record) => view('filament.applicant.registration-progress', [
-                        'record' => $record->loadMissing(['latestPayment', 'selection', 'announcement']),
-                    ])),
-
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->url(fn (Registration $record): string => RegistrationStatus::getUrl(['registration' => $record->id])),
                 Tables\Actions\EditAction::make()
                     ->label('Perbaiki Data')
-                    ->visible(fn (Registration $record) => static::canEdit($record)),
-
-                Tables\Actions\Action::make('payment')
-                    ->label('Upload Pembayaran')
-                    ->icon('heroicon-o-banknotes')
-                    ->color('warning')
-                    ->visible(fn (Registration $record) => $record->current_stage === 'payment' && $record->latestPayment)
-                    ->form([
-                        Forms\Components\FileUpload::make('proof_path')
-                            ->label('Bukti Pembayaran')
-                            ->disk('public')
-                            ->directory(fn (Registration $record) => 'payments/'.$record->id)
-                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
-                            ->maxSize(5120)
-                            ->required(),
-                        Forms\Components\TextInput::make('payment_method')->label('Metode Pembayaran')->maxLength(50),
-                    ])
-                    ->action(function (Registration $record, array $data): void {
-                        $payment = $record->latestPayment;
-                        $payment->update([
-                            'proof_path' => $data['proof_path'],
-                            'proof_original_name' => basename($data['proof_path']),
-                            'payment_method' => $data['payment_method'] ?? null,
-                        ]);
-                        app(RegistrationWorkflowService::class)->markPaymentUploaded($payment);
-                        Notification::make()->title('Bukti pembayaran berhasil dikirim')->success()->send();
-                    }),
-
-                Tables\Actions\Action::make('documents')
-                    ->label('Lengkapi Dokumen')
-                    ->icon('heroicon-o-document-arrow-up')
-                    ->color('info')
-                    ->visible(fn (Registration $record) => in_array($record->current_stage, ['documents', 'document_verification'], true))
-                    ->form([
-                        Forms\Components\FileUpload::make('report_card')->label('Rapor')->disk('public')->directory(fn (Registration $record) => 'documents/'.$record->id)->acceptedFileTypes(['application/pdf','image/jpeg','image/png'])->maxSize(5120),
-                        Forms\Components\FileUpload::make('family_card')->label('Kartu Keluarga')->disk('public')->directory(fn (Registration $record) => 'documents/'.$record->id)->acceptedFileTypes(['application/pdf','image/jpeg','image/png'])->maxSize(5120),
-                        Forms\Components\FileUpload::make('birth_certificate')->label('Akta Kelahiran')->disk('public')->directory(fn (Registration $record) => 'documents/'.$record->id)->acceptedFileTypes(['application/pdf','image/jpeg','image/png'])->maxSize(5120),
-                        Forms\Components\FileUpload::make('photo')->label('Pas Foto')->disk('public')->directory(fn (Registration $record) => 'documents/'.$record->id)->image()->maxSize(5120),
-                        Forms\Components\FileUpload::make('supporting_document')->label('Dokumen Pendukung')->disk('public')->directory(fn (Registration $record) => 'documents/'.$record->id)->acceptedFileTypes(['application/pdf','image/jpeg','image/png'])->maxSize(5120),
-                    ])
-                    ->action(function (Registration $record, array $data): void {
-                        foreach (['report_card','family_card','birth_certificate','photo','supporting_document'] as $type) {
-                            if (empty($data[$type])) {
-                                continue;
-                            }
-
-                            $path = $data[$type];
-                            Document::updateOrCreate(
-                                ['registration_id' => $record->id, 'type' => $type],
-                                [
-                                    'file_path' => $path,
-                                    'original_name' => basename($path),
-                                    'file_type' => pathinfo($path, PATHINFO_EXTENSION),
-                                    'is_verified' => false,
-                                    'verified_at' => null,
-                                    'verified_by' => null,
-                                ],
-                            );
-                        }
-
-                        $required = collect(RegistrationWorkflowService::REQUIRED_DOCUMENTS);
-                        $uploaded = $record->documents()->whereIn('type', $required)->pluck('type')->unique();
-                        $complete = $required->every(fn (string $type) => $uploaded->contains($type));
-
-                        $record->update([
-                            'current_stage' => $complete ? 'document_verification' : 'documents',
-                            'documents_completed_at' => $complete ? now() : null,
-                        ]);
-
-                        Notification::make()
-                            ->title($complete ? 'Dokumen lengkap dan menunggu verifikasi' : 'Dokumen berhasil disimpan')
-                            ->success()
-                            ->send();
-                    }),
-
+                    ->visible(fn (Registration $record): bool => static::canEdit($record)),
                 Tables\Actions\Action::make('card')
-                    ->label('Kartu Pendaftar')
-                    ->icon('heroicon-o-identification')
+                    ->label('Cetak Kartu')
+                    ->icon('heroicon-o-printer')
                     ->color('gray')
-                    ->visible(fn (Registration $record) => filled($record->applicant_card_number))
-                    ->url(fn (Registration $record) => route('registration.card', $record))
+                    ->visible(fn (Registration $record): bool => filled($record->applicant_card_number))
+                    ->url(fn (Registration $record): string => route('registration.card', $record))
                     ->openUrlInNewTab(),
             ])
             ->emptyStateHeading('Belum ada calon siswa')
