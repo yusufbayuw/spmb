@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -23,42 +24,18 @@ class AdminPanelProvider extends PanelProvider
     public function panel(Panel $panel): Panel
     {
         return $panel
-            ->default()
-            ->id('admin')
-            ->path('admin')
-            ->login()
+            ->default()->id('admin')->path('admin')->login()
             ->brandName('SPMB Taruna Bakti')
-            ->colors([
-                'primary' => Color::Blue,
-            ])
+            ->colors(['primary' => Color::Blue])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
-            ->pages([
-                Pages\Dashboard::class,
-            ])
+            ->pages([Pages\Dashboard::class])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
-            ->widgets([
-                Widgets\AccountWidget::class,
-            ])
-            ->navigationGroups([
-                'SPMB',
-                'Verifikasi',
-                'Master Data',
-            ])
+            ->widgets([Widgets\AccountWidget::class])
+            ->plugins([FilamentShieldPlugin::make()])
+            ->navigationGroups(['SPMB','Verifikasi','Seleksi','Master Data','Akses & Keamanan'])
             ->sidebarCollapsibleOnDesktop()
-            ->middleware([
-                EncryptCookies::class,
-                AddQueuedCookiesToResponse::class,
-                StartSession::class,
-                AuthenticateSession::class,
-                ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
-                SubstituteBindings::class,
-                DisableBladeIconComponents::class,
-                DispatchServingFilamentEvent::class,
-            ])
-            ->authMiddleware([
-                Authenticate::class,
-            ]);
+            ->middleware([EncryptCookies::class,AddQueuedCookiesToResponse::class,StartSession::class,AuthenticateSession::class,ShareErrorsFromSession::class,VerifyCsrfToken::class,SubstituteBindings::class,DisableBladeIconComponents::class,DispatchServingFilamentEvent::class])
+            ->authMiddleware([Authenticate::class]);
     }
 }

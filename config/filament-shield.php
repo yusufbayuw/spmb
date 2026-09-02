@@ -1,0 +1,45 @@
+<?php
+
+return [
+    'shield_resource' => [
+        'should_register_navigation' => true,
+        'slug' => 'shield/roles',
+        'navigation_sort' => -1,
+        'navigation_badge' => true,
+        'navigation_group' => 'Akses & Keamanan',
+        'sub_navigation_position' => null,
+        'is_globally_searchable' => false,
+        'show_model_path' => false,
+        'is_scoped_to_tenant' => false,
+        'cluster' => null,
+    ],
+    'tenant_model' => null,
+    'auth_provider_model' => ['fqcn' => 'App\\Models\\User'],
+    'super_admin' => [
+        'enabled' => true,
+        'name' => 'super_admin',
+        'define_via_gate' => true,
+        'intercept_gate' => 'before',
+    ],
+    'panel_user' => [
+        'enabled' => false,
+        'name' => 'panel_user',
+    ],
+    'permission_prefixes' => [
+        'resource' => ['view','view_any','create','update','restore','restore_any','replicate','reorder','delete','delete_any','force_delete','force_delete_any'],
+        'App\\Filament\\Admin\\Resources\\RegistrationResource' => ['view','view_any','create','update','delete','delete_any','validate_data','send_va','issue_card'],
+        'App\\Filament\\Admin\\Resources\\PaymentResource' => ['view','view_any','create','update','delete','delete_any','verify_payment'],
+        'App\\Filament\\Admin\\Resources\\DocumentResource' => ['view','view_any','update','delete','delete_any','verify_document'],
+        'App\\Filament\\Admin\\Resources\\AdmissionTestResource' => ['view','view_any','create','update','delete','delete_any'],
+        'App\\Filament\\Admin\\Resources\\AdmissionTestResultResource' => ['view','view_any','create','update','delete','delete_any','record_result'],
+        'App\\Filament\\Admin\\Resources\\SelectionResource' => ['view','view_any','create','update','delete','delete_any','decide'],
+        'App\\Filament\\Admin\\Resources\\AnnouncementResource' => ['view','view_any','create','update','delete','delete_any','publish'],
+        'page' => 'page',
+        'widget' => 'widget',
+    ],
+    'entities' => ['pages' => true, 'widgets' => true, 'resources' => true, 'custom_permissions' => true],
+    'generator' => ['option' => 'policies_and_permissions', 'policy_directory' => 'Policies', 'policy_namespace' => 'Policies'],
+    'exclude' => ['enabled' => true, 'pages' => ['Dashboard'], 'widgets' => ['AccountWidget','FilamentInfoWidget'], 'resources' => []],
+    'discovery' => ['discover_all_resources' => false, 'discover_all_widgets' => false, 'discover_all_pages' => false],
+    'register_role_policy' => ['enabled' => true],
+];

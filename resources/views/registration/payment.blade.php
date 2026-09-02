@@ -1,0 +1,5 @@
+@extends('layouts.app')
+@section('title','Upload Pembayaran')
+@section('content')
+<div class="max-w-2xl mx-auto bg-white rounded-xl card-shadow p-6"><h1 class="text-2xl font-bold">Upload Bukti Pembayaran</h1><p class="mt-2">{{ $registration->full_name }} · {{ $registration->registration_number }}</p><div class="mt-5 bg-blue-50 rounded-lg p-4"><div>Virtual Account: <strong>{{ $registration->latestPayment->va_number }}</strong></div><div>Nominal: <strong>Rp {{ number_format((float)$registration->latestPayment->amount,0,',','.') }}</strong></div></div><form action="{{ route('registration.payment.upload',$registration) }}" method="POST" enctype="multipart/form-data" class="mt-6 space-y-4">@csrf<div><label class="label-field">Bukti Pembayaran *</label><input type="file" name="proof" accept=".pdf,.jpg,.jpeg,.png" class="input-field" required></div><div><label class="label-field">Metode Pembayaran</label><input name="payment_method" class="input-field" placeholder="Transfer bank / mobile banking"></div><button class="btn-primary">Kirim Bukti Pembayaran</button></form></div>
+@endsection

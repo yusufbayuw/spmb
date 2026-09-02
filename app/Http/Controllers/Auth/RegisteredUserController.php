@@ -10,24 +10,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Spatie\Permission\Models\Role;
 
 class RegisteredUserController extends Controller
 {
-    /**
-     * Display the registration view.
-     */
     public function create(): View
     {
         return view('auth.register');
     }
 
-    /**
-     * Handle an incoming registration request.
-     *
-     * @throws ValidationException
-     */
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
@@ -40,10 +32,17 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => 'user',
+            'is_active' => true,
         ]);
 
-        event(new Registered($user));
+        Role::firstOrCreate([
+            'name' => 'pendaftar',
+            'guard_name' => 'web',
+        ]);
+        $user->assignRole('pendaftar');
 
+        event(new Registered($user));
         Auth::login($user);
 
         return redirect(route('dashboard', absolute: false));

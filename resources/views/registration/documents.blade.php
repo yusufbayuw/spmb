@@ -1,0 +1,6 @@
+@extends('layouts.app')
+@section('title','Berkas Pendaftaran')
+@section('content')
+@php($existing=$registration->documents->keyBy('type'))
+<div class="max-w-3xl mx-auto bg-white rounded-xl card-shadow p-6"><h1 class="text-2xl font-bold">Lengkapi Berkas</h1><p class="text-gray-600 mt-1">{{ $registration->full_name }} · {{ $registration->registration_number }}</p><form action="{{ route('registration.documents.upload',$registration) }}" method="POST" enctype="multipart/form-data" class="mt-6 space-y-5">@csrf @foreach(['report_card'=>'Raport Nilai *','family_card'=>'Kartu Keluarga *','birth_certificate'=>'Akta Kelahiran *','photo'=>'Foto Calon Siswa *','supporting_document'=>'Dokumen Pendukung'] as $key=>$label)<div class="border rounded-lg p-4"><label class="font-semibold">{{ $label }}</label>@if(isset($existing[$key]))<div class="text-sm mt-1 {{ $existing[$key]->is_verified ? 'text-green-700' : 'text-amber-700' }}">{{ $existing[$key]->original_name }} · {{ $existing[$key]->is_verified ? 'Terverifikasi' : 'Menunggu verifikasi' }}</div>@endif<input type="file" name="{{ $key }}" class="input-field mt-2" accept=".pdf,.jpg,.jpeg,.png"></div>@endforeach<button class="btn-primary">Simpan Berkas</button></form></div>
+@endsection
