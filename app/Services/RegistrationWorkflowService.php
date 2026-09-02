@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Mail\AnnouncementPublishedMail;
-use App\Mail\VirtualAccountMail;
+use App\Jobs\SendAnnouncementPublishedMail;
+use App\Jobs\SendVirtualAccountMail;
 use App\Models\AdmissionTestResult;
 use App\Models\Announcement;
 use App\Models\Payment;
@@ -13,7 +13,6 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class RegistrationWorkflowService
@@ -62,6 +61,8 @@ class RegistrationWorkflowService
                 ]);
             }
 
+            $fee = (float) ($lockedRegistration->opening()->value('registration_fee') ?? 0);
+
             $existingVa = VirtualAccount::query()
                 ->where('registration_id', $lockedRegistration->id)
                 ->first();
@@ -72,6 +73,10 @@ class RegistrationWorkflowService
                     ->first();
 
                 if ($existingPayment) {
+                    if ($existingPayment->amount === null) {
+                        $existingPayment->update(['amount' => $fee]);
+                    }
+
                     $lockedRegistration->transitionTo('payment', ['status' => 'payment_pending']);
 
                     return $existingPayment->load(['registration.user', 'registration.unit']);
@@ -81,7 +86,7 @@ class RegistrationWorkflowService
                     'registration_id' => $lockedRegistration->id,
                     'virtual_account_id' => $existingVa->id,
                     'va_number' => $existingVa->va_number,
-                    'amount' => null,
+                    'amount' => $fee,
                     'status' => 'pending',
                     'va_sent_at' => now(),
                     'va_sent_by' => $staff->id,
@@ -115,7 +120,7 @@ class RegistrationWorkflowService
                 'registration_id' => $lockedRegistration->id,
                 'virtual_account_id' => $va->id,
                 'va_number' => $va->va_number,
-                'amount' => null,
+                'amount' => $fee,
                 'status' => 'pending',
                 'va_sent_at' => now(),
                 'va_sent_by' => $staff->id,
@@ -131,7 +136,7 @@ class RegistrationWorkflowService
         });
 
         if ($payment && $assignedNow) {
-            Mail::to($payment->registration->user->email)->send(new VirtualAccountMail($payment));
+            SendVirtualAccountMail::dispatch($payment->id);
         }
 
         return $payment;
@@ -143,6 +148,7 @@ class RegistrationWorkflowService
 
         $registrations = Registration::query()
             ->where('unit_id', $unit->id)
+            ->where('lifecycle_status', 'active')
             ->where('current_stage', 'virtual_account')
             ->where('data_validation_status', 'valid')
             ->orderBy('id')
@@ -159,9 +165,9 @@ class RegistrationWorkflowService
         return $assigned;
     }
 
-    public function issueVirtualAccount(Registration $registration, User $staff, string $vaNumber, float $amount): Payment
+    public function issueVirtualAccount(Registration $registration, User $staff, string $vaNumber, ?float $legacyAmount = null): Payment
     {
-        $payment = DB::transaction(function () use ($registration, $staff, $vaNumber, $amount): Payment {
+        $payment = DB::transaction(function () use ($registration, $staff, $vaNumber, $legacyAmount): Payment {
             $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $lockedRegistration->assertCurrentStage('virtual_account');
 
@@ -170,6 +176,9 @@ class RegistrationWorkflowService
                     'data_validation_status' => 'Virtual account hanya dapat diterbitkan setelah data pendaftaran dinyatakan valid.',
                 ]);
             }
+
+            $openingFee = $lockedRegistration->opening()->value('registration_fee');
+            $amount = $openingFee !== null ? (float) $openingFee : (float) ($legacyAmount ?? 0);
 
             $payment = $lockedRegistration->latestPayment()->first() ?? new Payment([
                 'registration_id' => $lockedRegistration->id,
@@ -191,7 +200,7 @@ class RegistrationWorkflowService
             return $payment->fresh(['registration.user', 'registration.unit']);
         });
 
-        Mail::to($payment->registration->user->email)->send(new VirtualAccountMail($payment));
+        SendVirtualAccountMail::dispatch($payment->id);
 
         return $payment;
     }
@@ -202,6 +211,12 @@ class RegistrationWorkflowService
             $lockedPayment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
             $registration = Registration::query()->lockForUpdate()->findOrFail($lockedPayment->registration_id);
             $registration->assertCurrentStage('payment');
+
+            if (! $lockedPayment->proof_path || ! $lockedPayment->proof_sha256 || ! $lockedPayment->proof_security_scanned_at) {
+                throw ValidationException::withMessages([
+                    'proof' => 'Bukti pembayaran belum melewati pemeriksaan keamanan upload.',
+                ]);
+            }
 
             $lockedPayment->update([
                 'status' => 'paid',
@@ -280,6 +295,7 @@ class RegistrationWorkflowService
 
             $types = $lockedRegistration->documents()
                 ->where('is_verified', true)
+                ->whereNotNull('security_scanned_at')
                 ->pluck('type')
                 ->unique();
 
@@ -417,6 +433,7 @@ class RegistrationWorkflowService
                     'message' => $message,
                     'published_by' => $staff->id,
                     'published_at' => now(),
+                    'email_sent_at' => null,
                 ],
             );
 
@@ -434,10 +451,7 @@ class RegistrationWorkflowService
             return $announcement->fresh(['registration.user']);
         });
 
-        Mail::to($announcement->registration->user->email)
-            ->send(new AnnouncementPublishedMail($announcement));
-
-        $announcement->update(['email_sent_at' => now()]);
+        SendAnnouncementPublishedMail::dispatch($announcement->id);
 
         return $announcement;
     }
