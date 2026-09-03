@@ -61,15 +61,17 @@
 
         <x-filament::section>
             <x-slot name="heading">Data Operasional</x-slot>
-            <x-slot name="description">Preview maksimal 100 pendaftaran. Export XLSX memuat seluruh data yang sesuai filter.</x-slot>
+            <x-slot name="description">Preview maksimal 100 pendaftaran. Export XLSX memuat seluruh data sekolah maupun perguruan tinggi yang sesuai filter.</x-slot>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-white/10">
                         <tr>
                             <th class="px-3 py-3">No. Registrasi</th>
-                            <th class="px-3 py-3">Calon Siswa</th>
-                            <th class="px-3 py-3">Unit / Periode</th>
+                            <th class="px-3 py-3">Peserta</th>
+                            <th class="px-3 py-3">Unit / Institusi</th>
+                            <th class="px-3 py-3">Program Studi</th>
+                            <th class="px-3 py-3">Periode</th>
                             <th class="px-3 py-3">Biaya</th>
                             <th class="px-3 py-3">Lifecycle</th>
                             <th class="px-3 py-3">Tahap</th>
@@ -87,7 +89,19 @@
                                 </td>
                                 <td class="px-3 py-3">
                                     <div>{{ $registration->unit?->name }}</div>
-                                    <div class="text-xs text-gray-500">{{ $registration->opening?->academic_year }} · {{ $registration->opening?->wave }} · {{ $registration->opening?->pathway }}</div>
+                                    <div class="text-xs text-gray-500">{{ $registration->unit?->institutionTypeLabel() }}</div>
+                                </td>
+                                <td class="px-3 py-3">
+                                    @if ($registration->opening?->studyProgram)
+                                        <div class="font-medium text-gray-950 dark:text-white">{{ $registration->opening->studyProgram->name }}</div>
+                                        <div class="text-xs text-gray-500">{{ $registration->opening->studyProgram->degree_level }}</div>
+                                    @else
+                                        <span class="text-gray-400">-</span>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-3">
+                                    <div>{{ $registration->opening?->academic_year }} · {{ $registration->opening?->wave }}</div>
+                                    <div class="text-xs text-gray-500">{{ $registration->opening?->pathway }}</div>
                                 </td>
                                 <td class="px-3 py-3">Rp {{ number_format((float) ($registration->opening?->registration_fee ?? 0), 0, ',', '.') }}</td>
                                 <td class="px-3 py-3">{{ $registration->lifecycleLabel() }}</td>
@@ -97,7 +111,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-3 py-10 text-center text-gray-500">Tidak ada data sesuai filter.</td>
+                                <td colspan="10" class="px-3 py-10 text-center text-gray-500">Tidak ada data sesuai filter.</td>
                             </tr>
                         @endforelse
                     </tbody>
