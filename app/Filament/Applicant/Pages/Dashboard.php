@@ -20,7 +20,7 @@ class Dashboard extends BaseDashboard
     {
         $this->registrations = Registration::query()
             ->where('user_id', auth()->id())
-            ->with(['unit', 'opening', 'latestPayment', 'selection', 'announcement'])
+            ->with(['unit', 'opening.studyProgram', 'latestPayment', 'selection', 'announcement'])
             ->latest()
             ->get();
     }
@@ -32,6 +32,6 @@ class Dashboard extends BaseDashboard
 
     public function getSubheading(): ?string
     {
-        return 'Pilih pembukaan pendaftaran yang tersedia dan pantau seluruh proses calon siswa dari satu halaman.';
+        return 'Pilih pembukaan SPMB sekolah atau PMB perguruan tinggi dan pantau seluruh proses pendaftaran dari satu halaman.';
     }
 }
