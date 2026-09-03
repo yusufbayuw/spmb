@@ -21,10 +21,11 @@ class RegistrationStatus extends Page
             ->where('user_id', auth()->id())
             ->with([
                 'unit',
+                'opening.studyProgram',
                 'parentInfo',
                 'documents',
                 'latestPayment.virtualAccount',
-                'testResults.admissionTest',
+                'testResults.admissionTest.studyProgram',
                 'selection',
                 'announcement',
             ])
@@ -38,7 +39,16 @@ class RegistrationStatus extends Page
 
     public function getSubheading(): ?string
     {
-        return ($this->registrationRecord->registration_number ?? 'Pendaftaran').' · '.($this->registrationRecord->unit?->name ?? 'Unit');
+        $parts = [
+            $this->registrationRecord->registration_number ?? 'Pendaftaran',
+            $this->registrationRecord->unit?->name ?? 'Unit / Institusi',
+        ];
+
+        if ($this->registrationRecord->opening?->studyProgram) {
+            $parts[] = $this->registrationRecord->opening->studyProgram->label();
+        }
+
+        return implode(' · ', $parts);
     }
 
     public function getMaxContentWidth(): MaxWidth|string|null
