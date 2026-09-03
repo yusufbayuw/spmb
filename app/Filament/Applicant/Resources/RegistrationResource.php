@@ -30,7 +30,7 @@ class RegistrationResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Pilihan Pendaftaran')
-                ->description('Unit, tahun ajaran, gelombang, jalur, dan biaya mengikuti pembukaan yang Anda pilih.')
+                ->description('Unit/institusi, program studi bila ada, tahun ajaran/akademik, gelombang, jalur, dan biaya mengikuti pembukaan yang Anda pilih.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\Hidden::make('registration_opening_id')->required(),
@@ -38,23 +38,31 @@ class RegistrationResource extends Resource
                     Forms\Components\Placeholder::make('opening_summary')
                         ->label('Pembukaan Pendaftaran')
                         ->content(function (Forms\Get $get): string {
-                            $opening = RegistrationOpening::query()->with('unit')->find($get('registration_opening_id'));
-                            return $opening ? $opening->label().' · Biaya '.$opening->formattedFee() : 'Pilih pembukaan pendaftaran terlebih dahulu.';
+                            $opening = RegistrationOpening::query()
+                                ->with(['unit', 'studyProgram'])
+                                ->find($get('registration_opening_id'));
+
+                            return $opening
+                                ? $opening->label().' · Biaya '.$opening->formattedFee()
+                                : 'Pilih pembukaan pendaftaran terlebih dahulu.';
                         })
                         ->columnSpanFull(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Pendaftaran dilakukan oleh')
-                        ->options(['parent' => 'Orang Tua / Wali', 'self' => 'Calon Siswa Sendiri'])
-                        ->default('parent')->required()->live(),
+                        ->options(fn (Forms\Get $get): array => static::isHigherEducationOpening($get('registration_opening_id'))
+                            ? ['self' => 'Calon Mahasiswa']
+                            : ['parent' => 'Orang Tua / Wali', 'self' => 'Calon Siswa Sendiri'])
+                        ->required()
+                        ->live(),
                     Forms\Components\Select::make('registrant_relationship')
-                        ->label('Hubungan dengan calon siswa')
-                        ->options(['father'=>'Ayah','mother'=>'Ibu','guardian'=>'Wali','other'=>'Lainnya'])
+                        ->label('Hubungan dengan calon peserta didik')
+                        ->options(['father' => 'Ayah', 'mother' => 'Ibu', 'guardian' => 'Wali', 'other' => 'Lainnya'])
                         ->required(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent')
                         ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
                 ]),
 
-            Forms\Components\Section::make('Identitas Calon Siswa')
-                ->description('Gunakan data yang sama dengan dokumen resmi calon siswa.')
+            Forms\Components\Section::make('Identitas Calon Siswa / Mahasiswa')
+                ->description('Gunakan identitas yang sama dengan dokumen resmi calon peserta didik atau calon mahasiswa.')
                 ->columns(3)
                 ->schema([
                     Forms\Components\TextInput::make('nik')
@@ -66,20 +74,26 @@ class RegistrationResource extends Resource
                         ),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
-                    Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L'=>'Laki-laki','P'=>'Perempuan'])->required(),
-                    Forms\Components\Select::make('religion')->label('Agama')->options(['Islam'=>'Islam','Kristen'=>'Kristen','Katolik'=>'Katolik','Hindu'=>'Hindu','Buddha'=>'Buddha','Konghucu'=>'Konghucu'])->default('Islam'),
+                    Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
+                    Forms\Components\Select::make('religion')->label('Agama')->options(['Islam' => 'Islam', 'Kristen' => 'Kristen', 'Katolik' => 'Katolik', 'Hindu' => 'Hindu', 'Buddha' => 'Buddha', 'Konghucu' => 'Konghucu'])->default('Islam'),
                     Forms\Components\TextInput::make('birth_place')->label('Tempat Lahir')->required()->maxLength(100),
-                    Forms\Components\DatePicker::make('birth_date')->label('Tanggal Lahir')->required()->native(false)->maxDate(now()->subDay()),
+                    Forms\Components\DatePicker::make('birth_date')
+                        ->label('Tanggal Lahir')
+                        ->required()
+                        ->native(false)
+                        ->maxDate(now()->subDay())
+                        ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_id'))),
                     Forms\Components\TextInput::make('phone')->label('Nomor Telepon')->tel()->maxLength(20),
-                    Forms\Components\TextInput::make('email')->label('Email Calon Siswa')->email()->maxLength(100),
+                    Forms\Components\TextInput::make('email')->label('Email Peserta')->email()->maxLength(100),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->rows(3)->columnSpanFull(),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric()->minValue(2000)->maxValue(now()->year + 2),
                 ]),
 
             Forms\Components\Section::make('Data Orang Tua')
-                ->description('Data ayah dan ibu dipisahkan agar lebih mudah diisi dan diperiksa.')
+                ->description('Data ayah dan ibu digunakan untuk pendaftaran pendidikan dasar dan menengah.')
                 ->relationship('parentInfo')
+                ->visible(fn (Forms\Get $get): bool => ! static::isHigherEducationOpening($get('registration_opening_id')))
                 ->schema(ParentInfoFields::schema()),
         ]);
     }
@@ -89,9 +103,13 @@ class RegistrationResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable()->weight('medium')->description(fn (Registration $record): ?string => $record->registration_number),
-                Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
-                Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran'),
+                Tables\Columns\TextColumn::make('full_name')->label('Peserta')->searchable()->weight('medium')->description(fn (Registration $record): ?string => $record->registration_number),
+                Tables\Columns\TextColumn::make('unit.name')->label('Unit / Institusi')->badge(),
+                Tables\Columns\TextColumn::make('opening.studyProgram.name')
+                    ->label('Program Studi')
+                    ->formatStateUsing(fn ($state, Registration $record): string => $record->opening?->studyProgram?->label() ?? '-')
+                    ->placeholder('-'),
+                Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->description(fn (Registration $record): ?string => $record->opening?->pathway),
                 Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya')->money('IDR', locale: 'id'),
                 Tables\Columns\TextColumn::make('current_stage')->label('Tahap Saat Ini')->badge()->formatStateUsing(fn (Registration $record): string => $record->stageLabel()),
@@ -137,8 +155,8 @@ class RegistrationResource extends Resource
                     ->url(fn (Registration $record): string => route('registration.card', $record))
                     ->openUrlInNewTab(),
             ])
-            ->emptyStateHeading('Belum ada calon siswa')
-            ->emptyStateDescription('Pilih pembukaan pendaftaran yang tersedia untuk mendaftarkan calon siswa.')
+            ->emptyStateHeading('Belum ada pendaftaran')
+            ->emptyStateDescription('Pilih pembukaan SPMB sekolah atau PMB program studi yang tersedia.')
             ->emptyStateIcon('heroicon-o-user-plus')
             ->emptyStateActions([
                 Tables\Actions\Action::make('chooseOpening')->label('Pilih Pendaftaran')->icon('heroicon-o-calendar-days')->url(RegistrationOpenings::getUrl()),
@@ -149,7 +167,7 @@ class RegistrationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('user_id', auth()->id())
-            ->with(['unit', 'opening', 'latestPayment']);
+            ->with(['unit', 'opening.studyProgram', 'latestPayment']);
     }
 
     public static function canViewAny(): bool { return auth()->user()?->isUser() ?? false; }
@@ -168,6 +186,29 @@ class RegistrationResource extends Resource
             && $record->isOperational()
             && $record->current_stage === 'data_validation'
             && in_array($record->data_validation_status, ['pending', 'revision'], true);
+    }
+
+    public static function isHigherEducationOpening($openingId): bool
+    {
+        return filled($openingId)
+            && RegistrationOpening::query()
+                ->whereKey($openingId)
+                ->whereHas('unit', fn (Builder $query): Builder => $query->where('institution_type', 'university'))
+                ->exists();
+    }
+
+    public static function openingAgeRuleText($openingId): ?string
+    {
+        if (! $openingId) {
+            return null;
+        }
+
+        $maxAge = RegistrationOpening::query()
+            ->whereKey($openingId)
+            ->with('studyProgram')
+            ->first()?->studyProgram?->max_age;
+
+        return $maxAge ? "Program studi ini menerima pendaftar dengan usia maksimal {$maxAge} tahun." : null;
     }
 
     public static function canDelete($record): bool { return false; }
