@@ -29,6 +29,19 @@ class StudyProgram extends Model
         'is_active' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (StudyProgram $program): void {
+            $unit = Unit::query()->find($program->unit_id);
+
+            if (! $unit?->isHigherEducation()) {
+                throw ValidationException::withMessages([
+                    'unit_id' => 'Program studi hanya dapat dibuat pada unit perguruan tinggi.',
+                ]);
+            }
+        });
+    }
+
     public function unit() { return $this->belongsTo(Unit::class); }
     public function registrationOpenings() { return $this->hasMany(RegistrationOpening::class); }
 
