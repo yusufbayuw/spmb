@@ -46,10 +46,31 @@ return new class extends Migration
             );
             $table->index(['study_program_id', 'status'], 'registration_openings_program_status');
         });
+
+        Schema::table('admission_tests', function (Blueprint $table): void {
+            $table->dropUnique(['unit_id', 'code']);
+            $table->foreignId('study_program_id')
+                ->nullable()
+                ->after('unit_id')
+                ->constrained('study_programs')
+                ->restrictOnDelete();
+            $table->unique(
+                ['unit_id', 'study_program_id', 'code'],
+                'admission_tests_unit_program_code_unique'
+            );
+            $table->index(['study_program_id', 'is_active'], 'admission_tests_program_active');
+        });
     }
 
     public function down(): void
     {
+        Schema::table('admission_tests', function (Blueprint $table): void {
+            $table->dropUnique('admission_tests_unit_program_code_unique');
+            $table->dropIndex('admission_tests_program_active');
+            $table->dropConstrainedForeignId('study_program_id');
+            $table->unique(['unit_id', 'code']);
+        });
+
         Schema::table('registration_openings', function (Blueprint $table): void {
             $table->dropUnique('registration_openings_unique_offering');
             $table->dropIndex('registration_openings_program_status');
