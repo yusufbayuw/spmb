@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Selection;
+use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
@@ -177,7 +178,7 @@ class AuditTrail
             return [$subject->unit_id, $subject->id];
         }
 
-        if ($subject instanceof RegistrationOpening) {
+        if ($subject instanceof RegistrationOpening || $subject instanceof StudyProgram) {
             return [$subject->unit_id, null];
         }
 
