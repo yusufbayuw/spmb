@@ -13,40 +13,56 @@ class UnitSeeder extends Seeder
             [
                 'name' => 'Daycare',
                 'code' => 'DC',
-                'description' => 'Daycare Taruna Bakti untuk usia 0-3 tahun',
+                'institution_type' => 'early_childhood',
+                'description' => 'Daycare Taruna Bakti untuk layanan pendidikan dan pengasuhan anak usia dini.',
+                'is_active' => true,
             ],
             [
                 'name' => 'Kelompok Bermain',
                 'code' => 'KB',
-                'description' => 'Kelompok Bermain untuk usia 3-4 tahun',
+                'institution_type' => 'early_childhood',
+                'description' => 'Kelompok Bermain Taruna Bakti untuk pendidikan anak usia dini.',
+                'is_active' => true,
             ],
             [
                 'name' => 'Taman Kanak-Kanak',
                 'code' => 'TK',
-                'description' => 'TK Taruna Bakti untuk usia 4-6 tahun',
+                'institution_type' => 'early_childhood',
+                'description' => 'Taman Kanak-Kanak Taruna Bakti.',
+                'is_active' => true,
             ],
             [
                 'name' => 'Sekolah Dasar',
                 'code' => 'SD',
-                'description' => 'SD Taruna Bakti untuk usia 6-12 tahun',
+                'institution_type' => 'school',
+                'description' => 'Sekolah Dasar Taruna Bakti.',
+                'is_active' => true,
             ],
             [
                 'name' => 'Sekolah Menengah Pertama',
                 'code' => 'SMP',
-                'description' => 'SMP Taruna Bakti untuk usia 12-15 tahun',
+                'institution_type' => 'school',
+                'description' => 'Sekolah Menengah Pertama Taruna Bakti.',
+                'is_active' => true,
             ],
             [
                 'name' => 'Sekolah Menengah Atas',
                 'code' => 'SMA',
-                'description' => 'SMA Taruna Bakti untuk usia 15-18 tahun',
+                'institution_type' => 'school',
+                'description' => 'Sekolah Menengah Atas Taruna Bakti.',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Taruna Bakti University',
+                'code' => 'TBU',
+                'institution_type' => 'university',
+                'description' => 'Taruna Bakti University untuk penerimaan mahasiswa program Diploma dan Sarjana.',
+                'is_active' => true,
             ],
         ];
 
         foreach ($units as $unit) {
-            Unit::updateOrCreate(
-                ['code' => $unit['code']],
-                $unit
-            );
+            Unit::updateOrCreate(['code' => $unit['code']], $unit);
         }
     }
 }
