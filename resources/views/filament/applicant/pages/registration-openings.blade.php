@@ -8,18 +8,35 @@
                     </div>
                     <h3 class="mt-4 text-base font-semibold text-gray-950 dark:text-white">Belum ada pendaftaran yang tersedia</h3>
                     <p class="mx-auto mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-                        Pembukaan pendaftaran akan tampil di halaman ini setelah TU mempublikasikannya.
+                        Pembukaan SPMB sekolah maupun PMB perguruan tinggi akan tampil setelah dipublikasikan oleh petugas.
                     </p>
                 </div>
             </x-filament::section>
         @else
             <div class="grid gap-5 lg:grid-cols-2">
                 @foreach ($openings as $opening)
+                    @php($isUniversity = $opening->unit?->isHigherEducation() ?? false)
                     <x-filament::section>
-                        <x-slot name="heading">{{ $opening->unit?->name }}</x-slot>
-                        <x-slot name="description">Tahun Ajaran {{ $opening->academic_year }}</x-slot>
+                        <x-slot name="heading">
+                            {{ $opening->studyProgram?->label() ?? $opening->unit?->name }}
+                        </x-slot>
+                        <x-slot name="description">
+                            {{ $isUniversity ? ($opening->unit?->name.' · Tahun Akademik '.$opening->academic_year) : ('Tahun Ajaran '.$opening->academic_year) }}
+                        </x-slot>
 
                         <div class="space-y-5">
+                            @if ($opening->studyProgram)
+                                <div class="flex flex-wrap gap-2">
+                                    <x-filament::badge color="info">{{ $opening->studyProgram->degree_level }}</x-filament::badge>
+                                    @if ($opening->studyProgram->faculty)
+                                        <x-filament::badge color="gray">{{ $opening->studyProgram->faculty }}</x-filament::badge>
+                                    @endif
+                                    @if ($opening->studyProgram->max_age)
+                                        <x-filament::badge color="warning">Usia maks. {{ $opening->studyProgram->max_age }} tahun</x-filament::badge>
+                                    @endif
+                                </div>
+                            @endif
+
                             <div class="grid gap-3 sm:grid-cols-3">
                                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
                                     <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Gelombang</div>
@@ -50,7 +67,7 @@
                                         href="{{ \App\Filament\Applicant\Resources\RegistrationResource::getUrl('create', ['opening' => $opening->id]) }}"
                                         icon="heroicon-m-arrow-right"
                                     >
-                                        Daftar
+                                        {{ $isUniversity ? 'Daftar sebagai Mahasiswa' : 'Daftar' }}
                                     </x-filament::button>
                                 @else
                                     <x-filament::button disabled color="gray" icon="heroicon-m-lock-closed">
