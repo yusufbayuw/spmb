@@ -17,9 +17,10 @@ class OperationalReportService
     public function query(User $staff, array $filters = []): Builder
     {
         return Registration::query()
-            ->with(['unit', 'opening', 'latestPayment', 'selection'])
+            ->with(['unit', 'opening.studyProgram', 'latestPayment', 'selection'])
             ->when($staff->isTU(), fn (Builder $q) => $q->where('registrations.unit_id', $staff->unit_id))
             ->when(! $staff->isTU() && filled($filters['unit_id'] ?? null), fn (Builder $q) => $q->where('registrations.unit_id', $filters['unit_id']))
+            ->when(filled($filters['study_program_id'] ?? null), fn (Builder $q) => $q->whereHas('opening', fn (Builder $opening) => $opening->where('study_program_id', $filters['study_program_id'])))
             ->when(filled($filters['registration_opening_id'] ?? null), fn (Builder $q) => $q->where('registrations.registration_opening_id', $filters['registration_opening_id']))
             ->when(filled($filters['current_stage'] ?? null), fn (Builder $q) => $q->where('registrations.current_stage', $filters['current_stage']))
             ->when(filled($filters['lifecycle_status'] ?? null), fn (Builder $q) => $q->where('registrations.lifecycle_status', $filters['lifecycle_status']))
@@ -72,8 +73,9 @@ class OperationalReportService
         $writer->openToFile($absolutePath);
         $writer->getCurrentSheet()->setName('Pendaftaran');
         $writer->addRow(Row::fromValues([
-            'No. Registrasi','Calon Siswa','NIK','Unit','Tahun Ajaran','Gelombang','Jalur','Biaya Pendaftaran',
-            'Lifecycle','Tahap','Validasi','VA','Status Pembayaran','Nominal Pembayaran','Keputusan Seleksi','Tanggal Daftar',
+            'No. Registrasi', 'Peserta', 'NIK', 'Unit / Institusi', 'Jenis Institusi', 'Program Studi', 'Jenjang',
+            'Tahun Ajaran', 'Gelombang', 'Jalur', 'Biaya Pendaftaran', 'Lifecycle', 'Tahap', 'Validasi',
+            'VA', 'Status Pembayaran', 'Nominal Pembayaran', 'Keputusan Seleksi', 'Tanggal Daftar',
         ]));
 
         $this->query($staff, $filters)
@@ -85,6 +87,9 @@ class OperationalReportService
                         $registration->full_name,
                         $registration->nik,
                         $registration->unit?->name,
+                        $registration->unit?->institutionTypeLabel(),
+                        $registration->opening?->studyProgram?->name,
+                        $registration->opening?->studyProgram?->degree_level,
                         $registration->opening?->academic_year,
                         $registration->opening?->wave,
                         $registration->opening?->pathway,
@@ -122,13 +127,13 @@ class OperationalReportService
             metadata: ['filters' => $filters, 'rows' => $summary['total']],
             actor: $staff,
             unitId: $staff->isTU() ? $staff->unit_id : null,
-            description: 'Laporan operasional SPMB diekspor ke XLSX',
+            description: 'Laporan operasional penerimaan diekspor ke XLSX',
         );
 
         return response()
             ->download(
                 $absolutePath,
-                'laporan-operasional-spmb-'.now()->format('Ymd-His').'.xlsx',
+                'laporan-operasional-penerimaan-'.now()->format('Ymd-His').'.xlsx',
                 ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
             )
             ->deleteFileAfterSend(true);
