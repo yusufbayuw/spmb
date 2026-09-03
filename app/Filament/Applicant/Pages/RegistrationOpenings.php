@@ -21,15 +21,16 @@ class RegistrationOpenings extends Page
     {
         $this->openings = RegistrationOpening::query()
             ->visibleToApplicants()
-            ->with('unit')
+            ->with(['unit', 'studyProgram'])
             ->orderByDesc('academic_year')
             ->orderBy('unit_id')
+            ->orderBy('study_program_id')
             ->orderBy('wave')
             ->get();
     }
 
     public function getSubheading(): ?string
     {
-        return 'Pilih unit, tahun ajaran, gelombang, dan jalur yang tersedia. Unit akan terisi otomatis pada form.';
+        return 'Pilih satuan pendidikan atau program studi, tahun ajaran/akademik, gelombang, dan jalur yang tersedia.';
     }
 }
