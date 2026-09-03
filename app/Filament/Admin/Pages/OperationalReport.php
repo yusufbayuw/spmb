@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages;
 
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Services\OperationalReportService;
 use Filament\Forms;
@@ -21,7 +22,7 @@ class OperationalReport extends Page implements HasForms
     protected static ?string $navigationLabel = 'Laporan Operasional';
     protected static ?string $navigationGroup = 'Laporan';
     protected static ?int $navigationSort = 1;
-    protected static ?string $title = 'Laporan Operasional SPMB';
+    protected static ?string $title = 'Laporan Operasional Penerimaan';
     protected static string $view = 'filament.admin.pages.operational-report';
 
     public ?array $filters = [];
@@ -46,20 +47,39 @@ class OperationalReport extends Page implements HasForms
                     ->columns(4)
                     ->schema([
                         Forms\Components\Select::make('unit_id')
-                            ->label('Unit')
-                            ->options(fn (): array => Unit::query()->orderBy('name')->pluck('name', 'id')->all())
+                            ->label('Unit / Institusi')
+                            ->options(fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
                             ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
                             ->disabled(fn (): bool => auth()->user()?->isTU() ?? false)
                             ->dehydrated()
                             ->searchable()
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Set $set): void {
+                                $set('study_program_id', null);
+                                $set('registration_opening_id', null);
+                            }),
+                        Forms\Components\Select::make('study_program_id')
+                            ->label('Program Studi')
+                            ->placeholder('Semua program studi')
+                            ->options(fn (Forms\Get $get): array => StudyProgram::query()
+                                ->where('is_active', true)
+                                ->when(filled($get('unit_id')), fn (Builder $q) => $q->where('unit_id', $get('unit_id')))
+                                ->when(auth()->user()?->isTU(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))
+                                ->orderBy('sort_order')
+                                ->get()
+                                ->mapWithKeys(fn (StudyProgram $program): array => [$program->id => $program->label()])
+                                ->all())
+                            ->searchable()
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('registration_opening_id', null)),
                         Forms\Components\Select::make('registration_opening_id')
                             ->label('Pembukaan')
                             ->options(function (Forms\Get $get): array {
                                 return RegistrationOpening::query()
-                                    ->with('unit')
+                                    ->with(['unit', 'studyProgram'])
                                     ->when(auth()->user()?->isTU(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))
                                     ->when(! auth()->user()?->isTU() && filled($get('unit_id')), fn (Builder $q) => $q->where('unit_id', $get('unit_id')))
+                                    ->when(filled($get('study_program_id')), fn (Builder $q) => $q->where('study_program_id', $get('study_program_id')))
                                     ->latest()
                                     ->get()
                                     ->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])
