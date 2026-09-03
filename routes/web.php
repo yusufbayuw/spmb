@@ -1,12 +1,13 @@
 <?php
 
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OperationalReportController;
 use App\Http\Controllers\PrivateApplicantFileController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Middleware\EnsureApplicantEmailIsVerified;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('welcome'))->name('home');
+Route::get('/', HomeController::class)->name('home');
 
 Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(function () {
     Route::get('/files/applicant/documents/{document}', [PrivateApplicantFileController::class, 'document'])
