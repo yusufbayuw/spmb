@@ -15,6 +15,7 @@ class OperationalReportController extends Controller
 
         $filters = $request->only([
             'unit_id',
+            'study_program_id',
             'registration_opening_id',
             'current_stage',
             'lifecycle_status',
