@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\RegistrationOpeningResource\Pages;
 use App\Models\RegistrationOpening;
+use App\Models\StudyProgram;
+use App\Models\Unit;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -25,12 +27,12 @@ class RegistrationOpeningResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Periode, Jalur, dan Biaya')
-                ->description('Biaya merupakan source of truth nominal formulir. Virtual Account hanya menjadi instrumen pembayaran.')
+            Forms\Components\Section::make('Periode, Program, Jalur, dan Biaya')
+                ->description('Sekolah cukup memilih unit. Perguruan tinggi wajib memilih program studi. Biaya merupakan source of truth nominal formulir.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\Select::make('unit_id')
-                        ->label('Unit Sekolah')
+                        ->label('Unit / Institusi')
                         ->relationship(
                             'unit',
                             'name',
@@ -38,14 +40,29 @@ class RegistrationOpeningResource extends Resource
                                 ? $query->whereKey(auth()->user()->unit_id)
                                 : $query->where('is_active', true),
                         )
-                        ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
+                        ->default(fn () => auth()->user()?->isTU() ? auth()->user()->unit_id : null)
                         ->disabled(fn (): bool => auth()->user()?->isTU() ?? false)
                         ->dehydrated()
                         ->searchable()
                         ->preload()
+                        ->live()
+                        ->afterStateUpdated(fn (Forms\Set $set) => $set('study_program_id', null))
                         ->required(),
+                    Forms\Components\Select::make('study_program_id')
+                        ->label('Program Studi')
+                        ->options(fn (Forms\Get $get): array => StudyProgram::query()
+                            ->where('unit_id', $get('unit_id'))
+                            ->where('is_active', true)
+                            ->orderBy('sort_order')
+                            ->get()
+                            ->mapWithKeys(fn (StudyProgram $program): array => [$program->id => $program->label()])
+                            ->all())
+                        ->visible(fn (Forms\Get $get): bool => static::isUniversityUnit($get('unit_id')))
+                        ->required(fn (Forms\Get $get): bool => static::isUniversityUnit($get('unit_id')))
+                        ->searchable()
+                        ->preload(),
                     Forms\Components\TextInput::make('academic_year')
-                        ->label('Tahun Ajaran')
+                        ->label('Tahun Ajaran / Akademik')
                         ->placeholder('2026/2027')
                         ->helperText('Gunakan format 2026/2027.')
                         ->rule('regex:/^\d{4}\/\d{4}$/')
@@ -87,14 +104,16 @@ class RegistrationOpeningResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('academic_year')->label('Tahun Ajaran')->sortable(),
+                Tables\Columns\TextColumn::make('unit.name')->label('Unit / Institusi')->badge()->sortable(),
+                Tables\Columns\TextColumn::make('studyProgram.name')
+                    ->label('Program Studi')
+                    ->formatStateUsing(fn ($state, RegistrationOpening $record): string => $record->studyProgram?->label() ?? '-')
+                    ->searchable()
+                    ->placeholder('-'),
+                Tables\Columns\TextColumn::make('academic_year')->label('Tahun')->sortable(),
                 Tables\Columns\TextColumn::make('wave')->label('Gelombang')->searchable(),
                 Tables\Columns\TextColumn::make('pathway')->label('Jalur')->searchable(),
-                Tables\Columns\TextColumn::make('registration_fee')
-                    ->label('Biaya')
-                    ->money('IDR', locale: 'id')
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('registration_fee')->label('Biaya')->money('IDR', locale: 'id')->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -105,18 +124,14 @@ class RegistrationOpeningResource extends Resource
                         'archived' => 'gray',
                         default => 'info',
                     }),
-                Tables\Columns\TextColumn::make('registrations_count')
-                    ->counts('registrations')
-                    ->label('Pendaftar'),
+                Tables\Columns\TextColumn::make('registrations_count')->counts('registrations')->label('Pendaftar'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->options(RegistrationOpening::STATUSES),
-                Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
+                Tables\Filters\SelectFilter::make('unit_id')->label('Unit / Institusi')->relationship('unit', 'name'),
+                Tables\Filters\SelectFilter::make('study_program_id')->label('Program Studi')->relationship('studyProgram', 'name'),
                 Tables\Filters\SelectFilter::make('academic_year')
-                    ->options(fn (): array => RegistrationOpening::query()
-                        ->orderByDesc('academic_year')
-                        ->pluck('academic_year', 'academic_year')
-                        ->all()),
+                    ->options(fn (): array => RegistrationOpening::query()->orderByDesc('academic_year')->pluck('academic_year', 'academic_year')->all()),
             ])
             ->actions([
                 Tables\Actions\Action::make('open')
@@ -146,13 +161,18 @@ class RegistrationOpeningResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with('unit');
+        $query = parent::getEloquentQuery()->with(['unit', 'studyProgram']);
 
         if (auth()->user()?->isTU() && auth()->user()?->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
         }
 
         return $query;
+    }
+
+    public static function isUniversityUnit($unitId): bool
+    {
+        return filled($unitId) && Unit::query()->whereKey($unitId)->where('institution_type', 'university')->exists();
     }
 
     public static function canDelete($record): bool { return false; }
