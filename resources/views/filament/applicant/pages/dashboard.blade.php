@@ -3,9 +3,9 @@
         <x-filament::section>
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 class="text-lg font-semibold text-gray-950 dark:text-white">Pendaftaran Calon Siswa</h2>
+                    <h2 class="text-lg font-semibold text-gray-950 dark:text-white">Pendaftaran Saya</h2>
                     <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-                        Pilih pembukaan berdasarkan unit, tahun ajaran, gelombang, dan jalur. Satu akun dapat digunakan untuk beberapa calon siswa.
+                        Pilih pembukaan berdasarkan unit atau institusi, program studi bila ada, tahun ajaran/akademik, gelombang, dan jalur. Satu akun dapat menyimpan lebih dari satu pendaftaran.
                     </p>
                 </div>
 
@@ -27,7 +27,7 @@
                     </div>
                     <h3 class="mt-4 text-base font-semibold text-gray-950 dark:text-white">Belum ada pendaftaran</h3>
                     <p class="mx-auto mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-                        Pilih pembukaan pendaftaran yang tersedia. Unit akan otomatis mengikuti pilihan tersebut.
+                        Pilih pembukaan SPMB sekolah atau PMB perguruan tinggi yang tersedia. Unit/institusi dan program studi akan mengikuti pilihan tersebut.
                     </p>
                     <div class="mt-5">
                         <x-filament::button
@@ -48,19 +48,25 @@
                         $stageIndex = array_search($registration->current_stage, $stages, true);
                         $stageIndex = $stageIndex === false ? 0 : $stageIndex;
                         $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
+                        $isHigherEducation = $registration->unit?->isHigherEducation() ?? false;
                     @endphp
 
                     <x-filament::section>
                         <x-slot name="heading">{{ $registration->full_name }}</x-slot>
                         <x-slot name="description">
-                            {{ $registration->registration_number }} · {{ $registration->unit?->name ?? 'Unit belum ditentukan' }}
+                            {{ $registration->registration_number }} · {{ $registration->unit?->name ?? 'Unit / institusi belum ditentukan' }}
                         </x-slot>
 
                         <div class="space-y-5">
                             @if ($registration->opening)
                                 <div class="rounded-xl bg-gray-50 p-4 text-sm dark:bg-white/5">
-                                    <div class="font-semibold text-gray-950 dark:text-white">
-                                        TA {{ $registration->opening->academic_year }} · {{ $registration->opening->wave }}
+                                    @if ($registration->opening->studyProgram)
+                                        <div class="font-semibold text-gray-950 dark:text-white">
+                                            {{ $registration->opening->studyProgram->label() }}
+                                        </div>
+                                    @endif
+                                    <div class="{{ $registration->opening->studyProgram ? 'mt-1' : 'font-semibold text-gray-950 dark:text-white' }}">
+                                        {{ $isHigherEducation ? 'Tahun Akademik' : 'Tahun Ajaran' }} {{ $registration->opening->academic_year }} · {{ $registration->opening->wave }}
                                     </div>
                                     <div class="mt-1 text-gray-500 dark:text-gray-400">
                                         Jalur {{ $registration->opening->pathway }}
@@ -71,7 +77,7 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <x-filament::badge color="primary">{{ $registration->stageLabel() }}</x-filament::badge>
                                 <x-filament::badge color="gray">
-                                    {{ $registration->registrant_type === 'parent' ? 'Orang tua / wali' : 'Daftar mandiri' }}
+                                    {{ $registration->registrant_type === 'parent' ? 'Orang tua / wali' : ($isHigherEducation ? 'Calon mahasiswa' : 'Daftar mandiri') }}
                                 </x-filament::badge>
                             </div>
 
@@ -86,7 +92,7 @@
 
                             <div>
                                 <div class="mb-2 flex items-center justify-between text-xs text-gray-500">
-                                    <span>Progres SPMB</span>
+                                    <span>Progres Pendaftaran</span>
                                     <span class="font-medium">{{ $progress }}%</span>
                                 </div>
                                 <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
