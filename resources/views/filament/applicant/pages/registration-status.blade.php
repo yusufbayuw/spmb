@@ -6,6 +6,8 @@
         $stageIndex = $this->stageIndex();
         $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
         $requiredDocuments = \App\Services\RegistrationWorkflowService::REQUIRED_DOCUMENTS;
+        $isHigherEducation = $registration->unit?->isHigherEducation() ?? false;
+        $participantLabel = $isHigherEducation ? 'calon mahasiswa' : 'calon siswa';
     @endphp
 
     <div class="space-y-6">
@@ -15,7 +17,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <x-filament::badge color="primary">{{ $registration->stageLabel() }}</x-filament::badge>
                         <x-filament::badge color="gray">
-                            {{ $registration->registrant_type === 'parent' ? 'Orang tua / wali' : 'Daftar mandiri' }}
+                            {{ $registration->registrant_type === 'parent' ? 'Orang tua / wali' : ($isHigherEducation ? 'Calon mahasiswa' : 'Daftar mandiri') }}
                         </x-filament::badge>
                     </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -37,7 +39,7 @@
             <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning">
                 <x-slot name="heading">Data perlu diperbaiki</x-slot>
                 <p class="text-sm text-gray-600 dark:text-gray-300">
-                    {{ $registration->data_validation_notes ?: 'Tata Usaha meminta perbaikan data pendaftaran. Silakan gunakan menu Perbaiki Data pada Pendaftaran Saya.' }}
+                    {{ $registration->data_validation_notes ?: 'Petugas meminta perbaikan data pendaftaran. Silakan gunakan menu Perbaiki Data pada Pendaftaran Saya.' }}
                 </p>
                 <div class="mt-4">
                     <x-filament::button
@@ -64,15 +66,15 @@
                                 Upload Bukti Pembayaran
                             </x-filament::button>
                         @elseif ($registration->current_stage === 'payment_verification')
-                            <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu verifikasi pembayaran TU</x-filament::badge>
+                            <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu verifikasi pembayaran petugas</x-filament::badge>
                         @elseif (in_array($registration->current_stage, ['documents', 'document_verification'], true))
                             <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->id]) }}" icon="heroicon-m-document-arrow-up">
                                 {{ $registration->current_stage === 'documents' ? 'Lengkapi Dokumen' : 'Lihat Dokumen' }}
                             </x-filament::button>
                         @elseif ($registration->current_stage === 'data_validation')
-                            <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu validasi data oleh TU</x-filament::badge>
+                            <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu validasi data oleh petugas</x-filament::badge>
                         @elseif ($registration->current_stage === 'virtual_account')
-                            <x-filament::badge color="warning" icon="heroicon-m-envelope">Menunggu Virtual Account dari TU</x-filament::badge>
+                            <x-filament::badge color="warning" icon="heroicon-m-envelope">Menunggu Virtual Account dari petugas</x-filament::badge>
                         @elseif ($registration->current_stage === 'applicant_card')
                             <x-filament::badge color="warning" icon="heroicon-m-identification">Menunggu penerbitan kartu pendaftar</x-filament::badge>
                         @elseif ($registration->current_stage === 'tests')
@@ -94,12 +96,15 @@
                 </x-filament::section>
 
                 <x-filament::section>
-                    <x-slot name="heading">Tahapan SPMB</x-slot>
+                    <x-slot name="heading">Tahapan Pendaftaran</x-slot>
                     <div class="space-y-1">
                         @foreach ($stages as $index => $stage)
                             @php
                                 $isDone = $index < $stageIndex || $registration->current_stage === 'completed';
                                 $isCurrent = $index === $stageIndex && $registration->current_stage !== 'completed';
+                                $stageLabel = $stage === 'selection'
+                                    ? ($isHigherEducation ? 'Seleksi Calon Mahasiswa' : 'Seleksi Calon Siswa')
+                                    : ($stageLabels[$stage] ?? str($stage)->replace('_', ' ')->title());
                             @endphp
                             <div class="flex items-start gap-3 rounded-xl px-3 py-3 {{ $isCurrent ? 'bg-primary-50 dark:bg-primary-500/10' : '' }}">
                                 <div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $isDone ? 'bg-success-500 text-white' : ($isCurrent ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500 dark:bg-white/10') }}">
@@ -111,7 +116,7 @@
                                 </div>
                                 <div>
                                     <div class="text-sm font-semibold {{ $isCurrent ? 'text-primary-700 dark:text-primary-300' : 'text-gray-950 dark:text-white' }}">
-                                        {{ $stageLabels[$stage] ?? str($stage)->replace('_', ' ')->title() }}
+                                        {{ $stageLabel }}
                                     </div>
                                     @if ($isCurrent)
                                         <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Tahap aktif saat ini</div>
@@ -131,6 +136,11 @@
                                     <div>
                                         <div class="font-medium text-gray-950 dark:text-white">{{ $result->admissionTest?->name ?? 'Tes' }}</div>
                                         <div class="mt-1 text-xs text-gray-500">
+                                            @if ($result->admissionTest?->studyProgram)
+                                                {{ $result->admissionTest->studyProgram->label() }} ·
+                                            @else
+                                                Tes umum ·
+                                            @endif
                                             @if ($result->admissionTest?->scheduled_at)
                                                 {{ $result->admissionTest->scheduled_at->format('d M Y H:i') }}
                                             @else
@@ -152,7 +162,7 @@
 
                 @if ($registration->announcement?->status === 'published')
                     <x-filament::section icon="heroicon-o-megaphone" icon-color="success">
-                        <x-slot name="heading">{{ $registration->announcement->title ?: 'Pengumuman SPMB' }}</x-slot>
+                        <x-slot name="heading">{{ $registration->announcement->title ?: 'Pengumuman Hasil Penerimaan' }}</x-slot>
                         <p class="text-sm text-gray-700 dark:text-gray-300">{{ $registration->announcement->message }}</p>
                         @if ($registration->selection)
                             <div class="mt-4">
@@ -170,8 +180,11 @@
                     <x-slot name="heading">Ringkasan</x-slot>
                     <dl class="space-y-4 text-sm">
                         <div><dt class="text-gray-500">Nomor pendaftaran</dt><dd class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $registration->registration_number }}</dd></div>
-                        <div><dt class="text-gray-500">Unit tujuan</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->unit?->name ?? '-' }}</dd></div>
-                        <div><dt class="text-gray-500">NIK calon siswa</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->nik }}</dd></div>
+                        <div><dt class="text-gray-500">Unit / institusi tujuan</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->unit?->name ?? '-' }}</dd></div>
+                        @if ($registration->opening?->studyProgram)
+                            <div><dt class="text-gray-500">Program studi</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->opening->studyProgram->label() }}</dd></div>
+                        @endif
+                        <div><dt class="text-gray-500">NIK {{ $participantLabel }}</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->nik }}</dd></div>
                         <div><dt class="text-gray-500">Tanggal daftar</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->submitted_at?->format('d M Y H:i') ?? $registration->created_at->format('d M Y H:i') }}</dd></div>
                     </dl>
                 </x-filament::section>
@@ -201,7 +214,7 @@
                             @php
                                 $document = $registration->documents->firstWhere('type', $type);
                                 $label = match($type) {
-                                    'report_card' => 'Rapor',
+                                    'report_card' => 'Rapor / Dokumen Akademik',
                                     'family_card' => 'Kartu Keluarga',
                                     'birth_certificate' => 'Akta Kelahiran',
                                     'photo' => 'Pas Foto',
