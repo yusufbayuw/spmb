@@ -15,7 +15,7 @@ class CreateRegistration extends CreateRecord
         parent::mount();
 
         $opening = RegistrationOpening::query()
-            ->with('unit')
+            ->with(['unit', 'studyProgram'])
             ->find(request()->integer('opening'));
 
         abort_unless($opening?->isOpen(), 403, 'Pendaftaran ini sedang tidak dibuka.');
@@ -23,15 +23,23 @@ class CreateRegistration extends CreateRecord
         $this->form->fill([
             'registration_opening_id' => $opening->id,
             'unit_id' => $opening->unit_id,
-            'registrant_type' => 'parent',
+            'registrant_type' => $opening->unit?->isHigherEducation() ? 'self' : 'parent',
         ]);
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $opening = RegistrationOpening::query()->find($data['registration_opening_id'] ?? null);
+        $opening = RegistrationOpening::query()
+            ->with(['unit', 'studyProgram'])
+            ->find($data['registration_opening_id'] ?? null);
 
         abort_unless($opening?->isOpen(), 403, 'Pendaftaran ini sudah ditutup.');
+
+        if ($opening->unit?->isHigherEducation()) {
+            abort_unless($opening->studyProgram, 422, 'Program studi pada pembukaan pendaftaran belum dikonfigurasi.');
+            $opening->studyProgram->assertApplicantAge($data['birth_date'] ?? null);
+            $data['registrant_type'] = 'self';
+        }
 
         $data['user_id'] = auth()->id();
         $data['registration_opening_id'] = $opening->id;
@@ -54,6 +62,6 @@ class CreateRegistration extends CreateRecord
 
     protected function getCreatedNotificationTitle(): ?string
     {
-        return 'Pendaftaran berhasil dikirim dan menunggu validasi TU';
+        return 'Pendaftaran berhasil dikirim dan menunggu validasi petugas';
     }
 }
