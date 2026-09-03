@@ -21,7 +21,7 @@ class Registration extends Model
         'documents' => 'Melengkapi Berkas',
         'document_verification' => 'Verifikasi Berkas',
         'tests' => 'Rangkaian Tes',
-        'selection' => 'Seleksi Calon Siswa',
+        'selection' => 'Seleksi Peserta',
         'announcement' => 'Pengumuman',
         'completed' => 'Selesai',
     ];
