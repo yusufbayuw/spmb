@@ -303,7 +303,7 @@ class RegistrationWorkflowService
 
         $complete = DB::transaction(function () use ($registration, &$hasTests): bool {
             $lockedRegistration = Registration::query()
-                ->with('unit')
+                ->with(['unit', 'opening'])
                 ->lockForUpdate()
                 ->findOrFail($registration->id);
 
@@ -326,9 +326,18 @@ class RegistrationWorkflowService
                 return false;
             }
 
+            $studyProgramId = $lockedRegistration->opening?->study_program_id;
+
             $tests = $lockedRegistration->unit
                 ->admissionTests()
                 ->where('is_active', true)
+                ->where(function ($query) use ($studyProgramId): void {
+                    $query->whereNull('study_program_id');
+
+                    if ($studyProgramId) {
+                        $query->orWhere('study_program_id', $studyProgramId);
+                    }
+                })
                 ->get();
 
             $hasTests = $tests->isNotEmpty();
