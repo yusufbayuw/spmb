@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Selection;
+use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         foreach ([
             Registration::class,
             RegistrationOpening::class,
+            StudyProgram::class,
             ParentInfo::class,
             Document::class,
             Payment::class,
