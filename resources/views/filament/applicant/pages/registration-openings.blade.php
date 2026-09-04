@@ -37,14 +37,10 @@
                                 </div>
                             @endif
 
-                            <div class="grid gap-3 sm:grid-cols-3">
+                            <div class="grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
                                     <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Gelombang</div>
                                     <div class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $opening->wave }}</div>
-                                </div>
-                                <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
-                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Jalur</div>
-                                    <div class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $opening->pathway }}</div>
                                 </div>
                                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
                                     <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Biaya Formulir</div>
@@ -54,6 +50,12 @@
 
                             @if ($opening->description)
                                 <p class="text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $opening->description }}</p>
+                            @endif
+
+                            @if ($opening->opened_at && $opening->closed_at)
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                    Periode: {{ $opening->opened_at->format('d M Y H:i') }}–{{ $opening->closed_at->format('d M Y H:i') }}
+                                </p>
                             @endif
 
                             <div class="flex items-center justify-between gap-4">
@@ -71,7 +73,7 @@
                                     </x-filament::button>
                                 @else
                                     <x-filament::button disabled color="gray" icon="heroicon-m-lock-closed">
-                                        Pendaftaran Ditutup
+                                        {{ $opening->operationalStatus() === 'scheduled' ? 'Belum Dibuka' : 'Pendaftaran Ditutup' }}
                                     </x-filament::button>
                                 @endif
                             </div>

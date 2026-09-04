@@ -5,7 +5,7 @@
                 <div>
                     <h2 class="text-lg font-semibold text-gray-950 dark:text-white">Pendaftaran Saya</h2>
                     <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-                        Pilih pembukaan berdasarkan unit atau institusi, program studi bila ada, tahun ajaran/akademik, gelombang, dan jalur. Satu akun dapat menyimpan lebih dari satu pendaftaran.
+                        Pilih pembukaan berdasarkan unit atau institusi, program studi bila ada, tahun ajaran/akademik, dan gelombang. Jalur dipilih saat mengisi formulir.
                     </p>
                 </div>
 
@@ -69,7 +69,7 @@
                                         {{ $isHigherEducation ? 'Tahun Akademik' : 'Tahun Ajaran' }} {{ $registration->opening->academic_year }} · {{ $registration->opening->wave }}
                                     </div>
                                     <div class="mt-1 text-gray-500 dark:text-gray-400">
-                                        Jalur {{ $registration->opening->pathway }}
+                                        Jalur {{ $registration->pathway?->name ?? '-' }}
                                     </div>
                                 </div>
                             @endif

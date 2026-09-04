@@ -17,7 +17,7 @@ class OperationalReportService
     public function query(User $staff, array $filters = []): Builder
     {
         return Registration::query()
-            ->with(['unit', 'opening.studyProgram', 'latestPayment', 'selection'])
+            ->with(['unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection'])
             ->when($staff->isTU(), fn (Builder $q) => $q->where('registrations.unit_id', $staff->unit_id))
             ->when(! $staff->isTU() && filled($filters['unit_id'] ?? null), fn (Builder $q) => $q->where('registrations.unit_id', $filters['unit_id']))
             ->when(filled($filters['study_program_id'] ?? null), fn (Builder $q) => $q->whereHas('opening', fn (Builder $opening) => $opening->where('study_program_id', $filters['study_program_id'])))
@@ -69,7 +69,7 @@ class OperationalReportService
         Storage::disk('local')->makeDirectory('exports/operational');
         $absolutePath = Storage::disk('local')->path($storedPath);
 
-        $writer = new Writer();
+        $writer = new Writer;
         $writer->openToFile($absolutePath);
         $writer->getCurrentSheet()->setName('Pendaftaran');
         $writer->addRow(Row::fromValues([
@@ -92,7 +92,7 @@ class OperationalReportService
                         $registration->opening?->studyProgram?->degree_level,
                         $registration->opening?->academic_year,
                         $registration->opening?->wave,
-                        $registration->opening?->pathway,
+                        $registration->pathway?->name,
                         (float) ($registration->opening?->registration_fee ?? 0),
                         $registration->lifecycleLabel(),
                         $registration->stageLabel(),

@@ -133,7 +133,6 @@ class ApplicantPortalTest extends TestCase
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 1',
-            'pathway' => 'Reguler',
             'registration_fee' => 300000,
             'status' => 'open',
         ]);

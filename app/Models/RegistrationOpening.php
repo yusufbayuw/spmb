@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
 
 class RegistrationOpening extends Model
@@ -13,6 +15,7 @@ class RegistrationOpening extends Model
 
     public const STATUSES = [
         'draft' => 'Draft',
+        'scheduled' => 'Dijadwalkan',
         'open' => 'Dibuka',
         'closed' => 'Ditutup',
         'archived' => 'Diarsipkan',
@@ -23,7 +26,6 @@ class RegistrationOpening extends Model
         'study_program_id',
         'academic_year',
         'wave',
-        'pathway',
         'registration_fee',
         'description',
         'status',
@@ -47,6 +49,8 @@ class RegistrationOpening extends Model
         });
 
         static::saving(function (RegistrationOpening $opening): void {
+            $opening->setAttribute('pathway', $opening->getAttribute('pathway') ?? '');
+
             $unit = Unit::query()->find($opening->unit_id);
             $program = $opening->study_program_id
                 ? StudyProgram::query()->find($opening->study_program_id)
@@ -70,39 +74,136 @@ class RegistrationOpening extends Model
                 ]);
             }
 
-            $duplicate = static::query()
-                ->where('unit_id', $opening->unit_id)
-                ->when(
-                    $opening->study_program_id,
-                    fn (Builder $query): Builder => $query->where('study_program_id', $opening->study_program_id),
-                    fn (Builder $query): Builder => $query->whereNull('study_program_id'),
-                )
-                ->where('academic_year', $opening->academic_year)
-                ->where('wave', $opening->wave)
-                ->where('pathway', $opening->pathway)
-                ->when($opening->exists, fn (Builder $query): Builder => $query->whereKeyNot($opening->getKey()))
-                ->exists();
-
-            if ($duplicate) {
+            if (($opening->opened_at === null) !== ($opening->closed_at === null)) {
                 throw ValidationException::withMessages([
-                    'wave' => 'Pembukaan dengan unit/program studi, tahun akademik, gelombang, dan jalur yang sama sudah ada.',
+                    'closed_at' => 'Waktu buka dan waktu tutup harus diisi bersamaan.',
                 ]);
+            }
+
+            if ($opening->opened_at && $opening->closed_at && $opening->closed_at->lessThanOrEqualTo($opening->opened_at)) {
+                throw ValidationException::withMessages([
+                    'closed_at' => 'Waktu tutup harus setelah waktu buka.',
+                ]);
+            }
+
+            if (! $opening->exists || $opening->isDirty(['unit_id', 'study_program_id', 'academic_year', 'wave'])) {
+                $duplicate = static::query()
+                    ->where('unit_id', $opening->unit_id)
+                    ->when(
+                        $opening->study_program_id,
+                        fn (Builder $query): Builder => $query->where('study_program_id', $opening->study_program_id),
+                        fn (Builder $query): Builder => $query->whereNull('study_program_id'),
+                    )
+                    ->where('academic_year', $opening->academic_year)
+                    ->where('wave', $opening->wave)
+                    ->when($opening->exists, fn (Builder $query): Builder => $query->whereKeyNot($opening->getKey()))
+                    ->exists();
+
+                if ($duplicate) {
+                    throw ValidationException::withMessages([
+                        'wave' => 'Pembukaan dengan unit/program studi, tahun akademik, dan gelombang yang sama sudah ada.',
+                    ]);
+                }
+            }
+
+            if ($opening->status !== 'archived' && $opening->opened_at && $opening->closed_at) {
+                $opening->status = match (true) {
+                    now()->lt($opening->opened_at) => 'draft',
+                    now()->gte($opening->closed_at) => 'closed',
+                    default => 'open',
+                };
             }
         });
     }
 
-    public function unit() { return $this->belongsTo(Unit::class); }
-    public function studyProgram() { return $this->belongsTo(StudyProgram::class); }
-    public function creator() { return $this->belongsTo(User::class, 'created_by'); }
-    public function registrations() { return $this->hasMany(Registration::class); }
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function studyProgram(): BelongsTo
+    {
+        return $this->belongsTo(StudyProgram::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function registrations(): HasMany
+    {
+        return $this->hasMany(Registration::class);
+    }
+
+    public function scopeCurrentlyOpen(Builder $query): Builder
+    {
+        return $query
+            ->where('status', '!=', 'archived')
+            ->where(function (Builder $availability): void {
+                $availability
+                    ->where(function (Builder $scheduled): void {
+                        $scheduled
+                            ->whereNotNull('opened_at')
+                            ->whereNotNull('closed_at')
+                            ->where('opened_at', '<=', now())
+                            ->where('closed_at', '>', now());
+                    })
+                    ->orWhere(function (Builder $legacy): void {
+                        $legacy
+                            ->where('status', 'open')
+                            ->where(function (Builder $incompleteSchedule): void {
+                                $incompleteSchedule->whereNull('opened_at')->orWhereNull('closed_at');
+                            });
+                    });
+            });
+    }
 
     public function scopeVisibleToApplicants(Builder $query): Builder
     {
-        return $query->whereIn('status', ['open', 'closed']);
+        return $query
+            ->where('status', '!=', 'archived')
+            ->where(function (Builder $visibility): void {
+                $visibility
+                    ->where(function (Builder $scheduled): void {
+                        $scheduled->whereNotNull('opened_at')->whereNotNull('closed_at');
+                    })
+                    ->orWhere(function (Builder $legacy): void {
+                        $legacy
+                            ->whereIn('status', ['open', 'closed'])
+                            ->where(function (Builder $incompleteSchedule): void {
+                                $incompleteSchedule->whereNull('opened_at')->orWhereNull('closed_at');
+                            });
+                    });
+            });
     }
 
-    public function isOpen(): bool { return $this->status === 'open'; }
-    public function statusLabel(): string { return self::STATUSES[$this->status] ?? $this->status; }
+    public function isOpen(): bool
+    {
+        return $this->operationalStatus() === 'open';
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->operationalStatus()] ?? $this->operationalStatus();
+    }
+
+    public function operationalStatus(): string
+    {
+        if ($this->status === 'archived' || $this->archived_at) {
+            return 'archived';
+        }
+
+        if ($this->opened_at && $this->closed_at) {
+            return match (true) {
+                now()->lt($this->opened_at) => 'scheduled',
+                now()->gte($this->closed_at) => 'closed',
+                default => 'open',
+            };
+        }
+
+        return $this->status;
+    }
 
     public function formattedFee(): string
     {
@@ -116,23 +217,7 @@ class RegistrationOpening extends Model
             $this->studyProgram?->label(),
             'TA '.$this->academic_year,
             $this->wave,
-            'Jalur '.$this->pathway,
         ])->filter()->implode(' · ');
-    }
-
-    public function open(): void
-    {
-        $this->update([
-            'status' => 'open',
-            'opened_at' => now(),
-            'closed_at' => null,
-            'archived_at' => null,
-        ]);
-    }
-
-    public function close(): void
-    {
-        $this->update(['status' => 'closed', 'closed_at' => now()]);
     }
 
     public function archive(): void

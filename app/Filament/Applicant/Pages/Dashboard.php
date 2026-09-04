@@ -9,9 +9,13 @@ use Illuminate\Database\Eloquent\Collection;
 class Dashboard extends BaseDashboard
 {
     protected static ?string $navigationIcon = 'heroicon-o-home';
+
     protected static ?string $navigationLabel = 'Beranda';
+
     protected static ?string $title = 'Beranda Pendaftar';
+
     protected static ?int $navigationSort = 1;
+
     protected static string $view = 'filament.applicant.pages.dashboard';
 
     public Collection $registrations;
@@ -20,7 +24,7 @@ class Dashboard extends BaseDashboard
     {
         $this->registrations = Registration::query()
             ->where('user_id', auth()->id())
-            ->with(['unit', 'opening.studyProgram', 'latestPayment', 'selection', 'announcement'])
+            ->with(['unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection', 'announcement'])
             ->latest()
             ->get();
     }

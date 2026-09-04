@@ -156,7 +156,7 @@
                             </div>
                             <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-lg font-extrabold text-blue-800">U</span>
                         </div>
-                        <p class="mt-4 text-sm leading-7 text-blue-100">Calon mahasiswa memilih program studi sejak awal pembukaan. Sistem menyimpan prodi, tahun akademik, gelombang, jalur dan biaya formulir sebagai satu offering sehingga banyak program studi dapat berjalan pada periode yang sama.</p>
+                        <p class="mt-4 text-sm leading-7 text-blue-100">Calon mahasiswa memilih program studi sejak awal pembukaan, lalu menentukan jalur yang aktif untuk institusi tersebut saat mengisi formulir.</p>
                         <div class="mt-6 flex flex-wrap gap-2">
                             @foreach ($universities->flatMap->studyPrograms as $program)
                                 <span class="rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-sm font-bold text-white">{{ $program->label() }}</span>
@@ -179,7 +179,7 @@
                     @foreach ([
                         ['01', 'Buat akun', 'Daftarkan email aktif untuk memperoleh akses portal penerimaan.'],
                         ['02', 'Verifikasi email', 'Aktifkan akun melalui tautan yang dikirim ke email.'],
-                        ['03', 'Pilih pembukaan', 'Pilih unit sekolah atau program studi, gelombang, dan jalur.'],
+                        ['03', 'Pilih pembukaan', 'Pilih unit sekolah atau program studi dan gelombang; jalur dipilih di formulir.'],
                         ['04', 'Lengkapi formulir', 'Isi identitas resmi, riwayat pendidikan, dan data pendukung yang diminta.'],
                         ['05', 'Verifikasi & pembayaran', 'Petugas memeriksa data; sistem menerbitkan VA dan memproses bukti pembayaran.'],
                         ['06', 'Kartu, berkas & seleksi', 'Unduh kartu, lengkapi berkas, ikuti tes bila ada, lalu pantau pengumuman.'],
@@ -201,7 +201,7 @@
                         <div class="max-w-3xl">
                             <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Taruna Bakti University</p>
                             <h2 class="mt-3 text-3xl font-extrabold tracking-[-0.03em] text-slate-950 sm:text-4xl">Pilih program studi tujuan</h2>
-                            <p class="mt-4 text-base leading-7 text-slate-600">Program studi dikelola sebagai master data dan dapat memiliki pembukaan, gelombang, jalur, biaya serta ketentuan usia masing-masing.</p>
+                            <p class="mt-4 text-base leading-7 text-slate-600">Program studi dapat memiliki pembukaan, gelombang, biaya, dan ketentuan usia masing-masing. Jalur pendaftaran dikelola terpisah per unit.</p>
                         </div>
                         <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700">{{ $studyProgramCount }} program studi aktif</span>
                     </div>
@@ -254,7 +254,6 @@
                                 </div>
                                 <div class="mt-4 space-y-1 text-sm text-slate-600">
                                     <p>TA {{ $opening->academic_year }} · {{ $opening->wave }}</p>
-                                    <p>Jalur {{ $opening->pathway }}</p>
                                     <p class="font-bold text-slate-900">{{ $opening->formattedFee() }}</p>
                                 </div>
                             </article>

@@ -10,28 +10,42 @@ use App\Services\SpmbNotificationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 class DocumentResource extends Resource
 {
     protected static ?string $model = Document::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-document-check';
+
     protected static ?string $navigationLabel = 'Verifikasi Berkas';
+
     protected static ?string $navigationGroup = 'Verifikasi';
+
     protected static ?int $navigationSort = 2;
 
     public static function table(Table $table): Table
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->groups([
+                Group::make('registration.user_id')
+                    ->label('Pendaftar')
+                    ->getTitleFromRecordUsing(fn (Document $record): string => $record->registration?->user?->name ?? 'Pendaftar tanpa nama')
+                    ->collapsible(),
+            ])
+            ->defaultGroup('registration.user_id')
+            ->groupingSettingsHidden()
             ->columns([
-                Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi'),
-                Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable(),
+                Tables\Columns\TextColumn::make('registration.user.name')->searchable()->hidden(),
+                Tables\Columns\TextColumn::make('registration.registration_number')->searchable()->hidden(),
                 Tables\Columns\TextColumn::make('registration.unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('type')->label('Jenis')->badge(),
                 Tables\Columns\TextColumn::make('original_name')
                     ->label('File')
+                    ->searchable()
                     ->url(fn (Document $record): string => route('files.applicant.documents.show', $record)),
                 Tables\Columns\TextColumn::make('malware_scan_status')
                     ->label('Security')
@@ -58,8 +72,7 @@ class DocumentResource extends Resource
                     ->label('Verifikasi')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (Document $record) =>
-                        auth()->user()?->can('verify_document_document')
+                    ->visible(fn (Document $record) => auth()->user()?->can('verify_document_document')
                         && ! $record->is_verified
                         && $record->registration?->isOperational()
                         && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
@@ -91,8 +104,7 @@ class DocumentResource extends Resource
                     ->label('Batalkan')
                     ->color('gray')
                     ->requiresConfirmation()
-                    ->visible(fn (Document $record) =>
-                        auth()->user()?->can('verify_document_document')
+                    ->visible(fn (Document $record) => auth()->user()?->can('verify_document_document')
                         && $record->is_verified
                         && $record->registration?->isOperational()
                         && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
@@ -117,10 +129,11 @@ class DocumentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with('registration.unit');
+        $query = parent::getEloquentQuery()->with(['registration.unit', 'registration.user']);
         if (auth()->user()?->isTU()) {
             $query->whereHas('registration', fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id));
         }
+
         return $query;
     }
 
@@ -132,5 +145,8 @@ class DocumentResource extends Resource
             ->count();
     }
 
-    public static function canDelete($record): bool { return false; }
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
 }

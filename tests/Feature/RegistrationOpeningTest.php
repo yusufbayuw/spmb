@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +24,6 @@ class RegistrationOpeningTest extends TestCase
                 'unit_id' => $unit->id,
                 'academic_year' => '2026/2027',
                 'wave' => ucfirst($status),
-                'pathway' => 'Reguler',
                 'status' => $status,
             ]);
         }
@@ -45,14 +45,19 @@ class RegistrationOpeningTest extends TestCase
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 1',
-            'pathway' => 'Prestasi',
             'status' => 'open',
+        ]);
+        $pathway = RegistrationPathway::create([
+            'unit_id' => $unit->id,
+            'name' => 'Prestasi',
+            'is_active' => true,
         ]);
 
         $registration = Registration::create([
             'user_id' => User::factory()->create()->id,
             'unit_id' => $opening->unit_id,
             'registration_opening_id' => $opening->id,
+            'registration_pathway_id' => $pathway->id,
             'registrant_type' => 'parent',
             'registrant_relationship' => 'father',
             'nik' => '3273010101010001',
@@ -67,7 +72,35 @@ class RegistrationOpeningTest extends TestCase
         ]);
 
         $this->assertSame($unit->id, $registration->opening->unit_id);
-        $this->assertSame('Prestasi', $registration->opening->pathway);
+        $this->assertSame('Prestasi', $registration->pathway->name);
+    }
+
+    public function test_opening_automatically_changes_availability_from_its_schedule(): void
+    {
+        $this->travelTo('2026-09-04 08:00:00');
+        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang Terjadwal',
+            'status' => 'draft',
+            'opened_at' => '2026-09-04 09:00:00',
+            'closed_at' => '2026-09-04 17:00:00',
+        ]);
+
+        $this->assertSame('scheduled', $opening->operationalStatus());
+        $this->assertFalse($opening->isOpen());
+        $this->assertSame(0, RegistrationOpening::query()->currentlyOpen()->count());
+
+        $this->travelTo('2026-09-04 12:00:00');
+        $this->assertSame('open', $opening->operationalStatus());
+        $this->assertTrue($opening->isOpen());
+        $this->assertSame(1, RegistrationOpening::query()->currentlyOpen()->count());
+
+        $this->travelTo('2026-09-04 17:00:00');
+        $this->assertSame('closed', $opening->operationalStatus());
+        $this->assertFalse($opening->isOpen());
+        $this->assertSame(0, RegistrationOpening::query()->currentlyOpen()->count());
     }
 
     public function test_closed_opening_cannot_open_applicant_form_but_open_opening_can(): void
@@ -79,7 +112,6 @@ class RegistrationOpeningTest extends TestCase
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 1',
-            'pathway' => 'Reguler',
             'status' => 'open',
         ]);
 
@@ -87,7 +119,6 @@ class RegistrationOpeningTest extends TestCase
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 2',
-            'pathway' => 'Reguler',
             'status' => 'closed',
         ]);
 

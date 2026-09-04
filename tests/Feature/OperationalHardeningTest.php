@@ -125,7 +125,6 @@ class OperationalHardeningTest extends TestCase
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 1',
-            'pathway' => 'Reguler',
             'registration_fee' => 350000,
             'status' => 'open',
         ]);

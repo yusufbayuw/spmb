@@ -15,7 +15,7 @@ class ShieldSeeder extends Seeder
 
         $standard = ['view', 'view_any', 'create', 'update', 'delete', 'delete_any'];
         $resources = [
-            'registration', 'registrationopening', 'studyprogram', 'parentinfo', 'document',
+            'registration', 'registrationopening', 'registrationpathway', 'studyprogram', 'parentinfo', 'document',
             'payment', 'virtualaccount', 'unit', 'user', 'admissiontest', 'admissiontestresult',
             'selection', 'announcement', 'auditlog',
         ];
@@ -41,6 +41,7 @@ class ShieldSeeder extends Seeder
         $tuPermissions = [
             'view_registration', 'view_any_registration', 'update_registration', 'validate_data_registration', 'send_va_registration', 'issue_card_registration',
             'view_registrationopening', 'view_any_registrationopening', 'create_registrationopening', 'update_registrationopening',
+            'view_registrationpathway', 'view_any_registrationpathway', 'create_registrationpathway', 'update_registrationpathway',
             'view_studyprogram', 'view_any_studyprogram', 'create_studyprogram', 'update_studyprogram',
             'view_parentinfo', 'view_any_parentinfo', 'update_parentinfo',
             'view_document', 'view_any_document', 'update_document', 'verify_document_document',

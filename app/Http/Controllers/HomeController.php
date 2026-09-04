@@ -24,7 +24,7 @@ class HomeController extends Controller
             ->get();
 
         $openOfferings = RegistrationOpening::query()
-            ->where('status', 'open')
+            ->currentlyOpen()
             ->with(['unit', 'studyProgram'])
             ->orderBy('unit_id')
             ->orderBy('study_program_id')

@@ -8,6 +8,7 @@ use App\Filament\Applicant\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\RegistrationPathway;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -20,17 +21,22 @@ use Illuminate\Validation\Rules\Unique;
 class RegistrationResource extends Resource
 {
     protected static ?string $model = Registration::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
+
     protected static ?string $navigationLabel = 'Pendaftaran Saya';
+
     protected static ?string $modelLabel = 'Pendaftaran';
+
     protected static ?string $pluralModelLabel = 'Pendaftaran Saya';
+
     protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {
         return $form->schema([
             Forms\Components\Section::make('Pilihan Pendaftaran')
-                ->description('Unit/institusi, program studi bila ada, tahun ajaran/akademik, gelombang, jalur, dan biaya mengikuti pembukaan yang Anda pilih.')
+                ->description('Unit/institusi, program studi, periode, dan biaya mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\Hidden::make('registration_opening_id')->required(),
@@ -47,6 +53,15 @@ class RegistrationResource extends Resource
                                 : 'Pilih pembukaan pendaftaran terlebih dahulu.';
                         })
                         ->columnSpanFull(),
+                    Forms\Components\Select::make('registration_pathway_id')
+                        ->label('Jalur Pendaftaran')
+                        ->options(fn (Forms\Get $get, ?Registration $record): array => static::pathwayOptions(
+                            $get('registration_opening_id'),
+                            $record,
+                        ))
+                        ->searchable()
+                        ->preload()
+                        ->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Pendaftaran dilakukan oleh')
                         ->options(fn (Forms\Get $get): array => static::isHigherEducationOpening($get('registration_opening_id'))
@@ -110,7 +125,7 @@ class RegistrationResource extends Resource
                     ->formatStateUsing(fn ($state, Registration $record): string => $record->opening?->studyProgram?->label() ?? '-')
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun'),
-                Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->description(fn (Registration $record): ?string => $record->opening?->pathway),
+                Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->description(fn (Registration $record): ?string => $record->pathway?->name),
                 Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya')->money('IDR', locale: 'id'),
                 Tables\Columns\TextColumn::make('current_stage')->label('Tahap Saat Ini')->badge()->formatStateUsing(fn (Registration $record): string => $record->stageLabel()),
                 Tables\Columns\TextColumn::make('lifecycle_status')
@@ -167,16 +182,19 @@ class RegistrationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('user_id', auth()->id())
-            ->with(['unit', 'opening.studyProgram', 'latestPayment']);
+            ->with(['unit', 'opening.studyProgram', 'pathway', 'latestPayment']);
     }
 
-    public static function canViewAny(): bool { return auth()->user()?->isUser() ?? false; }
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->isUser() ?? false;
+    }
 
     public static function canCreate(): bool
     {
         return (auth()->user()?->isUser() ?? false)
             && (auth()->user()?->hasVerifiedEmail() ?? false)
-            && RegistrationOpening::query()->where('status', 'open')->exists();
+            && RegistrationOpening::query()->currentlyOpen()->exists();
     }
 
     public static function canEdit($record): bool
@@ -211,7 +229,34 @@ class RegistrationResource extends Resource
         return $maxAge ? "Program studi ini menerima pendaftar dengan usia maksimal {$maxAge} tahun." : null;
     }
 
-    public static function canDelete($record): bool { return false; }
+    public static function pathwayOptions($openingId, ?Registration $record = null): array
+    {
+        $unitId = RegistrationOpening::query()->whereKey($openingId)->value('unit_id');
+
+        if (! $unitId) {
+            return [];
+        }
+
+        return RegistrationPathway::query()
+            ->where('unit_id', $unitId)
+            ->where(function (Builder $query) use ($record): void {
+                $query->where(function (Builder $available): void {
+                    $available->where('is_active', true)->whereNull('archived_at');
+                });
+
+                if ($record?->registration_pathway_id) {
+                    $query->orWhereKey($record->registration_pathway_id);
+                }
+            })
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
 
     public static function getPages(): array
     {

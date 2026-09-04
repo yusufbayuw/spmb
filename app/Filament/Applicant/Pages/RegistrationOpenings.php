@@ -9,10 +9,15 @@ use Illuminate\Database\Eloquent\Collection;
 class RegistrationOpenings extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
+
     protected static ?string $navigationLabel = 'Pendaftaran Dibuka';
+
     protected static ?string $title = 'Pilih Pendaftaran';
+
     protected static ?int $navigationSort = 2;
+
     protected static ?string $slug = 'pendaftaran';
+
     protected static string $view = 'filament.applicant.pages.registration-openings';
 
     public Collection $openings;
@@ -31,6 +36,6 @@ class RegistrationOpenings extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Pilih satuan pendidikan atau program studi, tahun ajaran/akademik, gelombang, dan jalur yang tersedia.';
+        return 'Pilih satuan pendidikan atau program studi, tahun ajaran/akademik, dan gelombang yang tersedia.';
     }
 }

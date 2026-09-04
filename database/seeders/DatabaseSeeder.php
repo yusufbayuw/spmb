@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UnitSeeder::class,
             StudyProgramSeeder::class,
+            RegistrationPathwaySeeder::class,
             RegistrationOpeningSeeder::class,
             ShieldSeeder::class,
             AdminUserSeeder::class,

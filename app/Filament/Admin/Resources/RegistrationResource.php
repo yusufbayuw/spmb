@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\RegistrationPathway;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -19,11 +20,17 @@ use Illuminate\Validation\Rules\Unique;
 class RegistrationResource extends Resource
 {
     protected static ?string $model = Registration::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+
     protected static ?string $navigationLabel = 'Pendaftaran';
+
     protected static ?string $modelLabel = 'Pendaftaran';
+
     protected static ?string $pluralModelLabel = 'Pendaftaran';
+
     protected static ?string $navigationGroup = 'SPMB';
+
     protected static ?int $navigationSort = 1;
 
     public static function statusOptions(): array
@@ -63,17 +70,19 @@ class RegistrationResource extends Resource
                                 : $query,
                         )
                         ->getOptionLabelFromRecordUsing(fn (RegistrationOpening $record): string => $record->loadMissing('unit')->label())
-                        ->searchable(['academic_year', 'wave', 'pathway'])
+                        ->searchable(['academic_year', 'wave'])
                         ->preload()
                         ->live()
                         ->afterStateUpdated(function ($state, Forms\Set $set): void {
                             $opening = RegistrationOpening::query()->find($state);
+                            $set('registration_pathway_id', null);
                             if ($opening) {
                                 $set('unit_id', $opening->unit_id);
                             }
                         })
                         ->disabled(fn (?Registration $record): bool => filled($record?->registration_opening_id))
-                        ->dehydrated(),
+                        ->dehydrated()
+                        ->required(),
                     Forms\Components\Select::make('unit_id')
                         ->label('Unit Sekolah')
                         ->relationship(
@@ -86,13 +95,23 @@ class RegistrationResource extends Resource
                         ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
                         ->disabled(fn (Forms\Get $get): bool => filled($get('registration_opening_id')) || (auth()->user()?->isTU() ?? false))
                         ->dehydrated()->searchable()->preload()->required(),
+                    Forms\Components\Select::make('registration_pathway_id')
+                        ->label('Jalur Pendaftaran')
+                        ->options(fn (Forms\Get $get, ?Registration $record): array => static::pathwayOptions(
+                            $get('registration_opening_id'),
+                            $get('unit_id'),
+                            $record,
+                        ))
+                        ->searchable()
+                        ->preload()
+                        ->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Yang Mendaftarkan')
                         ->options(['parent' => 'Orang Tua / Wali', 'self' => 'Calon Siswa Sendiri'])
                         ->required()->live(),
                     Forms\Components\Select::make('registrant_relationship')
                         ->label('Hubungan dengan Calon Siswa')
-                        ->options(['father'=>'Ayah','mother'=>'Ibu','guardian'=>'Wali','self'=>'Diri Sendiri','other'=>'Lainnya'])
+                        ->options(['father' => 'Ayah', 'mother' => 'Ibu', 'guardian' => 'Wali', 'self' => 'Diri Sendiri', 'other' => 'Lainnya'])
                         ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
                     Forms\Components\TextInput::make('registration_number')->label('No. Registrasi')->disabled()->dehydrated(false),
                     Forms\Components\TextInput::make('current_stage')
@@ -113,8 +132,8 @@ class RegistrationResource extends Resource
                         ),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
-                    Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L'=>'Laki-laki','P'=>'Perempuan'])->required(),
-                    Forms\Components\Select::make('religion')->label('Agama')->options(['Islam'=>'Islam','Kristen'=>'Kristen','Katolik'=>'Katolik','Hindu'=>'Hindu','Buddha'=>'Buddha','Konghucu'=>'Konghucu'])->default('Islam'),
+                    Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
+                    Forms\Components\Select::make('religion')->label('Agama')->options(['Islam' => 'Islam', 'Kristen' => 'Kristen', 'Katolik' => 'Katolik', 'Hindu' => 'Hindu', 'Buddha' => 'Buddha', 'Konghucu' => 'Konghucu'])->default('Islam'),
                     Forms\Components\TextInput::make('birth_place')->label('Tempat Lahir')->required(),
                     Forms\Components\DatePicker::make('birth_date')->label('Tanggal Lahir')->required()->native(false)->maxDate(now()),
                     Forms\Components\TextInput::make('phone')->label('Telepon')->tel(),
@@ -135,7 +154,7 @@ class RegistrationResource extends Resource
                 ->schema([
                     Forms\Components\Select::make('data_validation_status')
                         ->label('Status Validasi')
-                        ->options(['pending'=>'Menunggu Validasi','valid'=>'Valid','revision'=>'Perlu Revisi'])
+                        ->options(['pending' => 'Menunggu Validasi', 'valid' => 'Valid', 'revision' => 'Perlu Revisi'])
                         ->required()
                         ->disabled(fn (?Registration $record): bool => ! ($record && $record->isOperational() && $record->current_stage === 'data_validation' && (auth()->user()?->can('validate_data_registration') ?? false))),
                     Forms\Components\DateTimePicker::make('data_validated_at')->label('Divalidasi pada')->disabled()->dehydrated(false),
@@ -156,11 +175,11 @@ class RegistrationResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable(),
-                Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable(['full_name','nik'])->description(fn (Registration $record) => $record->nik),
+                Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable(['full_name', 'nik'])->description(fn (Registration $record) => $record->nik),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
-                Tables\Columns\TextColumn::make('opening.pathway')->label('Jalur')->badge()->placeholder('-'),
+                Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->badge()->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya')->money('IDR', locale: 'id')->placeholder('-'),
                 Tables\Columns\TextColumn::make('current_stage')->label('Tahap')->badge()->formatStateUsing(fn ($state) => Registration::STAGES[$state] ?? $state),
                 Tables\Columns\TextColumn::make('lifecycle_status')
@@ -175,7 +194,7 @@ class RegistrationResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')->dateTime('d M Y H:i')->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit','name'),
+                Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
                 Tables\Filters\SelectFilter::make('registration_opening_id')
                     ->label('Pembukaan')
                     ->options(fn (): array => RegistrationOpening::query()
@@ -186,7 +205,7 @@ class RegistrationResource extends Resource
                         ->all()),
                 Tables\Filters\SelectFilter::make('current_stage')->label('Tahap')->options(Registration::STAGES),
                 Tables\Filters\SelectFilter::make('lifecycle_status')->label('Lifecycle')->options(Registration::LIFECYCLE_STATUSES),
-                Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent'=>'Orang Tua/Wali','self'=>'Anak Langsung']),
+                Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
             ])
             ->actions([
                 Tables\Actions\Action::make('validateData')
@@ -261,10 +280,11 @@ class RegistrationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit']);
+        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway']);
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
         }
+
         return $query;
     }
 
@@ -276,7 +296,42 @@ class RegistrationResource extends Resource
             ->count();
     }
 
-    public static function getNavigationBadgeColor(): ?string { return 'warning'; }
-    public static function getGloballySearchableAttributes(): array { return ['registration_number', 'full_name', 'nik', 'email', 'phone']; }
-    public static function canDelete($record): bool { return false; }
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['registration_number', 'full_name', 'nik', 'email', 'phone'];
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+    public static function pathwayOptions($openingId, $unitId, ?Registration $record = null): array
+    {
+        $selectedUnitId = RegistrationOpening::query()->whereKey($openingId)->value('unit_id') ?: $unitId;
+
+        if (! $selectedUnitId) {
+            return [];
+        }
+
+        return RegistrationPathway::query()
+            ->where('unit_id', $selectedUnitId)
+            ->where(function (Builder $query) use ($record): void {
+                $query->where(function (Builder $available): void {
+                    $available->where('is_active', true)->whereNull('archived_at');
+                });
+
+                if ($record?->registration_pathway_id) {
+                    $query->orWhereKey($record->registration_pathway_id);
+                }
+            })
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
 }

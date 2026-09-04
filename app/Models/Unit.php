@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Unit extends Model
 {
@@ -19,12 +20,40 @@ class Unit extends Model
 
     protected $casts = ['is_active' => 'boolean'];
 
-    public function registrations() { return $this->hasMany(Registration::class); }
-    public function registrationOpenings() { return $this->hasMany(RegistrationOpening::class); }
-    public function users() { return $this->hasMany(User::class); }
-    public function admissionTests() { return $this->hasMany(AdmissionTest::class)->orderBy('sort_order'); }
-    public function virtualAccounts() { return $this->hasMany(VirtualAccount::class); }
-    public function studyPrograms() { return $this->hasMany(StudyProgram::class)->orderBy('sort_order')->orderBy('degree_level')->orderBy('name'); }
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class);
+    }
+
+    public function registrationOpenings()
+    {
+        return $this->hasMany(RegistrationOpening::class);
+    }
+
+    public function registrationPathways(): HasMany
+    {
+        return $this->hasMany(RegistrationPathway::class);
+    }
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function admissionTests()
+    {
+        return $this->hasMany(AdmissionTest::class)->orderBy('sort_order');
+    }
+
+    public function virtualAccounts()
+    {
+        return $this->hasMany(VirtualAccount::class);
+    }
+
+    public function studyPrograms()
+    {
+        return $this->hasMany(StudyProgram::class)->orderBy('sort_order')->orderBy('degree_level')->orderBy('name');
+    }
 
     public function isHigherEducation(): bool
     {

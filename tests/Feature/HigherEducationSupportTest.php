@@ -89,7 +89,6 @@ class HigherEducationSupportTest extends TestCase
                 'unit_id' => $university->id,
                 'academic_year' => '2026/2027',
                 'wave' => 'Gelombang 1',
-                'pathway' => 'Reguler',
                 'registration_fee' => 350000,
                 'status' => 'open',
             ]);
@@ -209,7 +208,6 @@ class HigherEducationSupportTest extends TestCase
             'study_program_id' => $programB->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 1',
-            'pathway' => 'Reguler',
             'registration_fee' => 350000,
             'status' => 'open',
         ]);
@@ -278,7 +276,6 @@ class HigherEducationSupportTest extends TestCase
             'study_program_id' => $programA->id,
             'academic_year' => '2026/2027',
             'wave' => 'Gelombang 1',
-            'pathway' => 'Reguler',
             'registration_fee' => 350000,
             'status' => 'open',
         ]);

@@ -6,6 +6,7 @@ use App\Services\AuditTrail;
 use App\Services\SpmbNotificationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Validation\ValidationException;
 
 class Registration extends Model
@@ -48,15 +49,32 @@ class Registration extends Model
     ];
 
     protected $fillable = [
-        'user_id','unit_id','registration_opening_id','registrant_type','registrant_relationship','registration_number','nik','full_name','nickname','gender','birth_place','birth_date','religion','child_order','siblings_count','home_address','rt','rw','village','district','city','province','postal_code','phone','email','previous_school','previous_school_address','graduation_year','status','current_stage','lifecycle_status','lifecycle_reason','lifecycle_changed_by','lifecycle_changed_at','data_validation_status','data_validation_notes','data_validated_by','data_validated_at','applicant_card_number','applicant_card_issued_by','applicant_card_issued_at','documents_completed_at','documents_verified_at','rejection_reason','submitted_at','verified_at','payment_verified_at','accepted_at',
+        'user_id', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'registration_number', 'nik', 'full_name', 'nickname', 'gender', 'birth_place', 'birth_date', 'religion', 'child_order', 'siblings_count', 'home_address', 'rt', 'rw', 'village', 'district', 'city', 'province', 'postal_code', 'phone', 'email', 'previous_school', 'previous_school_address', 'graduation_year', 'status', 'current_stage', 'lifecycle_status', 'lifecycle_reason', 'lifecycle_changed_by', 'lifecycle_changed_at', 'data_validation_status', 'data_validation_notes', 'data_validated_by', 'data_validated_at', 'applicant_card_number', 'applicant_card_issued_by', 'applicant_card_issued_at', 'documents_completed_at', 'documents_verified_at', 'rejection_reason', 'submitted_at', 'verified_at', 'payment_verified_at', 'accepted_at',
     ];
 
     protected $casts = [
-        'birth_date' => 'date','submitted_at' => 'datetime','verified_at' => 'datetime','payment_verified_at' => 'datetime','accepted_at' => 'datetime','data_validated_at' => 'datetime','applicant_card_issued_at' => 'datetime','documents_completed_at' => 'datetime','documents_verified_at' => 'datetime','lifecycle_changed_at' => 'datetime',
+        'birth_date' => 'date', 'submitted_at' => 'datetime', 'verified_at' => 'datetime', 'payment_verified_at' => 'datetime', 'accepted_at' => 'datetime', 'data_validated_at' => 'datetime', 'applicant_card_issued_at' => 'datetime', 'documents_completed_at' => 'datetime', 'documents_verified_at' => 'datetime', 'lifecycle_changed_at' => 'datetime',
     ];
 
     protected static function booted(): void
     {
+        static::saving(function (Registration $registration): void {
+            if (! $registration->registration_pathway_id || (! $registration->isDirty('registration_pathway_id') && $registration->exists)) {
+                return;
+            }
+
+            $isAvailableForUnit = RegistrationPathway::query()
+                ->availableForUnit((int) $registration->unit_id)
+                ->whereKey($registration->registration_pathway_id)
+                ->exists();
+
+            if (! $isAvailableForUnit) {
+                throw ValidationException::withMessages([
+                    'registration_pathway_id' => 'Jalur pendaftaran tidak aktif atau tidak tersedia untuk unit yang dipilih.',
+                ]);
+            }
+        });
+
         static::created(function (Registration $registration): void {
             if (blank($registration->registration_number) && $registration->unit) {
                 $registration->forceFill(['registration_number' => $registration->generateRegistrationNumber()])->saveQuietly();
@@ -64,20 +82,80 @@ class Registration extends Model
         });
     }
 
-    public function user() { return $this->belongsTo(User::class); }
-    public function unit() { return $this->belongsTo(Unit::class); }
-    public function opening() { return $this->belongsTo(RegistrationOpening::class, 'registration_opening_id'); }
-    public function parentInfo() { return $this->hasOne(ParentInfo::class); }
-    public function documents() { return $this->hasMany(Document::class); }
-    public function payments() { return $this->hasMany(Payment::class); }
-    public function latestPayment() { return $this->hasOne(Payment::class)->latestOfMany(); }
-    public function virtualAccount() { return $this->hasOne(VirtualAccount::class); }
-    public function testResults() { return $this->hasMany(AdmissionTestResult::class); }
-    public function selection() { return $this->hasOne(Selection::class); }
-    public function announcement() { return $this->hasOne(Announcement::class); }
-    public function dataValidator() { return $this->belongsTo(User::class, 'data_validated_by'); }
-    public function cardIssuer() { return $this->belongsTo(User::class, 'applicant_card_issued_by'); }
-    public function lifecycleChangedBy() { return $this->belongsTo(User::class, 'lifecycle_changed_by'); }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function opening()
+    {
+        return $this->belongsTo(RegistrationOpening::class, 'registration_opening_id');
+    }
+
+    public function pathway(): BelongsTo
+    {
+        return $this->belongsTo(RegistrationPathway::class, 'registration_pathway_id');
+    }
+
+    public function parentInfo()
+    {
+        return $this->hasOne(ParentInfo::class);
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function latestPayment()
+    {
+        return $this->hasOne(Payment::class)->latestOfMany();
+    }
+
+    public function virtualAccount()
+    {
+        return $this->hasOne(VirtualAccount::class);
+    }
+
+    public function testResults()
+    {
+        return $this->hasMany(AdmissionTestResult::class);
+    }
+
+    public function selection()
+    {
+        return $this->hasOne(Selection::class);
+    }
+
+    public function announcement()
+    {
+        return $this->hasOne(Announcement::class);
+    }
+
+    public function dataValidator()
+    {
+        return $this->belongsTo(User::class, 'data_validated_by');
+    }
+
+    public function cardIssuer()
+    {
+        return $this->belongsTo(User::class, 'applicant_card_issued_by');
+    }
+
+    public function lifecycleChangedBy()
+    {
+        return $this->belongsTo(User::class, 'lifecycle_changed_by');
+    }
 
     public function generateRegistrationNumber(): string
     {
@@ -91,6 +169,7 @@ class Registration extends Model
     public function generateApplicantCardNumber(): string
     {
         $year = now()->format('Y');
+
         return 'KARTU-'.$this->unit->code.'-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
     }
 

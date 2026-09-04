@@ -17,18 +17,24 @@ use Illuminate\Database\Eloquent\Builder;
 class RegistrationOpeningResource extends Resource
 {
     protected static ?string $model = RegistrationOpening::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
+
     protected static ?string $navigationLabel = 'Pembukaan Pendaftaran';
+
     protected static ?string $modelLabel = 'Pembukaan Pendaftaran';
+
     protected static ?string $pluralModelLabel = 'Pembukaan Pendaftaran';
+
     protected static ?string $navigationGroup = 'SPMB';
+
     protected static ?int $navigationSort = 0;
 
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Periode, Program, Jalur, dan Biaya')
-                ->description('Sekolah cukup memilih unit. Perguruan tinggi wajib memilih program studi. Biaya merupakan source of truth nominal formulir.')
+            Forms\Components\Section::make('Periode, Program, Jadwal, dan Biaya')
+                ->description('Sekolah cukup memilih unit. Perguruan tinggi wajib memilih program studi. Status buka dan tutup mengikuti jadwal secara otomatis.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\Select::make('unit_id')
@@ -73,11 +79,6 @@ class RegistrationOpeningResource extends Resource
                         ->placeholder('Gelombang 1')
                         ->required()
                         ->maxLength(100),
-                    Forms\Components\TextInput::make('pathway')
-                        ->label('Jalur Pendaftaran')
-                        ->placeholder('Reguler / Prestasi / lainnya')
-                        ->required()
-                        ->maxLength(100),
                     Forms\Components\TextInput::make('registration_fee')
                         ->label('Biaya Pendaftaran')
                         ->prefix('Rp')
@@ -86,10 +87,16 @@ class RegistrationOpeningResource extends Resource
                         ->default(0)
                         ->required()
                         ->helperText('Nominal ini otomatis disalin ke transaksi pembayaran saat VA di-assign.'),
-                    Forms\Components\Select::make('status')
-                        ->label('Status')
-                        ->options(RegistrationOpening::STATUSES)
-                        ->default('draft')
+                    Forms\Components\DateTimePicker::make('opened_at')
+                        ->label('Dibuka pada')
+                        ->native(false)
+                        ->seconds(false)
+                        ->required(),
+                    Forms\Components\DateTimePicker::make('closed_at')
+                        ->label('Ditutup pada')
+                        ->native(false)
+                        ->seconds(false)
+                        ->after('opened_at')
                         ->required(),
                     Forms\Components\Textarea::make('description')
                         ->label('Keterangan')
@@ -112,11 +119,11 @@ class RegistrationOpeningResource extends Resource
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('academic_year')->label('Tahun')->sortable(),
                 Tables\Columns\TextColumn::make('wave')->label('Gelombang')->searchable(),
-                Tables\Columns\TextColumn::make('pathway')->label('Jalur')->searchable(),
                 Tables\Columns\TextColumn::make('registration_fee')->label('Biaya')->money('IDR', locale: 'id')->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
+                    ->getStateUsing(fn (RegistrationOpening $record): string => $record->operationalStatus())
                     ->formatStateUsing(fn (string $state): string => RegistrationOpening::STATUSES[$state] ?? $state)
                     ->color(fn (string $state): string => match ($state) {
                         'open' => 'success',
@@ -124,33 +131,54 @@ class RegistrationOpeningResource extends Resource
                         'archived' => 'gray',
                         default => 'info',
                     }),
+                Tables\Columns\TextColumn::make('opened_at')->label('Mulai')->dateTime('d M Y H:i')->sortable(),
+                Tables\Columns\TextColumn::make('closed_at')->label('Selesai')->dateTime('d M Y H:i')->sortable(),
                 Tables\Columns\TextColumn::make('registrations_count')->counts('registrations')->label('Pendaftar'),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')->options(RegistrationOpening::STATUSES),
+                Tables\Filters\SelectFilter::make('operational_status')
+                    ->label('Status')
+                    ->options(RegistrationOpening::STATUSES)
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'scheduled' => $query
+                                ->where('status', '!=', 'archived')
+                                ->whereNotNull('opened_at')
+                                ->where('opened_at', '>', now()),
+                            'open' => $query->currentlyOpen(),
+                            'closed' => $query
+                                ->where('status', '!=', 'archived')
+                                ->where(function (Builder $closed): void {
+                                    $closed
+                                        ->where('closed_at', '<=', now())
+                                        ->orWhere(function (Builder $legacy): void {
+                                            $legacy
+                                                ->where('status', 'closed')
+                                                ->where(function (Builder $incompleteSchedule): void {
+                                                    $incompleteSchedule->whereNull('opened_at')->orWhereNull('closed_at');
+                                                });
+                                        });
+                                }),
+                            'archived' => $query->where(function (Builder $archived): void {
+                                $archived->where('status', 'archived')->orWhereNotNull('archived_at');
+                            }),
+                            'draft' => $query
+                                ->where('status', 'draft')
+                                ->where(function (Builder $incompleteSchedule): void {
+                                    $incompleteSchedule->whereNull('opened_at')->orWhereNull('closed_at');
+                                }),
+                            default => $query,
+                        };
+                    }),
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit / Institusi')->relationship('unit', 'name'),
                 Tables\Filters\SelectFilter::make('study_program_id')->label('Program Studi')->relationship('studyProgram', 'name'),
                 Tables\Filters\SelectFilter::make('academic_year')
                     ->options(fn (): array => RegistrationOpening::query()->orderByDesc('academic_year')->pluck('academic_year', 'academic_year')->all()),
             ])
             ->actions([
-                Tables\Actions\Action::make('open')
-                    ->label('Buka')->icon('heroicon-o-play')->color('success')->requiresConfirmation()
-                    ->visible(fn (RegistrationOpening $record): bool => $record->status !== 'open')
-                    ->action(function (RegistrationOpening $record): void {
-                        $record->open();
-                        Notification::make()->title('Pendaftaran dibuka')->success()->send();
-                    }),
-                Tables\Actions\Action::make('close')
-                    ->label('Tutup')->icon('heroicon-o-pause')->color('warning')->requiresConfirmation()
-                    ->visible(fn (RegistrationOpening $record): bool => $record->status === 'open')
-                    ->action(function (RegistrationOpening $record): void {
-                        $record->close();
-                        Notification::make()->title('Pendaftaran ditutup')->warning()->send();
-                    }),
                 Tables\Actions\Action::make('archive')
-                    ->label('Archive')->icon('heroicon-o-archive-box')->color('gray')->requiresConfirmation()
-                    ->visible(fn (RegistrationOpening $record): bool => $record->status !== 'archived')
+                    ->label('Arsipkan')->icon('heroicon-o-archive-box')->color('gray')->requiresConfirmation()
+                    ->visible(fn (RegistrationOpening $record): bool => $record->operationalStatus() !== 'archived')
                     ->action(function (RegistrationOpening $record): void {
                         $record->archive();
                         Notification::make()->title('Pembukaan diarsipkan')->success()->send();
@@ -175,7 +203,10 @@ class RegistrationOpeningResource extends Resource
         return filled($unitId) && Unit::query()->whereKey($unitId)->where('institution_type', 'university')->exists();
     }
 
-    public static function canDelete($record): bool { return false; }
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
 
     public static function getPages(): array
     {

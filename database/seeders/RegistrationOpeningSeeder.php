@@ -24,12 +24,13 @@ class RegistrationOpeningSeeder extends Seeder
                     'study_program_id' => null,
                     'academic_year' => '2026/2027',
                     'wave' => 'Gelombang 1',
-                    'pathway' => 'Reguler',
                 ],
                 [
                     'registration_fee' => in_array($code, ['SD', 'SMP'], true) ? 385000 : 0,
                     'description' => 'Contoh pembukaan SPMB '.$unit->name.'. Periksa dan lengkapi nominal serta periode operasional sebelum dipublikasikan.',
                     'status' => 'draft',
+                    'opened_at' => now()->addWeek()->startOfDay(),
+                    'closed_at' => now()->addMonths(2)->endOfDay(),
                 ],
             );
         }
@@ -51,13 +52,13 @@ class RegistrationOpeningSeeder extends Seeder
                         'study_program_id' => $program->id,
                         'academic_year' => '2026/2027',
                         'wave' => 'Gelombang 1',
-                        'pathway' => 'Reguler',
                     ],
                     [
                         'registration_fee' => 350000,
                         'description' => 'PMB Taruna Bakti University '.$program->label().' Tahun Akademik 2026/2027.',
                         'status' => 'open',
-                        'opened_at' => now(),
+                        'opened_at' => now()->subDay(),
+                        'closed_at' => now()->addMonths(2)->endOfDay(),
                     ],
                 );
             });

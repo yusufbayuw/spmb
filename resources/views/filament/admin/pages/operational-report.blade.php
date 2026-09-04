@@ -101,7 +101,7 @@
                                 </td>
                                 <td class="px-3 py-3">
                                     <div>{{ $registration->opening?->academic_year }} · {{ $registration->opening?->wave }}</div>
-                                    <div class="text-xs text-gray-500">{{ $registration->opening?->pathway }}</div>
+                                    <div class="text-xs text-gray-500">{{ $registration->pathway?->name }}</div>
                                 </td>
                                 <td class="px-3 py-3">Rp {{ number_format((float) ($registration->opening?->registration_fee ?? 0), 0, ',', '.') }}</td>
                                 <td class="px-3 py-3">{{ $registration->lifecycleLabel() }}</td>

@@ -11,6 +11,7 @@ use App\Models\ParentInfo;
 use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\RegistrationPathway;
 use App\Models\Selection;
 use App\Models\StudyProgram;
 use App\Models\Unit;
@@ -140,6 +141,7 @@ class AuditTrail
         foreach ($values as $key => $value) {
             if (in_array((string) $key, self::MASKED_KEYS, true)) {
                 $values[$key] = '[REDACTED]';
+
                 continue;
             }
 
@@ -178,7 +180,7 @@ class AuditTrail
             return [$subject->unit_id, $subject->id];
         }
 
-        if ($subject instanceof RegistrationOpening || $subject instanceof StudyProgram) {
+        if ($subject instanceof RegistrationOpening || $subject instanceof RegistrationPathway || $subject instanceof StudyProgram) {
             return [$subject->unit_id, null];
         }
 
@@ -200,6 +202,7 @@ class AuditTrail
 
         if ($subject instanceof ParentInfo) {
             $registration = Registration::query()->find($subject->registration_id);
+
             return [$registration?->unit_id, $subject->registration_id];
         }
 
@@ -209,6 +212,7 @@ class AuditTrail
             || $subject instanceof Selection
             || $subject instanceof Announcement) {
             $registration = Registration::query()->find($subject->registration_id);
+
             return [$registration?->unit_id, $subject->registration_id];
         }
 

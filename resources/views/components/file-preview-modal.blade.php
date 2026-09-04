@@ -9,8 +9,8 @@
 >
     <div data-file-preview-backdrop class="absolute inset-0 bg-gray-950/70 backdrop-blur-sm"></div>
 
-    <div class="relative flex min-h-full items-center justify-center p-4 sm:p-6">
-        <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10">
+    <div class="relative flex h-full items-center justify-center p-2 sm:p-4 lg:p-6">
+        <div data-file-preview-shell class="flex w-full max-w-7xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10 sm:rounded-2xl">
             <div class="flex items-center justify-between gap-4 border-b border-gray-200 px-4 py-3 dark:border-white/10 sm:px-6">
                 <div class="min-w-0">
                     <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Pratinjau File Privat</p>
@@ -24,7 +24,7 @@
                 </button>
             </div>
 
-            <div data-file-preview-content class="min-h-0 flex-1 overflow-auto bg-gray-100 p-3 dark:bg-gray-950 sm:p-5"></div>
+            <div data-file-preview-content class="min-h-0 flex-1 overflow-auto bg-gray-100 p-2 dark:bg-gray-950 sm:p-4"></div>
 
             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 dark:border-white/10 sm:px-6">
                 <p data-file-preview-meta class="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400"></p>
@@ -41,6 +41,39 @@
         </div>
     </div>
 </div>
+
+<style>
+    #file-preview-modal [data-file-preview-shell] {
+        height: calc(100vh - 1rem);
+        height: calc(100dvh - 1rem);
+        max-height: 64rem;
+    }
+
+    #file-preview-modal [data-file-preview-content] > iframe {
+        height: 100%;
+        min-height: 50vh;
+        width: 100%;
+    }
+
+    #file-preview-modal [data-file-preview-content] > img,
+    #file-preview-modal [data-file-preview-content] > video {
+        max-height: 100%;
+    }
+
+    @media (min-width: 640px) {
+        #file-preview-modal [data-file-preview-shell] {
+            height: calc(100vh - 2rem);
+            height: calc(100dvh - 2rem);
+        }
+    }
+
+    @media (min-width: 1024px) {
+        #file-preview-modal [data-file-preview-shell] {
+            height: calc(100vh - 3rem);
+            height: calc(100dvh - 3rem);
+        }
+    }
+</style>
 
 <script>
 (() => {
@@ -98,7 +131,7 @@
 
     const makeFallback = (fileName, extension, isOffice = false) => {
         const wrapper = document.createElement('div');
-        wrapper.className = 'flex min-h-[28rem] items-center justify-center';
+        wrapper.className = 'flex min-h-full items-center justify-center';
 
         const card = document.createElement('div');
         card.className = 'max-w-lg rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-gray-900';
@@ -140,24 +173,24 @@
             const image = document.createElement('img');
             image.src = url;
             image.alt = fileName;
-            image.className = 'mx-auto max-h-[72vh] max-w-full rounded-xl object-contain shadow-sm';
+            image.className = 'mx-auto h-full max-h-full max-w-full rounded-xl object-contain shadow-sm';
             content.appendChild(image);
         } else if (extension === 'pdf') {
             const frame = document.createElement('iframe');
             frame.src = url;
             frame.title = fileName;
-            frame.className = 'h-[72vh] w-full rounded-xl bg-white shadow-sm';
+            frame.className = 'h-full min-h-[50vh] w-full rounded-xl bg-white shadow-sm';
             content.appendChild(frame);
         } else if (videoExtensions.has(extension)) {
             const video = document.createElement('video');
             video.src = url;
             video.controls = true;
             video.preload = 'metadata';
-            video.className = 'mx-auto max-h-[72vh] max-w-full rounded-xl bg-black shadow-sm';
+            video.className = 'mx-auto h-full max-h-full max-w-full rounded-xl bg-black shadow-sm';
             content.appendChild(video);
         } else if (audioExtensions.has(extension)) {
             const wrapper = document.createElement('div');
-            wrapper.className = 'flex min-h-[28rem] items-center justify-center';
+            wrapper.className = 'flex min-h-full items-center justify-center';
             const audio = document.createElement('audio');
             audio.src = url;
             audio.controls = true;
@@ -169,7 +202,7 @@
             const frame = document.createElement('iframe');
             frame.src = url;
             frame.title = fileName;
-            frame.className = 'h-[72vh] w-full rounded-xl bg-white shadow-sm';
+            frame.className = 'h-full min-h-[50vh] w-full rounded-xl bg-white shadow-sm';
             content.appendChild(frame);
         } else {
             content.appendChild(makeFallback(fileName, extension, officeExtensions.has(extension)));
