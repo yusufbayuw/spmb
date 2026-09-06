@@ -6,6 +6,7 @@ use App\Jobs\SendAnnouncementPublishedMail;
 use App\Jobs\SendVirtualAccountMail;
 use App\Models\AdmissionTestResult;
 use App\Models\Announcement;
+use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\Selection;
@@ -21,13 +22,51 @@ class RegistrationWorkflowService
 
     public function __construct(private SpmbNotificationService $notifications) {}
 
+    /** @return list<string> */
+    public static function requiredDocuments(Registration $registration): array
+    {
+        return array_column(array_filter($registration->documentRequirements(), fn (array $requirement): bool => (bool) $requirement['required']), 'key');
+    }
+
+    public function rejectDocument(Document $document, User $staff, string $reason): void
+    {
+        abort_unless($staff->can('verify_document_document'), 403);
+
+        if (blank($reason)) {
+            throw ValidationException::withMessages(['rejection_reason' => 'Alasan penolakan wajib diisi.']);
+        }
+
+        DB::transaction(function () use ($document, $staff, $reason): void {
+            $registration = Registration::query()->lockForUpdate()->findOrFail($document->registration_id);
+            abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
+            $registration->assertCurrentStage(['documents', 'document_verification']);
+            $lockedDocument = $registration->documents()->lockForUpdate()->findOrFail($document->id);
+            $lockedDocument->update([
+                'is_verified' => false,
+                'verified_at' => null,
+                'verified_by' => $staff->id,
+                'rejection_reason' => trim($reason),
+            ]);
+            $registration->transitionTo('documents', [
+                'documents_completed_at' => null,
+                'documents_verified_at' => null,
+            ]);
+        });
+
+        $this->notifications->documentNeedsAttention(
+            $document->registration->fresh(),
+            str($document->type)->headline()->toString(),
+            trim($reason),
+        );
+    }
+
     public function validateData(Registration $registration, User $staff, bool $approved, ?string $notes = null): void
     {
         $registration = Registration::query()->findOrFail($registration->id);
         $registration->assertCurrentStage('data_validation');
 
         $registration->transitionTo(
-            $approved ? 'virtual_account' : 'data_validation',
+            $approved ? ($registration->configuration && ! $registration->configuration->payment_enabled ? 'applicant_card' : 'virtual_account') : 'data_validation',
             [
                 'data_validation_status' => $approved ? 'valid' : 'revision',
                 'data_validation_notes' => $notes,
@@ -40,7 +79,7 @@ class RegistrationWorkflowService
 
         $this->notifications->dataValidationResult($registration, $approved, $notes);
 
-        if ($approved) {
+        if ($approved && $registration->current_stage === 'virtual_account') {
             $this->assignAvailableVirtualAccount($registration, $staff);
         }
     }
@@ -257,6 +296,7 @@ class RegistrationWorkflowService
                 ]);
 
                 $lockedPayment->virtualAccount?->update(['status' => 'paid']);
+                app(ReceiptService::class)->issue($lockedPayment);
 
                 $registration->transitionTo('applicant_card', [
                     'status' => 'payment_verified',
@@ -287,14 +327,21 @@ class RegistrationWorkflowService
             $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $lockedRegistration->assertCurrentStage('applicant_card');
 
-            $lockedRegistration->transitionTo('documents', [
+            $target = $lockedRegistration->configuration && ! $lockedRegistration->configuration->documents_enabled
+                ? (collect($lockedRegistration->configuredTests())->contains('is_required', true) ? 'tests' : 'selection')
+                : 'documents';
+            $lockedRegistration->transitionTo($target, [
                 'applicant_card_number' => $lockedRegistration->applicant_card_number ?: $lockedRegistration->generateApplicantCardNumber(),
                 'applicant_card_issued_by' => $staff->id,
                 'applicant_card_issued_at' => now(),
             ]);
+            if (in_array($target, ['tests', 'selection'], true)) {
+                $this->prepareTestsAndSelection($lockedRegistration);
+            }
         });
 
-        $this->notifications->applicantCardIssued($registration->fresh());
+        $fresh = $registration->fresh();
+        $this->notifications->applicantCardIssued($fresh);
     }
 
     public function refreshDocumentStage(Registration $registration): bool
@@ -309,14 +356,7 @@ class RegistrationWorkflowService
 
             $lockedRegistration->assertCurrentStage(['documents', 'document_verification']);
 
-            $types = $lockedRegistration->documents()
-                ->where('is_verified', true)
-                ->whereNotNull('security_scanned_at')
-                ->pluck('type')
-                ->unique();
-
-            $complete = collect(self::REQUIRED_DOCUMENTS)
-                ->every(fn (string $type): bool => $types->contains($type));
+            $complete = $lockedRegistration->documentsComplete(true);
 
             if (! $complete) {
                 $lockedRegistration->transitionTo('document_verification', [
@@ -326,44 +366,14 @@ class RegistrationWorkflowService
                 return false;
             }
 
-            $studyProgramId = $lockedRegistration->opening?->study_program_id;
-
-            $tests = $lockedRegistration->unit
-                ->admissionTests()
-                ->where('is_active', true)
-                ->where(function ($query) use ($studyProgramId): void {
-                    $query->whereNull('study_program_id');
-
-                    if ($studyProgramId) {
-                        $query->orWhere('study_program_id', $studyProgramId);
-                    }
-                })
-                ->get();
-
-            $hasTests = $tests->isNotEmpty();
-
-            foreach ($tests as $test) {
-                AdmissionTestResult::firstOrCreate(
-                    [
-                        'registration_id' => $lockedRegistration->id,
-                        'admission_test_id' => $test->id,
-                    ],
-                    [
-                        'status' => 'scheduled',
-                        'result' => 'pending',
-                    ],
-                );
+            if ($lockedRegistration->current_stage === 'documents') {
+                $lockedRegistration->transitionTo('document_verification');
             }
 
-            if ($tests->isEmpty()) {
-                Selection::firstOrCreate(
-                    ['registration_id' => $lockedRegistration->id],
-                    ['decision' => 'pending'],
-                );
-            }
+            $hasTests = $this->prepareTestsAndSelection($lockedRegistration);
 
             $lockedRegistration->transitionTo(
-                $tests->isEmpty() ? 'selection' : 'tests',
+                $hasTests ? 'tests' : 'selection',
                 [
                     'documents_completed_at' => $lockedRegistration->documents_completed_at ?: now(),
                     'documents_verified_at' => now(),
@@ -378,6 +388,21 @@ class RegistrationWorkflowService
         }
 
         return $complete;
+    }
+
+    public function prepareTestsAndSelection(Registration $registration): bool
+    {
+        $tests = $registration->configuredTests();
+        foreach ($tests as $test) {
+            AdmissionTestResult::firstOrCreate(['registration_id' => $registration->id, 'admission_test_id' => $test['id']], ['status' => 'scheduled', 'result' => 'pending']);
+        }
+        $required = collect($tests)->where('is_required', true)->isNotEmpty();
+        if (! $required) {
+            Selection::firstOrCreate(['registration_id' => $registration->id], ['decision' => 'pending']);
+            $this->notifications->workflowEvent($registration, 'selection.ready', 'Pendaftaran siap diseleksi', 'Tahap wajib sebelum seleksi telah terpenuhi.', false, true);
+        }
+
+        return $required;
     }
 
     public function recordTestResult(AdmissionTestResult $result, User $staff, array $data): void
@@ -395,9 +420,12 @@ class RegistrationWorkflowService
                 'assessed_at' => now(),
             ]);
 
-            $pending = $registration->testResults()
-                ->whereNotIn('status', ['completed', 'exempted', 'absent'])
-                ->exists();
+            $requiredTestIds = collect($registration->configuredTests())->where('is_required', true)->pluck('id');
+            $completedTestIds = $registration->testResults()
+                ->whereIn('admission_test_id', $requiredTestIds)
+                ->whereIn('status', ['completed', 'exempted', 'absent'])
+                ->pluck('admission_test_id');
+            $pending = $requiredTestIds->diff($completedTestIds)->isNotEmpty();
 
             if (! $pending) {
                 Selection::firstOrCreate(

@@ -16,6 +16,6 @@ class AnnouncementPublishedMail extends Mailable
     public function build(): self
     {
         return $this->subject($this->announcement->title ?: 'Pengumuman SPMB')
-            ->view('emails.announcement-published');
+            ->markdown('emails.announcement-published');
     }
 }

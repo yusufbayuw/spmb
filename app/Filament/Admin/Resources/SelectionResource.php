@@ -60,6 +60,7 @@ class SelectionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('registration.registration_number')
                     ->label('No. Registrasi'),
@@ -104,8 +105,7 @@ class SelectionResource extends Resource
                 Tables\Actions\Action::make('decide')
                     ->label('Tetapkan Hasil')
                     ->icon('heroicon-o-check-badge')
-                    ->visible(fn (Selection $record): bool =>
-                        (bool) auth()->user()?->can('decide_selection')
+                    ->visible(fn (Selection $record): bool => (bool) auth()->user()?->can('decide_selection')
                         && $record->registration?->current_stage === 'selection'
                     )
                     ->form([

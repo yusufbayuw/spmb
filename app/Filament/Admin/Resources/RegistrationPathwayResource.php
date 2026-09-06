@@ -79,7 +79,7 @@ class RegistrationPathwayResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('name')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit / Institusi')->badge()->sortable(),
                 Tables\Columns\TextColumn::make('name')->label('Nama Jalur')->searchable()->sortable(),
@@ -97,10 +97,6 @@ class RegistrationPathwayResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit / Institusi')->relationship('unit', 'name'),
-                Tables\Filters\TernaryFilter::make('is_active')->label('Status Aktif'),
-                Tables\Filters\TernaryFilter::make('archived_at')
-                    ->label('Arsip')
-                    ->nullable(),
             ])
             ->actions([
                 Tables\Actions\Action::make('toggleActive')

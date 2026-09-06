@@ -9,8 +9,12 @@ use Symfony\Component\Process\Process;
 
 class ApplicantUploadSecurity
 {
-    public function inspect(string $path): array
+    public function inspect(string $path, array $formats = ['pdf', 'jpg', 'jpeg', 'png']): array
     {
+        if (str_starts_with($path, '/') || str_contains($path, '\\') || preg_match('~(?:^|/)\.{1,2}(?:/|$)|[\x00-\x1f]~', $path)) {
+            throw ValidationException::withMessages(['file' => 'Lokasi file tidak valid.']);
+        }
+
         $disk = Storage::disk(ApplicantFileStorage::PRIVATE_DISK);
 
         if (! $disk->exists($path)) {
@@ -30,7 +34,7 @@ class ApplicantUploadSecurity
         }
 
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+        $allowedExtensions = in_array('jpg', $formats, true) ? array_merge($formats, ['jpeg']) : $formats;
 
         if (! in_array($extension, $allowedExtensions, true)) {
             throw ValidationException::withMessages([
@@ -42,6 +46,12 @@ class ApplicantUploadSecurity
         $mime = (string) ($finfo->file($absolutePath) ?: 'application/octet-stream');
         $allowedMimes = (array) config('spmb.uploads.allowed_mimes', []);
 
+        if ($extension === 'docx' && in_array('docx', $formats, true)) {
+            $this->validateDocx($absolutePath);
+            $mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            $allowedMimes[] = $mime;
+        }
+
         if (! in_array($mime, $allowedMimes, true)) {
             throw ValidationException::withMessages([
                 'file' => "Isi file tidak sesuai format yang diizinkan ({$mime}).",
@@ -52,6 +62,7 @@ class ApplicantUploadSecurity
             'pdf' => 'application/pdf',
             'jpg', 'jpeg' => 'image/jpeg',
             'png' => 'image/png',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         };
 
         if ($mime !== $expectedMime) {
@@ -60,7 +71,9 @@ class ApplicantUploadSecurity
             ]);
         }
 
-        $this->validateSignature($absolutePath, $mime);
+        if ($extension !== 'docx') {
+            $this->validateSignature($absolutePath, $mime);
+        }
         $malwareStatus = $this->scanMalware($absolutePath);
 
         return [
@@ -70,6 +83,40 @@ class ApplicantUploadSecurity
             'malware_scan_status' => $malwareStatus,
             'security_scanned_at' => now(),
         ];
+    }
+
+    private function validateDocx(string $path): void
+    {
+        $zip = new \ZipArchive;
+        if ($zip->open($path) !== true) {
+            throw ValidationException::withMessages(['file' => 'Struktur DOCX tidak valid.']);
+        }
+        try {
+            if ($zip->numFiles > 1000 || $zip->locateName('[Content_Types].xml') === false || $zip->locateName('word/document.xml') === false) {
+                throw ValidationException::withMessages(['file' => 'Struktur DOCX tidak valid.']);
+            }
+            $total = 0;
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $entry = $zip->statIndex($i);
+                $total += $entry['size'];
+                if ($total > 25 * 1024 * 1024 || str_contains($entry['name'], '..') || preg_match('/vbaProject|embeddings\/|activeX\//i', $entry['name'])) {
+                    throw ValidationException::withMessages(['file' => 'DOCX mengandung konten aktif atau melebihi batas ekstraksi.']);
+                }
+                if (str_ends_with($entry['name'], '.xml') || str_ends_with($entry['name'], '.rels')) {
+                    $xml = $zip->getFromIndex($i);
+                    if (preg_match('/macroEnabled|<!DOCTYPE|<!ENTITY/i', $xml)) {
+                        throw ValidationException::withMessages(['file' => 'Konten DOCX tidak diizinkan.']);
+                    }
+                }
+            }
+            $xml = $zip->getFromName('word/document.xml');
+            $document = new \DOMDocument;
+            if (! @$document->loadXML($xml, LIBXML_NONET) || ($document->documentElement?->localName !== 'document' || $document->documentElement?->namespaceURI !== 'http://schemas.openxmlformats.org/wordprocessingml/2006/main')) {
+                throw ValidationException::withMessages(['file' => 'Dokumen Word tidak valid.']);
+            }
+        } finally {
+            $zip->close();
+        }
     }
 
     private function validateSignature(string $absolutePath, string $mime): void
@@ -110,7 +157,7 @@ class ApplicantUploadSecurity
     {
         $required = (bool) config('spmb.uploads.require_malware_scan', false);
         $binaryName = (string) config('spmb.uploads.clamav_binary', 'clamscan');
-        $binary = (new ExecutableFinder())->find($binaryName);
+        $binary = (new ExecutableFinder)->find($binaryName);
 
         if (! $binary) {
             if ($required) {

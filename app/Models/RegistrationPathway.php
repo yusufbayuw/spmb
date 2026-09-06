@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Database\Factories\RegistrationPathwayFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,6 +15,8 @@ class RegistrationPathway extends Model
 {
     /** @use HasFactory<RegistrationPathwayFactory> */
     use HasFactory;
+
+    use HasPublicUuid;
 
     protected $fillable = [
         'unit_id',

@@ -3,11 +3,14 @@
 namespace App\Filament\Admin\Resources\DocumentResource\Pages;
 
 use App\Filament\Admin\Resources\DocumentResource;
+use App\Filament\RedirectsToResourceIndex;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditDocument extends EditRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = DocumentResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

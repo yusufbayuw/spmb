@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Applicant\Pages\Auth\EmailVerificationPrompt;
 use App\Filament\Applicant\Pages\Auth\Register;
 use App\Filament\Applicant\Pages\Dashboard;
 use Filament\Http\Middleware\Authenticate;
@@ -30,7 +31,7 @@ class ApplicantPanelProvider extends PanelProvider
             ->login()
             ->registration(Register::class)
             ->passwordReset()
-            ->emailVerification()
+            ->emailVerification(EmailVerificationPrompt::class)
             ->profile(isSimple: false)
             ->brandName('SPMB Taruna Bakti')
             ->colors(['primary' => Color::Blue])

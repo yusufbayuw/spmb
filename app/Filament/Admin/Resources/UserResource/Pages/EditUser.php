@@ -3,12 +3,15 @@
 namespace App\Filament\Admin\Resources\UserResource\Pages;
 
 use App\Filament\Admin\Resources\UserResource;
+use App\Filament\RedirectsToResourceIndex;
 use App\Services\AuditTrail;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditUser extends EditRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = UserResource::class;
 
     protected array $rolesBeforeSave = [];

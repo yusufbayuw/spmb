@@ -3,10 +3,13 @@
 namespace App\Filament\Admin\Resources\PaymentResource\Pages;
 
 use App\Filament\Admin\Resources\PaymentResource;
+use App\Filament\RedirectsToResourceIndex;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreatePayment extends CreateRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = PaymentResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

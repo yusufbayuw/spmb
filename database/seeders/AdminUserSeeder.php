@@ -11,7 +11,7 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::updateOrCreate(
+        $admin = User::firstOrCreate(
             ['email' => 'admin@tarunabakti.sch.id'],
             [
                 'name' => 'Administrator',
@@ -22,7 +22,9 @@ class AdminUserSeeder extends Seeder
                 'is_active' => true,
             ],
         );
-        $admin->syncRoles(['super_admin']);
+        if ($admin->wasRecentlyCreated) {
+            $admin->syncRoles(['super_admin']);
+        }
 
         $staff = [
             'DC' => ['label' => 'Daycare', 'email' => 'tu.dc@tarunabakti.sch.id'],
@@ -41,7 +43,7 @@ class AdminUserSeeder extends Seeder
                 continue;
             }
 
-            $tu = User::updateOrCreate(
+            $tu = User::firstOrCreate(
                 ['email' => $identity['email']],
                 [
                     'name' => 'TU '.$identity['label'],
@@ -53,7 +55,9 @@ class AdminUserSeeder extends Seeder
                     'is_active' => true,
                 ],
             );
-            $tu->syncRoles(['tu']);
+            if ($tu->wasRecentlyCreated) {
+                $tu->syncRoles(['tu']);
+            }
         }
     }
 }

@@ -3,11 +3,14 @@
 namespace App\Filament\Admin\Resources\RegistrationResource\Pages;
 
 use App\Filament\Admin\Resources\RegistrationResource;
+use App\Filament\RedirectsToResourceIndex;
 use App\Models\RegistrationOpening;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateRegistration extends CreateRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = RegistrationResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

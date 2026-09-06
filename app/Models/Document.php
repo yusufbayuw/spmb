@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Document extends Model
 {
     use HasFactory;
+    use HasPublicUuid;
 
     protected $fillable = [
-        'registration_id',
+        'superseded_at', 'requirement_key', 'attachment_index', 'registration_id',
         'type',
         'file_path',
         'original_name',
@@ -21,6 +23,7 @@ class Document extends Model
         'malware_scan_status',
         'security_scanned_at',
         'is_verified',
+        'rejection_reason',
         'verified_at',
         'verified_by',
     ];
@@ -31,6 +34,13 @@ class Document extends Model
         'security_scanned_at' => 'datetime',
     ];
 
-    public function registration() { return $this->belongsTo(Registration::class); }
-    public function verifier() { return $this->belongsTo(User::class, 'verified_by'); }
+    public function registration()
+    {
+        return $this->belongsTo(Registration::class);
+    }
+
+    public function verifier()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
 }

@@ -17,9 +17,13 @@ use Illuminate\Database\Eloquent\Builder;
 class PaymentResource extends Resource
 {
     protected static ?string $model = Payment::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+
     protected static ?string $navigationLabel = 'Pembayaran';
+
     protected static ?string $navigationGroup = 'Verifikasi';
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -29,7 +33,7 @@ class PaymentResource extends Resource
             Forms\Components\TextInput::make('va_number')->label('VA')->disabled()->dehydrated(false),
             Forms\Components\TextInput::make('amount')->label('Nominal dari Pembukaan')->prefix('Rp')->disabled()->dehydrated(false),
             Forms\Components\Select::make('status')->options([
-                'pending'=>'Menunggu','paid'=>'Bukti Diunggah','verified'=>'Terverifikasi','rejected'=>'Ditolak',
+                'pending' => 'Menunggu', 'paid' => 'Bukti Diunggah', 'verified' => 'Terverifikasi', 'rejected' => 'Ditolak',
             ])->disabled()->dehydrated(false),
             Forms\Components\Textarea::make('note')->label('Catatan Internal'),
         ]);
@@ -49,20 +53,15 @@ class PaymentResource extends Resource
                 Tables\Columns\TextColumn::make('proof_malware_scan_status')
                     ->label('Security')->badge()
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'clean'=>'AV Clean','unavailable'=>'AV Opsional','scan_error'=>'AV Error',default=>'Belum Scan',
+                        'clean' => 'AV Clean','unavailable' => 'AV Opsional','scan_error' => 'AV Error',default => 'Belum Scan',
                     })
                     ->color(fn (?string $state): string => match ($state) {
-                        'clean'=>'success','unavailable'=>'warning','scan_error'=>'danger',default=>'gray',
+                        'clean' => 'success','unavailable' => 'warning','scan_error' => 'danger',default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('proof_original_name')
                     ->label('Bukti')
                     ->url(fn (Payment $record): ?string => $record->proof_path ? route('files.applicant.payments.proof', $record) : null)
                     ->default('-'),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('status')->options([
-                    'pending'=>'Menunggu','paid'=>'Bukti Diunggah','verified'=>'Terverifikasi','rejected'=>'Ditolak',
-                ]),
             ])
             ->actions([
                 Tables\Actions\Action::make('verify')
@@ -108,6 +107,7 @@ class PaymentResource extends Resource
         if (auth()->user()?->isTU()) {
             $query->whereHas('registration', fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id));
         }
+
         return $query;
     }
 
@@ -119,6 +119,13 @@ class PaymentResource extends Resource
             ->count();
     }
 
-    public static function canCreate(): bool { return false; }
-    public static function canDelete($record): bool { return false; }
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
 }

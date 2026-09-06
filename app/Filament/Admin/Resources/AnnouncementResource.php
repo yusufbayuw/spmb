@@ -58,6 +58,7 @@ class AnnouncementResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('registration.registration_number')
                     ->label('No. Registrasi'),
@@ -89,7 +90,7 @@ class AnnouncementResource extends Resource
                 Tables\Columns\TextColumn::make('published_at')
                     ->label('Dipublikasikan Pada')
                     ->dateTime('d M Y H:i')
-                    ->default('-'),
+                    ->placeholder('-'),
             ])
             ->actions([
                 Tables\Actions\Action::make('publish')
@@ -99,8 +100,7 @@ class AnnouncementResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Publikasikan hasil seleksi?')
                     ->modalDescription('Setelah dipublikasikan, keputusan menjadi hasil resmi yang dapat dilihat calon siswa dan proses pendaftaran diselesaikan.')
-                    ->visible(fn (Announcement $record): bool =>
-                        (bool) auth()->user()?->can('publish_announcement')
+                    ->visible(fn (Announcement $record): bool => (bool) auth()->user()?->can('publish_announcement')
                         && $record->status !== 'published'
                         && $record->registration?->current_stage === 'announcement'
                     )
@@ -112,8 +112,7 @@ class AnnouncementResource extends Resource
                     )),
                 Tables\Actions\EditAction::make()
                     ->label('Edit Draft')
-                    ->visible(fn (Announcement $record): bool =>
-                        $record->status !== 'published'
+                    ->visible(fn (Announcement $record): bool => $record->status !== 'published'
                         && $record->registration?->current_stage === 'announcement'
                     ),
             ]);

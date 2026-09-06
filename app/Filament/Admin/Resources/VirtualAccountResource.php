@@ -12,17 +12,23 @@ use Illuminate\Database\Eloquent\Builder;
 class VirtualAccountResource extends Resource
 {
     protected static ?string $model = VirtualAccount::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
+
     protected static ?string $navigationLabel = 'Pool Virtual Account';
+
     protected static ?string $modelLabel = 'Virtual Account';
+
     protected static ?string $pluralModelLabel = 'Pool Virtual Account';
+
     protected static ?string $navigationGroup = 'Pembayaran';
+
     protected static ?int $navigationSort = 1;
 
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('id', 'desc')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('va_number')->label('Nomor VA')->searchable()->copyable(),
                 Tables\Columns\TextColumn::make('bank')->label('Bank')->badge()->searchable()->sortable(),
@@ -49,7 +55,6 @@ class VirtualAccountResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
-                Tables\Filters\SelectFilter::make('status')->options(VirtualAccount::STATUSES),
                 Tables\Filters\SelectFilter::make('bank')->options(fn () => VirtualAccount::query()->distinct()->orderBy('bank')->pluck('bank', 'bank')->all()),
             ])
             ->actions([

@@ -3,11 +3,13 @@
 namespace App\Filament\Admin\Resources\RegistrationOpeningResource\Pages;
 
 use App\Filament\Admin\Resources\RegistrationOpeningResource;
-use Filament\Actions;
+use App\Filament\RedirectsToResourceIndex;
 use Filament\Resources\Pages\EditRecord;
 
 class EditRegistrationOpening extends EditRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = RegistrationOpeningResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

@@ -14,6 +14,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
+use Illuminate\Support\Str;
 use Throwable;
 
 class PaymentUpload extends Page implements HasForms
@@ -21,19 +22,24 @@ class PaymentUpload extends Page implements HasForms
     use InteractsWithForms;
 
     protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $title = 'Pembayaran';
+
     protected static ?string $slug = 'pembayaran/{registration}';
+
     protected static string $view = 'filament.applicant.pages.payment-upload';
 
     public Registration $registrationRecord;
+
     public ?array $data = [];
 
     public function mount(int|string $registration): void
     {
+        abort_unless(Str::isUuid($registration), 404);
         $this->registrationRecord = Registration::query()
             ->where('user_id', auth()->id())
             ->with(['unit', 'opening', 'latestPayment'])
-            ->findOrFail($registration);
+            ->where('uuid', $registration)->firstOrFail();
 
         abort_unless(
             $this->registrationRecord->isOperational()
@@ -121,6 +127,6 @@ class PaymentUpload extends Page implements HasForms
             ->success()
             ->send();
 
-        $this->redirect(RegistrationStatus::getUrl(['registration' => $this->registrationRecord->id]));
+        $this->redirect(RegistrationStatus::getUrl(['registration' => $this->registrationRecord->uuid]));
     }
 }

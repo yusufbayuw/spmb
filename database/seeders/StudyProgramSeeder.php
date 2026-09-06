@@ -79,7 +79,7 @@ class StudyProgramSeeder extends Seeder
         ];
 
         foreach ($programs as $program) {
-            StudyProgram::updateOrCreate(
+            StudyProgram::firstOrCreate(
                 ['unit_id' => $tbu->id, 'code' => $program['code']],
                 $program + ['is_active' => true],
             );

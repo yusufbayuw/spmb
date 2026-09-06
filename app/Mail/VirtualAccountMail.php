@@ -16,6 +16,6 @@ class VirtualAccountMail extends Mailable
     public function build(): self
     {
         return $this->subject('Virtual Account Pendaftaran SPMB')
-            ->view('emails.virtual-account');
+            ->markdown('emails.virtual-account');
     }
 }

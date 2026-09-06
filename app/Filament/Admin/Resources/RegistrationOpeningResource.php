@@ -136,40 +136,6 @@ class RegistrationOpeningResource extends Resource
                 Tables\Columns\TextColumn::make('registrations_count')->counts('registrations')->label('Pendaftar'),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('operational_status')
-                    ->label('Status')
-                    ->options(RegistrationOpening::STATUSES)
-                    ->query(function (Builder $query, array $data): Builder {
-                        return match ($data['value'] ?? null) {
-                            'scheduled' => $query
-                                ->where('status', '!=', 'archived')
-                                ->whereNotNull('opened_at')
-                                ->where('opened_at', '>', now()),
-                            'open' => $query->currentlyOpen(),
-                            'closed' => $query
-                                ->where('status', '!=', 'archived')
-                                ->where(function (Builder $closed): void {
-                                    $closed
-                                        ->where('closed_at', '<=', now())
-                                        ->orWhere(function (Builder $legacy): void {
-                                            $legacy
-                                                ->where('status', 'closed')
-                                                ->where(function (Builder $incompleteSchedule): void {
-                                                    $incompleteSchedule->whereNull('opened_at')->orWhereNull('closed_at');
-                                                });
-                                        });
-                                }),
-                            'archived' => $query->where(function (Builder $archived): void {
-                                $archived->where('status', 'archived')->orWhereNotNull('archived_at');
-                            }),
-                            'draft' => $query
-                                ->where('status', 'draft')
-                                ->where(function (Builder $incompleteSchedule): void {
-                                    $incompleteSchedule->whereNull('opened_at')->orWhereNull('closed_at');
-                                }),
-                            default => $query,
-                        };
-                    }),
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit / Institusi')->relationship('unit', 'name'),
                 Tables\Filters\SelectFilter::make('study_program_id')->label('Program Studi')->relationship('studyProgram', 'name'),
                 Tables\Filters\SelectFilter::make('academic_year')

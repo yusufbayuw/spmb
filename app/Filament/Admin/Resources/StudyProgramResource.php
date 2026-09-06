@@ -15,11 +15,17 @@ use Illuminate\Database\Eloquent\Builder;
 class StudyProgramResource extends Resource
 {
     protected static ?string $model = StudyProgram::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
+
     protected static ?string $navigationLabel = 'Program Studi';
+
     protected static ?string $modelLabel = 'Program Studi';
+
     protected static ?string $pluralModelLabel = 'Program Studi';
+
     protected static ?string $navigationGroup = 'Master Data';
+
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
@@ -90,7 +96,7 @@ class StudyProgramResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('sort_order')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('unit.name')->label('Perguruan Tinggi')->badge(),
                 Tables\Columns\TextColumn::make('degree_level')->label('Jenjang')->badge()->sortable(),
@@ -105,7 +111,6 @@ class StudyProgramResource extends Resource
                 Tables\Filters\SelectFilter::make('degree_level')
                     ->label('Jenjang')
                     ->options(['D3' => 'D3', 'D4' => 'D4', 'S1' => 'S1', 'S2' => 'S2', 'S3' => 'S3']),
-                Tables\Filters\TernaryFilter::make('is_active')->label('Status Aktif'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -138,7 +143,10 @@ class StudyProgramResource extends Resource
             ->exists();
     }
 
-    public static function canDelete($record): bool { return false; }
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
 
     public static function getPages(): array
     {

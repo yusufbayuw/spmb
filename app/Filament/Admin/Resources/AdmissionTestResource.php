@@ -16,9 +16,13 @@ use Illuminate\Database\Eloquent\Builder;
 class AdmissionTestResource extends Resource
 {
     protected static ?string $model = AdmissionTest::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
+
     protected static ?string $navigationLabel = 'Konfigurasi Tes';
+
     protected static ?string $navigationGroup = 'Seleksi';
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -62,6 +66,7 @@ class AdmissionTestResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->reorderable('sort_order')
             ->columns([
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit / Institusi')->badge(),
@@ -70,7 +75,7 @@ class AdmissionTestResource extends Resource
                     ->formatStateUsing(fn ($state, AdmissionTest $record): string => $record->studyProgram?->label() ?? 'Semua program')
                     ->placeholder('Semua program'),
                 Tables\Columns\TextColumn::make('name')->label('Tes')->searchable(),
-                Tables\Columns\TextColumn::make('scheduled_at')->dateTime('d M Y H:i')->default('-'),
+                Tables\Columns\TextColumn::make('scheduled_at')->dateTime('d M Y H:i')->placeholder('-'),
                 Tables\Columns\TextColumn::make('location')->default('-'),
                 Tables\Columns\IconColumn::make('is_required')->boolean(),
                 Tables\Columns\ToggleColumn::make('is_active'),
@@ -96,5 +101,8 @@ class AdmissionTestResource extends Resource
             ->when(auth()->user()?->isTU(), fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id));
     }
 
-    public static function canDelete($record): bool { return false; }
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
 }

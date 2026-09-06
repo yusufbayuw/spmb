@@ -51,6 +51,7 @@ class RegistrationResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\Placeholder::make('custom_answers_display')->label('Informasi Tambahan')->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))->columnSpanFull(),
             Forms\Components\Section::make('Kepemilikan Pendaftaran')
                 ->columns(2)
                 ->schema([
@@ -204,7 +205,6 @@ class RegistrationResource extends Resource
                         ->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])
                         ->all()),
                 Tables\Filters\SelectFilter::make('current_stage')->label('Tahap')->options(Registration::STAGES),
-                Tables\Filters\SelectFilter::make('lifecycle_status')->label('Lifecycle')->options(Registration::LIFECYCLE_STATUSES),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
             ])
             ->actions([

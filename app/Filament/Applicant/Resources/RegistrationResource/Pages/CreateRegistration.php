@@ -3,9 +3,16 @@
 namespace App\Filament\Applicant\Resources\RegistrationResource\Pages;
 
 use App\Filament\Applicant\Resources\RegistrationResource;
+use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Services\ConfiguredRegistrationForm;
+use App\Services\UnitConfigurationService;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CreateRegistration extends CreateRecord
@@ -18,45 +25,114 @@ class CreateRegistration extends CreateRecord
 
         $opening = RegistrationOpening::query()
             ->with(['unit', 'studyProgram'])
-            ->find(request()->integer('opening'));
+            ->where('uuid', request()->query('opening'))->first();
 
         abort_unless($opening?->isOpen(), 403, 'Pendaftaran ini sedang tidak dibuka.');
 
+        $configuration = app(UnitConfigurationService::class)->initialize($opening->unit);
         $this->form->fill([
-            'registration_opening_id' => $opening->id,
-            'unit_id' => $opening->unit_id,
-            'registrant_type' => $opening->unit?->isHigherEducation() ? 'self' : 'parent',
+            ...$this->previousRegistrationPrefill(),
+            'unit_configuration_uuid' => $configuration->uuid,
+            'registration_opening_uuid' => $opening->uuid,
+            'unit_uuid' => $opening->unit->uuid,
+            'registrant_type' => 'parent',
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function previousRegistrationPrefill(): array
+    {
+        $registration = Registration::query()
+            ->where('user_id', auth()->id())
+            ->with('parentInfo')
+            ->latest()
+            ->first();
+
+        if (! $registration) {
+            return [];
+        }
+
+        $prefill = Arr::only($registration->attributesToArray(), [
+            'home_address',
+            'rt',
+            'rw',
+            'village',
+            'district',
+            'city',
+            'province',
+            'postal_code',
+        ]);
+
+        if ($registration->parentInfo) {
+            $prefill['parentInfo'] = Arr::only($registration->parentInfo->attributesToArray(), [
+                'father_name',
+                'father_nik',
+                'father_birth_place',
+                'father_birth_date',
+                'father_education',
+                'father_occupation',
+                'father_phone',
+                'father_email',
+                'father_income',
+                'mother_name',
+                'mother_nik',
+                'mother_birth_place',
+                'mother_birth_date',
+                'mother_education',
+                'mother_occupation',
+                'mother_phone',
+                'mother_email',
+                'mother_income',
+            ]);
+        }
+
+        return $prefill;
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $opening = RegistrationOpening::query()
             ->with(['unit', 'studyProgram'])
-            ->find($data['registration_opening_id'] ?? null);
+            ->where('uuid', $data['registration_opening_uuid'] ?? null)
+            ->first();
 
         abort_unless($opening?->isOpen(), 403, 'Pendaftaran ini sudah ditutup.');
 
         $pathway = RegistrationPathway::query()
             ->availableForUnit((int) $opening->unit_id)
-            ->find($data['registration_pathway_id'] ?? null);
+            ->where('uuid', $data['registration_pathway_uuid'] ?? null)
+            ->first();
 
         if (! $pathway) {
             throw ValidationException::withMessages([
-                'registration_pathway_id' => 'Pilih jalur pendaftaran yang masih aktif untuk unit tujuan.',
+                'registration_pathway_uuid' => 'Pilih jalur pendaftaran yang masih aktif untuk unit tujuan.',
             ]);
         }
 
         if ($opening->unit?->isHigherEducation()) {
             abort_unless($opening->studyProgram, 422, 'Program studi pada pembukaan pendaftaran belum dikonfigurasi.');
             $opening->studyProgram->assertApplicantAge($data['birth_date'] ?? null);
-            $data['registrant_type'] = 'self';
         }
 
+        $configuration = app(UnitConfigurationService::class)->current($opening->unit_id);
+        if (! $configuration || ($data['unit_configuration_uuid'] ?? null) !== $configuration->uuid) {
+            Notification::make()->warning()->title('Konfigurasi pendaftaran berubah')->body('Muat ulang halaman untuk menggunakan formulir terbaru sebelum mengirim.')->persistent()->send();
+            throw ValidationException::withMessages(['unit_configuration_uuid' => 'Konfigurasi berubah. Muat ulang formulir sebelum mengirim.']);
+        }
+        if (! $configuration->payment_enabled && (float) $opening->registration_fee > 0) {
+            throw ValidationException::withMessages(['registration_opening_uuid' => 'Biaya pembukaan harus nol untuk alur tanpa pembayaran.']);
+        }
+        if (($data['unit_uuid'] ?? null) !== $opening->unit->uuid) {
+            throw ValidationException::withMessages(['unit_uuid' => 'Unit pendaftaran tidak sesuai pembukaan yang dipilih.']);
+        }
+        $data['custom_answers'] = app(ConfiguredRegistrationForm::class)->validateAnswers($configuration, $data['custom_answers'] ?? []);
         $data['user_id'] = auth()->id();
         $data['registration_opening_id'] = $opening->id;
         $data['registration_pathway_id'] = $pathway->id;
         $data['unit_id'] = $opening->unit_id;
+        $data['unit_configuration_id'] = $configuration->id;
         $data['registrant_relationship'] = ($data['registrant_type'] ?? 'parent') === 'self'
             ? 'self'
             : ($data['registrant_relationship'] ?? null);
@@ -64,8 +140,23 @@ class CreateRegistration extends CreateRecord
         $data['current_stage'] = 'data_validation';
         $data['data_validation_status'] = 'pending';
         $data['submitted_at'] = now();
+        unset($data['registration_opening_uuid'], $data['registration_pathway_uuid'], $data['unit_uuid'], $data['unit_configuration_uuid']);
 
         return $data;
+    }
+
+    protected function handleRecordCreation(array $data): Model
+    {
+        return DB::transaction(function () use ($data): Model {
+            DB::table('units')->where('id', $data['unit_id'])->update(['id' => DB::raw('id')]);
+            $current = app(UnitConfigurationService::class)->current($data['unit_id']);
+            if ($current?->id !== (int) $data['unit_configuration_id']) {
+                Notification::make()->warning()->title('Konfigurasi pendaftaran berubah')->body('Muat ulang halaman untuk menggunakan formulir terbaru sebelum mengirim.')->persistent()->send();
+                throw ValidationException::withMessages(['unit_configuration_uuid' => 'Konfigurasi berubah. Muat ulang formulir sebelum mengirim.']);
+            }
+
+            return parent::handleRecordCreation($data);
+        }, 5);
     }
 
     protected function getRedirectUrl(): string

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\RegistrationOpening;
 use App\Models\StudyProgram;
 use App\Models\Unit;
+use App\Services\UnitConfigurationService;
 use Illuminate\Database\Seeder;
 
 class RegistrationOpeningSeeder extends Seeder
@@ -18,7 +19,7 @@ class RegistrationOpeningSeeder extends Seeder
                 continue;
             }
 
-            RegistrationOpening::updateOrCreate(
+            RegistrationOpening::firstOrCreate(
                 [
                     'unit_id' => $unit->id,
                     'study_program_id' => null,
@@ -26,7 +27,7 @@ class RegistrationOpeningSeeder extends Seeder
                     'wave' => 'Gelombang 1',
                 ],
                 [
-                    'registration_fee' => in_array($code, ['SD', 'SMP'], true) ? 385000 : 0,
+                    'registration_fee' => app(UnitConfigurationService::class)->current($unit->id)?->payment_enabled === false ? 0 : (in_array($code, ['SD', 'SMP'], true) ? 385000 : 0),
                     'description' => 'Contoh pembukaan SPMB '.$unit->name.'. Periksa dan lengkapi nominal serta periode operasional sebelum dipublikasikan.',
                     'status' => 'draft',
                     'opened_at' => now()->addWeek()->startOfDay(),
@@ -46,7 +47,7 @@ class RegistrationOpeningSeeder extends Seeder
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->each(function (StudyProgram $program) use ($tbu): void {
-                RegistrationOpening::updateOrCreate(
+                RegistrationOpening::firstOrCreate(
                     [
                         'unit_id' => $tbu->id,
                         'study_program_id' => $program->id,
@@ -54,7 +55,7 @@ class RegistrationOpeningSeeder extends Seeder
                         'wave' => 'Gelombang 1',
                     ],
                     [
-                        'registration_fee' => 350000,
+                        'registration_fee' => app(UnitConfigurationService::class)->current($tbu->id)?->payment_enabled === false ? 0 : 350000,
                         'description' => 'PMB Taruna Bakti University '.$program->label().' Tahun Akademik 2026/2027.',
                         'status' => 'open',
                         'opened_at' => now()->subDay(),

@@ -1,5 +1,5 @@
 @php
-    $steps = \App\Models\Registration::STAGES;
+    $steps = $record->enabledStages();
     $keys = array_keys($steps);
     $currentIndex = array_search($record->current_stage, $keys, true);
     $currentIndex = $currentIndex === false ? 0 : $currentIndex;

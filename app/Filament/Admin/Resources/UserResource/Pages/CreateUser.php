@@ -3,11 +3,14 @@
 namespace App\Filament\Admin\Resources\UserResource\Pages;
 
 use App\Filament\Admin\Resources\UserResource;
+use App\Filament\RedirectsToResourceIndex;
 use App\Services\AuditTrail;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateUser extends CreateRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = UserResource::class;
 
     protected function afterCreate(): void

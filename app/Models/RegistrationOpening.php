@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
+use App\Services\UnitConfigurationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +14,7 @@ use Illuminate\Validation\ValidationException;
 class RegistrationOpening extends Model
 {
     use HasFactory;
+    use HasPublicUuid;
 
     public const STATUSES = [
         'draft' => 'Draft',
@@ -52,6 +55,10 @@ class RegistrationOpening extends Model
             $opening->setAttribute('pathway', $opening->getAttribute('pathway') ?? '');
 
             $unit = Unit::query()->find($opening->unit_id);
+            $configuration = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
+            if ($configuration && ! $configuration->payment_enabled && in_array($opening->status, ['open', 'scheduled'], true) && (float) $opening->registration_fee > 0) {
+                throw ValidationException::withMessages(['registration_fee' => 'Biaya harus nol karena pembayaran dinonaktifkan pada konfigurasi unit.']);
+            }
             $program = $opening->study_program_id
                 ? StudyProgram::query()->find($opening->study_program_id)
                 : null;

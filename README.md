@@ -1,58 +1,140 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SPMB Taruna Bakti
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem Penerimaan Murid/Mahasiswa Baru (SPMB) Taruna Bakti berbasis Laravel 12 dan Filament 3. Aplikasi ini melayani pendaftaran untuk Daycare, KB, TK, SD, SMP, SMA, dan Taruna Bakti University (TBU).
 
-## About Laravel
+Setiap unit memiliki konfigurasi pendaftaran sendiri. Konfigurasi yang telah dipublikasikan disalin sebagai versi pada pendaftaran baru, sehingga perubahan aturan unit tidak mengubah persyaratan peserta yang sudah mendaftar.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Peran dan portal
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Peran | Portal | Tanggung jawab |
+| --- | --- | --- |
+| Pendaftar | `/pendaftar` | Membuat pendaftaran, melengkapi data dan berkas, mengunggah pembayaran, memilih sesi tes, serta mencetak dokumen. |
+| TU unit | `/admin` | Mengelola pembukaan, konfigurasi unit sendiri, verifikasi, sesi tes, seleksi, dan tindak lanjut pendaftar unit. |
+| Super admin | `/admin` | Mengelola seluruh unit, master data, akses, dan laporan operasional. |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Pendaftar harus memverifikasi alamat email sebelum dapat membuat pendaftaran.
 
-## Learning Laravel
+## Fitur utama
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Konfigurasi pendaftaran per unit
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Menu **Pengaturan Pendaftaran Unit** memungkinkan TU membuat draft dan mempublikasikan versi konfigurasi unit. Konfigurasi meliputi:
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- tahap pembayaran, dokumen, dan tes yang dapat diaktifkan per unit;
+- field tambahan pada formulir, termasuk label, petunjuk, kelompok, urutan, wajib, aktif, dan jenis input;
+- persyaratan dokumen dengan format jawaban, jumlah lampiran, status wajib/aktif, instruksi, dan template PDF/DOCX;
+- tes wajib yang berlaku pada versi konfigurasi tersebut;
+- pratinjau formulir pendaftar sebelum publikasi.
 
-## Agentic Development
+Identitas inti pendaftar, pilihan pendaftaran, validasi usia, dan aturan satu pendaftaran tetap dijaga sistem. Pembayaran yang dinonaktifkan hanya dapat digunakan pada pembukaan dengan biaya nol.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Alur pendaftaran
+
+Alur dasar adalah validasi data, pembayaran bila aktif, penerbitan kartu pendaftar, dokumen bila aktif, tes bila aktif, seleksi, dan pengumuman. Sistem melewati tahap nonaktif menurut versi konfigurasi yang terikat pada pendaftaran.
+
+Pendaftar dapat mengunggah beberapa lampiran bila diizinkan. Dokumen wajib selesai jika ada minimal satu lampiran dan seluruh lampiran yang diajukan telah diverifikasi. File yang ditolak dapat diganti; keputusan verifikasi lama akan dibuka kembali untuk diperiksa TU.
+
+### Tes, kartu, dan kuitansi
+
+- TU membuat beberapa sesi per jenis tes dengan waktu, lokasi, kuota, status, dan batas pemesanan.
+- Pendaftar memilih atau memindahkan sesi selama batas pemesanan masih terbuka, kuota tersedia, dan jadwal tidak berbenturan.
+- Pemesanan memakai transaksi dan penguncian database agar kursi terakhir tidak terisi melebihi kuota.
+- Kartu pendaftar, kartu tes, dan kuitansi bukti lunas tersedia sebagai halaman cetak HTML.
+- Kuitansi hanya diterbitkan setelah pembayaran terverifikasi dan menyimpan nomor serta rincian transaksi saat diterbitkan.
+
+### Notifikasi dan keamanan
+
+Notifikasi database dikirim setelah transaksi berhasil untuk pendaftar dan TU terkait, termasuk pengiriman/revisi pendaftaran, verifikasi dokumen atau pembayaran, pemilihan/perpindahan/pembatalan sesi, kesiapan seleksi, dan pengumuman. Kanal notifikasi bersifat idempoten sehingga retry tidak membuat duplikasi.
+
+Semua model SPMB menggunakan UUID publik yang tidak dapat diubah. UUID digunakan pada URL, route binding, state pendaftar/TU, tautan cetak, unduhan private, verifikasi email, dan payload notifikasi. ID numerik tetap menjadi detail relasional internal database.
+
+Unggahan pendaftar dan template disimpan pada disk private. Format file, ukuran, signature, struktur DOCX, dan opsi pemindaian malware diperiksa di server. Template dan lampiran hanya dapat diunduh oleh pemilik pendaftaran atau petugas unit yang berwenang.
+
+## Kebutuhan
+
+- PHP 8.3 atau lebih baru
+- Composer
+- Node.js dan npm
+- Database yang didukung Laravel
+- Worker antrean untuk email dan notifikasi pada staging/produksi
+
+## Instalasi lokal
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Atur koneksi database pada `.env`, lalu jalankan migrasi, data awal, dan aset frontend:
 
-## Contributing
+```bash
+php artisan migrate --seed
+npm install
+npm run build
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Untuk pengembangan frontend, gunakan:
 
-## Code of Conduct
+```bash
+npm run dev
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Laravel Herd dapat melayani aplikasi lokal tanpa menjalankan `php artisan serve`.
 
-## Security Vulnerabilities
+## Data awal
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Seeder membuat unit, jalur reguler, program studi TBU, konfigurasi pendaftaran awal, pembukaan contoh, peran, pengguna TU per unit, sesi tes awal yang masih tertutup, serta kuitansi bagi pembayaran yang sudah terverifikasi.
 
-## License
+Akun lokal awal:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Peran | Email | Kata sandi |
+| --- | --- | --- |
+| Super admin | `admin@tarunabakti.sch.id` | `password123` |
+| TU Daycare | `tu.dc@tarunabakti.sch.id` | `password123` |
+| TU KB | `tu.kb@tarunabakti.sch.id` | `password123` |
+| TU TK | `tu.tk@tarunabakti.sch.id` | `password123` |
+| TU SD | `tu.sd@tarunabakti.sch.id` | `password123` |
+| TU SMP | `tu.smp@tarunabakti.sch.id` | `password123` |
+| TU SMA | `tu.sma@tarunabakti.sch.id` | `password123` |
+| TU TBU | `tu.tbu@tbu.ac.id` | `password123` |
+
+Data tersebut hanya untuk lingkungan lokal/demo. Ganti kredensial dan buka sesi/pembukaan setelah data operasional diperiksa.
+
+## Konfigurasi operasional
+
+Variabel SPMB yang tersedia pada `.env`:
+
+```dotenv
+SPMB_UPLOAD_MAX_KB=5120
+SPMB_UPLOAD_REQUIRE_MALWARE_SCAN=false
+SPMB_CLAMAV_BINARY=clamscan
+SPMB_CLAMAV_TIMEOUT=30
+SPMB_MAIL_QUEUE=emails
+SPMB_NOTIFICATION_QUEUE=notifications
+SPMB_NOTIFICATION_POLLING=15s
+```
+
+Aktifkan `SPMB_UPLOAD_REQUIRE_MALWARE_SCAN=true` hanya jika `clamscan` tersedia pada server. Pada staging dan produksi, jalankan worker untuk antrean email dan notifikasi, misalnya:
+
+```bash
+php artisan queue:work --queue=emails,notifications,default --tries=5
+```
+
+Pastikan `APP_URL`, konfigurasi mail, `QUEUE_CONNECTION`, dan akses private storage telah sesuai lingkungan sebelum membuka pendaftaran.
+
+## Pemeriksaan kualitas
+
+Jalankan pemeriksaan berikut sebelum merge atau rollout:
+
+```bash
+vendor/bin/pint --dirty --format agent
+php artisan test --compact
+npm run build
+```
+
+Suite pengujian mencakup isolasi antarunit, versi konfigurasi, formulir dan dokumen custom, template dan unggah ulang, sesi tes/kuota/perpindahan/pembatalan, cetakan, kuitansi, UUID publik, migrasi notifikasi lama, serta otorisasi pendaftar dan TU.
+
+## Rollout
+
+Terapkan lebih dahulu pada lokal atau staging, jalankan migrasi tanpa menghapus data operasional, aktifkan worker, lalu periksa pembukaan, alur pendaftar, notifikasi, dan cetakan. Penerapan produksi dilakukan sebagai langkah terpisah setelah pemeriksaan staging selesai.

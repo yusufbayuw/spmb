@@ -2,12 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Applicant\Pages\RegistrationOpenings;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -123,12 +127,66 @@ class RegistrationOpeningTest extends TestCase
         ]);
 
         $this->actingAs($applicant)
-            ->get("/pendaftar/registrations/create?opening={$open->id}")
+            ->get("/pendaftar/registrations/create?opening={$open->uuid}")
             ->assertOk();
 
         $this->actingAs($applicant)
-            ->get("/pendaftar/registrations/create?opening={$closed->id}")
+            ->get("/pendaftar/registrations/create?opening={$closed->uuid}")
             ->assertForbidden();
+    }
+
+    public function test_applicant_can_search_filter_and_reset_registration_openings(): void
+    {
+        $this->travelTo('2026-09-04 08:00:00');
+        $school = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $university = Unit::create(['name' => 'Taruna Bakti University', 'code' => 'TBU', 'institution_type' => 'university', 'is_active' => true]);
+        $program = StudyProgram::create(['unit_id' => $university->id, 'code' => 'S1-IF', 'name' => 'Informatika', 'degree_level' => 'S1', 'is_active' => true]);
+
+        RegistrationOpening::create([
+            'unit_id' => $school->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang Terbuka',
+            'status' => 'open',
+        ]);
+        RegistrationOpening::create([
+            'unit_id' => $school->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang Mendatang',
+            'status' => 'draft',
+            'opened_at' => '2026-09-05 08:00:00',
+            'closed_at' => '2026-09-06 16:00:00',
+        ]);
+        RegistrationOpening::create([
+            'unit_id' => $university->id,
+            'study_program_id' => $program->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang Ditutup',
+            'status' => 'closed',
+        ]);
+
+        $this->actingAs($this->userWithRole('pendaftar'));
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $page = Livewire::test(RegistrationOpenings::class)
+            ->assertSee('Gelombang Terbuka')
+            ->assertSee('Gelombang Mendatang')
+            ->assertSee('Gelombang Ditutup');
+
+        $page->set('search', 'Mendatang')
+            ->assertSee('Gelombang Mendatang')
+            ->assertDontSee('Gelombang Terbuka')
+            ->set('search', '')
+            ->call('selectUnit', $university->uuid)
+            ->assertSee('Gelombang Ditutup')
+            ->assertDontSee('Gelombang Terbuka')
+            ->set('unitUuid', '')
+            ->set('availability', 'open')
+            ->assertSee('Gelombang Terbuka')
+            ->assertDontSee('Gelombang Mendatang')
+            ->call('clearFilters')
+            ->assertSee('Gelombang Terbuka')
+            ->assertSee('Gelombang Mendatang')
+            ->assertSee('Gelombang Ditutup');
     }
 
     private function userWithRole(string $roleName): User

@@ -14,11 +14,17 @@ use Illuminate\Database\Eloquent\Builder;
 class UnitResource extends Resource
 {
     protected static ?string $model = Unit::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
+
     protected static ?string $navigationLabel = 'Unit / Institusi';
+
     protected static ?string $modelLabel = 'Unit / Institusi';
+
     protected static ?string $pluralModelLabel = 'Unit / Institusi';
+
     protected static ?string $navigationGroup = 'Master Data';
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -55,6 +61,7 @@ class UnitResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Unit / Institusi')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('code')->label('Kode')->badge(),
@@ -95,5 +102,8 @@ class UnitResource extends Resource
             );
     }
 
-    public static function canDelete($record): bool { return false; }
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\RegistrationResource\Pages;
 
 use App\Filament\Admin\Resources\RegistrationResource;
+use App\Filament\RedirectsToResourceIndex;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Services\RegistrationWorkflowService;
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditRegistration extends EditRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = RegistrationResource::class;
 
     protected function getHeaderActions(): array

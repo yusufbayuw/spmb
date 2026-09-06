@@ -61,7 +61,7 @@ class RegistrationOwnershipTest extends TestCase
         ]);
 
         $this->actingAs($other)
-            ->get("/pendaftar/status/{$registration->id}")
+            ->get("/pendaftar/status/{$registration->uuid}")
             ->assertNotFound();
     }
 
@@ -86,7 +86,7 @@ class RegistrationOwnershipTest extends TestCase
         ]);
 
         $this->actingAs($owner)
-            ->get("/pendaftar/status/{$registration->id}")
+            ->get("/pendaftar/status/{$registration->uuid}")
             ->assertOk();
     }
 

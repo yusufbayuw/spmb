@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
@@ -9,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 class AdmissionTest extends Model
 {
     use HasFactory;
+    use HasPublicUuid;
 
     protected $fillable = [
         'unit_id', 'study_program_id', 'name', 'code', 'description', 'sort_order',
@@ -39,7 +41,18 @@ class AdmissionTest extends Model
         });
     }
 
-    public function unit() { return $this->belongsTo(Unit::class); }
-    public function studyProgram() { return $this->belongsTo(StudyProgram::class); }
-    public function results() { return $this->hasMany(AdmissionTestResult::class); }
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function studyProgram()
+    {
+        return $this->belongsTo(StudyProgram::class);
+    }
+
+    public function results()
+    {
+        return $this->hasMany(AdmissionTestResult::class);
+    }
 }

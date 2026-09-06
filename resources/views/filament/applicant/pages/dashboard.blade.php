@@ -103,7 +103,7 @@
                             <div class="flex flex-wrap gap-2">
                                 <x-filament::button
                                     tag="a"
-                                    href="{{ \App\Filament\Applicant\Pages\RegistrationStatus::getUrl(['registration' => $registration->id]) }}"
+                                    href="{{ \App\Filament\Applicant\Pages\RegistrationStatus::getUrl(['registration' => $registration->uuid]) }}"
                                     icon="heroicon-m-arrow-right-circle"
                                 >
                                     Lihat Progres
@@ -112,7 +112,7 @@
                                 @if ($registration->current_stage === 'payment')
                                     <x-filament::button
                                         tag="a"
-                                        href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->id]) }}"
+                                        href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->uuid]) }}"
                                         color="warning"
                                         icon="heroicon-m-banknotes"
                                     >
@@ -123,7 +123,7 @@
                                 @if (in_array($registration->current_stage, ['documents', 'document_verification'], true))
                                     <x-filament::button
                                         tag="a"
-                                        href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->id]) }}"
+                                        href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->uuid]) }}"
                                         color="info"
                                         icon="heroicon-m-document-arrow-up"
                                     >

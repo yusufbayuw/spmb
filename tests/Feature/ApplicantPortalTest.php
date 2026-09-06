@@ -7,14 +7,14 @@ use App\Filament\Applicant\Resources\RegistrationResource as ApplicantRegistrati
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Models\User;
+use App\Notifications\ApplicantVerifyEmail;
+use App\Services\ApplicantEmailVerificationUrl;
 use Filament\Facades\Filament;
-use Filament\Notifications\Auth\VerifyEmail;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\URL;
 use ReflectionMethod;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -72,10 +72,12 @@ class ApplicantPortalTest extends TestCase
 
         Notification::assertSentTo(
             $user,
-            VerifyEmail::class,
-            function (VerifyEmail $notification): bool {
+            ApplicantVerifyEmail::class,
+            function (ApplicantVerifyEmail $notification) use ($user): bool {
                 return $notification instanceof ShouldQueue
-                    && str_contains($notification->url, '/pendaftar/email-verification/verify/');
+                    && str_contains($notification->url, '/pendaftar/email-verification/uuid-verify/')
+                    && str_contains($notification->url, $user->uuid)
+                    && ! str_contains($notification->url, '/'.$user->id.'/');
             },
         );
     }
@@ -103,22 +105,26 @@ class ApplicantPortalTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
         $applicant = $this->userWithRole('pendaftar', ['email_verified_at' => null]);
 
-        $url = URL::temporarySignedRoute(
-            'filament.pendaftar.auth.email-verification.verify',
-            now()->addMinutes(60),
-            [
-                'id' => $applicant->getKey(),
-                'hash' => sha1($applicant->getEmailForVerification()),
-            ],
-        );
+        $url = app(ApplicantEmailVerificationUrl::class)->for($applicant);
 
         $this->actingAs($applicant)->get($url)->assertRedirect();
+        $this->assertStringContainsString($applicant->uuid, $url);
+        $this->assertStringNotContainsString('/'.$applicant->id.'/', $url);
 
         $this->assertTrue($applicant->fresh()->hasVerifiedEmail());
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'auth.email_verified',
             'user_id' => $applicant->id,
         ]);
+    }
+
+    public function test_legacy_numeric_verification_url_is_not_accepted(): void
+    {
+        $applicant = $this->userWithRole('pendaftar', ['email_verified_at' => null]);
+
+        $this->actingAs($applicant)
+            ->get('/pendaftar/email-verification/verify/'.$applicant->id.'/'.sha1($applicant->email))
+            ->assertNotFound();
     }
 
     public function test_unverified_applicant_cannot_create_registration_even_if_opening_exists(): void
@@ -171,8 +177,8 @@ class ApplicantPortalTest extends TestCase
         $this->actingAs($applicant);
 
         $this->post('/registration')->assertNotFound();
-        $this->post('/registration/1/payment')->assertStatus(405);
-        $this->post('/registration/1/documents')->assertStatus(405);
+        $this->post('/registration/1/payment')->assertNotFound();
+        $this->post('/registration/1/documents')->assertNotFound();
         $this->patch('/profile')->assertStatus(405);
         $this->delete('/profile')->assertStatus(405);
     }

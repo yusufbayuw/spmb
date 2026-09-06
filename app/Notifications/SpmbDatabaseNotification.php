@@ -13,6 +13,7 @@ class SpmbDatabaseNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public int $tries = 5;
+
     public int $timeout = 30;
 
     public function __construct(
@@ -24,8 +25,8 @@ class SpmbDatabaseNotification extends Notification implements ShouldQueue
         public ?string $icon = null,
         public ?string $actionLabel = null,
         public ?string $actionUrl = null,
-        public ?int $registrationId = null,
-        public ?int $unitId = null,
+        public ?string $registrationUuid = null,
+        public ?string $unitUuid = null,
         public array $metadata = [],
     ) {
         $this->onQueue((string) config('spmb.notifications.queue', 'notifications'));
@@ -74,8 +75,8 @@ class SpmbDatabaseNotification extends Notification implements ShouldQueue
         return array_merge($notification->getDatabaseMessage(), [
             'spmb_event' => $this->event,
             'category' => $this->category,
-            'registration_id' => $this->registrationId,
-            'unit_id' => $this->unitId,
+            'registration_uuid' => $this->registrationUuid,
+            'unit_uuid' => $this->unitUuid,
             'metadata' => $this->metadata,
         ]);
     }

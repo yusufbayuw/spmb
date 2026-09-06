@@ -8,11 +8,25 @@ use App\Services\VirtualAccountTemplateService;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
+use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListVirtualAccounts extends ListRecords
 {
     protected static string $resource = VirtualAccountResource::class;
+
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('Semua'),
+            'available' => Tab::make('Tersedia')->query(fn (Builder $query): Builder => $query->where('status', 'available')),
+            'assigned' => Tab::make('Dialokasikan')->query(fn (Builder $query): Builder => $query->where('status', 'assigned')),
+            'paid' => Tab::make('Lunas')->query(fn (Builder $query): Builder => $query->where('status', 'paid')),
+            'expired' => Tab::make('Kedaluwarsa')->query(fn (Builder $query): Builder => $query->where('status', 'expired')),
+            'cancelled' => Tab::make('Dibatalkan')->query(fn (Builder $query): Builder => $query->where('status', 'cancelled')),
+        ];
+    }
 
     protected function getHeaderActions(): array
     {

@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration;
 use App\Models\AdmissionTest;
 use App\Models\Document;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\RegistrationPathway;
 use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
@@ -15,8 +17,11 @@ use Carbon\Carbon;
 use Database\Seeders\RegistrationOpeningSeeder;
 use Database\Seeders\StudyProgramSeeder;
 use Database\Seeders\UnitSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class HigherEducationSupportTest extends TestCase
@@ -131,6 +136,68 @@ class HigherEducationSupportTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_parent_can_submit_a_university_registration(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Taruna Bakti University',
+            'code' => 'TBU',
+            'institution_type' => 'university',
+            'is_active' => true,
+        ]);
+        $program = StudyProgram::create([
+            'unit_id' => $unit->id,
+            'code' => 'S1-IF',
+            'name' => 'Informatika',
+            'degree_level' => 'S1',
+            'max_age' => 26,
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'study_program_id' => $program->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'status' => 'open',
+        ]);
+        $pathway = RegistrationPathway::create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+        $applicant = User::factory()->create(['role' => 'user', 'is_active' => true]);
+        $applicant->assignRole(Role::firstOrCreate(['name' => 'pendaftar', 'guard_name' => 'web']));
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertFormSet(['registrant_type' => 'parent'])
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'parent',
+                'registrant_relationship' => 'father',
+                'full_name' => 'Calon Mahasiswa',
+                'nik' => '3273010101010033',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2005-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => ['father_name' => 'Ayah Pendaftar', 'mother_name' => 'Ibu Pendaftar'],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $registration = Registration::query()->where('nik', '3273010101010033')->firstOrFail();
+        $this->assertSame('parent', $registration->registrant_type);
+        $this->assertSame('father', $registration->registrant_relationship);
+        $this->assertDatabaseHas('parent_infos', [
+            'registration_id' => $registration->id,
+            'father_name' => 'Ayah Pendaftar',
+            'mother_name' => 'Ibu Pendaftar',
+        ]);
     }
 
     public function test_document_completion_assigns_only_common_and_matching_program_tests(): void

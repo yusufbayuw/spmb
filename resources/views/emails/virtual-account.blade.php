@@ -1,12 +1,38 @@
-<h2>Virtual Account Pendaftaran SPMB</h2>
-<p>Yth. {{ $payment->registration->user->name }},</p>
-<p>Data calon siswa <strong>{{ $payment->registration->full_name }}</strong> telah tervalidasi.</p>
-<p>No. Registrasi: <strong>{{ $payment->registration->registration_number }}</strong></p>
+<x-mail::layout>
+<x-slot:header>
+<x-mail::header :url="config('app.url')">
+{{ config('app.name', 'SPMB Taruna Bakti') }}
+</x-mail::header>
+</x-slot>
+
+# Virtual Account Pendaftaran SPMB
+
+Yth. {{ $payment->registration->user->name }},
+
+Data calon peserta **{{ $payment->registration->full_name }}** telah tervalidasi. Silakan gunakan informasi berikut untuk melakukan pembayaran biaya pendaftaran.
+
+Nomor registrasi: **{{ $payment->registration->registration_number }}**
+
 @if ($payment->virtualAccount?->bank)
-    <p>Bank: <strong>{{ $payment->virtualAccount->bank }}</strong></p>
+Bank: **{{ $payment->virtualAccount->bank }}**
 @endif
-<p>Virtual Account: <strong>{{ $payment->va_number }}</strong></p>
+Virtual Account: **{{ $payment->va_number }}**
 @if (! is_null($payment->amount))
-    <p>Nominal: <strong>Rp {{ number_format((float) $payment->amount, 0, ',', '.') }}</strong></p>
+Nominal: **Rp {{ number_format((float) $payment->amount, 0, ',', '.') }}**
 @endif
-<p>Silakan lakukan pembayaran dan unggah bukti pembayaran melalui dashboard SPMB.</p>
+
+Setelah pembayaran dilakukan, unggah bukti pembayaran melalui dashboard agar dapat diperiksa oleh petugas.
+
+<x-mail::button :url="url('/pendaftar')">
+Buka Dashboard SPMB
+</x-mail::button>
+
+Hormat kami,<br>
+{{ config('app.name', 'SPMB Taruna Bakti') }}
+
+<x-slot:footer>
+<x-mail::footer>
+© {{ date('Y') }} {{ config('app.name', 'SPMB Taruna Bakti') }}. Seluruh hak cipta dilindungi.
+</x-mail::footer>
+</x-slot>
+</x-mail::layout>

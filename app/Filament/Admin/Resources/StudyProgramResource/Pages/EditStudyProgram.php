@@ -3,10 +3,13 @@
 namespace App\Filament\Admin\Resources\StudyProgramResource\Pages;
 
 use App\Filament\Admin\Resources\StudyProgramResource;
+use App\Filament\RedirectsToResourceIndex;
 use Filament\Resources\Pages\EditRecord;
 
 class EditStudyProgram extends EditRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = StudyProgramResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

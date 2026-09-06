@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
+use App\Notifications\ApplicantResetPassword;
+use App\Notifications\ApplicantVerifyEmail;
+use App\Services\ApplicantEmailVerificationUrl;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -13,9 +17,11 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
     use HasFactory, HasRoles, Notifiable;
+    use HasPublicUuid;
 
-    protected $fillable = ['name','email','password','phone','role','unit_id','is_active'];
-    protected $hidden = ['password','remember_token'];
+    protected $fillable = ['name', 'email', 'password', 'phone', 'role', 'unit_id', 'is_active'];
+
+    protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
     {
@@ -39,10 +45,41 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         };
     }
 
-    public function unit() { return $this->belongsTo(Unit::class); }
-    public function registrations() { return $this->hasMany(Registration::class); }
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
+    }
 
-    public function isAdmin(): bool { return $this->hasRole('super_admin'); }
-    public function isTU(): bool { return $this->hasRole('tu'); }
-    public function isUser(): bool { return $this->hasRole('pendaftar'); }
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
+    public function isTU(): bool
+    {
+        return $this->hasRole('tu');
+    }
+
+    public function isUser(): bool
+    {
+        return $this->hasRole('pendaftar');
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $notification = app(ApplicantVerifyEmail::class);
+        $notification->url = app(ApplicantEmailVerificationUrl::class)->for($this);
+
+        $this->notify($notification);
+    }
+
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new ApplicantResetPassword($token));
+    }
 }

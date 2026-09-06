@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Services\ApplicantUploadSecurity;
 use App\Services\RegistrationWorkflowService;
 use App\Services\SpmbNotificationService;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -42,7 +43,8 @@ class DocumentResource extends Resource
                 Tables\Columns\TextColumn::make('registration.user.name')->searchable()->hidden(),
                 Tables\Columns\TextColumn::make('registration.registration_number')->searchable()->hidden(),
                 Tables\Columns\TextColumn::make('registration.unit.name')->label('Unit')->badge(),
-                Tables\Columns\TextColumn::make('type')->label('Jenis')->badge(),
+                Tables\Columns\TextColumn::make('type')->label('Jenis')->badge()
+                    ->formatStateUsing(fn (Document $record): string => collect($record->registration->documentRequirements())->firstWhere('key', $record->requirement_key ?? $record->type)['label'] ?? $record->type),
                 Tables\Columns\TextColumn::make('original_name')
                     ->label('File')
                     ->searchable()
@@ -63,9 +65,7 @@ class DocumentResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\IconColumn::make('is_verified')->label('Valid')->boolean(),
-            ])
-            ->filters([
-                Tables\Filters\TernaryFilter::make('is_verified')->label('Verifikasi'),
+                Tables\Columns\TextColumn::make('rejection_reason')->label('Alasan Penolakan')->wrap(),
             ])
             ->actions([
                 Tables\Actions\Action::make('verify')
@@ -81,7 +81,8 @@ class DocumentResource extends Resource
                         $record->registration->assertCurrentStage(['documents', 'document_verification']);
 
                         if (! $record->security_scanned_at || ! $record->sha256) {
-                            $inspection = app(ApplicantUploadSecurity::class)->inspect($record->file_path);
+                            $definition = collect($record->registration->documentRequirements())->firstWhere('key', $record->requirement_key ?: $record->type);
+                            $inspection = app(ApplicantUploadSecurity::class)->inspect($record->file_path, $definition['formats'] ?? ['pdf', 'jpg', 'png']);
                             $record->update([
                                 'mime_type' => $inspection['mime_type'],
                                 'file_size' => $inspection['size'],
@@ -93,12 +94,28 @@ class DocumentResource extends Resource
 
                         $record->update([
                             'is_verified' => true,
+                            'rejection_reason' => null,
                             'verified_at' => now(),
                             'verified_by' => auth()->id(),
                         ]);
 
                         app(RegistrationWorkflowService::class)->refreshDocumentStage($record->registration);
+                        app(SpmbNotificationService::class)->workflowEvent($record->registration->fresh(), 'document.verified', 'Berkas diverifikasi', $record->original_name.' telah diverifikasi oleh petugas.');
                         Notification::make()->title('Berkas lolos pemeriksaan keamanan dan diverifikasi')->success()->send();
+                    }),
+                Tables\Actions\Action::make('reject')
+                    ->label('Tolak Berkas')
+                    ->color('danger')
+                    ->form([
+                        Textarea::make('rejection_reason')->label('Alasan penolakan')->required()->maxLength(2000),
+                    ])
+                    ->visible(fn (Document $record): bool => (bool) auth()->user()?->can('verify_document_document')
+                        && $record->registration?->isOperational()
+                        && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
+                    )
+                    ->action(function (Document $record, array $data): void {
+                        app(RegistrationWorkflowService::class)->rejectDocument($record, auth()->user(), $data['rejection_reason']);
+                        Notification::make()->title('Berkas ditolak; alasan telah dikirim kepada pendaftar')->warning()->send();
                     }),
                 Tables\Actions\Action::make('reset')
                     ->label('Batalkan')
@@ -129,7 +146,7 @@ class DocumentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['registration.unit', 'registration.user']);
+        $query = parent::getEloquentQuery()->whereNull('superseded_at')->with(['registration.unit', 'registration.user', 'registration.configuration']);
         if (auth()->user()?->isTU()) {
             $query->whereHas('registration', fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id));
         }

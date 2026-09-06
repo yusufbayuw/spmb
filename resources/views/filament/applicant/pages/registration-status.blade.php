@@ -1,11 +1,11 @@
 <x-filament-panels::page>
     @php
         $registration = $this->registrationRecord;
-        $stages = array_keys(\App\Models\Registration::STAGES);
-        $stageLabels = \App\Models\Registration::STAGES;
+        $stages = array_keys($registration->enabledStages());
+        $stageLabels = $registration->enabledStages();
         $stageIndex = $this->stageIndex();
         $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
-        $requiredDocuments = \App\Services\RegistrationWorkflowService::REQUIRED_DOCUMENTS;
+        $requiredDocuments = \App\Services\RegistrationWorkflowService::requiredDocuments($registration);
         $isHigherEducation = $registration->unit?->isHigherEducation() ?? false;
         $participantLabel = $isHigherEducation ? 'calon mahasiswa' : 'calon siswa';
     @endphp
@@ -35,7 +35,14 @@
             </div>
         </x-filament::section>
 
-        @if ($registration->data_validation_status === 'revision')
+        @if (! $registration->isOperational())
+            <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning">
+                <x-slot name="heading">Pendaftaran {{ $registration->lifecycleLabel() }}</x-slot>
+                <p class="text-sm text-gray-600 dark:text-gray-300">{{ $registration->lifecycle_reason }}</p>
+            </x-filament::section>
+        @endif
+
+        @if ($registration->isOperational() && $registration->data_validation_status === 'revision')
             <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning">
                 <x-slot name="heading">Data perlu diperbaiki</x-slot>
                 <p class="text-sm text-gray-600 dark:text-gray-300">
@@ -54,6 +61,9 @@
             </x-filament::section>
         @endif
 
+        @if($registration->custom_answers)
+            <x-filament::section heading="Informasi Tambahan">@include('registration.custom-answers', ['registration' => $registration])</x-filament::section>
+        @endif
         <div class="grid gap-6 xl:grid-cols-3">
             <div class="space-y-6 xl:col-span-2">
                 <x-filament::section>
@@ -61,14 +71,16 @@
                     <x-slot name="description">Aksi yang tersedia menyesuaikan tahap pendaftaran saat ini.</x-slot>
 
                     <div class="flex flex-wrap gap-3">
-                        @if ($registration->current_stage === 'payment')
-                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->id]) }}" icon="heroicon-m-banknotes">
+                        @if (! $registration->isOperational())
+                            <x-filament::badge color="warning">Pendaftaran tidak aktif. Hubungi petugas untuk tindak lanjut.</x-filament::badge>
+                        @elseif ($registration->current_stage === 'payment')
+                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->uuid]) }}" icon="heroicon-m-banknotes">
                                 Upload Bukti Pembayaran
                             </x-filament::button>
                         @elseif ($registration->current_stage === 'payment_verification')
                             <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu verifikasi pembayaran petugas</x-filament::badge>
                         @elseif (in_array($registration->current_stage, ['documents', 'document_verification'], true))
-                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->id]) }}" icon="heroicon-m-document-arrow-up">
+                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->uuid]) }}" icon="heroicon-m-document-arrow-up">
                                 {{ $registration->current_stage === 'documents' ? 'Lengkapi Dokumen' : 'Lihat Dokumen' }}
                             </x-filament::button>
                         @elseif ($registration->current_stage === 'data_validation')
@@ -78,6 +90,7 @@
                         @elseif ($registration->current_stage === 'applicant_card')
                             <x-filament::badge color="warning" icon="heroicon-m-identification">Menunggu penerbitan kartu pendaftar</x-filament::badge>
                         @elseif ($registration->current_stage === 'tests')
+                            <x-filament::button tag="a" :href="\App\Filament\Applicant\Pages\TestSchedule::getUrl(['registration' => $registration->uuid])">Pilih / Ubah Jadwal Tes</x-filament::button>
                             <x-filament::badge color="info" icon="heroicon-m-academic-cap">Ikuti rangkaian tes sesuai jadwal</x-filament::badge>
                         @elseif ($registration->current_stage === 'selection')
                             <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu keputusan seleksi</x-filament::badge>
@@ -87,7 +100,7 @@
                             <x-filament::badge color="success" icon="heroicon-m-check-circle">Proses pendaftaran selesai</x-filament::badge>
                         @endif
 
-                        @if ($registration->applicant_card_number)
+                        @if ($registration->isOperational() && $registration->applicant_card_number)
                             <x-filament::button tag="a" href="{{ route('registration.card', $registration) }}" target="_blank" color="gray" outlined icon="heroicon-m-printer">
                                 Cetak Kartu Pendaftar
                             </x-filament::button>
@@ -134,19 +147,26 @@
                             @foreach ($registration->testResults->sortBy(fn ($result) => $result->admissionTest?->sort_order ?? 999) as $result)
                                 <div class="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
-                                        <div class="font-medium text-gray-950 dark:text-white">{{ $result->admissionTest?->name ?? 'Tes' }}</div>
+                                        <div class="font-medium text-gray-950 dark:text-white">{{ collect($registration->configuredTests())->firstWhere('id', $result->admission_test_id)['name'] ?? $result->admissionTest?->name ?? 'Tes' }}</div>
                                         <div class="mt-1 text-xs text-gray-500">
                                             @if ($result->admissionTest?->studyProgram)
                                                 {{ $result->admissionTest->studyProgram->label() }} ·
                                             @else
                                                 Tes umum ·
                                             @endif
-                                            @if ($result->admissionTest?->scheduled_at)
+                                            @php
+$bookedSession = $registration->testBookings->firstWhere('admission_test_id', $result->admission_test_id)?->session;
+@endphp
+                                            @if($bookedSession)
+                                                {{ $bookedSession->label() }}
+                                            @elseif($registration->configuration && ! $registration->configuration->legacy)
+                                                Jadwal belum dipilih
+                                            @elseif ($result->admissionTest?->scheduled_at)
                                                 {{ $result->admissionTest->scheduled_at->format('d M Y H:i') }}
                                             @else
                                                 Jadwal akan diinformasikan
                                             @endif
-                                            @if ($result->admissionTest?->location)
+                                            @if (! $bookedSession && (! $registration->configuration || $registration->configuration->legacy) && $result->admissionTest?->location)
                                                 · {{ $result->admissionTest->location }}
                                             @endif
                                         </div>
@@ -191,6 +211,9 @@
 
                 <x-filament::section>
                     <x-slot name="heading">Pembayaran</x-slot>
+                    @foreach($registration->receipts as $receipt)
+                        <x-filament::button tag="a" :href="route('registration.receipt', [$registration, $receipt])" target="_blank">Cetak Kuitansi</x-filament::button>
+                    @endforeach
                     @if ($registration->latestPayment)
                         <dl class="space-y-3 text-sm">
                             @if ($registration->latestPayment->virtualAccount?->bank)
@@ -207,33 +230,36 @@
                     @endif
                 </x-filament::section>
 
+                @if(count($requiredDocuments))
                 <x-filament::section>
                     <x-slot name="heading">Dokumen Wajib</x-slot>
                     <div class="space-y-3">
                         @foreach ($requiredDocuments as $type)
                             @php
-                                $document = $registration->documents->firstWhere('type', $type);
-                                $label = match($type) {
-                                    'report_card' => 'Rapor / Dokumen Akademik',
-                                    'family_card' => 'Kartu Keluarga',
-                                    'birth_certificate' => 'Akta Kelahiran',
-                                    'photo' => 'Pas Foto',
-                                    default => str($type)->replace('_', ' ')->title(),
-                                };
+                                $requirement = collect($registration->documentRequirements())->firstWhere('key', $type);
+                                $files = $registration->documents->filter(fn ($file) => ($file->requirement_key ?: $file->type) === $type);
+                                $document = $files->first();
+                                $label = $requirement['label'];
                             @endphp
                             <div class="flex items-center justify-between gap-3 text-sm">
                                 <span class="text-gray-700 dark:text-gray-300">{{ $label }}</span>
-                                @if ($document?->is_verified)
+                                @if ($files->isNotEmpty() && $files->every(fn ($file) => $file->is_verified))
                                     <x-filament::badge color="success">Terverifikasi</x-filament::badge>
+                                @elseif ($files->contains(fn ($file) => filled($file->rejection_reason)))
+                                    <x-filament::badge color="danger">Ditolak</x-filament::badge>
                                 @elseif ($document)
                                     <x-filament::badge color="warning">Diperiksa</x-filament::badge>
                                 @else
                                     <x-filament::badge color="gray">Belum upload</x-filament::badge>
                                 @endif
                             </div>
+                            @foreach($files->whereNotNull('rejection_reason') as $rejectedFile)
+                                <p class="text-sm text-gray-600 dark:text-gray-300">Alasan penolakan: {{ $rejectedFile->rejection_reason }}</p>
+                            @endforeach
                         @endforeach
                     </div>
                 </x-filament::section>
+                @endif
             </div>
         </div>
     </div>

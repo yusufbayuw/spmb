@@ -9,6 +9,8 @@ use App\Filament\Forms\ParentInfoFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Models\UnitConfiguration;
+use App\Services\ConfiguredRegistrationForm;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -34,29 +36,31 @@ class RegistrationResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form->schema([
+        return $form->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)->apply([
             Forms\Components\Section::make('Pilihan Pendaftaran')
                 ->description('Unit/institusi, program studi, periode, dan biaya mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
                 ->columns(2)
                 ->schema([
-                    Forms\Components\Hidden::make('registration_opening_id')->required(),
-                    Forms\Components\Hidden::make('unit_id')->required(),
+                    Forms\Components\Hidden::make('registration_opening_uuid')->required(),
+                    Forms\Components\Hidden::make('unit_uuid')->required(),
+                    Forms\Components\Hidden::make('unit_configuration_uuid')->required(),
                     Forms\Components\Placeholder::make('opening_summary')
                         ->label('Pembukaan Pendaftaran')
                         ->content(function (Forms\Get $get): string {
                             $opening = RegistrationOpening::query()
                                 ->with(['unit', 'studyProgram'])
-                                ->find($get('registration_opening_id'));
+                                ->where('uuid', $get('registration_opening_uuid'))
+                                ->first();
 
                             return $opening
                                 ? $opening->label().' · Biaya '.$opening->formattedFee()
                                 : 'Pilih pembukaan pendaftaran terlebih dahulu.';
                         })
                         ->columnSpanFull(),
-                    Forms\Components\Select::make('registration_pathway_id')
+                    Forms\Components\Select::make('registration_pathway_uuid')
                         ->label('Jalur Pendaftaran')
                         ->options(fn (Forms\Get $get, ?Registration $record): array => static::pathwayOptions(
-                            $get('registration_opening_id'),
+                            $get('registration_opening_uuid'),
                             $record,
                         ))
                         ->searchable()
@@ -64,8 +68,8 @@ class RegistrationResource extends Resource
                         ->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Pendaftaran dilakukan oleh')
-                        ->options(fn (Forms\Get $get): array => static::isHigherEducationOpening($get('registration_opening_id'))
-                            ? ['self' => 'Calon Mahasiswa']
+                        ->options(fn (Forms\Get $get): array => static::isHigherEducationOpening($get('registration_opening_uuid'))
+                            ? ['parent' => 'Orang Tua / Wali', 'self' => 'Calon Mahasiswa Sendiri']
                             : ['parent' => 'Orang Tua / Wali', 'self' => 'Calon Siswa Sendiri'])
                         ->required()
                         ->live(),
@@ -85,7 +89,7 @@ class RegistrationResource extends Resource
                         ->unique(
                             ignoreRecord: true,
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
-                                ->where('registration_opening_id', $get('registration_opening_id')),
+                                ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
                         ),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
@@ -97,7 +101,7 @@ class RegistrationResource extends Resource
                         ->required()
                         ->native(false)
                         ->maxDate(now()->subDay())
-                        ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_id'))),
+                        ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_uuid'))),
                     Forms\Components\TextInput::make('phone')->label('Nomor Telepon')->tel()->maxLength(20),
                     Forms\Components\TextInput::make('email')->label('Email Peserta')->email()->maxLength(100),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->rows(3)->columnSpanFull(),
@@ -106,11 +110,11 @@ class RegistrationResource extends Resource
                 ]),
 
             Forms\Components\Section::make('Data Orang Tua')
-                ->description('Data ayah dan ibu digunakan untuk pendaftaran pendidikan dasar dan menengah.')
+                ->description('Data dari pendaftaran sebelumnya pada akun ini akan diisikan kembali bila tersedia. Periksa dan ubah setiap data yang berbeda.')
                 ->relationship('parentInfo')
-                ->visible(fn (Forms\Get $get): bool => ! static::isHigherEducationOpening($get('registration_opening_id')))
+                ->visible(fn (Forms\Get $get): bool => ! static::isHigherEducationOpening($get('registration_opening_uuid')) || $get('registrant_type') === 'parent')
                 ->schema(ParentInfoFields::schema()),
-        ]);
+        ], $record?->configuration ?? UnitConfiguration::query()->where('uuid', data_get($form->getLivewire(), $form->getStatePath().'.unit_configuration_uuid'))->first()));
     }
 
     public static function table(Table $table): Table
@@ -149,7 +153,7 @@ class RegistrationResource extends Resource
             ->actions([
                 Tables\Actions\Action::make('progress')
                     ->label('Lihat Progres')->icon('heroicon-o-arrow-right-circle')
-                    ->url(fn (Registration $record): string => RegistrationStatus::getUrl(['registration' => $record->id])),
+                    ->url(fn (Registration $record): string => RegistrationStatus::getUrl(['registration' => $record->uuid])),
                 Tables\Actions\EditAction::make()
                     ->label('Perbaiki Data')
                     ->visible(fn (Registration $record): bool => static::canEdit($record)),
@@ -206,32 +210,32 @@ class RegistrationResource extends Resource
             && in_array($record->data_validation_status, ['pending', 'revision'], true);
     }
 
-    public static function isHigherEducationOpening($openingId): bool
+    public static function isHigherEducationOpening(?string $openingUuid): bool
     {
-        return filled($openingId)
+        return filled($openingUuid)
             && RegistrationOpening::query()
-                ->whereKey($openingId)
+                ->where('uuid', $openingUuid)
                 ->whereHas('unit', fn (Builder $query): Builder => $query->where('institution_type', 'university'))
                 ->exists();
     }
 
-    public static function openingAgeRuleText($openingId): ?string
+    public static function openingAgeRuleText(?string $openingUuid): ?string
     {
-        if (! $openingId) {
+        if (! $openingUuid) {
             return null;
         }
 
         $maxAge = RegistrationOpening::query()
-            ->whereKey($openingId)
+            ->where('uuid', $openingUuid)
             ->with('studyProgram')
             ->first()?->studyProgram?->max_age;
 
         return $maxAge ? "Program studi ini menerima pendaftar dengan usia maksimal {$maxAge} tahun." : null;
     }
 
-    public static function pathwayOptions($openingId, ?Registration $record = null): array
+    public static function pathwayOptions(?string $openingUuid, ?Registration $record = null): array
     {
-        $unitId = RegistrationOpening::query()->whereKey($openingId)->value('unit_id');
+        $unitId = RegistrationOpening::query()->where('uuid', $openingUuid)->value('unit_id');
 
         if (! $unitId) {
             return [];
@@ -249,7 +253,7 @@ class RegistrationResource extends Resource
                 }
             })
             ->orderBy('name')
-            ->pluck('name', 'id')
+            ->pluck('name', 'uuid')
             ->all();
     }
 

@@ -2,17 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
     use HasFactory;
+    use HasPublicUuid;
 
     protected $fillable = [
-        'registration_id','virtual_account_id','va_number','amount','status','payment_date','payment_method',
-        'proof_path','proof_original_name','proof_mime_type','proof_sha256','proof_malware_scan_status','proof_security_scanned_at','proof_uploaded_at',
-        'note','rejection_reason','verified_by','verified_at','va_sent_at','va_sent_by',
+        'registration_id', 'virtual_account_id', 'va_number', 'amount', 'status', 'payment_date', 'payment_method',
+        'proof_path', 'proof_original_name', 'proof_mime_type', 'proof_sha256', 'proof_malware_scan_status', 'proof_security_scanned_at', 'proof_uploaded_at',
+        'note', 'rejection_reason', 'verified_by', 'verified_at', 'va_sent_at', 'va_sent_by',
     ];
 
     protected $casts = [
@@ -24,8 +26,23 @@ class Payment extends Model
         'va_sent_at' => 'datetime',
     ];
 
-    public function registration() { return $this->belongsTo(Registration::class); }
-    public function virtualAccount() { return $this->belongsTo(VirtualAccount::class); }
-    public function verifier() { return $this->belongsTo(User::class, 'verified_by'); }
-    public function vaSender() { return $this->belongsTo(User::class, 'va_sent_by'); }
+    public function registration()
+    {
+        return $this->belongsTo(Registration::class);
+    }
+
+    public function virtualAccount()
+    {
+        return $this->belongsTo(VirtualAccount::class);
+    }
+
+    public function verifier()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function vaSender()
+    {
+        return $this->belongsTo(User::class, 'va_sent_by');
+    }
 }

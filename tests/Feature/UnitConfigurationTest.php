@@ -1,0 +1,176 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Filament\Admin\Pages\UnitRegistrationSettings;
+use App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration;
+use App\Models\Registration;
+use App\Models\RegistrationOpening;
+use App\Models\RegistrationPathway;
+use App\Models\Unit;
+use App\Models\UnitConfiguration;
+use App\Models\User;
+use App\Services\ConfiguredRegistrationForm;
+use App\Services\RegistrationWorkflowService;
+use App\Services\UnitConfigurationService;
+use Database\Seeders\ShieldSeeder;
+use Filament\Facades\Filament;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\TestWith;
+use Tests\TestCase;
+
+class UnitConfigurationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_published_changes_apply_only_to_new_registrations(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $old = $service->initialize($unit);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['documents_enabled'] = false;
+        $published = $service->save($draft, $staff, $data, true);
+
+        $this->assertSame($old->id, $registration->fresh()->unit_configuration_id);
+        $this->assertTrue($registration->fresh()->configuration->documents_enabled);
+        $this->assertSame($published->id, $service->current($unit->id)->id);
+        $this->expectException(ValidationException::class);
+        $published->update(['documents_enabled' => true]);
+    }
+
+    public function test_tu_cannot_edit_configuration_of_other_unit(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $other = Unit::create(['name' => 'Other', 'code' => 'OTHER', 'is_active' => true]);
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        Livewire::test(UnitRegistrationSettings::class)->set('unitUuid', $other->uuid)->call('loadUnit')->assertForbidden();
+        $this->assertDatabaseMissing('unit_configurations', ['unit_id' => $other->id]);
+        $this->assertFalse($staff->can('configureRegistration', $other));
+        $this->assertTrue($staff->can('configureRegistration', $unit));
+    }
+
+    public function test_initial_version_migration_preserves_legacy_stage_and_is_repeatable(): void
+    {
+        [$unit, , $registration] = $this->fixture();
+        $migration = require database_path('migrations/2026_09_05_125335_initialize_unit_configuration_versions.php');
+        $migration->up();
+        $configurationId = $registration->fresh()->unit_configuration_id;
+        $migration->up();
+
+        $this->assertNotNull($configurationId);
+        $this->assertSame($configurationId, $registration->fresh()->unit_configuration_id);
+        $this->assertSame('data_validation', $registration->fresh()->current_stage);
+        $this->assertSame(1, UnitConfiguration::where('unit_id', $unit->id)->count());
+        $this->assertTrue($registration->fresh()->configuration->legacy);
+    }
+
+    public function test_tu_settings_and_full_form_preview_render(): void
+    {
+        [, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        Livewire::test(UnitRegistrationSettings::class)->assertSee('Pengaturan Pendaftaran Unit')->call('showPreview')->assertHasNoFormErrors()->assertSee('Nama Lengkap');
+    }
+
+    #[TestWith([false, false])]
+    #[TestWith([false, true])]
+    #[TestWith([true, false])]
+    #[TestWith([true, true])]
+    public function test_active_workflow_respects_payment_and_document_configuration(bool $payment, bool $documents): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $configuration = $service->save($draft, $staff, array_replace($draft->toArray(), ['payment_enabled' => $payment, 'documents_enabled' => $documents]), true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+        app(RegistrationWorkflowService::class)->validateData($registration, $staff, true);
+        $this->assertSame($payment ? 'virtual_account' : 'applicant_card', $registration->fresh()->current_stage);
+        $this->assertSame($payment, array_key_exists('payment', $registration->fresh()->enabledStages()));
+        $this->assertSame($documents, array_key_exists('documents', $registration->fresh()->enabledStages()));
+        if (! $payment) {
+            app(RegistrationWorkflowService::class)->issueApplicantCard($registration, $staff);
+            $this->assertSame($documents ? 'documents' : 'selection', $registration->fresh()->current_stage);
+        }
+    }
+
+    public function test_custom_choices_are_validated_and_unknown_answers_are_not_saved(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [['key' => 'transport', 'label' => 'Transportasi', 'type' => 'select', 'active' => true, 'required' => true, 'options' => ['Jalan kaki', 'Mobil']]];
+        $configuration = $service->save($draft, $staff, $data, true);
+        $form = app(ConfiguredRegistrationForm::class);
+        $this->assertSame(['transport' => 'Mobil'], $form->validateAnswers($configuration, ['transport' => 'Mobil', 'unauthorized' => 'value']));
+        $this->expectException(ValidationException::class);
+        $form->validateAnswers($configuration, ['transport' => 'Pesawat']);
+    }
+
+    public function test_disabled_payment_rejects_nonzero_opening_fee(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $registration->opening->update(['registration_fee' => 50000]);
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $this->expectException(ValidationException::class);
+        $service->save($draft, $staff, array_replace($draft->toArray(), ['payment_enabled' => false]), true);
+    }
+
+    public function test_applicant_create_form_validates_custom_field_and_pins_published_version(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+        $pathway = RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [['key' => 'transport', 'label' => 'Transportasi Peserta', 'type' => 'select', 'active' => true, 'required' => true, 'options' => ['Jalan kaki', 'Mobil']]];
+        $configuration = $service->save($draft, $staff, $data, true);
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+        $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])->test(CreateRegistration::class)
+            ->assertSee('Transportasi Peserta')
+            ->fillForm(['registration_pathway_uuid' => $pathway->uuid, 'registrant_type' => 'self', 'full_name' => 'Peserta Baru', 'nik' => '3273010101010002', 'gender' => 'L', 'birth_place' => 'Bandung', 'birth_date' => '2020-01-01', 'home_address' => 'Bandung', 'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu']])
+            ->call('create')->assertHasFormErrors(['custom_answers.transport' => 'required']);
+        $page->fillForm(['custom_answers' => ['transport' => 'Mobil']])->call('create')->assertHasNoFormErrors();
+        $created = Registration::where('nik', '3273010101010002')->firstOrFail();
+        $this->assertSame($configuration->id, $created->unit_configuration_id);
+        $this->assertSame(['transport' => 'Mobil'], $created->custom_answers);
+        $this->get('/pendaftar/status/'.$created->uuid)->assertSeeText('Transportasi Peserta')->assertSeeText('Mobil');
+    }
+
+    public function test_a_newly_published_version_rejects_an_already_open_form(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+        $pathway = RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+        $service = app(UnitConfigurationService::class);
+        $service->initialize($unit);
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+        $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])->test(CreateRegistration::class)
+            ->fillForm(['registration_pathway_uuid' => $pathway->uuid, 'registrant_type' => 'self', 'full_name' => 'Peserta Baru', 'nik' => '3273010101010002', 'gender' => 'L', 'birth_place' => 'Bandung', 'birth_date' => '2020-01-01', 'home_address' => 'Bandung', 'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu']]);
+        $draft = $service->draft($unit, $staff);
+        $service->save($draft, $staff, $draft->toArray(), true);
+        $page->call('create')->assertHasErrors(['unit_configuration_uuid']);
+        $this->assertDatabaseMissing('registrations', ['nik' => '3273010101010002']);
+    }
+
+    private function fixture(): array
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'SD Test', 'code' => 'SD', 'is_active' => true]);
+        $staff = User::factory()->create(['role' => 'tu', 'unit_id' => $unit->id, 'is_active' => true]);
+        $staff->assignRole('tu');
+        $parent = User::factory()->create(['is_active' => true]);
+        $parent->assignRole('pendaftar');
+        $opening = RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
+        $registration = Registration::create(['user_id' => $parent->id, 'unit_id' => $unit->id, 'registration_opening_id' => $opening->id, 'full_name' => 'Peserta Test', 'nik' => '3273010101010001', 'gender' => 'L', 'birth_place' => 'Bandung', 'birth_date' => '2020-01-01', 'home_address' => 'Bandung', 'current_stage' => 'data_validation']);
+
+        return [$unit, $staff, $registration, $parent];
+    }
+}

@@ -17,7 +17,7 @@ class OperationalReportService
     public function query(User $staff, array $filters = []): Builder
     {
         return Registration::query()
-            ->with(['unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection'])
+            ->with(['configuration', 'unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection'])
             ->when($staff->isTU(), fn (Builder $q) => $q->where('registrations.unit_id', $staff->unit_id))
             ->when(! $staff->isTU() && filled($filters['unit_id'] ?? null), fn (Builder $q) => $q->where('registrations.unit_id', $filters['unit_id']))
             ->when(filled($filters['study_program_id'] ?? null), fn (Builder $q) => $q->whereHas('opening', fn (Builder $opening) => $opening->where('study_program_id', $filters['study_program_id'])))
@@ -75,7 +75,7 @@ class OperationalReportService
         $writer->addRow(Row::fromValues([
             'No. Registrasi', 'Peserta', 'NIK', 'Unit / Institusi', 'Jenis Institusi', 'Program Studi', 'Jenjang',
             'Tahun Ajaran', 'Gelombang', 'Jalur', 'Biaya Pendaftaran', 'Lifecycle', 'Tahap', 'Validasi',
-            'VA', 'Status Pembayaran', 'Nominal Pembayaran', 'Keputusan Seleksi', 'Tanggal Daftar',
+            'VA', 'Status Pembayaran', 'Nominal Pembayaran', 'Keputusan Seleksi', 'Tanggal Daftar', 'Informasi Tambahan',
         ]));
 
         $this->query($staff, $filters)
@@ -102,6 +102,7 @@ class OperationalReportService
                         (float) ($registration->latestPayment?->amount ?? 0),
                         $registration->selection?->decision,
                         $registration->created_at?->format('Y-m-d H:i:s'),
+                        collect($registration->configuration?->fields ?? [])->filter(fn ($field) => array_key_exists($field['key'], $registration->custom_answers ?? []))->map(fn ($field) => $field['label'].': '.(is_array($registration->custom_answers[$field['key']]) ? implode(', ', $registration->custom_answers[$field['key']]) : $registration->custom_answers[$field['key']]))->implode("\n"),
                     ]));
                 }
             }, column: 'registrations.id', alias: 'id');

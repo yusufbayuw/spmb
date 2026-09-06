@@ -3,10 +3,13 @@
 namespace App\Filament\Admin\Resources\StudyProgramResource\Pages;
 
 use App\Filament\Admin\Resources\StudyProgramResource;
+use App\Filament\RedirectsToResourceIndex;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateStudyProgram extends CreateRecord
 {
+    use RedirectsToResourceIndex;
+
     protected static string $resource = StudyProgramResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

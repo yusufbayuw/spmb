@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,6 +11,7 @@ use Illuminate\Validation\ValidationException;
 class StudyProgram extends Model
 {
     use HasFactory;
+    use HasPublicUuid;
 
     protected $fillable = [
         'unit_id',
@@ -42,8 +44,15 @@ class StudyProgram extends Model
         });
     }
 
-    public function unit() { return $this->belongsTo(Unit::class); }
-    public function registrationOpenings() { return $this->hasMany(RegistrationOpening::class); }
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function registrationOpenings()
+    {
+        return $this->hasMany(RegistrationOpening::class);
+    }
 
     public function label(): string
     {

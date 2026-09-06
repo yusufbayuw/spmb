@@ -46,8 +46,8 @@ class FilamentNotificationTest extends TestCase
             icon: 'heroicon-o-check-circle',
             actionLabel: 'Buka',
             actionUrl: url('/pendaftar'),
-            registrationId: 10,
-            unitId: 2,
+            registrationUuid: '11111111-1111-4111-8111-111111111111',
+            unitUuid: '22222222-2222-4222-8222-222222222222',
             metadata: ['source' => 'test'],
         );
 
@@ -59,8 +59,10 @@ class FilamentNotificationTest extends TestCase
         $data = $notification->toDatabase($user);
         $this->assertSame('test.event', $data['spmb_event']);
         $this->assertSame('workflow', $data['category']);
-        $this->assertSame(10, $data['registration_id']);
-        $this->assertSame(2, $data['unit_id']);
+        $this->assertSame('11111111-1111-4111-8111-111111111111', $data['registration_uuid']);
+        $this->assertSame('22222222-2222-4222-8222-222222222222', $data['unit_uuid']);
+        $this->assertArrayNotHasKey('registration_id', $data);
+        $this->assertArrayNotHasKey('unit_id', $data);
         $this->assertSame('Judul notifikasi', $data['title']);
         $this->assertTrue($data['actions'][0]['shouldMarkAsRead']);
         $this->assertStringContainsString('/pendaftar', $data['actions'][0]['url']);
@@ -96,7 +98,7 @@ class FilamentNotificationTest extends TestCase
             $applicant,
             SpmbDatabaseNotification::class,
             fn (SpmbDatabaseNotification $notification): bool => $notification->event === 'registration.submitted'
-                && $notification->registrationId === $registration->id,
+                && $notification->registrationUuid === $registration->uuid,
         );
 
         foreach ([$tuA, $admin] as $staff) {
@@ -104,7 +106,7 @@ class FilamentNotificationTest extends TestCase
                 $staff,
                 SpmbDatabaseNotification::class,
                 fn (SpmbDatabaseNotification $notification): bool => $notification->event === 'registration.submitted_staff'
-                    && $notification->unitId === $unitA->id,
+                    && $notification->unitUuid === $unitA->uuid,
             );
         }
 

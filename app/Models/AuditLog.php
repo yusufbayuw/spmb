@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 class AuditLog extends Model
 {
+    use HasPublicUuid;
+
     public $timestamps = false;
 
     protected $fillable = [

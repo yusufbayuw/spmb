@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Announcement;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\SpmbDatabaseNotification;
 use Illuminate\Database\Eloquent\Model;
@@ -58,7 +59,7 @@ class SpmbNotificationService
             $approved ? 'success' : 'warning',
             $approved ? 'heroicon-o-check-badge' : 'heroicon-o-pencil-square',
             $approved ? 'Lihat progres' : 'Perbaiki data',
-            $approved ? $this->applicantStatusUrl($registration) : url("/pendaftar/registrations/{$registration->id}/edit"),
+            $approved ? $this->applicantStatusUrl($registration) : url("/pendaftar/registrations/{$registration->uuid}/edit"),
             $registration,
             ['approved' => $approved],
         );
@@ -79,9 +80,9 @@ class SpmbNotificationService
             'success',
             'heroicon-o-credit-card',
             'Lihat pembayaran',
-            url("/pendaftar/pembayaran/{$registration->id}"),
+            url("/pendaftar/pembayaran/{$registration->uuid}"),
             $registration,
-            ['payment_id' => $payment->id, 'amount' => (float) $payment->amount],
+            ['payment_uuid' => $payment->uuid, 'amount' => (float) $payment->amount],
         );
     }
 
@@ -117,9 +118,9 @@ class SpmbNotificationService
             'warning',
             'heroicon-o-banknotes',
             'Verifikasi pembayaran',
-            url("/admin/payments/{$payment->id}/edit"),
+            url("/admin/payments/{$payment->uuid}/edit"),
             $registration,
-            ['payment_id' => $payment->id],
+            ['payment_uuid' => $payment->uuid],
         );
     }
 
@@ -139,9 +140,9 @@ class SpmbNotificationService
             $approved ? 'success' : 'danger',
             $approved ? 'heroicon-o-check-badge' : 'heroicon-o-x-circle',
             $approved ? 'Lihat progres' : 'Unggah ulang bukti',
-            $approved ? $this->applicantStatusUrl($registration) : url("/pendaftar/pembayaran/{$registration->id}"),
+            $approved ? $this->applicantStatusUrl($registration) : url("/pendaftar/pembayaran/{$registration->uuid}"),
             $registration,
-            ['payment_id' => $payment->id, 'approved' => $approved],
+            ['payment_uuid' => $payment->uuid, 'approved' => $approved],
         );
     }
 
@@ -158,7 +159,7 @@ class SpmbNotificationService
             'success',
             'heroicon-o-identification',
             'Lengkapi berkas',
-            url("/pendaftar/dokumen/{$registration->id}"),
+            url("/pendaftar/dokumen/{$registration->uuid}"),
             $registration,
         );
     }
@@ -183,7 +184,7 @@ class SpmbNotificationService
         );
     }
 
-    public function documentNeedsAttention(Registration $registration, string $documentName): void
+    public function documentNeedsAttention(Registration $registration, string $documentName, ?string $reason = null): void
     {
         $registration->loadMissing('user');
 
@@ -192,11 +193,13 @@ class SpmbNotificationService
             'documents.verification_reopened',
             'documents',
             'Berkas perlu diperiksa kembali',
-            "Verifikasi {$documentName} dibatalkan oleh petugas. Silakan periksa kelengkapan berkas Anda.",
+            $reason
+                ? "Berkas {$documentName} ditolak. Alasan: {$reason}. Silakan unggah berkas perbaikan."
+                : "Verifikasi {$documentName} dibatalkan oleh petugas. Silakan periksa kelengkapan berkas Anda.",
             'warning',
             'heroicon-o-document-minus',
             'Lihat berkas',
-            url("/pendaftar/dokumen/{$registration->id}"),
+            url("/pendaftar/dokumen/{$registration->uuid}"),
             $registration,
         );
     }
@@ -266,7 +269,7 @@ class SpmbNotificationService
             'Lihat pengumuman',
             $this->applicantStatusUrl($registration),
             $registration,
-            ['announcement_id' => $announcement->id, 'decision' => $decision],
+            ['announcement_uuid' => $announcement->uuid, 'decision' => $decision],
         );
     }
 
@@ -291,7 +294,7 @@ class SpmbNotificationService
             'Lihat progres',
             $this->applicantStatusUrl($registration),
             $registration,
-            ['lifecycle_status' => $status, 'changed_by' => $actor->id],
+            ['lifecycle_status' => $status, 'changed_by_uuid' => $actor->uuid],
         );
 
         if ($actor->isUser()) {
@@ -306,7 +309,7 @@ class SpmbNotificationService
                 'Buka pendaftaran',
                 $this->adminRegistrationUrl($registration),
                 $registration,
-                ['lifecycle_status' => $status, 'changed_by' => $actor->id],
+                ['lifecycle_status' => $status, 'changed_by_uuid' => $actor->uuid],
             );
         }
     }
@@ -348,6 +351,16 @@ class SpmbNotificationService
         );
     }
 
+    public function workflowEvent(Registration $registration, string $event, string $title, string $body, bool $applicant = true, bool $staff = false): void
+    {
+        if ($applicant) {
+            $this->notify(collect([$registration->user]), $event, 'workflow', $title, $body, 'info', 'heroicon-o-bell', 'Lihat progres', $this->applicantStatusUrl($registration), $registration);
+        }
+        if ($staff) {
+            $this->notify($this->staffRecipients($registration->unit_id), $event.'.staff', 'work_queue', $title, $body, 'info', 'heroicon-o-bell', 'Lihat pendaftaran', $this->adminRegistrationUrl($registration), $registration);
+        }
+    }
+
     private function notify(
         Collection $recipients,
         string $event,
@@ -372,13 +385,17 @@ class SpmbNotificationService
             return;
         }
 
+        $registration = null;
         if ($subject instanceof Registration) {
+            $registration = $subject;
             $unitId ??= $subject->unit_id;
             $registrationId ??= $subject->id;
         } elseif ($subject instanceof Payment || $subject instanceof Announcement) {
             $registrationId ??= $subject->registration_id;
             $unitId ??= Registration::query()->whereKey($registrationId)->value('unit_id');
+            $registration = Registration::query()->whereKey($registrationId)->first();
         }
+        $unitUuid = $unitId ? Unit::query()->whereKey($unitId)->value('uuid') : null;
 
         foreach ($recipients as $recipient) {
             $recipient->notify(new SpmbDatabaseNotification(
@@ -390,8 +407,8 @@ class SpmbNotificationService
                 icon: $icon,
                 actionLabel: $actionLabel,
                 actionUrl: $actionUrl,
-                registrationId: $registrationId,
-                unitId: $unitId,
+                registrationUuid: $registration?->uuid,
+                unitUuid: $unitUuid,
                 metadata: $metadata,
             ));
         }
@@ -435,11 +452,11 @@ class SpmbNotificationService
 
     private function applicantStatusUrl(Registration $registration): string
     {
-        return url("/pendaftar/status/{$registration->id}");
+        return url("/pendaftar/status/{$registration->uuid}");
     }
 
     private function adminRegistrationUrl(Registration $registration): string
     {
-        return url("/admin/registrations/{$registration->id}/edit");
+        return url("/admin/registrations/{$registration->uuid}/edit");
     }
 }

@@ -2,16 +2,23 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use App\Services\AuditTrail;
 use App\Services\SpmbNotificationService;
+use App\Services\TestBookingService;
+use App\Services\UnitConfigurationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class Registration extends Model
 {
     use HasFactory;
+    use HasPublicUuid;
 
     public const STAGES = [
         'data_validation' => 'Validasi Data',
@@ -49,15 +56,19 @@ class Registration extends Model
     ];
 
     protected $fillable = [
-        'user_id', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'registration_number', 'nik', 'full_name', 'nickname', 'gender', 'birth_place', 'birth_date', 'religion', 'child_order', 'siblings_count', 'home_address', 'rt', 'rw', 'village', 'district', 'city', 'province', 'postal_code', 'phone', 'email', 'previous_school', 'previous_school_address', 'graduation_year', 'status', 'current_stage', 'lifecycle_status', 'lifecycle_reason', 'lifecycle_changed_by', 'lifecycle_changed_at', 'data_validation_status', 'data_validation_notes', 'data_validated_by', 'data_validated_at', 'applicant_card_number', 'applicant_card_issued_by', 'applicant_card_issued_at', 'documents_completed_at', 'documents_verified_at', 'rejection_reason', 'submitted_at', 'verified_at', 'payment_verified_at', 'accepted_at',
+        'unit_configuration_id', 'custom_answers', 'user_id', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'registration_number', 'nik', 'full_name', 'nickname', 'gender', 'birth_place', 'birth_date', 'religion', 'child_order', 'siblings_count', 'home_address', 'rt', 'rw', 'village', 'district', 'city', 'province', 'postal_code', 'phone', 'email', 'previous_school', 'previous_school_address', 'graduation_year', 'status', 'current_stage', 'lifecycle_status', 'lifecycle_reason', 'lifecycle_changed_by', 'lifecycle_changed_at', 'data_validation_status', 'data_validation_notes', 'data_validated_by', 'data_validated_at', 'applicant_card_number', 'applicant_card_issued_by', 'applicant_card_issued_at', 'documents_completed_at', 'documents_verified_at', 'rejection_reason', 'submitted_at', 'verified_at', 'payment_verified_at', 'accepted_at',
     ];
 
     protected $casts = [
-        'birth_date' => 'date', 'submitted_at' => 'datetime', 'verified_at' => 'datetime', 'payment_verified_at' => 'datetime', 'accepted_at' => 'datetime', 'data_validated_at' => 'datetime', 'applicant_card_issued_at' => 'datetime', 'documents_completed_at' => 'datetime', 'documents_verified_at' => 'datetime', 'lifecycle_changed_at' => 'datetime',
+        'custom_answers' => 'array', 'birth_date' => 'date', 'submitted_at' => 'datetime', 'verified_at' => 'datetime', 'payment_verified_at' => 'datetime', 'accepted_at' => 'datetime', 'data_validated_at' => 'datetime', 'applicant_card_issued_at' => 'datetime', 'documents_completed_at' => 'datetime', 'documents_verified_at' => 'datetime', 'lifecycle_changed_at' => 'datetime',
     ];
 
     protected static function booted(): void
     {
+        static::creating(function (Registration $registration): void {
+            $registration->unit_configuration_id ??= app(UnitConfigurationService::class)->current((int) $registration->unit_id)?->id;
+        });
+
         static::saving(function (Registration $registration): void {
             if (! $registration->registration_pathway_id || (! $registration->isDirty('registration_pathway_id') && $registration->exists)) {
                 return;
@@ -80,6 +91,66 @@ class Registration extends Model
                 $registration->forceFill(['registration_number' => $registration->generateRegistrationNumber()])->saveQuietly();
             }
         });
+    }
+
+    public function configuration(): BelongsTo
+    {
+        return $this->belongsTo(UnitConfiguration::class, 'unit_configuration_id');
+    }
+
+    public function enabledStages(): array
+    {
+        $stages = self::STAGES;
+        $configuration = $this->configuration;
+        if ($configuration && ! $configuration->payment_enabled) {
+            unset($stages['virtual_account'], $stages['payment'], $stages['payment_verification']);
+        }
+        if ($configuration && ! $configuration->documents_enabled) {
+            unset($stages['documents'], $stages['document_verification']);
+        }
+        if ($configuration && (! $configuration->tests_enabled || ! collect($this->configuredTests())->contains('is_required', true))) {
+            unset($stages['tests']);
+        }
+
+        return $stages;
+    }
+
+    public function configuredTests(): array
+    {
+        if (! $this->configuration) {
+            return $this->unit->admissionTests()->where('is_active', true)->get()->filter(fn ($test) => ! $test->study_program_id || $test->study_program_id === $this->opening?->study_program_id)->map(fn ($test) => $test->only(['id', 'name', 'study_program_id', 'is_required', 'passing_score', 'result_type']))->values()->all();
+        }
+        if (! $this->configuration->tests_enabled) {
+            return [];
+        }
+
+        return array_values(array_filter($this->configuration->test_definitions, fn (array $test): bool => empty($test['study_program_id']) || (int) $test['study_program_id'] === (int) $this->opening?->study_program_id));
+    }
+
+    public function documentRequirements(): array
+    {
+        if ($this->configuration && ! $this->configuration->documents_enabled) {
+            return [];
+        }
+        $definitions = $this->configuration?->document_requirements ?? app(UnitConfigurationService::class)->defaults($this->unit)['document_requirements'];
+
+        return array_values(array_filter($definitions, fn (array $definition): bool => (bool) $definition['active']));
+    }
+
+    public function documentsComplete(bool $verified = false): bool
+    {
+        $documents = $this->documents()->get();
+        foreach ($this->documentRequirements() as $requirement) {
+            if (! $requirement['required']) {
+                continue;
+            }
+            $files = $documents->filter(fn (Document $document): bool => ($document->requirement_key ?: $document->type) === $requirement['key']);
+            if ($files->isEmpty() || $files->contains(fn (Document $document): bool => filled($document->rejection_reason) || ($verified && (! $document->is_verified || ! $document->security_scanned_at)))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function user()
@@ -109,12 +180,17 @@ class Registration extends Model
 
     public function documents()
     {
-        return $this->hasMany(Document::class);
+        return $this->hasMany(Document::class)->whereNull('superseded_at');
     }
 
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function receipts(): HasManyThrough
+    {
+        return $this->hasManyThrough(PaymentReceipt::class, Payment::class);
     }
 
     public function latestPayment()
@@ -125,6 +201,11 @@ class Registration extends Model
     public function virtualAccount()
     {
         return $this->hasOne(VirtualAccount::class);
+    }
+
+    public function testBookings(): HasMany
+    {
+        return $this->hasMany(TestBooking::class);
     }
 
     public function testResults()
@@ -208,36 +289,42 @@ class Registration extends Model
 
     public function changeLifecycle(string $status, User $actor, ?string $reason = null): void
     {
-        if (! array_key_exists($status, self::LIFECYCLE_STATUSES)) {
-            throw ValidationException::withMessages(['lifecycle_status' => 'Status lifecycle tidak valid.']);
-        }
+        DB::transaction(function () use ($status, $actor, $reason): void {
+            if (! array_key_exists($status, self::LIFECYCLE_STATUSES)) {
+                throw ValidationException::withMessages(['lifecycle_status' => 'Status lifecycle tidak valid.']);
+            }
 
-        $currentStatus = $this->lifecycle_status ?: 'active';
+            $currentStatus = $this->lifecycle_status ?: 'active';
 
-        if ($status === $currentStatus) {
-            return;
-        }
+            if ($status === $currentStatus) {
+                return;
+            }
 
-        if ($status === 'archived' && $currentStatus === 'active' && $this->current_stage !== 'completed') {
-            throw ValidationException::withMessages([
-                'lifecycle_status' => 'Pendaftaran aktif hanya dapat diarsipkan setelah workflow selesai.',
+            if ($status === 'archived' && $currentStatus === 'active' && $this->current_stage !== 'completed') {
+                throw ValidationException::withMessages([
+                    'lifecycle_status' => 'Pendaftaran aktif hanya dapat diarsipkan setelah workflow selesai.',
+                ]);
+            }
+
+            if (in_array($status, ['withdrawn', 'cancelled'], true) && blank($reason)) {
+                throw ValidationException::withMessages([
+                    'lifecycle_reason' => 'Alasan wajib diisi untuk pengunduran diri atau pembatalan.',
+                ]);
+            }
+
+            $this->update([
+                'lifecycle_status' => $status,
+                'lifecycle_reason' => $status === 'active' ? null : $reason,
+                'lifecycle_changed_by' => $actor->id,
+                'lifecycle_changed_at' => now(),
             ]);
-        }
 
-        if (in_array($status, ['withdrawn', 'cancelled'], true) && blank($reason)) {
-            throw ValidationException::withMessages([
-                'lifecycle_reason' => 'Alasan wajib diisi untuk pengunduran diri atau pembatalan.',
-            ]);
-        }
+            if (in_array($status, ['cancelled', 'withdrawn'], true)) {
+                app(TestBookingService::class)->release($this);
+            }
 
-        $this->update([
-            'lifecycle_status' => $status,
-            'lifecycle_reason' => $status === 'active' ? null : $reason,
-            'lifecycle_changed_by' => $actor->id,
-            'lifecycle_changed_at' => now(),
-        ]);
-
-        app(SpmbNotificationService::class)->lifecycleChanged($this->fresh(), $status, $actor, $reason);
+            app(SpmbNotificationService::class)->lifecycleChanged($this->fresh(), $status, $actor, $reason);
+        }, 5);
     }
 
     public function canTransitionTo(string $targetStage): bool
@@ -248,6 +335,17 @@ class Registration extends Model
 
         if ($this->current_stage === $targetStage) {
             return true;
+        }
+
+        if ($this->configuration && ! $this->configuration->legacy) {
+            $stages = array_keys($this->enabledStages());
+            $index = array_search($this->current_stage, $stages, true);
+            $next = $index === false ? null : ($stages[$index + 1] ?? null);
+
+            return $targetStage === $next
+                || ($this->current_stage === 'payment_verification' && $targetStage === 'payment')
+                || ($this->current_stage === 'document_verification' && $targetStage === 'documents')
+                || ($this->current_stage === 'document_verification' && $targetStage === 'selection' && ! collect($this->configuredTests())->contains('is_required', true));
         }
 
         return in_array($targetStage, self::STAGE_TRANSITIONS[$this->current_stage] ?? [], true);

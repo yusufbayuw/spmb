@@ -17,16 +17,21 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Models\VirtualAccountBatch;
+use App\Notifications\ApplicantPasswordChanged;
+use App\Notifications\ApplicantResetPassword;
 use App\Observers\RegistrationNotificationObserver;
 use App\Observers\SensitiveModelObserver;
 use App\Services\AuditTrail;
+use App\Services\IdempotentDatabaseChannel;
 use App\Services\SpmbNotificationService;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Filament\Notifications\Auth\ResetPassword as FilamentResetPassword;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
@@ -34,7 +39,11 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind(DatabaseChannel::class, IdempotentDatabaseChannel::class);
+        $this->app->bind(
+            FilamentResetPassword::class,
+            fn ($app, array $parameters): ApplicantResetPassword => new ApplicantResetPassword($parameters['token']),
+        );
     }
 
     public function boot(): void
@@ -119,6 +128,8 @@ class AppServiceProvider extends ServiceProvider
                     'Password berhasil diubah',
                     'Password akun Anda baru saja direset. Jika bukan Anda yang melakukan perubahan ini, segera hubungi administrator.',
                 );
+
+                $event->user->notify(new ApplicantPasswordChanged);
             }
         });
 

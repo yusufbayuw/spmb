@@ -12,9 +12,12 @@ class DatabaseSeeder extends Seeder
             UnitSeeder::class,
             StudyProgramSeeder::class,
             RegistrationPathwaySeeder::class,
+            UnitRegistrationConfigurationSeeder::class,
             RegistrationOpeningSeeder::class,
             ShieldSeeder::class,
             AdminUserSeeder::class,
+            TestSessionSeeder::class,
+            PaymentReceiptSeeder::class,
         ]);
     }
 }

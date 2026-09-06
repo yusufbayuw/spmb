@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 class VirtualAccount extends Model
 {
     use HasFactory;
+    use HasPublicUuid;
 
     public const STATUSES = [
         'available' => 'Tersedia',
@@ -27,11 +29,30 @@ class VirtualAccount extends Model
         'assigned_at' => 'datetime',
     ];
 
-    public function batch() { return $this->belongsTo(VirtualAccountBatch::class, 'batch_id'); }
-    public function unit() { return $this->belongsTo(Unit::class); }
-    public function registration() { return $this->belongsTo(Registration::class); }
-    public function assignedBy() { return $this->belongsTo(User::class, 'assigned_by'); }
-    public function payment() { return $this->hasOne(Payment::class); }
+    public function batch()
+    {
+        return $this->belongsTo(VirtualAccountBatch::class, 'batch_id');
+    }
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function registration()
+    {
+        return $this->belongsTo(Registration::class);
+    }
+
+    public function assignedBy()
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
+    }
 
     public function getAmountAttribute(mixed $value = null): mixed
     {
