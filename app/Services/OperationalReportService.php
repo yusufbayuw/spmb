@@ -17,7 +17,7 @@ class OperationalReportService
     public function query(User $staff, array $filters = []): Builder
     {
         return Registration::query()
-            ->with(['configuration', 'unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection'])
+            ->with(['configuration', 'unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection', 'admissionOffer', 'reRegistrationItems'])
             ->when($staff->isTU(), fn (Builder $q) => $q->where('registrations.unit_id', $staff->unit_id))
             ->when(! $staff->isTU() && filled($filters['unit_id'] ?? null), fn (Builder $q) => $q->where('registrations.unit_id', $filters['unit_id']))
             ->when(filled($filters['study_program_id'] ?? null), fn (Builder $q) => $q->whereHas('opening', fn (Builder $opening) => $opening->where('study_program_id', $filters['study_program_id'])))
@@ -49,6 +49,9 @@ class OperationalReportService
             'active' => (clone $base)->where('registrations.lifecycle_status', 'active')->count(),
             'completed' => (clone $base)->where('registrations.current_stage', 'completed')->count(),
             'accepted' => (clone $base)->where('registrations.status', 'accepted')->count(),
+            'confirmed' => (clone $base)->where('registrations.status', 'confirmed')->count(),
+            'enrolled' => (clone $base)->where('registrations.status', 'enrolled')->count(),
+            'waiting_list' => (clone $base)->where('registrations.current_stage', 'waiting_list')->count(),
             'payment_verified' => (clone $base)->whereHas('latestPayment', fn (Builder $q) => $q->where('status', 'verified'))->count(),
             'expected_fee' => $expectedFee,
             'verified_revenue' => $verifiedRevenue,
@@ -75,7 +78,7 @@ class OperationalReportService
         $writer->addRow(Row::fromValues([
             'No. Registrasi', 'Peserta', 'NIK', 'Unit / Institusi', 'Jenis Institusi', 'Program Studi', 'Jenjang',
             'Tahun Ajaran', 'Gelombang', 'Jalur', 'Biaya Pendaftaran', 'Lifecycle', 'Tahap', 'Validasi',
-            'VA', 'Status Pembayaran', 'Nominal Pembayaran', 'Keputusan Seleksi', 'Tanggal Daftar', 'Informasi Tambahan',
+            'VA', 'Status Pembayaran', 'Nominal Pembayaran', 'Peringkat Seleksi', 'Keputusan Seleksi', 'Urutan Daftar Tunggu', 'Status Penawaran', 'Dikonfirmasi Pada', 'Status Daftar Ulang', 'Enrollment', 'Dienroll Pada', 'Tanggal Daftar', 'Informasi Tambahan',
         ]));
 
         $this->query($staff, $filters)
@@ -100,7 +103,14 @@ class OperationalReportService
                         $registration->latestPayment?->va_number,
                         $registration->latestPayment?->status,
                         (float) ($registration->latestPayment?->amount ?? 0),
+                        $registration->selection?->rank,
                         $registration->selection?->decision,
+                        $registration->selection?->waitlist_rank,
+                        $registration->admissionOffer?->status,
+                        $registration->admissionOffer?->accepted_at?->format('Y-m-d H:i:s'),
+                        $registration->reRegistrationComplete() ? 'lengkap' : 'belum lengkap',
+                        $registration->status === 'enrolled' ? 'enrolled' : null,
+                        $registration->enrolled_at?->format('Y-m-d H:i:s'),
                         $registration->created_at?->format('Y-m-d H:i:s'),
                         collect($registration->configuration?->fields ?? [])->filter(fn ($field) => array_key_exists($field['key'], $registration->custom_answers ?? []))->map(fn ($field) => $field['label'].': '.(is_array($registration->custom_answers[$field['key']]) ? implode(', ', $registration->custom_answers[$field['key']]) : $registration->custom_answers[$field['key']]))->implode("\n"),
                     ]));
@@ -115,6 +125,9 @@ class OperationalReportService
             ['Aktif', $summary['active']],
             ['Selesai', $summary['completed']],
             ['Diterima', $summary['accepted']],
+            ['Terkonfirmasi', $summary['confirmed']],
+            ['Daftar Tunggu', $summary['waiting_list']],
+            ['Terdaftar Resmi', $summary['enrolled']],
             ['Pembayaran Terverifikasi', $summary['payment_verified']],
             ['Potensi Biaya', $summary['expected_fee']],
             ['Pembayaran Terverifikasi (Rp)', $summary['verified_revenue']],

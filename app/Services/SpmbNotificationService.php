@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AdmissionOffer;
 use App\Models\Announcement;
 use App\Models\Payment;
 use App\Models\Registration;
@@ -260,7 +261,7 @@ class SpmbNotificationService
 
         $this->notify(
             collect([$registration->user]),
-            'announcement.published',
+            'selection.published',
             'announcement',
             $announcement->title ?: 'Pengumuman hasil SPMB tersedia',
             $announcement->message ?: ('Keputusan seleksi: '.($decision ?: 'tersedia').'.'),
@@ -271,6 +272,74 @@ class SpmbNotificationService
             $registration,
             ['announcement_uuid' => $announcement->uuid, 'decision' => $decision],
         );
+    }
+
+    public function admissionOffer(AdmissionOffer $offer, string $event): void
+    {
+        $offer->loadMissing('registration.user');
+        $registration = $offer->registration;
+        $content = match ($event) {
+            'created' => ['admission.offer.created', 'Penawaran penerimaan tersedia', 'Anda dinyatakan diterima. Konfirmasikan kursi sebelum '.$offer->expires_at->translatedFormat('d F Y H:i').'.', 'success'],
+            'accepted' => ['admission.offer.accepted', 'Kursi telah dikonfirmasi', 'Konfirmasi penerimaan berhasil. Silakan lengkapi daftar ulang.', 'success'],
+            'declined' => ['admission.offer.declined', 'Penawaran penerimaan ditolak', 'Penawaran telah ditolak dan kursi dilepas.', 'warning'],
+            'reminder' => ['admission.offer.reminder', 'Pengingat konfirmasi kursi', 'Konfirmasikan kursi sebelum '.$offer->expires_at->translatedFormat('d F Y H:i').'.', 'warning'],
+            default => ['admission.offer.expired', 'Penawaran penerimaan berakhir', 'Batas konfirmasi kursi telah berakhir dan kursi dilepas.', 'danger'],
+        };
+
+        $this->notify(
+            collect([$registration->user]),
+            $content[0],
+            'admission',
+            $content[1],
+            $content[2],
+            $content[3],
+            'heroicon-o-academic-cap',
+            'Buka status',
+            $this->applicantStatusUrl($registration),
+            $offer,
+            ['admission_offer_uuid' => $offer->uuid],
+            $registration->unit_id,
+            $registration->id,
+        );
+    }
+
+    public function waitlistPromoted(AdmissionOffer $offer): void
+    {
+        $offer->loadMissing('registration.user');
+        $registration = $offer->registration;
+        $this->notify(
+            collect([$registration->user]),
+            'waitlist.promoted',
+            'admission',
+            'Anda dipromosikan dari daftar tunggu',
+            'Kursi penerimaan tersedia. Konfirmasikan sebelum '.$offer->expires_at->translatedFormat('d F Y H:i').'.',
+            'success',
+            'heroicon-o-arrow-trending-up',
+            'Konfirmasikan kursi',
+            $this->applicantStatusUrl($registration),
+            $offer,
+            ['admission_offer_uuid' => $offer->uuid],
+            $registration->unit_id,
+            $registration->id,
+        );
+    }
+
+    public function reRegistrationCompleted(Registration $registration): void
+    {
+        $registration->loadMissing('user');
+        $this->workflowEvent($registration, 'reregistration.completed', 'Daftar ulang telah lengkap', 'Seluruh persyaratan daftar ulang telah diverifikasi. Pendaftaran siap untuk enrollment.', true, true);
+    }
+
+    public function reRegistrationStarted(Registration $registration): void
+    {
+        $registration->loadMissing('user');
+        $this->workflowEvent($registration, 'reregistration.started', 'Daftar ulang dimulai', 'Konfirmasi kursi berhasil. Silakan lengkapi persyaratan daftar ulang.', true, false);
+    }
+
+    public function enrollmentCompleted(Registration $registration): void
+    {
+        $registration->loadMissing('user');
+        $this->workflowEvent($registration, 'enrollment.completed', 'Enrollment berhasil', 'Anda telah resmi terdaftar sebagai peserta didik.', true, true);
     }
 
     public function lifecycleChanged(Registration $registration, string $status, User $actor, ?string $reason): void
@@ -390,7 +459,7 @@ class SpmbNotificationService
             $registration = $subject;
             $unitId ??= $subject->unit_id;
             $registrationId ??= $subject->id;
-        } elseif ($subject instanceof Payment || $subject instanceof Announcement) {
+        } elseif ($subject instanceof Payment || $subject instanceof Announcement || $subject instanceof AdmissionOffer) {
             $registrationId ??= $subject->registration_id;
             $unitId ??= Registration::query()->whereKey($registrationId)->value('unit_id');
             $registration = Registration::query()->whereKey($registrationId)->first();

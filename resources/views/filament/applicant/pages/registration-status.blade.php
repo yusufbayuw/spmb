@@ -96,6 +96,16 @@
                             <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu keputusan seleksi</x-filament::badge>
                         @elseif ($registration->current_stage === 'announcement')
                             <x-filament::badge color="warning" icon="heroicon-m-megaphone">Menunggu pengumuman dipublikasikan</x-filament::badge>
+                        @elseif ($registration->current_stage === 'admission_offer')
+                            <x-filament::badge color="success" icon="heroicon-m-academic-cap">Konfirmasikan kursi penerimaan</x-filament::badge>
+                        @elseif ($registration->current_stage === 'waiting_list')
+                            <x-filament::badge color="warning" icon="heroicon-m-clock">Anda berada dalam daftar tunggu</x-filament::badge>
+                        @elseif ($registration->current_stage === 're_registration')
+                            <x-filament::button tag="a" :href="\App\Filament\Applicant\Pages\ReRegistration::getUrl(['registration' => $registration->uuid])" icon="heroicon-m-document-check">
+                                Lanjutkan Daftar Ulang
+                            </x-filament::button>
+                        @elseif ($registration->current_stage === 'enrollment')
+                            <x-filament::badge color="info" icon="heroicon-m-user-plus">Menunggu proses enrollment petugas</x-filament::badge>
                         @else
                             <x-filament::badge color="success" icon="heroicon-m-check-circle">Proses pendaftaran selesai</x-filament::badge>
                         @endif
@@ -191,6 +201,56 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                                 </x-filament::badge>
                             </div>
                         @endif
+                    </x-filament::section>
+                @endif
+
+                @if ($registration->current_stage === 'admission_offer' && $registration->admissionOffer)
+                    <x-filament::section icon="heroicon-o-academic-cap" icon-color="success">
+                        <x-slot name="heading">Selamat, Anda Diterima</x-slot>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">
+                            Konfirmasikan penerimaan sebelum {{ $registration->admissionOffer->expires_at->translatedFormat('d F Y H:i') }}.
+                        </p>
+                        <div class="mt-4 flex flex-col gap-3 sm:flex-row">
+                            <form method="POST" action="{{ route('admission-offers.accept', $registration->admissionOffer) }}">
+                                @csrf
+                                <x-filament::button type="submit" color="success" icon="heroicon-m-check-circle">
+                                    Terima Kursi
+                                </x-filament::button>
+                            </form>
+                            <form method="POST" action="{{ route('admission-offers.decline', $registration->admissionOffer) }}" class="flex flex-1 gap-2">
+                                @csrf
+                                <x-filament::input.wrapper class="flex-1">
+                                    <x-filament::input name="reason" required placeholder="Alasan menolak penawaran" />
+                                </x-filament::input.wrapper>
+                                <x-filament::button type="submit" color="danger" outlined>
+                                    Tolak
+                                </x-filament::button>
+                            </form>
+                        </div>
+                    </x-filament::section>
+                @elseif ($registration->current_stage === 'waiting_list' && $registration->selection)
+                    <x-filament::section icon="heroicon-o-clock" icon-color="warning">
+                        <x-slot name="heading">Status: Daftar Tunggu</x-slot>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">
+                            @if ($registration->selection->waitlist_rank)
+                                Posisi daftar tunggu: {{ $registration->selection->waitlist_rank }}.
+                            @endif
+                            Pantau portal ini untuk perubahan status.
+                        </p>
+                    </x-filament::section>
+                @elseif ($registration->current_stage === 're_registration')
+                    <x-filament::section icon="heroicon-o-document-check" icon-color="info">
+                        <x-slot name="heading">Tahap berikutnya: Daftar Ulang</x-slot>
+                        @php
+                            $requiredItems = $registration->reRegistrationItems->where('is_required', true);
+                            $verifiedItems = $requiredItems->where('status', 'verified')->count();
+                        @endphp
+                        <p class="text-sm text-gray-700 dark:text-gray-300">{{ $verifiedItems }} dari {{ $requiredItems->count() }} persyaratan wajib telah diverifikasi.</p>
+                        <div class="mt-4">
+                            <x-filament::button tag="a" :href="\App\Filament\Applicant\Pages\ReRegistration::getUrl(['registration' => $registration->uuid])">
+                                Lanjutkan Daftar Ulang
+                            </x-filament::button>
+                        </div>
                     </x-filament::section>
                 @endif
             </div>

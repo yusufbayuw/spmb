@@ -31,6 +31,10 @@ class Registration extends Model
         'tests' => 'Rangkaian Tes',
         'selection' => 'Seleksi Peserta',
         'announcement' => 'Pengumuman',
+        'waiting_list' => 'Daftar Tunggu',
+        'admission_offer' => 'Penawaran Penerimaan',
+        're_registration' => 'Daftar Ulang',
+        'enrollment' => 'Enrollment',
         'completed' => 'Selesai',
     ];
 
@@ -51,16 +55,20 @@ class Registration extends Model
         'document_verification' => ['documents', 'tests', 'selection'],
         'tests' => ['selection'],
         'selection' => ['announcement'],
-        'announcement' => ['completed'],
+        'announcement' => ['admission_offer', 'waiting_list', 'completed'],
+        'waiting_list' => ['admission_offer'],
+        'admission_offer' => ['re_registration', 'completed'],
+        're_registration' => ['enrollment'],
+        'enrollment' => ['completed'],
         'completed' => [],
     ];
 
     protected $fillable = [
-        'unit_configuration_id', 'custom_answers', 'user_id', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'registration_number', 'nik', 'full_name', 'nickname', 'gender', 'birth_place', 'birth_date', 'religion', 'child_order', 'siblings_count', 'home_address', 'rt', 'rw', 'village', 'district', 'city', 'province', 'postal_code', 'phone', 'email', 'previous_school', 'previous_school_address', 'graduation_year', 'status', 'current_stage', 'lifecycle_status', 'lifecycle_reason', 'lifecycle_changed_by', 'lifecycle_changed_at', 'data_validation_status', 'data_validation_notes', 'data_validated_by', 'data_validated_at', 'applicant_card_number', 'applicant_card_issued_by', 'applicant_card_issued_at', 'documents_completed_at', 'documents_verified_at', 'rejection_reason', 'submitted_at', 'verified_at', 'payment_verified_at', 'accepted_at',
+        'unit_configuration_id', 'custom_answers', 'user_id', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'registration_number', 'nik', 'full_name', 'nickname', 'gender', 'birth_place', 'birth_date', 'religion', 'child_order', 'siblings_count', 'home_address', 'rt', 'rw', 'village', 'district', 'city', 'province', 'postal_code', 'phone', 'email', 'previous_school', 'previous_school_address', 'graduation_year', 'status', 'current_stage', 'lifecycle_status', 'lifecycle_reason', 'lifecycle_changed_by', 'lifecycle_changed_at', 'data_validation_status', 'data_validation_notes', 'data_validated_by', 'data_validated_at', 'applicant_card_number', 'applicant_card_issued_by', 'applicant_card_issued_at', 'documents_completed_at', 'documents_verified_at', 'rejection_reason', 'submitted_at', 'verified_at', 'payment_verified_at', 'accepted_at', 're_registration_completed_at', 'enrolled_at', 'enrolled_by',
     ];
 
     protected $casts = [
-        'custom_answers' => 'array', 'birth_date' => 'date', 'submitted_at' => 'datetime', 'verified_at' => 'datetime', 'payment_verified_at' => 'datetime', 'accepted_at' => 'datetime', 'data_validated_at' => 'datetime', 'applicant_card_issued_at' => 'datetime', 'documents_completed_at' => 'datetime', 'documents_verified_at' => 'datetime', 'lifecycle_changed_at' => 'datetime',
+        'custom_answers' => 'array', 'birth_date' => 'date', 'submitted_at' => 'datetime', 'verified_at' => 'datetime', 'payment_verified_at' => 'datetime', 'accepted_at' => 'datetime', 're_registration_completed_at' => 'datetime', 'enrolled_at' => 'datetime', 'data_validated_at' => 'datetime', 'applicant_card_issued_at' => 'datetime', 'documents_completed_at' => 'datetime', 'documents_verified_at' => 'datetime', 'lifecycle_changed_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -101,6 +109,17 @@ class Registration extends Model
     public function enabledStages(): array
     {
         $stages = self::STAGES;
+        $decision = $this->selection?->decision;
+        $isAcceptedFlow = $decision === 'accepted'
+            || in_array($this->current_stage, ['admission_offer', 're_registration', 'enrollment'], true)
+            || in_array($this->status, ['confirmed', 'enrolled'], true);
+        $isWaitingListFlow = $decision === 'waiting_list' || $this->current_stage === 'waiting_list';
+        if (! $isWaitingListFlow) {
+            unset($stages['waiting_list']);
+        }
+        if (! $isAcceptedFlow) {
+            unset($stages['admission_offer'], $stages['re_registration'], $stages['enrollment']);
+        }
         $configuration = $this->configuration;
         if ($configuration && ! $configuration->payment_enabled) {
             unset($stages['virtual_account'], $stages['payment'], $stages['payment_verification']);
@@ -146,6 +165,33 @@ class Registration extends Model
             }
             $files = $documents->filter(fn (Document $document): bool => ($document->requirement_key ?: $document->type) === $requirement['key']);
             if ($files->isEmpty() || $files->contains(fn (Document $document): bool => filled($document->rejection_reason) || ($verified && (! $document->is_verified || ! $document->security_scanned_at)))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function reRegistrationRequirements(): array
+    {
+        return array_values(array_filter(
+            $this->configuration?->re_registration_requirements ?? [],
+            fn (array $requirement): bool => (bool) ($requirement['active'] ?? true),
+        ));
+    }
+
+    public function reRegistrationComplete(): bool
+    {
+        $items = $this->reRegistrationItems()->get()->keyBy('requirement_key');
+
+        foreach ($this->reRegistrationRequirements() as $requirement) {
+            if (! ($requirement['required'] ?? false)) {
+                continue;
+            }
+
+            $item = $items->get($requirement['key'] ?? '');
+            if (! $item || $item->status !== 'verified') {
                 return false;
             }
         }
@@ -221,6 +267,21 @@ class Registration extends Model
     public function announcement()
     {
         return $this->hasOne(Announcement::class);
+    }
+
+    public function admissionOffer()
+    {
+        return $this->hasOne(AdmissionOffer::class);
+    }
+
+    public function reRegistrationItems(): HasMany
+    {
+        return $this->hasMany(ReRegistrationItem::class);
+    }
+
+    public function enrolledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'enrolled_by');
     }
 
     public function dataValidator()
@@ -338,6 +399,10 @@ class Registration extends Model
         }
 
         if ($this->configuration && ! $this->configuration->legacy) {
+            if (in_array($this->current_stage, ['announcement', 'waiting_list', 'admission_offer', 're_registration', 'enrollment'], true)) {
+                return in_array($targetStage, self::STAGE_TRANSITIONS[$this->current_stage] ?? [], true);
+            }
+
             $stages = array_keys($this->enabledStages());
             $index = array_search($this->current_stage, $stages, true);
             $next = $index === false ? null : ($stages[$index + 1] ?? null);

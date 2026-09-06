@@ -70,8 +70,21 @@ class SelectionResource extends Resource
                 Tables\Columns\TextColumn::make('registration.unit.name')
                     ->label('Unit')
                     ->badge(),
+                Tables\Columns\TextColumn::make('batch.name')
+                    ->label('Batch')
+                    ->placeholder('-'),
                 Tables\Columns\TextColumn::make('final_score')
                     ->label('Nilai Akhir'),
+                Tables\Columns\TextColumn::make('rank')
+                    ->label('Peringkat')
+                    ->placeholder('-'),
+                Tables\Columns\TextColumn::make('system_recommendation')
+                    ->label('Rekomendasi Sistem')
+                    ->badge()
+                    ->placeholder('-'),
+                Tables\Columns\TextColumn::make('waitlist_rank')
+                    ->label('Urutan Tunggu')
+                    ->placeholder('-'),
                 Tables\Columns\TextColumn::make('decision')
                     ->label('Keputusan')
                     ->badge()
@@ -157,6 +170,7 @@ class SelectionResource extends Resource
         $query = parent::getEloquentQuery()->with([
             'registration.unit',
             'registration.announcement',
+            'batch',
         ]);
 
         if (auth()->user()?->isTU()) {

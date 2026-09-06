@@ -125,9 +125,10 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         );
 
         $registration->refresh();
-        $this->assertSame('completed', $registration->current_stage);
+        $this->assertSame('admission_offer', $registration->current_stage);
         $this->assertSame('accepted', $registration->status);
         $this->assertNotNull($registration->accepted_at);
+        $this->assertSame('offered', $registration->admissionOffer()->value('status'));
         $this->assertSame('published', $announcement->status);
         $this->assertNotNull($announcement->published_at);
         $this->assertNull($announcement->fresh()->email_sent_at);

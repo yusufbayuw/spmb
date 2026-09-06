@@ -143,6 +143,16 @@ class RegistrationOpening extends Model
         return $this->hasMany(Registration::class);
     }
 
+    public function admissionQuotas(): HasMany
+    {
+        return $this->hasMany(AdmissionQuota::class);
+    }
+
+    public function selectionBatches(): HasMany
+    {
+        return $this->hasMany(SelectionBatch::class);
+    }
+
     public function scopeCurrentlyOpen(Builder $query): Builder
     {
         return $query

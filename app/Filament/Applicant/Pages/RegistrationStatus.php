@@ -36,6 +36,8 @@ class RegistrationStatus extends Page
                 'testBookings.session',
                 'selection',
                 'announcement',
+                'admissionOffer',
+                'reRegistrationItems',
             ])
             ->where('uuid', $registration)->firstOrFail();
     }

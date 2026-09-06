@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Models\AdmissionQuota;
 use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Registration;
@@ -18,6 +19,7 @@ class RegistrationStatsOverview extends BaseWidget
         $registrations = $this->registrationQuery();
         $documents = $this->documentQuery();
         $payments = $this->paymentQuery();
+        $quotas = $this->quotaQuery();
 
         return [
             Stat::make('Total Pendaftar', number_format((clone $registrations)->count(), 0, ',', '.'))
@@ -39,6 +41,26 @@ class RegistrationStatsOverview extends BaseWidget
                 ->description('Calon siswa berstatus diterima')
                 ->color('success')
                 ->icon('heroicon-o-check-circle'),
+            Stat::make('Terkonfirmasi', number_format((clone $registrations)->where('status', 'confirmed')->count(), 0, ',', '.'))
+                ->description('Pendaftar telah menerima kursi')
+                ->color('success')
+                ->icon('heroicon-o-hand-thumb-up'),
+            Stat::make('Terdaftar Resmi', number_format((clone $registrations)->where('status', 'enrolled')->count(), 0, ',', '.'))
+                ->description('Enrollment telah diselesaikan')
+                ->color('success')
+                ->icon('heroicon-o-user-plus'),
+            Stat::make('Daftar Tunggu', number_format((clone $registrations)->where('current_stage', 'waiting_list')->count(), 0, ',', '.'))
+                ->description('Menunggu kursi penerimaan')
+                ->color('warning')
+                ->icon('heroicon-o-clock'),
+            Stat::make('Daya Tampung', number_format((clone $quotas)->sum('capacity'), 0, ',', '.'))
+                ->description('Total kapasitas penerimaan aktif')
+                ->color('info')
+                ->icon('heroicon-o-users'),
+            Stat::make('Sisa Daya Tampung', number_format(max(0, (clone $quotas)->sum('capacity') - (clone $registrations)->whereIn('status', ['accepted', 'confirmed', 'enrolled'])->count()), 0, ',', '.'))
+                ->description('Kapasitas penerimaan dikurangi kursi aktif')
+                ->color('info')
+                ->icon('heroicon-o-chart-bar-square'),
         ];
     }
 
@@ -73,6 +95,18 @@ class RegistrationStatsOverview extends BaseWidget
 
         if ($user?->isTU() && $user->unit_id) {
             $query->whereHas('registration', fn (Builder $query) => $query->where('unit_id', $user->unit_id));
+        }
+
+        return $query;
+    }
+
+    private function quotaQuery(): Builder
+    {
+        $query = AdmissionQuota::query()->where('is_active', true);
+        $user = auth()->user();
+
+        if ($user?->isTU() && $user->unit_id) {
+            $query->whereHas('opening', fn (Builder $opening) => $opening->where('unit_id', $user->unit_id));
         }
 
         return $query;

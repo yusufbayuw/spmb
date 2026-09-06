@@ -445,6 +445,8 @@ class RegistrationWorkflowService
 
     public function decide(Registration $registration, User $staff, string $decision, ?float $score = null, ?string $notes = null): Selection
     {
+        abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
+
         if (! in_array($decision, ['accepted', 'rejected', 'waiting_list'], true)) {
             throw ValidationException::withMessages([
                 'decision' => 'Keputusan seleksi harus Diterima, Ditolak, atau Daftar Tunggu.',
@@ -455,12 +457,23 @@ class RegistrationWorkflowService
             $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $lockedRegistration->assertCurrentStage('selection');
 
+            $selection = Selection::query()->where('registration_id', $lockedRegistration->id)->lockForUpdate()->first();
+            if ($decision === 'accepted') {
+                app(AdmissionDecisionService::class)->assertCapacityForAcceptance($lockedRegistration, $selection);
+            }
+            if ($selection?->system_recommendation && $selection->system_recommendation !== $decision && blank($notes)) {
+                throw ValidationException::withMessages([
+                    'notes' => 'Alasan wajib diisi ketika keputusan final berbeda dari rekomendasi sistem.',
+                ]);
+            }
+
             $selection = Selection::updateOrCreate(
                 ['registration_id' => $lockedRegistration->id],
                 [
                     'decision' => $decision,
                     'final_score' => $score,
                     'notes' => $notes,
+                    'override_reason' => $selection?->system_recommendation && $selection->system_recommendation !== $decision ? $notes : null,
                     'decided_by' => $staff->id,
                     'decided_at' => now(),
                 ],
@@ -510,19 +523,18 @@ class RegistrationWorkflowService
                 ],
             );
 
-            $legacyStatus = match ($selection->decision) {
-                'accepted' => 'accepted',
-                'rejected' => 'rejected',
-                'waiting_list' => 'waiting_list',
-            };
-
-            $lockedRegistration->transitionTo('completed', [
-                'status' => $legacyStatus,
-                'accepted_at' => $legacyStatus === 'accepted' ? now() : $lockedRegistration->accepted_at,
-            ]);
+            if ($selection->decision === 'rejected') {
+                $lockedRegistration->transitionTo('completed', ['status' => 'rejected']);
+            }
 
             return $announcement->fresh(['registration.user']);
         });
+
+        if ($announcement->registration->selection()->value('decision') === 'accepted') {
+            app(AdmissionDecisionService::class)->publishAccepted($announcement->registration);
+        } elseif ($announcement->registration->selection()->value('decision') === 'waiting_list') {
+            app(AdmissionDecisionService::class)->publishWaitingList($announcement->registration);
+        }
 
         SendAnnouncementPublishedMail::dispatch($announcement->id);
         $this->notifications->announcementPublished($announcement);

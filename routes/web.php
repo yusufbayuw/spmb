@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdmissionOfferController;
 use App\Http\Controllers\Auth\ApplicantEmailVerificationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OperationalReportController;
@@ -27,6 +28,9 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
     Route::get('/files/applicant/payments/{payment}/proof', [PrivateApplicantFileController::class, 'paymentProof'])
         ->whereUuid('payment')
         ->name('files.applicant.payments.proof');
+    Route::get('/files/applicant/re-registration/{reRegistrationItem}', [PrivateApplicantFileController::class, 'reRegistrationItem'])
+        ->whereUuid('reRegistrationItem')
+        ->name('files.applicant.re-registration.show');
 
     Route::get('/admin/reports/operational.xlsx', OperationalReportController::class)
         ->name('reports.operational.xlsx');
@@ -53,6 +57,13 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
     Route::get('/registration/{registration}/card', [RegistrationPrintController::class, 'applicantCard'])
         ->whereUuid('registration')
         ->name('registration.card');
+
+    Route::post('/registration/admission-offers/{offer}/accept', [AdmissionOfferController::class, 'accept'])
+        ->whereUuid('offer')
+        ->name('admission-offers.accept');
+    Route::post('/registration/admission-offers/{offer}/decline', [AdmissionOfferController::class, 'decline'])
+        ->whereUuid('offer')
+        ->name('admission-offers.decline');
 
     Route::get('/profile', function () {
         return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar/profile');

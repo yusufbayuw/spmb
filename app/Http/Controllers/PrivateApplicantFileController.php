@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Models\ReRegistrationItem;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
 use App\Services\AuditTrail;
@@ -66,6 +67,27 @@ class PrivateApplicantFileController extends Controller
         );
     }
 
+    public function reRegistrationItem(
+        Request $request,
+        ReRegistrationItem $reRegistrationItem,
+        ApplicantFileStorage $storage,
+        AuditTrail $audit,
+    ): BinaryFileResponse {
+        $reRegistrationItem->loadMissing('registration');
+        $this->authorizeRegistration($request->user(), $reRegistrationItem->registration, 'view_reregistrationitem');
+        abort_unless($reRegistrationItem->file_path, 404);
+
+        return $this->serve(
+            $request,
+            $storage,
+            $audit,
+            $reRegistrationItem,
+            'reregistration_file',
+            $reRegistrationItem->file_path,
+            $reRegistrationItem->original_name ?: basename($reRegistrationItem->file_path),
+        );
+    }
+
     private function authorizeRegistration(
         ?User $user,
         ?Registration $registration,
@@ -99,7 +121,7 @@ class PrivateApplicantFileController extends Controller
         Request $request,
         ApplicantFileStorage $storage,
         AuditTrail $audit,
-        Document|Payment $subject,
+        Document|Payment|ReRegistrationItem $subject,
         string $eventPrefix,
         string $path,
         string $fileName,

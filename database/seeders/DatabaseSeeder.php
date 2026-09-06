@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             RegistrationPathwaySeeder::class,
             UnitRegistrationConfigurationSeeder::class,
             RegistrationOpeningSeeder::class,
+            AdmissionQuotaSeeder::class,
             ShieldSeeder::class,
             AdminUserSeeder::class,
             TestSessionSeeder::class,

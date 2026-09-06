@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\AdmissionOffer;
+use App\Models\AdmissionQuota;
 use App\Models\AdmissionTest;
 use App\Models\AdmissionTestResult;
 use App\Models\Announcement;
@@ -12,7 +14,9 @@ use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Models\ReRegistrationItem;
 use App\Models\Selection;
+use App\Models\SelectionBatch;
 use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
@@ -184,6 +188,10 @@ class AuditTrail
             return [$subject->unit_id, null];
         }
 
+        if ($subject instanceof AdmissionQuota || $subject instanceof SelectionBatch) {
+            return [$subject->opening()->value('unit_id'), null];
+        }
+
         if ($subject instanceof VirtualAccount) {
             return [$subject->unit_id, $subject->registration_id];
         }
@@ -210,7 +218,14 @@ class AuditTrail
             || $subject instanceof Document
             || $subject instanceof AdmissionTestResult
             || $subject instanceof Selection
-            || $subject instanceof Announcement) {
+            || $subject instanceof Announcement
+            || $subject instanceof AdmissionOffer) {
+            $registration = Registration::query()->find($subject->registration_id);
+
+            return [$registration?->unit_id, $subject->registration_id];
+        }
+
+        if ($subject instanceof ReRegistrationItem) {
             $registration = Registration::query()->find($subject->registration_id);
 
             return [$registration?->unit_id, $subject->registration_id];

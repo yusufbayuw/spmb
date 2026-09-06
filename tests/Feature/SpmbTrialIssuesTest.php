@@ -58,7 +58,7 @@ class SpmbTrialIssuesTest extends TestCase
             ->callTableAction('publish', $announcement)
             ->assertHasNoTableActionErrors();
 
-        $this->assertSame('completed', $registration->fresh()->current_stage);
+        $this->assertSame('admission_offer', $registration->fresh()->current_stage);
         $this->assertNotNull($announcement->fresh()->published_at);
         $this->get('/admin/announcements')->assertOk()->assertSeeText('Sudah Dipublikasikan');
         $this->actingAs($parent)->get('/pendaftar/status/'.$registration->uuid)->assertSeeText('DITERIMA');

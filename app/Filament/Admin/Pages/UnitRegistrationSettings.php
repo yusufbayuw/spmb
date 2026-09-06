@@ -123,6 +123,16 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Select::make('uuid')->label('Tes')->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())->pluck('name', 'uuid')->all())->required(),
                 ]),
             ])->collapsible(),
+            Forms\Components\Section::make('Daftar Ulang')->description('Persyaratan ini tersimpan pada versi konfigurasi dan hanya berlaku untuk pendaftar yang menggunakan versi tersebut.')->schema([
+                Forms\Components\Repeater::make('re_registration_requirements')->label('Persyaratan daftar ulang')->default([])->schema([
+                    Forms\Components\Hidden::make('key')->default(fn (): string => 'reregistration_'.strtolower(Str::random(10)))->required(),
+                    Forms\Components\TextInput::make('label')->label('Nama persyaratan')->required(),
+                    Forms\Components\Select::make('type')->label('Jenis')->options(['checklist' => 'Konfirmasi', 'document' => 'Dokumen', 'payment' => 'Pembayaran', 'information' => 'Informasi'])->default('checklist')->required(),
+                    Forms\Components\Textarea::make('instructions')->label('Petunjuk'),
+                    Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
+                    Forms\Components\Toggle::make('required')->label('Wajib')->default(true),
+                ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Persyaratan baru'),
+            ])->collapsible(),
         ])->statePath('data');
     }
 

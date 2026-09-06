@@ -34,7 +34,15 @@ class UnitConfigurationService
         }
         $tests = $unit->admissionTests()->where('is_active', true)->get()->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score']))->all();
 
-        return ['payment_enabled' => true, 'documents_enabled' => true, 'tests_enabled' => count($tests) > 0, 'fields' => [], 'document_requirements' => $documents, 'test_definitions' => $tests];
+        return [
+            'payment_enabled' => true,
+            'documents_enabled' => true,
+            'tests_enabled' => count($tests) > 0,
+            'fields' => [],
+            'document_requirements' => $documents,
+            'test_definitions' => $tests,
+            're_registration_requirements' => [],
+        ];
     }
 
     public function initialize(Unit $unit): UnitConfiguration
@@ -63,7 +71,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'fields', 'document_requirements', 'test_definitions']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -86,6 +94,13 @@ class UnitConfigurationService
                 'document_requirements.*.formats.*' => [Rule::in(['pdf', 'docx', 'jpg', 'png'])], 'document_requirements.*.instructions' => ['nullable', 'string', 'max:2000'],
                 'document_requirements.*.template_path' => ['nullable', 'string'], 'test_definitions' => ['present', 'array'],
                 'test_definitions.*.id' => ['required', 'integer', 'distinct'],
+                're_registration_requirements' => ['present', 'array', 'max:100'],
+                're_registration_requirements.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'max:60', 'distinct'],
+                're_registration_requirements.*.label' => ['required', 'string', 'max:150'],
+                're_registration_requirements.*.type' => ['required', Rule::in(['checklist', 'document', 'payment', 'information'])],
+                're_registration_requirements.*.active' => ['required', 'boolean'],
+                're_registration_requirements.*.required' => ['required', 'boolean'],
+                're_registration_requirements.*.instructions' => ['nullable', 'string', 'max:2000'],
             ])->validate();
             foreach ($validated['fields'] as $field) {
                 if (in_array($field['key'], ConfiguredRegistrationForm::CORE_FIELDS, true)) {

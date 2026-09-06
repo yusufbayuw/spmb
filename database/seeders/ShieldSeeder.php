@@ -17,7 +17,7 @@ class ShieldSeeder extends Seeder
         $resources = [
             'registration', 'registrationopening', 'registrationpathway', 'studyprogram', 'parentinfo', 'document',
             'payment', 'virtualaccount', 'unit', 'user', 'admissiontest', 'admissiontestresult',
-            'selection', 'announcement', 'auditlog',
+            'selection', 'selectionbatch', 'admissionquota', 'admissionoffer', 'reregistrationitem', 'announcement', 'auditlog',
         ];
 
         foreach ($resources as $resource) {
@@ -29,7 +29,7 @@ class ShieldSeeder extends Seeder
         foreach ([
             'validate_data_registration', 'send_va_registration', 'issue_card_registration',
             'verify_payment_payment', 'verify_document_document', 'record_result_admissiontestresult',
-            'decide_selection', 'publish_announcement',
+            'decide_selection', 'publish_announcement', 'finalize_selectionbatch', 'enroll_registration',
         ] as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
@@ -51,6 +51,9 @@ class ShieldSeeder extends Seeder
             'view_admissiontest', 'view_any_admissiontest', 'create_admissiontest', 'update_admissiontest',
             'view_admissiontestresult', 'view_any_admissiontestresult', 'create_admissiontestresult', 'update_admissiontestresult', 'record_result_admissiontestresult',
             'view_selection', 'view_any_selection', 'create_selection', 'update_selection', 'decide_selection',
+            'view_selectionbatch', 'view_any_selectionbatch', 'create_selectionbatch', 'update_selectionbatch', 'finalize_selectionbatch',
+            'view_admissionquota', 'view_any_admissionquota', 'create_admissionquota', 'update_admissionquota',
+            'view_reregistrationitem', 'view_any_reregistrationitem', 'update_reregistrationitem', 'enroll_registration',
             'view_announcement', 'view_any_announcement', 'create_announcement', 'update_announcement', 'publish_announcement',
             'view_auditlog', 'view_any_auditlog',
         ];

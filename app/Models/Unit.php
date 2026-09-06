@@ -37,6 +37,11 @@ class Unit extends Model
         return $this->hasMany(RegistrationPathway::class);
     }
 
+    public function admissionQuotas(): HasMany
+    {
+        return $this->hasManyThrough(AdmissionQuota::class, RegistrationOpening::class);
+    }
+
     public function users()
     {
         return $this->hasMany(User::class);

@@ -43,6 +43,8 @@ class RegistrationResource extends Resource
             'payment_uploaded' => 'Bukti Bayar Terupload',
             'payment_verified' => 'Pembayaran Terverifikasi',
             'accepted' => 'Diterima',
+            'confirmed' => 'Kursi Dikonfirmasi',
+            'enrolled' => 'Terdaftar Resmi',
             'rejected' => 'Ditolak',
             'waiting_list' => 'Daftar Tunggu',
         ];

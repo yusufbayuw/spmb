@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\AdmissionOffer;
+use App\Models\AdmissionQuota;
 use App\Models\AdmissionTest;
 use App\Models\AdmissionTestResult;
 use App\Models\Announcement;
@@ -11,7 +13,9 @@ use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Models\ReRegistrationItem;
 use App\Models\Selection;
+use App\Models\SelectionBatch;
 use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
@@ -59,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
             Registration::class,
             RegistrationOpening::class,
             RegistrationPathway::class,
+            ReRegistrationItem::class,
             StudyProgram::class,
             ParentInfo::class,
             Document::class,
@@ -69,7 +74,10 @@ class AppServiceProvider extends ServiceProvider
             User::class,
             AdmissionTest::class,
             AdmissionTestResult::class,
+            AdmissionOffer::class,
+            AdmissionQuota::class,
             Selection::class,
+            SelectionBatch::class,
             Announcement::class,
         ] as $model) {
             $model::observe(SensitiveModelObserver::class);

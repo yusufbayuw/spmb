@@ -11,7 +11,7 @@ class Selection extends Model
     use HasFactory;
     use HasPublicUuid;
 
-    protected $fillable = ['registration_id', 'decision', 'final_score', 'notes', 'decided_by', 'decided_at'];
+    protected $fillable = ['registration_id', 'selection_batch_id', 'decision', 'final_score', 'rank', 'waitlist_rank', 'system_recommendation', 'notes', 'override_reason', 'decided_by', 'decided_at'];
 
     protected $casts = ['final_score' => 'decimal:2', 'decided_at' => 'datetime'];
 
@@ -23,5 +23,10 @@ class Selection extends Model
     public function decider()
     {
         return $this->belongsTo(User::class, 'decided_by');
+    }
+
+    public function batch()
+    {
+        return $this->belongsTo(SelectionBatch::class, 'selection_batch_id');
     }
 }
