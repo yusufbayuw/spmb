@@ -4,9 +4,12 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\SelectionResource\Pages;
 use App\Models\Selection;
+use App\Models\SelectionBatch;
+use App\Services\AdmissionDecisionService;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -114,13 +117,52 @@ class SelectionResource extends Resource
                         default => 'gray',
                     }),
             ])
-            ->actions([
-                Tables\Actions\Action::make('decide')
-                    ->label('Tetapkan Hasil')
+            ->headerActions([
+                Tables\Actions\Action::make('finalizeBatch')
+                    ->label('Finalkan Batch')
                     ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(fn (): bool => (bool) auth()->user()?->can('finalize_selectionbatch')
+                        && static::rankedBatchOptions() !== [])
+                    ->form([
+                        Forms\Components\Select::make('selection_batch_id')
+                            ->label('Batch Seleksi')
+                            ->options(fn (): array => static::rankedBatchOptions())
+                            ->searchable()
+                            ->required(),
+                    ])
+                    ->requiresConfirmation()
+                    ->modalHeading('Finalkan hasil batch seleksi?')
+                    ->modalDescription('Rekomendasi sistem akan digunakan untuk kandidat yang tidak dioverride. Setelah final, seluruh kandidat batch berpindah ke Publikasi Hasil dan ranking tidak dapat diubah.')
+                    ->action(function (array $data): void {
+                        $batch = SelectionBatch::query()
+                            ->whereKey((int) $data['selection_batch_id'])
+                            ->where('status', 'ranked')
+                            ->firstOrFail();
+
+                        app(AdmissionDecisionService::class)->finalize($batch, auth()->user());
+
+                        Notification::make()
+                            ->title('Hasil batch difinalkan dan siap dipublikasikan')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->actions([
+                Tables\Actions\Action::make('reviewDecision')
+                    ->label('Review Keputusan')
+                    ->icon('heroicon-o-pencil-square')
                     ->visible(fn (Selection $record): bool => (bool) auth()->user()?->can('decide_selection')
                         && $record->registration?->current_stage === 'selection'
+                        && $record->batch?->status === 'ranked'
                     )
+                    ->fillForm(fn (Selection $record): array => [
+                        'decision' => $record->decision !== 'pending'
+                            ? $record->decision
+                            : $record->system_recommendation,
+                        'final_score' => $record->final_score,
+                        'notes' => $record->notes,
+                    ])
                     ->form([
                         Forms\Components\Select::make('decision')
                             ->label('Keputusan')
@@ -134,9 +176,10 @@ class SelectionResource extends Resource
                             ->label('Nilai Akhir')
                             ->numeric(),
                         Forms\Components\Textarea::make('notes')
-                            ->label('Catatan'),
+                            ->label('Catatan / Alasan Override')
+                            ->helperText('Wajib diisi jika keputusan berbeda dari rekomendasi sistem.'),
                     ])
-                    ->action(fn (Selection $record, array $data) => app(RegistrationWorkflowService::class)->decide(
+                    ->action(fn (Selection $record, array $data) => app(RegistrationWorkflowService::class)->reviewDecision(
                         $record->registration,
                         auth()->user(),
                         $data['decision'],
@@ -154,6 +197,21 @@ class SelectionResource extends Resource
     public static function canEdit(Model $record): bool
     {
         return false;
+    }
+
+    public static function rankedBatchOptions(): array
+    {
+        return SelectionBatch::query()
+            ->with(['opening.unit', 'opening.studyProgram'])
+            ->where('status', 'ranked')
+            ->when(auth()->user()?->isTU(), fn (Builder $query) => $query
+                ->whereHas('opening', fn (Builder $opening) => $opening->where('unit_id', auth()->user()->unit_id)))
+            ->orderByDesc('ranked_at')
+            ->get()
+            ->mapWithKeys(fn (SelectionBatch $batch): array => [
+                $batch->id => $batch->name.' · '.($batch->opening?->label() ?? 'Pembukaan'),
+            ])
+            ->all();
     }
 
     public static function getNavigationBadge(): ?string
