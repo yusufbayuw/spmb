@@ -102,8 +102,7 @@ class DocumentsUpload extends Page implements HasForms
                     Action::make('download_template_'.$requirement['key'])
                         ->label('Unduh Template '.$requirement['label'])
                         ->icon('heroicon-o-arrow-down-tray')
-                        ->url(route('registration.template', [$this->registrationRecord, $requirement['key']]))
-                        ->openUrlInNewTab(),
+                        ->url(route('registration.template', [$this->registrationRecord, $requirement['key']])),
                 ]);
             }
 
