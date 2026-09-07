@@ -88,12 +88,9 @@ class DocumentsUpload extends Page implements HasForms
                 ->storeFiles(false)
                 ->acceptedFileTypes($mimes)
                 ->maxSize((int) config('spmb.uploads.max_kb', 5120))
-                ->multiple($requirement['max_files'] > 1)
+                ->multiple()
+                ->maxFiles(max(1, $remainingSlots))
                 ->disabled($locked);
-
-            if ($requirement['max_files'] > 1) {
-                $field->maxFiles(max(1, $remainingSlots));
-            }
 
             $components = [$field];
 
@@ -120,20 +117,30 @@ class DocumentsUpload extends Page implements HasForms
     }
 
     /** @return list<TemporaryUploadedFile> */
-    private function normalizeUploads(mixed $state): array
+    private function normalizeUploads(mixed $state, string $fieldKey): array
     {
+        if ($state === null || $state === [] || $state === '') {
+            return [];
+        }
+
         if ($state instanceof TemporaryUploadedFile) {
             return [$state];
         }
 
-        if (! is_array($state)) {
-            return [];
+        if (is_array($state)) {
+            $uploads = array_values(array_filter(
+                $state,
+                fn ($upload): bool => $upload instanceof TemporaryUploadedFile,
+            ));
+
+            if ($uploads !== [] || $state === []) {
+                return $uploads;
+            }
         }
 
-        return array_values(array_filter(
-            $state,
-            fn ($upload): bool => $upload instanceof TemporaryUploadedFile,
-        ));
+        throw ValidationException::withMessages([
+            'data.'.$fieldKey => 'State upload tidak valid. Hapus file dari kotak upload, pilih ulang, lalu simpan kembali.',
+        ]);
     }
 
     public function submit(ApplicantFileStorage $storage, ApplicantUploadSecurity $security): void
@@ -151,7 +158,7 @@ class DocumentsUpload extends Page implements HasForms
                 $registration->assertCurrentStage(['documents', 'document_verification']);
 
                 foreach ($registration->documentRequirements() as $requirement) {
-                    $uploads = $this->normalizeUploads($data[$requirement['key']] ?? null);
+                    $uploads = $this->normalizeUploads($data[$requirement['key']] ?? null, $requirement['key']);
                     $existing = $registration->documents()
                         ->where(fn ($q) => $q
                             ->where('requirement_key', $requirement['key'])
