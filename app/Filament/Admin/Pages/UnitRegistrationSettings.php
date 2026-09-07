@@ -95,10 +95,20 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),
                 Forms\Components\Toggle::make('documents_enabled')->label('Dokumen'),
                 Forms\Components\Toggle::make('tests_enabled')->label('Tes'),
+                Forms\Components\Select::make('selection_mode')
+                    ->label('Metode Penetapan Hasil')
+                    ->options([
+                        'flexible' => 'Fleksibel — batch opsional',
+                        'manual' => 'Manual — tanpa batch',
+                        'batch' => 'Batch — wajib ranking',
+                    ])
+                    ->default('flexible')
+                    ->helperText('Fleksibel memungkinkan TU menetapkan hasil langsung atau menggunakan Batch Seleksi untuk ranking.')
+                    ->required(),
                 Forms\Components\Toggle::make('post_announcement_enabled')
                     ->label('Proses Pasca-Pengumuman')
                     ->helperText('Aktifkan Penawaran Penerimaan, Daftar Tunggu, Daftar Ulang, dan Enrollment. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
-            ])->columns(4),
+            ])->columns(5),
             Forms\Components\Section::make('Formulir Unit')->description('Pilih isian bawaan yang ingin disesuaikan atau tambahkan pertanyaan khusus. Identitas inti tetap wajib.')->schema([
                 Forms\Components\Repeater::make('fields')->label('Pengaturan field')->default([])->schema([
                     Forms\Components\Select::make('key')->label('Isian')->options(fn (Forms\Get $get): array => ConfiguredRegistrationForm::fieldLabels() + [(! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true) && $get('key') ? $get('key') : 'custom_'.strtolower(Str::random(8))) => 'Pertanyaan tambahan'])->default(fn (): string => 'custom_'.strtolower(Str::random(8)))->searchable()->required(),
