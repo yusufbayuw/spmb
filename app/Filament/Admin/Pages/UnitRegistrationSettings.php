@@ -74,6 +74,11 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->filter(fn (array $definition): bool => filled($definition['uuid']))
             ->values()
             ->all();
+
+        if (($data['tests_enabled'] ?? false) && $data['test_definitions'] === []) {
+            $data['test_definitions'] = $this->activeTestDefinitions();
+        }
+
         $this->form->fill($data);
     }
 
@@ -94,7 +99,15 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan.')->schema([
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),
                 Forms\Components\Toggle::make('documents_enabled')->label('Dokumen'),
-                Forms\Components\Toggle::make('tests_enabled')->label('Tes'),
+                Forms\Components\Toggle::make('tests_enabled')
+                    ->label('Tes')
+                    ->helperText('Jika aktif, minimal satu tes wajib harus dipilih pada bagian Tes pada Versi Ini.')
+                    ->live()
+                    ->afterStateUpdated(function (bool $state, Forms\Get $get, Forms\Set $set): void {
+                        if ($state && empty($get('test_definitions'))) {
+                            $set('test_definitions', $this->activeTestDefinitions());
+                        }
+                    }),
                 Forms\Components\Select::make('selection_mode')
                     ->label('Metode Penetapan Hasil')
                     ->options([
@@ -133,11 +146,20 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
                 ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Dokumen baru'),
             ])->collapsible(),
-            Forms\Components\Section::make('Tes pada Versi Ini')->description('Nama, status wajib, kriteria nilai, dan program studi disalin dari Konfigurasi Tes saat versi dipublikasikan.')->schema([
-                Forms\Components\Repeater::make('test_definitions')->label('Daftar tes')->default([])->schema([
-                    Forms\Components\Select::make('uuid')->label('Tes')->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())->pluck('name', 'uuid')->all())->required(),
-                ]),
-            ])->collapsible(),
+            Forms\Components\Section::make('Tes pada Versi Ini')
+                ->description('Toggle Tes hanya mengaktifkan tahapnya. Daftar di bawah menentukan tes yang benar-benar masuk ke versi pendaftaran. Saat Tes baru diaktifkan, tes aktif dari Konfigurasi Tes akan dimasukkan otomatis.')
+                ->schema([
+                    Forms\Components\Repeater::make('test_definitions')->label('Daftar tes')->default([])->schema([
+                        Forms\Components\Select::make('uuid')
+                            ->label('Tes')
+                            ->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())
+                                ->where('is_active', true)
+                                ->orderBy('sort_order')
+                                ->pluck('name', 'uuid')
+                                ->all())
+                            ->required(),
+                    ]),
+                ])->collapsible(),
             Forms\Components\Section::make('Daftar Ulang')->description('Persyaratan ini tersimpan pada versi konfigurasi dan hanya berlaku ketika Proses Pasca-Pengumuman diaktifkan.')->schema([
                 Forms\Components\Repeater::make('re_registration_requirements')->label('Persyaratan daftar ulang')->default([])->schema([
                     Forms\Components\Hidden::make('key')->default(fn (): string => 'reregistration_'.strtolower(Str::random(10)))->required(),
@@ -165,12 +187,47 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         }
     }
 
+    public function applyPublishedToActiveRegistrations(): void
+    {
+        $unit = Unit::query()->where('uuid', $this->unitUuid)->firstOrFail();
+
+        $result = app(UnitConfigurationService::class)
+            ->applyCurrentToEligibleActiveRegistrations($unit, auth()->user());
+
+        Notification::make()
+            ->title("{$result['updated']} pendaftaran aktif diperbarui")
+            ->body($result['moved_to_tests'] > 0
+                ? "{$result['moved_to_tests']} pendaftaran dipindahkan ke tahap Rangkaian Tes. {$result['skipped']} pendaftaran dilewati demi menjaga proses yang sudah berjalan."
+                : "{$result['skipped']} pendaftaran dilewati demi menjaga proses yang sudah berjalan.")
+            ->success()
+            ->send();
+    }
+
     public function showPreview(): void
     {
         $this->save();
         $unit = Unit::query()->where('uuid', $this->unitUuid)->firstOrFail();
         $this->previewForm->fill(['unit_uuid' => $unit->uuid, 'unit_configuration_uuid' => $this->configurationUuid, 'registration_opening_uuid' => $unit->registrationOpenings()->value('uuid'), 'registrant_type' => 'parent']);
         $this->preview = true;
+    }
+
+    /** @return list<array{uuid: string}> */
+    private function activeTestDefinitions(): array
+    {
+        $unitId = $this->unitId();
+
+        if (! $unitId) {
+            return [];
+        }
+
+        return AdmissionTest::query()
+            ->where('unit_id', $unitId)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (AdmissionTest $test): array => ['uuid' => $test->uuid])
+            ->values()
+            ->all();
     }
 
     private function unitId(): ?int
