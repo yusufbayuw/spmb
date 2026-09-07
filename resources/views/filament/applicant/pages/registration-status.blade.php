@@ -130,7 +130,12 @@
                                     : ($stageLabels[$stage] ?? str($stage)->replace('_', ' ')->title());
                             @endphp
                             <div class="flex items-start gap-3 rounded-xl px-3 py-3 {{ $isCurrent ? 'bg-primary-50 dark:bg-primary-500/10' : '' }}">
-                                <div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $isDone ? 'bg-success-500 text-white' : ($isCurrent ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500 dark:bg-white/10') }}">
+                                <div
+                                    class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $isCurrent ? 'bg-primary-600 text-white' : ($isDone ? 'text-white' : 'bg-gray-100 text-gray-500 dark:bg-white/10') }}"
+                                    @if ($isDone)
+                                        style="background-color: rgb(var(--success-600)); color: rgb(255 255 255);"
+                                    @endif
+                                >
                                     @if ($isDone)
                                         <x-heroicon-m-check class="h-4 w-4" />
                                     @else
