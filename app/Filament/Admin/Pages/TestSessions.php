@@ -20,9 +20,9 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
 
     protected static ?string $navigationLabel = 'Sesi Tes';
 
-    protected static ?string $navigationGroup = 'Seleksi & Pengumuman';
+    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 8;
 
     protected static ?string $title = 'Sesi dan Kuota Tes';
 
