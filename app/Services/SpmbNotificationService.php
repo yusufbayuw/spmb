@@ -579,6 +579,12 @@ class SpmbNotificationService
             $unitId ??= Registration::query()->whereKey($registrationId)->value('unit_id');
             $registration = Registration::query()->whereKey($registrationId)->first();
         }
+
+        if (! $registration && $registrationId) {
+            $registration = Registration::query()->whereKey($registrationId)->first();
+            $unitId ??= $registration?->unit_id;
+        }
+
         $unitUuid = $unitId ? Unit::query()->whereKey($unitId)->value('uuid') : null;
 
         foreach ($recipients as $recipient) {
