@@ -443,6 +443,49 @@ class RegistrationWorkflowService
         }
     }
 
+    public function reviewDecision(Registration $registration, User $staff, string $decision, ?float $score = null, ?string $notes = null): Selection
+    {
+        abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
+
+        if (! in_array($decision, ['accepted', 'rejected', 'waiting_list'], true)) {
+            throw ValidationException::withMessages([
+                'decision' => 'Keputusan seleksi harus Diterima, Ditolak, atau Daftar Tunggu.',
+            ]);
+        }
+
+        $selection = DB::transaction(function () use ($registration, $staff, $decision, $score, $notes): Selection {
+            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration->assertCurrentStage('selection');
+
+            $selection = Selection::query()
+                ->where('registration_id', $lockedRegistration->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($selection?->system_recommendation && $selection->system_recommendation !== $decision && blank($notes)) {
+                throw ValidationException::withMessages([
+                    'notes' => 'Alasan wajib diisi ketika keputusan berbeda dari rekomendasi sistem.',
+                ]);
+            }
+
+            return Selection::updateOrCreate(
+                ['registration_id' => $lockedRegistration->id],
+                [
+                    'decision' => $decision,
+                    'final_score' => $score,
+                    'notes' => $notes,
+                    'override_reason' => $selection?->system_recommendation && $selection->system_recommendation !== $decision ? $notes : null,
+                    'decided_by' => $staff->id,
+                    'decided_at' => now(),
+                ],
+            );
+        });
+
+        $this->notifications->selectionDecided($registration->fresh(), $decision);
+
+        return $selection;
+    }
+
     public function decide(Registration $registration, User $staff, string $decision, ?float $score = null, ?string $notes = null): Selection
     {
         abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
