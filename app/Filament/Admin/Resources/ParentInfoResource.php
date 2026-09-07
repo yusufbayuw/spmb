@@ -24,14 +24,10 @@ class ParentInfoResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Data Orang Tua / Wali';
 
-    protected static ?string $navigationGroup = 'Pendaftaran';
+    protected static ?string $navigationGroup = 'Sistem & Akses';
 
     protected static ?int $navigationSort = 3;
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
 
     public static function form(Form $form): Form
     {
