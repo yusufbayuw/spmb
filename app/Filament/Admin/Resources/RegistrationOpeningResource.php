@@ -26,9 +26,9 @@ class RegistrationOpeningResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pembukaan Pendaftaran';
 
-    protected static ?string $navigationGroup = 'SPMB';
+    protected static ?string $navigationGroup = 'Pendaftaran';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
