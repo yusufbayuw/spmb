@@ -168,7 +168,7 @@ class UnitConfigurationService
                             'admission_test_id' => $test['id'],
                         ],
                         [
-                            'status' => 'scheduled',
+                            'status' => 'unbooked',
                             'result' => 'pending',
                         ],
                     );
