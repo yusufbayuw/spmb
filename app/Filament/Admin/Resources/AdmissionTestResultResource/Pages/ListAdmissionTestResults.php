@@ -104,6 +104,7 @@ class ListAdmissionTestResults extends ListRecords
     {
         return [
             'all' => Tab::make('Semua'),
+            'unbooked' => Tab::make('Belum Terjadwal')->query(fn (Builder $query): Builder => $query->where('status', 'unbooked')),
             'scheduled' => Tab::make('Terjadwal')->query(fn (Builder $query): Builder => $query->where('status', 'scheduled')),
             'completed' => Tab::make('Selesai')->query(fn (Builder $query): Builder => $query->where('status', 'completed')),
             'absent' => Tab::make('Tidak Hadir')->query(fn (Builder $query): Builder => $query->where('status', 'absent')),
