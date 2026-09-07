@@ -43,12 +43,15 @@ class RegistrationWorkflowStateMachineTest extends TestCase
             'status' => 'available',
         ]);
 
+        $this->assertNull($registration->registration_number);
+
         $workflow = app(RegistrationWorkflowService::class);
         $workflow->validateData($registration, $staff, true);
         $registration->refresh();
 
         $this->assertSame('payment', $registration->current_stage);
         $this->assertSame('valid', $registration->data_validation_status);
+        $this->assertNull($registration->registration_number);
 
         $payment = $registration->payments()->firstOrFail();
         $this->assertSame('pending', $payment->status);
@@ -71,13 +74,12 @@ class RegistrationWorkflowStateMachineTest extends TestCase
 
         $workflow->verifyPayment($payment, $staff, true);
         $registration->refresh();
-        $this->assertSame('applicant_card', $registration->current_stage);
-        $this->assertSame('payment_verified', $registration->status);
-
-        $workflow->issueApplicantCard($registration, $staff);
-        $registration->refresh();
         $this->assertSame('documents', $registration->current_stage);
-        $this->assertNotNull($registration->applicant_card_number);
+        $this->assertSame('payment_verified', $registration->status);
+        $this->assertSame('REG-SMA-20262027-0001', $registration->registration_number);
+        $this->assertSame('KARTU-SMA-20262027-0001', $registration->applicant_card_number);
+        $this->assertNotNull($registration->applicant_card_issued_at);
+        $this->assertSame($staff->id, $registration->applicant_card_issued_by);
 
         foreach (RegistrationWorkflowService::REQUIRED_DOCUMENTS as $type) {
             Document::create([
