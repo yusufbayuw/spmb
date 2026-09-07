@@ -23,6 +23,9 @@ use App\Filament\Admin\Resources\StudyProgramResource;
 use App\Filament\Admin\Resources\UnitResource;
 use App\Filament\Admin\Resources\UserResource;
 use App\Filament\Admin\Resources\VirtualAccountResource;
+use App\Models\Payment;
+use App\Models\Registration;
+use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
@@ -74,6 +77,60 @@ class AdminNavigationFlowTest extends TestCase
         $method = (new ReflectionClass(SelectionBatchResource::class))->getMethod('getNavigationBadge');
 
         $this->assertNotSame(SelectionBatchResource::class, $method->getDeclaringClass()->getName());
+    }
+
+    public function test_payment_badge_counts_uploaded_proofs_waiting_for_verification(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Unit Pembayaran',
+            'code' => 'UNIT-PAY',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 385000,
+            'status' => 'open',
+        ]);
+        $applicant = User::factory()->create([
+            'role' => 'user',
+            'is_active' => true,
+        ]);
+        $registration = Registration::create([
+            'user_id' => $applicant->id,
+            'unit_id' => $unit->id,
+            'registration_opening_id' => $opening->id,
+            'registrant_type' => 'parent',
+            'registrant_relationship' => 'father',
+            'nik' => '3273010101010098',
+            'full_name' => 'Calon Pembayaran',
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2010-01-01',
+            'home_address' => 'Bandung',
+            'status' => 'payment_uploaded',
+            'current_stage' => 'payment_verification',
+            'lifecycle_status' => 'active',
+            'data_validation_status' => 'valid',
+        ]);
+
+        Payment::create([
+            'registration_id' => $registration->id,
+            'va_number' => '309858727347',
+            'amount' => 385000,
+            'status' => 'paid',
+            'proof_path' => 'payments/'.$registration->id.'/proof.pdf',
+            'proof_sha256' => str_repeat('a', 64),
+            'proof_security_scanned_at' => now(),
+            'proof_uploaded_at' => now(),
+        ]);
+
+        $this->assertSame('1', PaymentResource::getNavigationBadge());
+
+        $registration->update(['current_stage' => 'payment']);
+
+        $this->assertSame('0', PaymentResource::getNavigationBadge());
     }
 
     public function test_selection_batch_navigation_follows_latest_selection_mode(): void
