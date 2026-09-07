@@ -133,7 +133,10 @@ class AdmissionDecisionService
     {
         $created = false;
         $offer = DB::transaction(function () use ($registration, &$created): ?AdmissionOffer {
-            $lockedRegistration = Registration::query()->with('selection')->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration = Registration::query()->with(['selection', 'configuration'])->lockForUpdate()->findOrFail($registration->id);
+            if (! $lockedRegistration->postAnnouncementEnabled()) {
+                return null;
+            }
             if ($lockedRegistration->selection?->decision !== 'accepted') {
                 return null;
             }
@@ -170,7 +173,12 @@ class AdmissionDecisionService
     public function publishWaitingList(Registration $registration): void
     {
         DB::transaction(function () use ($registration): void {
-            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration = Registration::query()->with('configuration')->lockForUpdate()->findOrFail($registration->id);
+
+            if (! $lockedRegistration->postAnnouncementEnabled()) {
+                return;
+            }
+
             $lockedRegistration->transitionTo('waiting_list', ['status' => 'waiting_list']);
         }, 5);
     }
@@ -182,6 +190,13 @@ class AdmissionDecisionService
             $lockedOffer = AdmissionOffer::query()->lockForUpdate()->findOrFail($offer->id);
             $registration = Registration::query()->lockForUpdate()->findOrFail($lockedOffer->registration_id);
             abort_unless($registration->user_id === $applicant->id, 403);
+
+            if (! $registration->postAnnouncementEnabled()) {
+                throw ValidationException::withMessages([
+                    'admission_offer' => 'Konfirmasi kursi sedang dinonaktifkan untuk versi pendaftaran ini.',
+                ]);
+            }
+
             if ($lockedOffer->status === 'accepted') {
                 return $lockedOffer;
             }
@@ -224,6 +239,13 @@ class AdmissionDecisionService
             $lockedOffer = AdmissionOffer::query()->lockForUpdate()->findOrFail($offer->id);
             $registration = Registration::query()->lockForUpdate()->findOrFail($lockedOffer->registration_id);
             abort_unless($registration->user_id === $applicant->id, 403);
+
+            if (! $registration->postAnnouncementEnabled()) {
+                throw ValidationException::withMessages([
+                    'admission_offer' => 'Konfirmasi kursi sedang dinonaktifkan untuk versi pendaftaran ini.',
+                ]);
+            }
+
             if ($lockedOffer->status === 'declined') {
                 return $lockedOffer;
             }
