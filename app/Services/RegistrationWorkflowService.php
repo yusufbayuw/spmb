@@ -428,10 +428,27 @@ class RegistrationWorkflowService
             $pending = $requiredTestIds->diff($completedTestIds)->isNotEmpty();
 
             if (! $pending) {
-                Selection::firstOrCreate(
+                $scoreTestIds = collect($registration->configuredTests())
+                    ->where('is_required', true)
+                    ->where('result_type', 'score')
+                    ->pluck('id');
+
+                $scores = $registration->testResults()
+                    ->whereIn('admission_test_id', $scoreTestIds)
+                    ->whereNotNull('score')
+                    ->pluck('score')
+                    ->map(fn ($score): float => (float) $score);
+
+                $selection = Selection::firstOrCreate(
                     ['registration_id' => $registration->id],
                     ['decision' => 'pending'],
                 );
+
+                if ($scores->isNotEmpty()) {
+                    $selection->update([
+                        'final_score' => round((float) $scores->avg(), 2),
+                    ]);
+                }
 
                 $registration->transitionTo('selection');
                 $completedNow = true;
