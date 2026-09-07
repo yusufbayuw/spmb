@@ -61,6 +61,67 @@ class AdmissionDecisionManagementTest extends TestCase
         $this->assertSame('waiting_list', $second->selection()->value('decision'));
     }
 
+    public function test_flexible_selection_mode_allows_direct_result_without_batch(): void
+    {
+        Queue::fake();
+
+        [, $opening, $staff] = $this->openingFixture();
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 1]);
+
+        $registration = $this->selectionRegistration($opening, '3273010101010021', 88);
+
+        $this->assertSame('flexible', $registration->selectionMode());
+
+        app(RegistrationWorkflowService::class)->decide(
+            $registration,
+            $staff,
+            'accepted',
+            88,
+            'Ditetapkan langsung tanpa ranking batch.',
+        );
+
+        $this->assertSame('announcement', $registration->fresh()->current_stage);
+        $this->assertSame('accepted', $registration->selection()->value('decision'));
+        $this->assertSame('draft', $registration->announcement()->value('status'));
+        $this->assertNull($registration->selection()->value('selection_batch_id'));
+    }
+
+    public function test_batch_selection_mode_rejects_direct_result_bypass(): void
+    {
+        Queue::fake();
+
+        [$unit, $opening, $staff] = $this->openingFixture();
+
+        $batchConfiguration = UnitConfiguration::create([
+            'unit_id' => $unit->id,
+            'version' => 2,
+            'status' => 'published',
+            'payment_enabled' => true,
+            'documents_enabled' => true,
+            'tests_enabled' => false,
+            'selection_mode' => 'batch',
+            'post_announcement_enabled' => true,
+            'fields' => [],
+            'document_requirements' => [],
+            'test_definitions' => [],
+            're_registration_requirements' => [],
+            'published_at' => now(),
+        ]);
+
+        $registration = $this->selectionRegistration($opening, '3273010101010022', 88);
+        $registration->update(['unit_configuration_id' => $batchConfiguration->id]);
+
+        $this->expectException(ValidationException::class);
+
+        app(RegistrationWorkflowService::class)->decide(
+            $registration->fresh(),
+            $staff,
+            'accepted',
+            88,
+            'Mencoba bypass batch.',
+        );
+    }
+
     public function test_completed_scored_tests_feed_ranking_and_failed_required_test_forces_rejection(): void
     {
         Queue::fake();
