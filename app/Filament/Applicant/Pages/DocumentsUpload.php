@@ -104,7 +104,7 @@ class DocumentsUpload extends Page implements HasForms
         $storedPaths = [];
 
         try {
-            DB::transaction(function () use ($data, $security, &$storedPaths): void {
+            DB::transaction(function () use ($data, $storage, $security, &$storedPaths): void {
                 $registration = Registration::query()
                     ->where('user_id', auth()->id())
                     ->lockForUpdate()
