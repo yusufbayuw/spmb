@@ -480,39 +480,46 @@ class Registration extends Model
             ]);
         }
 
-        $oldValues = ['current_stage' => $sourceStage];
-        foreach (array_keys($attributes) as $key) {
-            $oldValues[$key] = $this->getRawOriginal($key);
-        }
+        DB::transaction(function () use ($sourceStage, $targetStage, $attributes): void {
+            $lockedRegistration = static::query()
+                ->whereKey($this->getKey())
+                ->where('current_stage', $sourceStage)
+                ->where('lifecycle_status', 'active')
+                ->lockForUpdate()
+                ->first();
 
-        $updated = static::query()
-            ->whereKey($this->getKey())
-            ->where('current_stage', $sourceStage)
-            ->where('lifecycle_status', 'active')
-            ->update(array_merge($attributes, ['current_stage' => $targetStage]));
+            if (! $lockedRegistration) {
+                $this->refresh();
 
-        if ($updated !== 1) {
+                throw ValidationException::withMessages([
+                    'current_stage' => 'Tahap atau lifecycle pendaftaran berubah oleh proses lain. Muat ulang data sebelum melanjutkan.',
+                ]);
+            }
+
+            $oldValues = ['current_stage' => $sourceStage];
+            foreach (array_keys($attributes) as $key) {
+                $oldValues[$key] = $lockedRegistration->getRawOriginal($key);
+            }
+
+            static::query()
+                ->whereKey($lockedRegistration->getKey())
+                ->update(array_merge($attributes, ['current_stage' => $targetStage]));
+
             $this->refresh();
 
-            throw ValidationException::withMessages([
-                'current_stage' => 'Tahap atau lifecycle pendaftaran berubah oleh proses lain. Muat ulang data sebelum melanjutkan.',
-            ]);
-        }
+            $newValues = ['current_stage' => $targetStage];
+            foreach (array_keys($attributes) as $key) {
+                $newValues[$key] = $this->getRawOriginal($key);
+            }
 
-        $this->refresh();
-
-        $newValues = ['current_stage' => $targetStage];
-        foreach (array_keys($attributes) as $key) {
-            $newValues[$key] = $this->getRawOriginal($key);
-        }
-
-        app(AuditTrail::class)->record(
-            'registration.stage_transition',
-            $this,
-            oldValues: $oldValues,
-            newValues: $newValues,
-            metadata: ['from_stage' => $sourceStage, 'to_stage' => $targetStage],
-            description: (self::STAGES[$sourceStage] ?? $sourceStage).' → '.(self::STAGES[$targetStage] ?? $targetStage),
-        );
+            app(AuditTrail::class)->record(
+                'registration.stage_transition',
+                $this,
+                oldValues: $oldValues,
+                newValues: $newValues,
+                metadata: ['from_stage' => $sourceStage, 'to_stage' => $targetStage],
+                description: (self::STAGES[$sourceStage] ?? $sourceStage).' → '.(self::STAGES[$targetStage] ?? $targetStage),
+            );
+        }, 5);
     }
 }

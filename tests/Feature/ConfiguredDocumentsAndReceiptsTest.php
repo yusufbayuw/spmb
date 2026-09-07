@@ -20,6 +20,7 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -82,6 +83,7 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
 
     public function test_pdf_documents_and_jpeg_photo_save_together(): void
     {
+        $this->freezeTime();
         Storage::fake('local');
         Storage::fake('applicant-private');
         config(['spmb.uploads.clamav_binary' => 'not-installed-spmb-test-clamscan', 'spmb.uploads.require_malware_scan' => false]);
@@ -89,6 +91,22 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
         $this->actingAs($parent);
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
         $pdf = "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF";
+
+        // SQLite normally counts matched rows; emulate MySQL's zero changed rows for this no-op.
+        if (DB::getDriverName() === 'sqlite') {
+            DB::unprepared(<<<'SQL'
+                CREATE TEMP TRIGGER ignore_unchanged_document_stage
+                BEFORE UPDATE ON registrations
+                WHEN OLD.current_stage = 'document_verification'
+                    AND NEW.current_stage = OLD.current_stage
+                    AND NEW.documents_completed_at IS OLD.documents_completed_at
+                    AND NEW.documents_verified_at IS OLD.documents_verified_at
+                    AND NEW.updated_at IS OLD.updated_at
+                BEGIN
+                    SELECT RAISE(IGNORE);
+                END
+                SQL);
+        }
 
         Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
             ->fillForm([

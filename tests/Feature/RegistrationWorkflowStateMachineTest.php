@@ -195,6 +195,51 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertSame('active', $registration->fresh()->lifecycle_status);
     }
 
+    public function test_stale_transition_cannot_continue_after_lifecycle_is_cancelled(): void
+    {
+        [$registration, $staff] = $this->registrationFixture();
+        $registration->update(['current_stage' => 'documents']);
+        $staleRequest = $registration->fresh();
+        $registration->changeLifecycle('cancelled', $staff, 'Duplikasi pendaftaran');
+
+        try {
+            $staleRequest->transitionTo('documents', ['documents_completed_at' => now()]);
+            $this->fail('Stale workflow request must not update a cancelled registration.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('current_stage', $exception->errors());
+        }
+
+        $this->assertDatabaseHas('registrations', [
+            'id' => $registration->id,
+            'current_stage' => 'documents',
+            'lifecycle_status' => 'cancelled',
+            'documents_completed_at' => null,
+        ]);
+        $this->assertDatabaseMissing('audit_logs', [
+            'registration_id' => $registration->id,
+            'event' => 'registration.stage_transition',
+        ]);
+    }
+
+    public function test_same_stage_transition_saves_changed_attributes(): void
+    {
+        $this->freezeTime();
+        [$registration] = $this->registrationFixture();
+        $registration->update(['current_stage' => 'documents']);
+
+        $registration->transitionTo('documents', ['documents_completed_at' => now()]);
+
+        $this->assertDatabaseHas('registrations', [
+            'id' => $registration->id,
+            'current_stage' => 'documents',
+            'documents_completed_at' => now()->toDateTimeString(),
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'registration_id' => $registration->id,
+            'event' => 'registration.stage_transition',
+        ]);
+    }
+
     private function registrationFixture(): array
     {
         $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
