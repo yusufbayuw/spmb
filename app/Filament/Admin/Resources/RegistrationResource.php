@@ -177,7 +177,7 @@ class RegistrationResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable(),
+                Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable()->placeholder('Belum diterbitkan'),
                 Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable(['full_name', 'nik'])->description(fn (Registration $record) => $record->nik),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
@@ -236,13 +236,6 @@ class RegistrationResource extends Resource
                         $payment
                             ? Notification::make()->title('VA berhasil di-assign; email masuk queue')->success()->send()
                             : Notification::make()->title('Pool VA unit kosong')->body('Upload nomor VA terlebih dahulu pada menu Pool Virtual Account.')->warning()->send();
-                    }),
-                Tables\Actions\Action::make('issueCard')
-                    ->label('Terbitkan Kartu')->icon('heroicon-o-identification')->color('success')->requiresConfirmation()
-                    ->visible(fn (Registration $record) => $record->isOperational() && auth()->user()?->can('issue_card_registration') && $record->current_stage === 'applicant_card')
-                    ->action(function (Registration $record) {
-                        app(RegistrationWorkflowService::class)->issueApplicantCard($record, auth()->user());
-                        Notification::make()->title('Kartu pendaftar diterbitkan')->success()->send();
                     }),
                 Tables\Actions\Action::make('cancel')
                     ->label('Batalkan')->icon('heroicon-o-x-circle')->color('danger')
