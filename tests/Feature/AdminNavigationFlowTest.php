@@ -45,21 +45,35 @@ class AdminNavigationFlowTest extends TestCase
         $this->assertSame($sort, $reflection->getStaticPropertyValue('navigationSort'));
     }
 
-    public function test_operational_navigation_uses_clear_labels_and_hides_duplicate_parent_menu(): void
+    public function test_operational_navigation_uses_business_facing_labels(): void
     {
         $this->assertSame(
-            'Data Pendaftar',
+            'Pendaftaran',
             (new ReflectionClass(RegistrationResource::class))->getStaticPropertyValue('navigationLabel'),
         );
         $this->assertSame(
-            'Verifikasi Pembayaran',
+            'Pembayaran',
             (new ReflectionClass(PaymentResource::class))->getStaticPropertyValue('navigationLabel'),
         );
         $this->assertSame(
             'Sesi Tes',
             (new ReflectionClass(TestSessions::class))->getStaticPropertyValue('navigationLabel'),
         );
-        $this->assertFalse(ParentInfoResource::shouldRegisterNavigation());
+    }
+
+    #[DataProvider('operationalBadgeItems')]
+    public function test_operational_navigation_defines_actionable_badges(string $class): void
+    {
+        $method = (new ReflectionClass($class))->getMethod('getNavigationBadge');
+
+        $this->assertSame($class, $method->getDeclaringClass()->getName());
+    }
+
+    public function test_selection_batch_intentionally_has_no_custom_navigation_badge(): void
+    {
+        $method = (new ReflectionClass(SelectionBatchResource::class))->getMethod('getNavigationBadge');
+
+        $this->assertNotSame(SelectionBatchResource::class, $method->getDeclaringClass()->getName());
     }
 
     public function test_re_registration_menu_follows_latest_published_unit_configuration(): void
@@ -96,27 +110,42 @@ class AdminNavigationFlowTest extends TestCase
     public static function navigationItems(): array
     {
         return [
-            'registration opening' => [RegistrationOpeningResource::class, 'Pendaftaran', 1],
-            'registrations' => [RegistrationResource::class, 'Pendaftaran', 2],
-            'parents' => [ParentInfoResource::class, 'Pendaftaran', 3],
-            'payments' => [PaymentResource::class, 'Verifikasi', 1],
-            'documents' => [DocumentResource::class, 'Verifikasi', 2],
-            'test sessions' => [TestSessions::class, 'Seleksi & Pengumuman', 1],
-            'test results' => [AdmissionTestResultResource::class, 'Seleksi & Pengumuman', 2],
-            'selection batches' => [SelectionBatchResource::class, 'Seleksi & Pengumuman', 3],
-            'selection decisions' => [SelectionResource::class, 'Seleksi & Pengumuman', 4],
-            'announcements' => [AnnouncementResource::class, 'Seleksi & Pengumuman', 5],
+            'registrations' => [RegistrationResource::class, 'Pendaftaran', 1],
+            'payments' => [PaymentResource::class, 'Pendaftaran', 2],
+            'documents' => [DocumentResource::class, 'Pendaftaran', 3],
+            'test results' => [AdmissionTestResultResource::class, 'Pendaftaran', 4],
+            'selection batches' => [SelectionBatchResource::class, 'Pendaftaran', 5],
+            'selection decisions' => [SelectionResource::class, 'Pendaftaran', 6],
+            'announcements' => [AnnouncementResource::class, 'Pendaftaran', 7],
             're-registration' => [ReRegistrationItemResource::class, 'Pasca-Pengumuman', 1],
             'operational report' => [OperationalReport::class, 'Laporan', 1],
             'unit registration settings' => [UnitRegistrationSettings::class, 'Konfigurasi SPMB', 1],
             'pathways' => [RegistrationPathwayResource::class, 'Konfigurasi SPMB', 2],
-            'study programs' => [StudyProgramResource::class, 'Konfigurasi SPMB', 3],
-            'virtual accounts' => [VirtualAccountResource::class, 'Konfigurasi SPMB', 4],
-            'test configuration' => [AdmissionTestResource::class, 'Konfigurasi SPMB', 5],
+            'registration opening' => [RegistrationOpeningResource::class, 'Konfigurasi SPMB', 3],
+            'study programs' => [StudyProgramResource::class, 'Konfigurasi SPMB', 4],
+            'virtual accounts' => [VirtualAccountResource::class, 'Konfigurasi SPMB', 5],
             'admission quota' => [AdmissionQuotaResource::class, 'Konfigurasi SPMB', 6],
+            'test configuration' => [AdmissionTestResource::class, 'Konfigurasi SPMB', 7],
+            'test sessions' => [TestSessions::class, 'Konfigurasi SPMB', 8],
             'units' => [UnitResource::class, 'Sistem & Akses', 1],
             'users' => [UserResource::class, 'Sistem & Akses', 2],
-            'audit trail' => [AuditLogResource::class, 'Sistem & Akses', 3],
+            'parents' => [ParentInfoResource::class, 'Sistem & Akses', 3],
+            'audit trail' => [AuditLogResource::class, 'Sistem & Akses', 4],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: class-string}>
+     */
+    public static function operationalBadgeItems(): array
+    {
+        return [
+            'registrations' => [RegistrationResource::class],
+            'payments' => [PaymentResource::class],
+            'documents' => [DocumentResource::class],
+            'test results' => [AdmissionTestResultResource::class],
+            'selection decisions' => [SelectionResource::class],
+            'announcements' => [AnnouncementResource::class],
         ];
     }
 
