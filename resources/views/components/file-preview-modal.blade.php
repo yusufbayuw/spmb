@@ -96,6 +96,12 @@
 
     modal.dataset.bound = 'true';
 
+    // Keep the overlay outside Filament layout stacking contexts so it can cover
+    // the topbar, sidebar, and page content consistently.
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
     const content = modal.querySelector('[data-file-preview-content]');
     const title = modal.querySelector('#file-preview-title');
     const meta = modal.querySelector('[data-file-preview-meta]');
