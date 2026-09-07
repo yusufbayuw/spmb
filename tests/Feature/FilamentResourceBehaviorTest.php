@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\TestSessions;
+use App\Filament\Admin\Resources\AdmissionTestResultResource;
 use App\Filament\Admin\Resources\AdmissionTestResource\Pages\CreateAdmissionTest;
 use App\Filament\Admin\Resources\AdmissionTestResource\Pages\EditAdmissionTest;
 use App\Filament\Admin\Resources\AdmissionTestResource\Pages\ListAdmissionTests;
@@ -45,6 +46,8 @@ use App\Filament\Admin\Resources\UserResource\Pages\ListUsers;
 use App\Filament\Admin\Resources\VirtualAccountResource\Pages\ListVirtualAccounts;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages\ListRegistrations as ApplicantListRegistrations;
 use App\Filament\RedirectsToResourceIndex;
+use App\Models\AdmissionTest;
+use App\Models\AdmissionTestResult;
 use App\Models\Document;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -166,6 +169,88 @@ class FilamentResourceBehaviorTest extends TestCase
         Livewire::test(ListDocuments::class)
             ->assertSee('REG-SD-20262027-0001 · Anak Pertama')
             ->assertSee('REG-SD-20262027-0002 · Anak Kedua');
+    }
+
+    public function test_test_result_resource_hides_registrations_that_have_not_reached_tests(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Unit Hasil Tes',
+            'code' => 'TEST-STAGE',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 0,
+            'status' => 'open',
+        ]);
+        $test = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik',
+            'code' => 'STAGE',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+        $administrator = User::factory()->create(['is_active' => true]);
+        $administrator->assignRole(Role::firstOrCreate([
+            'name' => 'super_admin',
+            'guard_name' => 'web',
+        ]));
+        $parent = User::factory()->create(['is_active' => true]);
+
+        $paymentRegistration = Registration::create([
+            'user_id' => $parent->id,
+            'unit_id' => $unit->id,
+            'registration_opening_id' => $opening->id,
+            'registration_number' => 'REG-PAYMENT-ONLY',
+            'full_name' => 'Belum Sampai Tes',
+            'nik' => '3273010101010301',
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2018-01-01',
+            'home_address' => 'Bandung',
+            'current_stage' => 'payment',
+            'lifecycle_status' => 'active',
+        ]);
+        $testRegistration = Registration::create([
+            'user_id' => $parent->id,
+            'unit_id' => $unit->id,
+            'registration_opening_id' => $opening->id,
+            'registration_number' => 'REG-AT-TEST',
+            'full_name' => 'Sudah Sampai Tes',
+            'nik' => '3273010101010302',
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2018-01-01',
+            'home_address' => 'Bandung',
+            'current_stage' => 'tests',
+            'lifecycle_status' => 'active',
+        ]);
+
+        AdmissionTestResult::create([
+            'registration_id' => $paymentRegistration->id,
+            'admission_test_id' => $test->id,
+            'status' => 'unbooked',
+            'result' => 'pending',
+        ]);
+        AdmissionTestResult::create([
+            'registration_id' => $testRegistration->id,
+            'admission_test_id' => $test->id,
+            'status' => 'unbooked',
+            'result' => 'pending',
+        ]);
+
+        $this->actingAs($administrator);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $visibleNumbers = AdmissionTestResultResource::getEloquentQuery()
+            ->get()
+            ->pluck('registration.registration_number')
+            ->all();
+
+        $this->assertNotContains('REG-PAYMENT-ONLY', $visibleNumbers);
+        $this->assertContains('REG-AT-TEST', $visibleNumbers);
     }
 
     public function test_selection_batch_pathway_options_only_include_available_pathways_for_opening_unit(): void
