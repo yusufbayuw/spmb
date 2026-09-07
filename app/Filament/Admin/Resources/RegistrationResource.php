@@ -23,7 +23,7 @@ class RegistrationResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationLabel = 'Data Pendaftar';
+    protected static ?string $navigationLabel = 'Pendaftaran';
 
     protected static ?string $modelLabel = 'Pendaftaran';
 
@@ -31,7 +31,7 @@ class RegistrationResource extends Resource
 
     protected static ?string $navigationGroup = 'Pendaftaran';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
     public static function statusOptions(): array
     {
