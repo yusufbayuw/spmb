@@ -45,11 +45,21 @@ class AdminNavigationFlowTest extends TestCase
         $this->assertSame($sort, $reflection->getStaticPropertyValue('navigationSort'));
     }
 
-    public function test_test_session_navigation_uses_indonesian_label(): void
+    public function test_operational_navigation_uses_clear_labels_and_hides_duplicate_parent_menu(): void
     {
-        $reflection = new ReflectionClass(TestSessions::class);
-
-        $this->assertSame('Sesi Tes', $reflection->getStaticPropertyValue('navigationLabel'));
+        $this->assertSame(
+            'Data Pendaftar',
+            (new ReflectionClass(RegistrationResource::class))->getStaticPropertyValue('navigationLabel'),
+        );
+        $this->assertSame(
+            'Verifikasi Pembayaran',
+            (new ReflectionClass(PaymentResource::class))->getStaticPropertyValue('navigationLabel'),
+        );
+        $this->assertSame(
+            'Sesi Tes',
+            (new ReflectionClass(TestSessions::class))->getStaticPropertyValue('navigationLabel'),
+        );
+        $this->assertFalse(ParentInfoResource::shouldRegisterNavigation());
     }
 
     public function test_re_registration_menu_follows_latest_published_unit_configuration(): void
