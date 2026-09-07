@@ -149,6 +149,37 @@ class SelectionResource extends Resource
                     }),
             ])
             ->actions([
+                Tables\Actions\Action::make('decideDirectly')
+                    ->label('Tetapkan Hasil')
+                    ->icon('heroicon-o-check-circle')
+                    ->visible(fn (Selection $record): bool => (bool) auth()->user()?->can('decide_selection')
+                        && $record->registration?->current_stage === 'selection'
+                        && ! $record->selection_batch_id
+                        && (bool) $record->registration?->allowsManualSelection()
+                    )
+                    ->form([
+                        Forms\Components\Select::make('decision')
+                            ->label('Keputusan')
+                            ->options([
+                                'accepted' => 'Diterima',
+                                'rejected' => 'Ditolak',
+                                'waiting_list' => 'Daftar Tunggu',
+                            ])
+                            ->required(),
+                        Forms\Components\TextInput::make('final_score')
+                            ->label('Nilai Akhir')
+                            ->numeric()
+                            ->default(fn (Selection $record) => $record->final_score),
+                        Forms\Components\Textarea::make('notes')
+                            ->label('Catatan'),
+                    ])
+                    ->action(fn (Selection $record, array $data) => app(RegistrationWorkflowService::class)->decide(
+                        $record->registration,
+                        auth()->user(),
+                        $data['decision'],
+                        $data['final_score'] ?? null,
+                        $data['notes'] ?? null,
+                    )),
                 Tables\Actions\Action::make('reviewDecision')
                     ->label('Review Keputusan')
                     ->icon('heroicon-o-pencil-square')
@@ -220,7 +251,18 @@ class SelectionResource extends Resource
             ->whereHas('registration', fn (Builder $query) => $query
                 ->where('lifecycle_status', 'active')
                 ->where('current_stage', 'selection'))
-            ->whereHas('batch', fn (Builder $query) => $query->where('status', 'ranked'))
+            ->where(function (Builder $query): void {
+                $query->whereHas('batch', fn (Builder $batch) => $batch->where('status', 'ranked'))
+                    ->orWhere(function (Builder $manual): void {
+                        $manual->whereNull('selection_batch_id')
+                            ->whereHas('registration', fn (Builder $registration) => $registration
+                                ->where(function (Builder $mode): void {
+                                    $mode->whereDoesntHave('configuration')
+                                        ->orWhereHas('configuration', fn (Builder $configuration) => $configuration
+                                            ->whereIn('selection_mode', ['manual', 'flexible']));
+                                }));
+                    });
+            })
             ->count();
     }
 
@@ -242,6 +284,7 @@ class SelectionResource extends Resource
     {
         $query = parent::getEloquentQuery()->with([
             'registration.unit',
+            'registration.configuration',
             'registration.announcement',
             'batch',
         ]);
