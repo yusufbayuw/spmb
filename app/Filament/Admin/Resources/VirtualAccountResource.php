@@ -21,9 +21,9 @@ class VirtualAccountResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pool Virtual Account';
 
-    protected static ?string $navigationGroup = 'Pembayaran';
+    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 4;
 
     public static function table(Table $table): Table
     {
