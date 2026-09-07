@@ -523,17 +523,28 @@ class RegistrationWorkflowService
                 ],
             );
 
-            if ($selection->decision === 'rejected') {
+            if (! $lockedRegistration->postAnnouncementEnabled()) {
+                $attributes = ['status' => $selection->decision];
+
+                if ($selection->decision === 'accepted') {
+                    $attributes['accepted_at'] = $lockedRegistration->accepted_at ?: now();
+                }
+
+                $lockedRegistration->transitionTo('completed', $attributes);
+            } elseif ($selection->decision === 'rejected') {
                 $lockedRegistration->transitionTo('completed', ['status' => 'rejected']);
             }
 
             return $announcement->fresh(['registration.user']);
         });
 
-        if ($announcement->registration->selection()->value('decision') === 'accepted') {
-            app(AdmissionDecisionService::class)->publishAccepted($announcement->registration);
-        } elseif ($announcement->registration->selection()->value('decision') === 'waiting_list') {
-            app(AdmissionDecisionService::class)->publishWaitingList($announcement->registration);
+        $publishedRegistration = $announcement->registration->fresh(['configuration']);
+        $decision = $publishedRegistration->selection()->value('decision');
+
+        if ($publishedRegistration->postAnnouncementEnabled() && $decision === 'accepted') {
+            app(AdmissionDecisionService::class)->publishAccepted($publishedRegistration);
+        } elseif ($publishedRegistration->postAnnouncementEnabled() && $decision === 'waiting_list') {
+            app(AdmissionDecisionService::class)->publishWaitingList($publishedRegistration);
         }
 
         SendAnnouncementPublishedMail::dispatch($announcement->id);
