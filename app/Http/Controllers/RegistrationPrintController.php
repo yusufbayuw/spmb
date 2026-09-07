@@ -8,6 +8,7 @@ use App\Models\TestBooking;
 use App\Services\ApplicantFileStorage;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RegistrationPrintController extends Controller
@@ -51,6 +52,14 @@ class RegistrationPrintController extends Controller
         $path = $requirement['template_path'] ?? null;
         abort_unless($path && $storage->privateDisk()->exists($path), 404);
 
-        return response()->download($storage->privateDisk()->path($path), basename($path), ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $downloadName = Str::slug((string) ($requirement['label'] ?? $key))
+            .($extension !== '' ? '.'.$extension : '');
+
+        return response()->download(
+            $storage->privateDisk()->path($path),
+            $downloadName,
+            ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff'],
+        );
     }
 }
