@@ -275,5 +275,5 @@ class DocumentsUpload extends Page implements HasForms
             ->send();
 
         $this->redirect(RegistrationStatus::getUrl(['registration' => $this->registrationRecord->uuid]));
-    }}
+    }
 }
