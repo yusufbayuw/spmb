@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\AdmissionOffer;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\ReRegistrationItem;
 use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\SpmbDatabaseNotification;
 use App\Services\RegistrationWorkflowService;
+use App\Services\SpmbNotificationService;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -156,6 +159,101 @@ class FilamentNotificationTest extends TestCase
             $staff,
             SpmbDatabaseNotification::class,
             fn (SpmbDatabaseNotification $notification): bool => $notification->event === 'registration.lifecycle_changed_staff',
+        );
+    }
+
+    public function test_admission_offer_response_notifies_same_unit_staff(): void
+    {
+        NotificationFacade::fake();
+
+        $unitA = $this->unit('SMA');
+        $unitB = $this->unit('SMP');
+        $applicant = $this->userWithRole('pendaftar');
+        $tuA = $this->userWithRole('tu', ['unit_id' => $unitA->id, 'role' => 'tu']);
+        $tuB = $this->userWithRole('tu', ['unit_id' => $unitB->id, 'role' => 'tu']);
+        $admin = $this->userWithRole('super_admin', ['role' => 'super_admin']);
+        $opening = $this->opening($unitA);
+        $registration = $this->registration($applicant, $unitA, $opening, '3273010101019913');
+
+        $offer = AdmissionOffer::create([
+            'registration_id' => $registration->id,
+            'status' => 'accepted',
+            'offered_at' => now()->subHour(),
+            'expires_at' => now()->addDay(),
+            'accepted_at' => now(),
+        ]);
+
+        app(SpmbNotificationService::class)->admissionOffer($offer, 'accepted');
+
+        NotificationFacade::assertSentTo(
+            $applicant,
+            SpmbDatabaseNotification::class,
+            fn (SpmbDatabaseNotification $notification): bool => $notification->event === 'admission.offer.accepted',
+        );
+
+        foreach ([$tuA, $admin] as $staff) {
+            NotificationFacade::assertSentTo(
+                $staff,
+                SpmbDatabaseNotification::class,
+                fn (SpmbDatabaseNotification $notification): bool => $notification->event === 'admission.offer.accepted_staff'
+                    && $notification->registrationUuid === $registration->uuid,
+            );
+        }
+
+        NotificationFacade::assertNotSentTo($tuB, SpmbDatabaseNotification::class);
+    }
+
+    public function test_re_registration_rejection_notifies_applicant_with_registration_context(): void
+    {
+        NotificationFacade::fake();
+
+        $unit = $this->unit('SMA');
+        $applicant = $this->userWithRole('pendaftar');
+        $opening = $this->opening($unit);
+        $registration = $this->registration($applicant, $unit, $opening, '3273010101019914');
+
+        $item = ReRegistrationItem::create([
+            'registration_id' => $registration->id,
+            'requirement_key' => 'statement',
+            'label' => 'Surat Pernyataan',
+            'type' => 'document',
+            'is_required' => true,
+            'status' => 'rejected',
+            'rejection_reason' => 'Dokumen tidak terbaca.',
+        ]);
+
+        app(SpmbNotificationService::class)->reRegistrationItemReviewed(
+            $item,
+            false,
+            'Dokumen tidak terbaca.',
+        );
+
+        NotificationFacade::assertSentTo(
+            $applicant,
+            SpmbDatabaseNotification::class,
+            fn (SpmbDatabaseNotification $notification): bool => $notification->event === 'reregistration.item_rejected'
+                && $notification->registrationUuid === $registration->uuid
+                && str_contains((string) $notification->body, 'Dokumen tidak terbaca'),
+        );
+    }
+
+    public function test_validation_message_follows_unit_configuration_stage(): void
+    {
+        NotificationFacade::fake();
+
+        $unit = $this->unit('DAYCARE');
+        $applicant = $this->userWithRole('pendaftar');
+        $opening = $this->opening($unit);
+        $registration = $this->registration($applicant, $unit, $opening, '3273010101019915');
+        $registration->forceFill(['current_stage' => 'applicant_card'])->saveQuietly();
+
+        app(SpmbNotificationService::class)->dataValidationResult($registration->fresh(), true);
+
+        NotificationFacade::assertSentTo(
+            $applicant,
+            SpmbDatabaseNotification::class,
+            fn (SpmbDatabaseNotification $notification): bool => $notification->event === 'registration.data_validated'
+                && str_contains((string) $notification->body, 'Pembayaran tidak diperlukan'),
         );
     }
 
