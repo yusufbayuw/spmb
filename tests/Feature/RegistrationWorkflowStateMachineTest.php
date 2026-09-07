@@ -175,6 +175,7 @@ class RegistrationWorkflowStateMachineTest extends TestCase
                 'home_address' => 'Bandung',
                 'current_stage' => 'payment_verification',
                 'lifecycle_status' => 'active',
+                'payment_verified_at' => now(),
             ]);
         };
 
