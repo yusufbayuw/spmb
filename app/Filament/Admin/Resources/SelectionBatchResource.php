@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\SelectionBatchResource\Pages;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\SelectionBatch;
+use App\Models\UnitConfiguration;
 use App\Services\AdmissionDecisionService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -26,6 +27,39 @@ class SelectionBatchResource extends Resource
     protected static ?string $navigationGroup = 'Pendaftaran';
 
     protected static ?int $navigationSort = 5;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->isTU()) {
+            $mode = UnitConfiguration::query()
+                ->where('unit_id', $user->unit_id)
+                ->where('status', 'published')
+                ->orderByDesc('version')
+                ->value('selection_mode');
+
+            return ($mode ?: 'flexible') !== 'manual';
+        }
+
+        $latestPublishedConfigurationIds = UnitConfiguration::query()
+            ->selectRaw('MAX(id)')
+            ->where('status', 'published')
+            ->groupBy('unit_id');
+
+        if (! UnitConfiguration::query()->where('status', 'published')->exists()) {
+            return true;
+        }
+
+        return UnitConfiguration::query()
+            ->whereIn('id', $latestPublishedConfigurationIds)
+            ->whereIn('selection_mode', ['batch', 'flexible'])
+            ->exists();
+    }
 
     public static function form(Form $form): Form
     {
