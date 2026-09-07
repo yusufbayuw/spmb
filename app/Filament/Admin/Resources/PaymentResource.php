@@ -20,7 +20,7 @@ class PaymentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationLabel = 'Pembayaran';
+    protected static ?string $navigationLabel = 'Verifikasi Pembayaran';
 
     protected static ?string $navigationGroup = 'Verifikasi';
 
