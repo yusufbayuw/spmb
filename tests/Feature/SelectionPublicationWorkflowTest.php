@@ -51,10 +51,10 @@ class SelectionPublicationWorkflowTest extends TestCase
 
         $registration->refresh();
 
-        $this->assertSame('admission_offer', $registration->current_stage);
+        $this->assertSame('completed', $registration->current_stage);
         $this->assertSame('accepted', $registration->status);
         $this->assertNotNull($registration->accepted_at);
-        $this->assertSame('offered', $registration->admissionOffer()->value('status'));
+        $this->assertNull($registration->admissionOffer()->first());
         $this->assertSame('published', $published->status);
         $this->assertNotNull($published->published_at);
     }
