@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\AdmissionTestResultResource\Pages;
 use App\Models\AdmissionTestResult;
-use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -31,7 +30,17 @@ class AdmissionTestResultResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->defaultSort('created_at', 'desc')->columns([Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi'), Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable(), Tables\Columns\TextColumn::make('admissionTest.name')->label('Tes'), Tables\Columns\TextColumn::make('score')->label('Nilai'), Tables\Columns\TextColumn::make('result')->badge(), Tables\Columns\TextColumn::make('status')->badge()])->actions([Tables\Actions\Action::make('record')->label('Catat Hasil')->visible(fn () => auth()->user()?->can('record_result_admissiontestresult'))->form([Forms\Components\Select::make('status')->options(['completed' => 'Selesai', 'absent' => 'Tidak Hadir', 'exempted' => 'Dibebaskan'])->required(), Forms\Components\TextInput::make('score')->numeric(), Forms\Components\Select::make('result')->options(['pass' => 'Lulus', 'fail' => 'Tidak Lulus'])->required(), Forms\Components\Textarea::make('notes')])->action(fn (AdmissionTestResult $record, array $data) => app(RegistrationWorkflowService::class)->recordTestResult($record, auth()->user(), $data)), Tables\Actions\EditAction::make()]);
+        return $table
+            ->defaultSort('created_at', 'desc')
+            ->columns([
+                Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi'),
+                Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable(),
+                Tables\Columns\TextColumn::make('admissionTest.name')->label('Tes'),
+                Tables\Columns\TextColumn::make('score')->label('Nilai'),
+                Tables\Columns\TextColumn::make('result')->label('Hasil')->badge(),
+                Tables\Columns\TextColumn::make('status')->label('Status')->badge(),
+            ])
+            ->actions([]);
     }
 
     public static function getNavigationBadge(): ?string
@@ -49,9 +58,14 @@ class AdmissionTestResultResource extends Resource
         return 'warning';
     }
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getPages(): array
     {
-        return ['index' => Pages\ListAdmissionTestResults::route('/'), 'create' => Pages\CreateAdmissionTestResult::route('/create'), 'edit' => Pages\EditAdmissionTestResult::route('/{record}/edit')];
+        return ['index' => Pages\ListAdmissionTestResults::route('/')];
     }
 
     public static function getEloquentQuery(): Builder
