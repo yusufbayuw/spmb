@@ -54,7 +54,7 @@
                     <x-filament::section>
                         <x-slot name="heading">{{ $registration->full_name }}</x-slot>
                         <x-slot name="description">
-                            {{ $registration->registration_number }} · {{ $registration->unit?->name ?? 'Unit / institusi belum ditentukan' }}
+                            {{ $registration->registration_number ?: 'Nomor registrasi menunggu verifikasi pembayaran' }} · {{ $registration->unit?->name ?? 'Unit / institusi belum ditentukan' }}
                         </x-slot>
 
                         <div class="space-y-5">
