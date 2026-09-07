@@ -76,6 +76,7 @@ class UnitConfigurationTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('admin'));
         Livewire::test(UnitRegistrationSettings::class)
             ->assertSee('Pengaturan Pendaftaran Unit')
+            ->assertSee('Metode Penetapan Hasil')
             ->assertSee('Proses Pasca-Pengumuman')
             ->call('showPreview')
             ->assertHasNoFormErrors()
