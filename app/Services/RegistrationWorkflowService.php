@@ -297,9 +297,14 @@ class RegistrationWorkflowService
 
     public function verifyPayment(Payment $payment, User $staff, bool $approved, ?string $reason = null): void
     {
-        DB::transaction(function () use ($payment, $staff, $approved, $reason): void {
+        $cardIssued = false;
+
+        DB::transaction(function () use ($payment, $staff, $approved, $reason, &$cardIssued): void {
             $lockedPayment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
-            $registration = Registration::query()->lockForUpdate()->findOrFail($lockedPayment->registration_id);
+            $registration = Registration::query()
+                ->with(['configuration', 'opening', 'unit'])
+                ->lockForUpdate()
+                ->findOrFail($lockedPayment->registration_id);
             $registration->assertCurrentStage('payment_verification');
 
             if ($approved) {
@@ -318,6 +323,11 @@ class RegistrationWorkflowService
                     'payment_verified_at' => now(),
                 ]);
 
+                $registration->loadMissing(['configuration', 'opening', 'unit']);
+                app(RegistrationNumberService::class)->assign($registration);
+                $this->advanceFromApplicantCard($registration, $staff);
+                $cardIssued = true;
+
                 return;
             }
 
@@ -333,30 +343,54 @@ class RegistrationWorkflowService
             ]);
         });
 
+        $fresh = $payment->fresh(['registration.user'])->registration;
         $this->notifications->paymentVerificationResult($payment->fresh(['registration.user']), $approved, $reason);
+
+        if ($approved && $cardIssued && $fresh) {
+            $this->notifications->applicantCardIssued($fresh);
+        }
     }
 
     public function issueApplicantCard(Registration $registration, User $staff): void
     {
         DB::transaction(function () use ($registration, $staff): void {
-            $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $lockedRegistration = Registration::query()
+                ->with(['configuration', 'opening', 'unit'])
+                ->lockForUpdate()
+                ->findOrFail($registration->id);
             $lockedRegistration->assertCurrentStage('applicant_card');
 
-            $target = $lockedRegistration->configuration && ! $lockedRegistration->configuration->documents_enabled
-                ? (collect($lockedRegistration->configuredTests())->contains('is_required', true) ? 'tests' : 'selection')
-                : 'documents';
-            $lockedRegistration->transitionTo($target, [
-                'applicant_card_number' => $lockedRegistration->applicant_card_number ?: $lockedRegistration->generateApplicantCardNumber(),
-                'applicant_card_issued_by' => $staff->id,
-                'applicant_card_issued_at' => now(),
-            ]);
-            if (in_array($target, ['tests', 'selection'], true)) {
-                $this->prepareTestsAndSelection($lockedRegistration);
+            if ($lockedRegistration->configuration?->payment_enabled && ! $lockedRegistration->payment_verified_at) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Kartu pendaftar hanya dapat diterbitkan setelah pembayaran VA diverifikasi.',
+                ]);
             }
+
+            app(RegistrationNumberService::class)->assign($lockedRegistration);
+            $this->advanceFromApplicantCard($lockedRegistration, $staff);
         });
 
         $fresh = $registration->fresh();
         $this->notifications->applicantCardIssued($fresh);
+    }
+
+    private function advanceFromApplicantCard(Registration $registration, User $staff): void
+    {
+        $registration->assertCurrentStage('applicant_card');
+
+        $target = $registration->configuration && ! $registration->configuration->documents_enabled
+            ? (collect($registration->configuredTests())->contains('is_required', true) ? 'tests' : 'selection')
+            : 'documents';
+
+        $registration->transitionTo($target, [
+            'applicant_card_number' => $registration->applicant_card_number ?: $registration->generateApplicantCardNumber(),
+            'applicant_card_issued_by' => $staff->id,
+            'applicant_card_issued_at' => now(),
+        ]);
+
+        if (in_array($target, ['tests', 'selection'], true)) {
+            $this->prepareTestsAndSelection($registration);
+        }
     }
 
     public function refreshDocumentStage(Registration $registration): bool
