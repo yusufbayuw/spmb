@@ -416,6 +416,7 @@ class AdmissionDecisionService
             ->where('decision', 'accepted')
             ->whereHas('registration', function (Builder $query) use ($quota): void {
                 $query->where('registration_opening_id', $quota->registration_opening_id)
+                    ->where('current_stage', '!=', 'selection')
                     ->when($quota->registration_pathway_id, fn (Builder $q): Builder => $q->where('registration_pathway_id', $quota->registration_pathway_id), fn (Builder $q): Builder => $q->whereNull('registration_pathway_id'));
             })
             ->where(function (Builder $query): void {
@@ -428,7 +429,6 @@ class AdmissionDecisionService
     private function candidates(SelectionBatch $batch): Builder
     {
         return Selection::query()
-            ->where('decision', 'pending')
             ->whereHas('registration', function (Builder $query) use ($batch): void {
                 $query->where('registration_opening_id', $batch->registration_opening_id)
                     ->where('current_stage', 'selection')
