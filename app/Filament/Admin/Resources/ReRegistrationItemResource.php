@@ -19,7 +19,9 @@ class ReRegistrationItemResource extends Resource
 
     protected static ?string $navigationLabel = 'Daftar Ulang';
 
-    protected static ?string $navigationGroup = 'Seleksi';
+    protected static ?string $navigationGroup = 'Pasca-Pengumuman';
+
+    protected static ?int $navigationSort = 1;
 
     public static function form(Forms\Form $form): Forms\Form
     {
