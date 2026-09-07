@@ -294,7 +294,7 @@ class RegistrationResource extends Resource
     {
         return (string) static::getEloquentQuery()
             ->where('lifecycle_status', 'active')
-            ->whereNotIn('current_stage', ['completed'])
+            ->whereIn('current_stage', ['data_validation', 'virtual_account', 'applicant_card'])
             ->count();
     }
 
