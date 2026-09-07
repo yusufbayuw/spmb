@@ -58,6 +58,20 @@ return new class extends Migration
                 DB::table('registrations')
                     ->where('id', $registration->id)
                     ->update($updates);
+
+                $receipts = DB::table('payment_receipts')
+                    ->join('payments', 'payments.id', '=', 'payment_receipts.payment_id')
+                    ->where('payments.registration_id', $registration->id)
+                    ->get(['payment_receipts.id', 'payment_receipts.details']);
+
+                foreach ($receipts as $receipt) {
+                    $details = json_decode((string) $receipt->details, true) ?: [];
+                    $details['registration_number'] = $registrationNumber;
+
+                    DB::table('payment_receipts')
+                        ->where('id', $receipt->id)
+                        ->update(['details' => json_encode($details, JSON_UNESCAPED_UNICODE)]);
+                }
             }
 
             DB::table('registration_number_sequences')->insert([
