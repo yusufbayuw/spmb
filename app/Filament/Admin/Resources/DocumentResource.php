@@ -32,12 +32,24 @@ class DocumentResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->groups([
-                Group::make('registration.user_id')
+                Group::make('registration_id')
                     ->label('Pendaftar')
-                    ->getTitleFromRecordUsing(fn (Document $record): string => $record->registration?->user?->name ?? 'Pendaftar tanpa nama')
+                    ->getTitleFromRecordUsing(function (Document $record): string {
+                        $registration = $record->registration;
+
+                        if (! $registration) {
+                            return 'Pendaftaran tidak ditemukan';
+                        }
+
+                        return trim(
+                            ($registration->registration_number ?: 'Tanpa nomor registrasi')
+                            .' · '
+                            .($registration->full_name ?: 'Tanpa nama calon siswa')
+                        );
+                    })
                     ->collapsible(),
             ])
-            ->defaultGroup('registration.user_id')
+            ->defaultGroup('registration_id')
             ->groupingSettingsHidden()
             ->columns([
                 Tables\Columns\TextColumn::make('registration.user.name')->searchable()->hidden(),
