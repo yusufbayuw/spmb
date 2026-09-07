@@ -6,10 +6,12 @@ use App\Models\AdmissionTest;
 use App\Models\AdmissionTestResult;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\TestSession;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
 use App\Services\AdmissionTestResultSpreadsheetService;
+use App\Services\TestBookingService;
 use Database\Seeders\ShieldSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -211,13 +213,29 @@ class AdmissionTestResultSpreadsheetTest extends TestCase
         $first = $this->registration($opening, $configuration, 'REG-XLSX-0001', 'Peserta Pertama', '3273010101010201');
         $second = $this->registration($opening, $configuration, 'REG-XLSX-0002', 'Peserta Kedua', '3273010101010202');
 
+        $session = TestSession::create([
+            'admission_test_id' => $test->id,
+            'starts_at' => now()->addDays(3),
+            'ends_at' => now()->addDays(3)->addHour(),
+            'booking_closes_at' => now()->addDays(2),
+            'location' => 'Ruang TKA',
+            'capacity' => 2,
+            'status' => 'active',
+        ]);
+
         foreach ([$first, $second] as $registration) {
             AdmissionTestResult::create([
                 'registration_id' => $registration->id,
                 'admission_test_id' => $test->id,
-                'status' => 'scheduled',
+                'status' => 'unbooked',
                 'result' => 'pending',
             ]);
+
+            app(TestBookingService::class)->book(
+                $registration,
+                $session,
+                $registration->user,
+            );
         }
 
         return [$staff, $test, $first, $second];
