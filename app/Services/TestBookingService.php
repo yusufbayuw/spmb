@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AdmissionTest;
+use App\Models\AdmissionTestResult;
 use App\Models\Registration;
 use App\Models\TestBooking;
 use App\Models\TestSession;
@@ -55,6 +56,13 @@ class TestBookingService
             }
             $booking ??= new TestBooking(['registration_id' => $registration->id, 'admission_test_id' => $session->admission_test_id]);
             $booking->fill(['test_session_id' => $session->id, 'revision' => ($booking->revision ?? 0) + 1])->save();
+
+            AdmissionTestResult::query()
+                ->where('registration_id', $registration->id)
+                ->where('admission_test_id', $session->admission_test_id)
+                ->whereIn('status', ['unbooked', 'scheduled'])
+                ->update(['status' => 'scheduled']);
+
             app(SpmbNotificationService::class)->workflowEvent($registration, 'test.booking.'.$booking->id.'.'.$booking->revision, 'Jadwal tes dipilih', $definition['name'].' · '.$session->label(), true, true);
 
             return $booking;
@@ -100,6 +108,12 @@ class TestBookingService
                 foreach ($bookings as $booking) {
                     if ($record->status === 'cancelled') {
                         $booking->update(['test_session_id' => null, 'revision' => $booking->revision + 1]);
+
+                        AdmissionTestResult::query()
+                            ->where('registration_id', $booking->registration_id)
+                            ->where('admission_test_id', $booking->admission_test_id)
+                            ->where('status', 'scheduled')
+                            ->update(['status' => 'unbooked']);
                     }
                     app(SpmbNotificationService::class)->workflowEvent($booking->registration, 'test.session.changed', $record->status === 'cancelled' ? 'Sesi tes dibatalkan' : 'Informasi sesi tes berubah', $record->label().($record->status === 'cancelled' ? '. Silakan pilih sesi baru.' : ''), true, true);
                 }
@@ -117,6 +131,12 @@ class TestBookingService
             $bookings = TestBooking::query()->where('registration_id', $registration->id)->whereHas('session', fn ($q) => $q->where('starts_at', '>', now()))->get();
             foreach ($bookings as $booking) {
                 $booking->update(['test_session_id' => null, 'revision' => $booking->revision + 1]);
+
+                AdmissionTestResult::query()
+                    ->where('registration_id', $booking->registration_id)
+                    ->where('admission_test_id', $booking->admission_test_id)
+                    ->where('status', 'scheduled')
+                    ->update(['status' => 'unbooked']);
             }
         }, 5);
     }
