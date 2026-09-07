@@ -265,7 +265,7 @@ class FilamentResourceBehaviorTest extends TestCase
     {
         return [
             'admission tests' => [ListAdmissionTests::class, ['all', 'active', 'inactive']],
-            'admission test results' => [ListAdmissionTestResults::class, ['all', 'scheduled', 'completed', 'absent', 'exempted']],
+            'admission test results' => [ListAdmissionTestResults::class, ['all', 'unbooked', 'scheduled', 'completed', 'absent', 'exempted']],
             'announcements' => [ListAnnouncements::class, ['all', 'draft', 'published']],
             'documents' => [ListDocuments::class, ['all', 'pending', 'rejected', 'verified']],
             'payments' => [ListPayments::class, ['all', 'pending', 'paid', 'verified', 'rejected']],
