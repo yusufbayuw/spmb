@@ -96,6 +96,11 @@ class RegistrationWorkflowService
 
         if ($approved && $registration->current_stage === 'virtual_account') {
             $this->assignAvailableVirtualAccount($registration, $staff);
+        } elseif ($approved && $registration->current_stage === 'applicant_card') {
+            // Unit without a payment stage has no VA verification event, so card
+            // issuance and the official registration number happen immediately
+            // after data validation instead of requiring a manual TU action.
+            $this->issueApplicantCard($registration, $staff);
         }
     }
 
