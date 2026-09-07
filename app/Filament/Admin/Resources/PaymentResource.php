@@ -115,8 +115,15 @@ class PaymentResource extends Resource
     {
         return (string) static::getEloquentQuery()
             ->where('status', 'paid')
-            ->whereHas('registration', fn (Builder $q) => $q->where('lifecycle_status', 'active'))
+            ->whereHas('registration', fn (Builder $q) => $q
+                ->where('lifecycle_status', 'active')
+                ->where('current_stage', 'payment'))
             ->count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
     }
 
     public static function canCreate(): bool
