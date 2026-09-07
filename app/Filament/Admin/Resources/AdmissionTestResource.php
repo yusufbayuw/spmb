@@ -21,9 +21,9 @@ class AdmissionTestResource extends Resource
 
     protected static ?string $navigationLabel = 'Konfigurasi Tes';
 
-    protected static ?string $navigationGroup = 'Seleksi';
+    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 5;
 
     public static function form(Form $form): Form
     {
