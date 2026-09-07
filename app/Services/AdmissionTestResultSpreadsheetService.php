@@ -64,15 +64,24 @@ class AdmissionTestResultSpreadsheetService
         $results = AdmissionTestResult::query()
             ->with(['registration', 'admissionTest'])
             ->where('admission_test_id', $test->id)
+            ->where('status', 'scheduled')
             ->whereHas('registration', fn (Builder $query): Builder => $query
-                ->where('lifecycle_status', 'active'))
+                ->where('lifecycle_status', 'active')
+                ->where('current_stage', 'tests'))
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('test_bookings')
+                    ->whereColumn('test_bookings.registration_id', 'admission_test_results.registration_id')
+                    ->whereColumn('test_bookings.admission_test_id', 'admission_test_results.admission_test_id')
+                    ->whereNotNull('test_bookings.test_session_id');
+            })
             ->get()
             ->sortBy(fn (AdmissionTestResult $result): string => (string) $result->registration?->registration_number)
             ->values();
 
         if ($results->isEmpty()) {
             throw ValidationException::withMessages([
-                'admission_test_id' => 'Belum ada peserta untuk tes ini.',
+                'admission_test_id' => 'Belum ada peserta terjadwal yang siap dicatat hasilnya untuk tes ini.',
             ]);
         }
 
@@ -219,6 +228,24 @@ class AdmissionTestResultSpreadsheetService
 
             if ($registration->current_stage !== 'tests') {
                 $errors[] = "Baris {$excelRow}: hasil tes {$registration->registration_number} sudah terkunci karena peserta tidak lagi berada di tahap tes.";
+
+                continue;
+            }
+
+            if ($model->status !== 'scheduled') {
+                $errors[] = "Baris {$excelRow}: peserta {$registration->registration_number} belum memiliki sesi aktif atau hasilnya sudah diproses. Download ulang file terbaru.";
+
+                continue;
+            }
+
+            $hasBooking = DB::table('test_bookings')
+                ->where('registration_id', $registration->id)
+                ->where('admission_test_id', $model->admission_test_id)
+                ->whereNotNull('test_session_id')
+                ->exists();
+
+            if (! $hasBooking) {
+                $errors[] = "Baris {$excelRow}: peserta {$registration->registration_number} belum memilih sesi tes.";
 
                 continue;
             }
