@@ -44,7 +44,7 @@ class PaymentResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi')->searchable(),
+                Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi')->searchable()->placeholder('Diterbitkan setelah verifikasi'),
                 Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable(),
                 Tables\Columns\TextColumn::make('registration.unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('va_number')->label('VA')->copyable(),
@@ -79,7 +79,7 @@ class PaymentResource extends Resource
                         }
 
                         app(RegistrationWorkflowService::class)->verifyPayment($record, auth()->user(), true);
-                        Notification::make()->title('Pembayaran aman dan terverifikasi')->success()->send();
+                        Notification::make()->title('Pembayaran terverifikasi; nomor registrasi & kartu diterbitkan otomatis')->success()->send();
                     }),
                 Tables\Actions\Action::make('reject')
                     ->label('Tolak')->color('danger')
