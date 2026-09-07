@@ -177,6 +177,23 @@ class Registration extends Model
         return true;
     }
 
+    public function selectionMode(): string
+    {
+        $mode = (string) ($this->configuration?->selection_mode ?? 'flexible');
+
+        return in_array($mode, ['manual', 'batch', 'flexible'], true) ? $mode : 'flexible';
+    }
+
+    public function usesSelectionBatch(): bool
+    {
+        return $this->selectionMode() === 'batch';
+    }
+
+    public function allowsManualSelection(): bool
+    {
+        return in_array($this->selectionMode(), ['manual', 'flexible'], true);
+    }
+
     public function postAnnouncementEnabled(): bool
     {
         return (bool) ($this->configuration?->post_announcement_enabled ?? false);
