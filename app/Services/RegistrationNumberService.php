@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Registration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RegistrationNumberService
 {
@@ -11,6 +12,22 @@ class RegistrationNumberService
     {
         if (filled($registration->registration_number)) {
             return (string) $registration->registration_number;
+        }
+
+        $registration->loadMissing(['configuration', 'opening', 'unit']);
+
+        $paymentRequired = $registration->configuration?->payment_enabled ?? true;
+
+        if ($paymentRequired && ! $registration->payment_verified_at) {
+            throw ValidationException::withMessages([
+                'registration_number' => 'Nomor registrasi baru diterbitkan setelah pembayaran VA diverifikasi.',
+            ]);
+        }
+
+        if (! $paymentRequired && $registration->data_validation_status !== 'valid') {
+            throw ValidationException::withMessages([
+                'registration_number' => 'Nomor registrasi baru diterbitkan setelah data pendaftaran dinyatakan valid.',
+            ]);
         }
 
         DB::table('registration_number_sequences')->insertOrIgnore([
