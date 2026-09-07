@@ -329,7 +329,9 @@ class RegistrationResource extends Resource
                 });
 
                 if ($record?->registration_pathway_id) {
-                    $query->orWhereKey($record->registration_pathway_id);
+                    $query->orWhere(
+                        fn (Builder $query): Builder => $query->whereKey($record->registration_pathway_id)
+                    );
                 }
             })
             ->orderBy('name')
