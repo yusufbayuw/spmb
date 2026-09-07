@@ -151,7 +151,7 @@ class UnitConfigurationTest extends TestCase
         $this->assertDatabaseHas('admission_test_results', [
             'registration_id' => $registration->id,
             'admission_test_id' => $test->id,
-            'status' => 'scheduled',
+            'status' => 'unbooked',
             'result' => 'pending',
         ]);
     }
