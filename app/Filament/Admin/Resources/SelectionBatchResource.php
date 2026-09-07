@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\SelectionBatchResource\Pages;
+use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\SelectionBatch;
@@ -34,6 +35,20 @@ class SelectionBatchResource extends Resource
 
         if (! $user) {
             return false;
+        }
+
+        $eligibleRegistrations = Registration::query()
+            ->where('lifecycle_status', 'active')
+            ->where('current_stage', 'selection')
+            ->where(function (Builder $mode): void {
+                $mode->whereDoesntHave('configuration')
+                    ->orWhereHas('configuration', fn (Builder $configuration) => $configuration
+                        ->whereIn('selection_mode', ['batch', 'flexible']));
+            })
+            ->when($user->isTU(), fn (Builder $query) => $query->where('unit_id', $user->unit_id));
+
+        if ($eligibleRegistrations->exists()) {
+            return true;
         }
 
         if ($user->isTU()) {
