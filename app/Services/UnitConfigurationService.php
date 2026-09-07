@@ -38,6 +38,7 @@ class UnitConfigurationService
             'payment_enabled' => true,
             'documents_enabled' => true,
             'tests_enabled' => count($tests) > 0,
+            'selection_mode' => 'flexible',
             'post_announcement_enabled' => false,
             'fields' => [],
             'document_requirements' => $documents,
@@ -72,7 +73,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'post_announcement_enabled', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -84,7 +85,7 @@ class UnitConfigurationService
             Unit::query()->lockForUpdate()->findOrFail($configuration->unit_id);
             $locked = UnitConfiguration::query()->lockForUpdate()->findOrFail($configuration->id);
             $validated = Validator::make($data, [
-                'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'post_announcement_enabled' => ['required', 'boolean'],
+                'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
                 'fields' => ['present', 'array', 'max:100'], 'fields.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
                 'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean'])],
                 'fields.*.active' => ['required', 'boolean'], 'fields.*.required' => ['required', 'boolean'], 'fields.*.group' => ['nullable', 'string', 'max:100'],
