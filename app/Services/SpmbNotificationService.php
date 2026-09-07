@@ -310,7 +310,14 @@ class SpmbNotificationService
         $registration = $offer->registration;
         $content = match ($event) {
             'created' => ['admission.offer.created', 'Penawaran penerimaan tersedia', 'Anda dinyatakan diterima. Konfirmasikan kursi sebelum '.$offer->expires_at->translatedFormat('d F Y H:i').'.', 'success'],
-            'accepted' => ['admission.offer.accepted', 'Kursi telah dikonfirmasi', 'Konfirmasi penerimaan berhasil. Silakan lengkapi daftar ulang.', 'success'],
+            'accepted' => [
+                'admission.offer.accepted',
+                'Kursi telah dikonfirmasi',
+                $registration->current_stage === 'enrollment'
+                    ? 'Konfirmasi penerimaan berhasil. Tidak ada persyaratan daftar ulang yang tertunda dan pendaftaran siap untuk enrollment.'
+                    : 'Konfirmasi penerimaan berhasil. Silakan lengkapi daftar ulang.',
+                'success',
+            ],
             'declined' => ['admission.offer.declined', 'Penawaran penerimaan ditolak', 'Penawaran telah ditolak dan kursi dilepas.', 'warning'],
             'reminder' => ['admission.offer.reminder', 'Pengingat konfirmasi kursi', 'Konfirmasikan kursi sebelum '.$offer->expires_at->translatedFormat('d F Y H:i').'.', 'warning'],
             default => ['admission.offer.expired', 'Penawaran penerimaan berakhir', 'Batas konfirmasi kursi telah berakhir dan kursi dilepas.', 'danger'],
