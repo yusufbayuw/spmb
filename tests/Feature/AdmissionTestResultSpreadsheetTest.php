@@ -62,8 +62,10 @@ class AdmissionTestResultSpreadsheetTest extends TestCase
                 'HASIL',
                 'CATATAN',
             ], $rows[0]);
+            $this->assertCount(3, $rows);
             $this->assertSame($first->registration_number, $rows[1][2]);
             $this->assertSame($second->registration_number, $rows[2][2]);
+            $this->assertNotContains('REG-XLSX-0003', array_column($rows, 2));
         } finally {
             @unlink($path);
         }
@@ -212,6 +214,7 @@ class AdmissionTestResultSpreadsheetTest extends TestCase
 
         $first = $this->registration($opening, $configuration, 'REG-XLSX-0001', 'Peserta Pertama', '3273010101010201');
         $second = $this->registration($opening, $configuration, 'REG-XLSX-0002', 'Peserta Kedua', '3273010101010202');
+        $third = $this->registration($opening, $configuration, 'REG-XLSX-0003', 'Peserta Belum Memilih Sesi', '3273010101010203');
 
         $session = TestSession::create([
             'admission_test_id' => $test->id,
@@ -223,14 +226,16 @@ class AdmissionTestResultSpreadsheetTest extends TestCase
             'status' => 'active',
         ]);
 
-        foreach ([$first, $second] as $registration) {
+        foreach ([$first, $second, $third] as $registration) {
             AdmissionTestResult::create([
                 'registration_id' => $registration->id,
                 'admission_test_id' => $test->id,
                 'status' => 'unbooked',
                 'result' => 'pending',
             ]);
+        }
 
+        foreach ([$first, $second] as $registration) {
             app(TestBookingService::class)->book(
                 $registration,
                 $session,
@@ -238,7 +243,9 @@ class AdmissionTestResultSpreadsheetTest extends TestCase
             );
         }
 
-        return [$staff, $test, $first, $second];
+        $this->assertSame('unbooked', $third->testResults()->value('status'));
+
+        return [$staff, $test, $first, $second, $third];
     }
 
     private function registration(
