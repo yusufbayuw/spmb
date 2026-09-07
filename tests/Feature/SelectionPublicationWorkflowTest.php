@@ -55,6 +55,9 @@ class SelectionPublicationWorkflowTest extends TestCase
         $this->assertSame('accepted', $registration->status);
         $this->assertNotNull($registration->accepted_at);
         $this->assertNull($registration->admissionOffer()->first());
+        $this->assertArrayNotHasKey('admission_offer', $registration->enabledStages());
+        $this->assertArrayNotHasKey('re_registration', $registration->enabledStages());
+        $this->assertArrayNotHasKey('enrollment', $registration->enabledStages());
         $this->assertSame('published', $published->status);
         $this->assertNotNull($published->published_at);
     }
