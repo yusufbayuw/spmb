@@ -29,7 +29,7 @@ class AdmissionTestResultResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form->schema([Forms\Components\Select::make('registration_id')->relationship('registration', 'registration_number')->label('Pendaftaran')->searchable()->preload()->required(), Forms\Components\Select::make('admission_test_id')->relationship('admissionTest', 'name')->label('Tes')->preload()->required(), Forms\Components\Select::make('status')->options(['scheduled' => 'Terjadwal', 'completed' => 'Selesai', 'absent' => 'Tidak Hadir', 'exempted' => 'Dibebaskan'])->required(), Forms\Components\TextInput::make('score')->numeric()->label('Nilai'), Forms\Components\Select::make('result')->options(['pending' => 'Belum Dinilai', 'pass' => 'Lulus', 'fail' => 'Tidak Lulus'])->required(), Forms\Components\Textarea::make('notes')->label('Catatan')]);
+        return $form->schema([Forms\Components\Select::make('registration_id')->relationship('registration', 'registration_number')->label('Pendaftaran')->searchable()->preload()->required(), Forms\Components\Select::make('admission_test_id')->relationship('admissionTest', 'name')->label('Tes')->preload()->required(), Forms\Components\Select::make('status')->options(['unbooked' => 'Belum Terjadwal', 'scheduled' => 'Terjadwal', 'completed' => 'Selesai', 'absent' => 'Tidak Hadir', 'exempted' => 'Dibebaskan'])->required(), Forms\Components\TextInput::make('score')->numeric()->label('Nilai'), Forms\Components\Select::make('result')->options(['pending' => 'Belum Dinilai', 'pass' => 'Lulus', 'fail' => 'Tidak Lulus'])->required(), Forms\Components\Textarea::make('notes')->label('Catatan')]);
     }
 
     public static function table(Table $table): Table
@@ -71,6 +71,13 @@ class AdmissionTestResultResource extends Resource
             ->whereHas('registration', fn (Builder $query) => $query
                 ->where('lifecycle_status', 'active')
                 ->where('current_stage', 'tests'))
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('test_bookings')
+                    ->whereColumn('test_bookings.registration_id', 'admission_test_results.registration_id')
+                    ->whereColumn('test_bookings.admission_test_id', 'admission_test_results.admission_test_id')
+                    ->whereNotNull('test_bookings.test_session_id');
+            })
             ->count();
     }
 
