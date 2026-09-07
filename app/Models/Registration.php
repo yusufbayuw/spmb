@@ -94,11 +94,6 @@ class Registration extends Model
             }
         });
 
-        static::created(function (Registration $registration): void {
-            if (blank($registration->registration_number) && $registration->unit) {
-                $registration->forceFill(['registration_number' => $registration->generateRegistrationNumber()])->saveQuietly();
-            }
-        });
     }
 
     public function configuration(): BelongsTo
@@ -328,16 +323,19 @@ class Registration extends Model
 
     public function generateRegistrationNumber(): string
     {
-        $year = $this->opening?->academic_year
-            ? str_replace(['/', '-'], '', $this->opening->academic_year)
-            : ($this->created_at?->format('Y') ?? now()->format('Y'));
-
-        return 'REG-'.$this->unit->code.'-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
+        return app(\App\Services\RegistrationNumberService::class)->assign($this);
     }
 
     public function generateApplicantCardNumber(): string
     {
-        $year = now()->format('Y');
+        if (filled($this->registration_number)) {
+            return preg_replace('/^REG-/', 'KARTU-', (string) $this->registration_number)
+                ?: 'KARTU-'.$this->registration_number;
+        }
+
+        $year = $this->opening?->academic_year
+            ? str_replace(['/', '-'], '', $this->opening->academic_year)
+            : ($this->created_at?->format('Y') ?? now()->format('Y'));
 
         return 'KARTU-'.$this->unit->code.'-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
     }
