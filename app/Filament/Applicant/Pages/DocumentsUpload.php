@@ -41,12 +41,10 @@ class DocumentsUpload extends Page implements HasForms
         abort_unless(Str::isUuid($registration), 404);
         $this->registrationRecord = Registration::query()->where('user_id', auth()->id())->with(['documents', 'unit', 'configuration'])->where('uuid', $registration)->firstOrFail();
         abort_unless($this->registrationRecord->isOperational() && in_array($this->registrationRecord->current_stage, ['documents', 'document_verification'], true), 403);
-        $values = [];
-        foreach ($this->registrationRecord->documentRequirements() as $requirement) {
-            $paths = $this->registrationRecord->documents->filter(fn (Document $document): bool => ($document->requirement_key ?: $document->type) === $requirement['key'])->pluck('file_path')->all();
-            $values[$requirement['key']] = $requirement['max_files'] > 1 ? $paths : null;
-        }
-        $this->form->fill($values);
+        // Existing private files are rendered through authenticated routes in the Blade view.
+        // Never hydrate private storage paths back into FileUpload: FilePond would try to
+        // resolve them as browser-accessible files instead of our authorized controller.
+        $this->form->fill([]);
     }
 
     public function getMaxContentWidth(): MaxWidth|string|null
@@ -70,7 +68,7 @@ class DocumentsUpload extends Page implements HasForms
         return $form->schema([Section::make('Dokumen Pendaftaran')->schema($fields)->columns(2)])->statePath('data');
     }
 
-    public function submit(ApplicantFileStorage $storage, ApplicantUploadSecurity $security): void
+    public function submit(ApplicantUploadSecurity $security): void
     {
         $data = $this->form->getState();
         $changed = false;
@@ -79,10 +77,14 @@ class DocumentsUpload extends Page implements HasForms
             $registration->assertCurrentStage(['documents', 'document_verification']);
             foreach ($registration->documentRequirements() as $requirement) {
                 $paths = array_values(array_filter((array) ($data[$requirement['key']] ?? [])));
-                if ($requirement['max_files'] === 1 && $paths === []) {
+                $existing = $registration->documents()->where(fn ($q) => $q->where('requirement_key', $requirement['key'])->orWhere(fn ($q) => $q->whereNull('requirement_key')->where('type', $requirement['key'])))->get();
+
+                // The upload form contains only newly selected files. Existing private files
+                // are shown separately above the form, so an empty field means "no change",
+                // not "delete all existing files".
+                if ($paths === []) {
                     continue;
                 }
-                $existing = $registration->documents()->where(fn ($q) => $q->where('requirement_key', $requirement['key'])->orWhere(fn ($q) => $q->whereNull('requirement_key')->where('type', $requirement['key'])))->get();
                 if (count($paths) > $requirement['max_files']) {
                     throw ValidationException::withMessages(['data.'.$requirement['key'] => 'Jumlah lampiran melebihi batas.']);
                 }
