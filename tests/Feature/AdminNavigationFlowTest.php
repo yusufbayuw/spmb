@@ -76,6 +76,34 @@ class AdminNavigationFlowTest extends TestCase
         $this->assertNotSame(SelectionBatchResource::class, $method->getDeclaringClass()->getName());
     }
 
+    public function test_selection_batch_navigation_follows_latest_selection_mode(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Unit Seleksi',
+            'code' => 'UNIT-SELEKSI',
+            'is_active' => true,
+        ]);
+        $user = User::factory()->create([
+            'unit_id' => $unit->id,
+            'is_active' => true,
+        ]);
+        $user->assignRole(Role::firstOrCreate([
+            'name' => 'tu',
+            'guard_name' => 'web',
+        ]));
+
+        $this->actingAs($user);
+
+        $this->configuration($unit, 1, false, 'flexible');
+        $this->assertTrue(SelectionBatchResource::shouldRegisterNavigation());
+
+        $this->configuration($unit, 2, false, 'manual');
+        $this->assertFalse(SelectionBatchResource::shouldRegisterNavigation());
+
+        $this->configuration($unit, 3, false, 'batch');
+        $this->assertTrue(SelectionBatchResource::shouldRegisterNavigation());
+    }
+
     public function test_re_registration_menu_follows_latest_published_unit_configuration(): void
     {
         $unit = Unit::create([
@@ -149,7 +177,7 @@ class AdminNavigationFlowTest extends TestCase
         ];
     }
 
-    private function configuration(Unit $unit, int $version, bool $postAnnouncementEnabled): UnitConfiguration
+    private function configuration(Unit $unit, int $version, bool $postAnnouncementEnabled, string $selectionMode = 'flexible'): UnitConfiguration
     {
         return UnitConfiguration::create([
             'unit_id' => $unit->id,
@@ -158,6 +186,7 @@ class AdminNavigationFlowTest extends TestCase
             'payment_enabled' => true,
             'documents_enabled' => true,
             'tests_enabled' => false,
+            'selection_mode' => $selectionMode,
             'post_announcement_enabled' => $postAnnouncementEnabled,
             'fields' => [],
             'document_requirements' => [],
