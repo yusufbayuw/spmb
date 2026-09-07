@@ -177,12 +177,12 @@ class Registration extends Model
         return true;
     }
 
-    /** @return list<array<string, mixed>> */
     public function postAnnouncementEnabled(): bool
     {
         return (bool) ($this->configuration?->post_announcement_enabled ?? false);
     }
 
+    /** @return list<array<string, mixed>> */
     public function reRegistrationRequirements(): array
     {
         return array_values(array_filter(
