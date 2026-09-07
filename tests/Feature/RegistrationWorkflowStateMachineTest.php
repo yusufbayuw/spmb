@@ -11,8 +11,10 @@ use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
+use App\Services\RegistrationNumberService;
 use App\Services\RegistrationWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -135,6 +137,60 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertNotNull($announcement->published_at);
         $this->assertNull($announcement->fresh()->email_sent_at);
         Queue::assertPushed(SendAnnouncementPublishedMail::class, fn ($job) => $job->announcementId === $announcement->id);
+    }
+
+    public function test_registration_number_sequence_is_independent_per_unit(): void
+    {
+        $sd = Unit::create(['name' => 'Sekolah Dasar', 'code' => 'SD', 'is_active' => true]);
+        $dc = Unit::create(['name' => 'Daycare', 'code' => 'DC', 'is_active' => true]);
+        $user = User::factory()->create(['role' => 'user', 'is_active' => true]);
+
+        $sdOpening = RegistrationOpening::create([
+            'unit_id' => $sd->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 385000,
+            'status' => 'open',
+        ]);
+        $dcOpening = RegistrationOpening::create([
+            'unit_id' => $dc->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 200000,
+            'status' => 'open',
+        ]);
+
+        $make = function (Unit $unit, RegistrationOpening $opening, string $nik, string $name) use ($user): Registration {
+            return Registration::create([
+                'user_id' => $user->id,
+                'unit_id' => $unit->id,
+                'registration_opening_id' => $opening->id,
+                'registrant_type' => 'parent',
+                'registrant_relationship' => 'father',
+                'nik' => $nik,
+                'full_name' => $name,
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2018-01-01',
+                'home_address' => 'Bandung',
+                'current_stage' => 'payment_verification',
+                'lifecycle_status' => 'active',
+            ]);
+        };
+
+        $sdFirst = $make($sd, $sdOpening, '3273010101010401', 'SD Pertama');
+        $dcFirst = $make($dc, $dcOpening, '3273010101010402', 'DC Pertama');
+        $sdSecond = $make($sd, $sdOpening, '3273010101010403', 'SD Kedua');
+
+        $allocator = app(RegistrationNumberService::class);
+
+        DB::transaction(fn () => $allocator->assign($sdFirst));
+        DB::transaction(fn () => $allocator->assign($dcFirst));
+        DB::transaction(fn () => $allocator->assign($sdSecond));
+
+        $this->assertSame('REG-SD-20262027-0001', $sdFirst->fresh()->registration_number);
+        $this->assertSame('REG-DC-20262027-0001', $dcFirst->fresh()->registration_number);
+        $this->assertSame('REG-SD-20262027-0002', $sdSecond->fresh()->registration_number);
     }
 
     public function test_workflow_service_rejects_skipping_required_stages(): void
