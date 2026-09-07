@@ -23,7 +23,9 @@ class SelectionBatchResource extends Resource
 
     protected static ?string $navigationLabel = 'Batch Seleksi';
 
-    protected static ?string $navigationGroup = 'Seleksi';
+    protected static ?string $navigationGroup = 'Seleksi & Pengumuman';
+
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {
