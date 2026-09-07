@@ -120,7 +120,7 @@ class DocumentsUpload extends Page implements HasForms
     }
 
     /** @return list<TemporaryUploadedFile> */
-    public function normalizeUploads(mixed $state): array
+    private function normalizeUploads(mixed $state): array
     {
         if ($state instanceof TemporaryUploadedFile) {
             return [$state];
