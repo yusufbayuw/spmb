@@ -31,6 +31,7 @@ return new class extends Migration
                 ->orderBy('registrations.id')
                 ->get([
                     'registrations.id',
+                    'registrations.applicant_card_issued_at',
                     'registration_openings.academic_year',
                     'registrations.created_at',
                 ]);
@@ -44,11 +45,19 @@ return new class extends Migration
                     ? str_replace(['/', '-'], '', $registration->academic_year)
                     : substr((string) $registration->created_at, 0, 4);
 
+                $registrationNumber = 'REG-'.$unit->code.'-'.$year.'-'.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
+
+                $updates = [
+                    'registration_number' => $registrationNumber,
+                ];
+
+                if ($registration->applicant_card_issued_at) {
+                    $updates['applicant_card_number'] = preg_replace('/^REG-/', 'KARTU-', $registrationNumber);
+                }
+
                 DB::table('registrations')
                     ->where('id', $registration->id)
-                    ->update([
-                        'registration_number' => 'REG-'.$unit->code.'-'.$year.'-'.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT),
-                    ]);
+                    ->update($updates);
             }
 
             DB::table('registration_number_sequences')->insert([
