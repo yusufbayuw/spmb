@@ -106,6 +106,73 @@ class UnitConfigurationTest extends TestCase
         }
     }
 
+    public function test_applying_test_configuration_before_test_stage_does_not_create_test_results(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+
+        $oldConfiguration = $service->initialize($unit);
+
+        $test = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik',
+            'code' => 'EARLY',
+            'sort_order' => 1,
+            'is_required' => true,
+            'is_active' => true,
+            'result_type' => 'score',
+        ]);
+
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['tests_enabled'] = true;
+        $data['test_definitions'] = [['id' => $test->id]];
+        $published = $service->save($draft, $staff, $data, true);
+
+        $registration->update([
+            'unit_configuration_id' => $oldConfiguration->id,
+            'current_stage' => 'payment',
+        ]);
+
+        $result = $service->applyCurrentToEligibleActiveRegistrations($unit, $staff);
+
+        $registration->refresh();
+
+        $this->assertSame(1, $result['updated']);
+        $this->assertSame(0, $result['moved_to_tests']);
+        $this->assertSame($published->id, $registration->unit_configuration_id);
+        $this->assertSame('payment', $registration->current_stage);
+        $this->assertSame(0, $registration->testResults()->count());
+    }
+
+    public function test_premature_unbooked_test_results_are_removed_by_cleanup_migration(): void
+    {
+        [$unit, , $registration] = $this->fixture();
+
+        $test = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Prematur',
+            'code' => 'PREMATURE',
+            'sort_order' => 1,
+            'is_required' => true,
+            'is_active' => true,
+            'result_type' => 'score',
+        ]);
+
+        $registration->update(['current_stage' => 'payment']);
+
+        $result = $registration->testResults()->create([
+            'admission_test_id' => $test->id,
+            'status' => 'unbooked',
+            'result' => 'pending',
+        ]);
+
+        $migration = require database_path('migrations/2026_09_07_152000_remove_premature_test_results.php');
+        $migration->up();
+
+        $this->assertDatabaseMissing('admission_test_results', ['id' => $result->id]);
+    }
+
     public function test_required_test_configuration_adds_test_stage_and_can_be_applied_to_pending_selection(): void
     {
         [$unit, $staff, $registration] = $this->fixture();
