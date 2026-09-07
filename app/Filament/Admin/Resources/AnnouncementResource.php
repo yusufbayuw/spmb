@@ -118,6 +118,21 @@ class AnnouncementResource extends Resource
             ]);
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) static::getEloquentQuery()
+            ->where('status', 'draft')
+            ->whereHas('registration', fn (Builder $query) => $query
+                ->where('lifecycle_status', 'active')
+                ->where('current_stage', 'announcement'))
+            ->count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
     public static function canCreate(): bool
     {
         return false;
