@@ -273,7 +273,7 @@ class SpmbNotificationService
             'selection.decided',
             'workflow',
             'Keputusan seleksi tersimpan',
-            "{$registration->registration_number}: keputusan {$decision} tersimpan dan menunggu publikasi pengumuman.",
+            "{$registration->registration_number}: keputusan {$decision} telah dicatat untuk proses review/finalisasi.",
             'info',
             'heroicon-o-megaphone',
             'Buka pendaftaran',
