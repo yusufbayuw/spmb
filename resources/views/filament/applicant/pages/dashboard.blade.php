@@ -41,7 +41,7 @@
                 </div>
             </x-filament::section>
         @else
-            <div class="grid gap-5 xl:grid-cols-2">
+            <div class="grid xl:grid-cols-2" style="gap: 1.5rem;">
                 @foreach ($registrations as $registration)
                     @php
                         $stages = array_keys(\App\Models\Registration::STAGES);
