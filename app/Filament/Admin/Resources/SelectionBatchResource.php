@@ -76,7 +76,7 @@ class SelectionBatchResource extends Resource
             Tables\Columns\TextColumn::make('name')->label('Batch')->searchable(),
             Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun'),
             Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang'),
-            Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->placeholder('Semua jalur'),
+            Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->placeholder('Jalur legacy'),
             Tables\Columns\TextColumn::make('selections_count')->counts('selections')->label('Kandidat'),
             Tables\Columns\TextColumn::make('status')->badge(),
             Tables\Columns\TextColumn::make('ranked_at')->label('Diranking')->dateTime('d M Y H:i')->placeholder('-'),
