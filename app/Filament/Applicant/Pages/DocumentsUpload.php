@@ -59,10 +59,37 @@ class DocumentsUpload extends Page implements HasForms
             $mimes = array_map(fn (string $format): string => match ($format) {
                 'pdf' => 'application/pdf', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'png' => 'image/png', default => 'image/jpeg'
             }, $requirement['formats']);
-            $fields[] = FileUpload::make($requirement['key'])->label($requirement['label'].($requirement['required'] ? ' (wajib)' : ' (opsional)'))
-                ->helperText(($requirement['instructions'] ?? '').' · '.strtoupper(implode('/', $requirement['formats'])).' · maksimal 5 MB/file')
-                ->disk(ApplicantFileStorage::PRIVATE_DISK)->directory('documents/'.$this->registrationRecord->id)->visibility('private')->previewable(false)->fetchFileInformation(false)
-                ->acceptedFileTypes($mimes)->maxSize((int) config('spmb.uploads.max_kb', 5120))->multiple($requirement['max_files'] > 1)->maxFiles($requirement['max_files']);
+
+            $existing = $this->registrationRecord->documents
+                ->filter(fn (Document $document): bool => ($document->requirement_key ?: $document->type) === $requirement['key']);
+            $verifiedCount = $existing->where('is_verified', true)->count();
+            $remainingSlots = max(0, (int) $requirement['max_files'] - $verifiedCount);
+            $locked = $remainingSlots === 0;
+
+            $helper = trim((string) ($requirement['instructions'] ?? ''));
+            $helper .= ($helper !== '' ? ' · ' : '').strtoupper(implode('/', $requirement['formats'])).' · maksimal 5 MB/file';
+            if ($verifiedCount > 0) {
+                $helper .= " · {$verifiedCount} lampiran telah diverifikasi TU dan tidak dapat diganti";
+            }
+
+            $field = FileUpload::make($requirement['key'])
+                ->label($requirement['label'].($requirement['required'] ? ' (wajib)' : ' (opsional)'))
+                ->helperText($helper)
+                ->disk(ApplicantFileStorage::PRIVATE_DISK)
+                ->directory('documents/'.$this->registrationRecord->id)
+                ->visibility('private')
+                ->previewable(false)
+                ->fetchFileInformation(false)
+                ->acceptedFileTypes($mimes)
+                ->maxSize((int) config('spmb.uploads.max_kb', 5120))
+                ->multiple($requirement['max_files'] > 1)
+                ->disabled($locked);
+
+            if ($requirement['max_files'] > 1) {
+                $field->maxFiles(max(1, $remainingSlots));
+            }
+
+            $fields[] = $field;
         }
 
         return $form->schema([Section::make('Dokumen Pendaftaran')->schema($fields)->columns(2)])->statePath('data');
@@ -78,28 +105,56 @@ class DocumentsUpload extends Page implements HasForms
             foreach ($registration->documentRequirements() as $requirement) {
                 $paths = array_values(array_filter((array) ($data[$requirement['key']] ?? [])));
                 $existing = $registration->documents()->where(fn ($q) => $q->where('requirement_key', $requirement['key'])->orWhere(fn ($q) => $q->whereNull('requirement_key')->where('type', $requirement['key'])))->get();
+                $verified = $existing->where('is_verified', true);
+                $replaceable = $existing->where('is_verified', false)->sortBy('attachment_index')->values();
+                $remainingSlots = max(0, (int) $requirement['max_files'] - $verified->count());
 
-                // The upload form contains only newly selected files. Existing private files
-                // are shown separately above the form, so an empty field means "no change",
-                // not "delete all existing files".
+                // Existing verified files are immutable. Empty upload fields mean "no change"
+                // because existing private files are rendered separately above the form.
                 if ($paths === []) {
                     continue;
                 }
-                if (count($paths) > $requirement['max_files']) {
-                    throw ValidationException::withMessages(['data.'.$requirement['key'] => 'Jumlah lampiran melebihi batas.']);
+
+                if ($remainingSlots === 0) {
+                    throw ValidationException::withMessages([
+                        'data.'.$requirement['key'] => 'Berkas ini sudah diverifikasi TU dan tidak dapat diunggah ulang.',
+                    ]);
                 }
-                foreach ($paths as $index => $path) {
-                    if ($existing->contains('file_path', $path)) {
+
+                if (count($paths) > $remainingSlots) {
+                    throw ValidationException::withMessages([
+                        'data.'.$requirement['key'] => "Maksimal {$remainingSlots} lampiran masih dapat diunggah. Lampiran yang sudah diverifikasi TU tidak dapat diganti.",
+                    ]);
+                }
+
+                $reservedIndexes = $verified->pluck('attachment_index')->map(fn ($index): int => (int) $index)->all();
+                $usedReplaceableIds = [];
+
+                foreach ($paths as $path) {
+                    if ($verified->contains('file_path', $path)) {
                         continue;
                     }
                     if (! str_starts_with($path, 'documents/'.$registration->id.'/')) {
                         throw ValidationException::withMessages(['file' => 'Lokasi berkas tidak sesuai pendaftaran.']);
                     }
+
                     $inspection = $security->inspect($path, $requirement['formats']);
-                    $document = $existing->first(fn (Document $document): bool => (int) $document->attachment_index === $index && ! in_array($document->file_path, $paths, true));
-                    $document ??= new Document(['registration_id' => $registration->id]);
+                    $document = $replaceable->first(fn (Document $candidate): bool => ! in_array($candidate->id, $usedReplaceableIds, true));
+
+                    if ($document) {
+                        $usedReplaceableIds[] = $document->id;
+                        $attachmentIndex = (int) $document->attachment_index;
+                    } else {
+                        $attachmentIndex = 0;
+                        while (in_array($attachmentIndex, $reservedIndexes, true)) {
+                            $attachmentIndex++;
+                        }
+                        $reservedIndexes[] = $attachmentIndex;
+                        $document = new Document(['registration_id' => $registration->id]);
+                    }
+
                     $document->fill([
-                        'requirement_key' => $requirement['key'], 'attachment_index' => $index,
+                        'requirement_key' => $requirement['key'], 'attachment_index' => $attachmentIndex,
                         'type' => in_array($requirement['key'], ['report_card', 'family_card', 'birth_certificate', 'photo', 'supporting_document'], true) ? $requirement['key'] : 'supporting_document',
                         'file_path' => $path, 'original_name' => basename($path), 'file_type' => pathinfo($path, PATHINFO_EXTENSION),
                         'mime_type' => $inspection['mime_type'], 'file_size' => $inspection['size'], 'sha256' => $inspection['sha256'], 'malware_scan_status' => $inspection['malware_scan_status'], 'security_scanned_at' => $inspection['security_scanned_at'],
@@ -107,8 +162,9 @@ class DocumentsUpload extends Page implements HasForms
                     ])->save();
                     $changed = true;
                 }
-                foreach ($existing as $document) {
-                    if (! in_array($document->fresh()->file_path, $paths, true)) {
+
+                foreach ($replaceable as $document) {
+                    if (! in_array($document->id, $usedReplaceableIds, true)) {
                         $document->update(['superseded_at' => now()]);
                         $changed = true;
                     }
