@@ -97,12 +97,23 @@ class UnitConfigurationTest extends TestCase
         $configuration = $service->save($draft, $staff, array_replace($draft->toArray(), ['payment_enabled' => $payment, 'documents_enabled' => $documents]), true);
         $registration->update(['unit_configuration_id' => $configuration->id]);
         app(RegistrationWorkflowService::class)->validateData($registration, $staff, true);
-        $this->assertSame($payment ? 'virtual_account' : 'applicant_card', $registration->fresh()->current_stage);
-        $this->assertSame($payment, array_key_exists('payment', $registration->fresh()->enabledStages()));
-        $this->assertSame($documents, array_key_exists('documents', $registration->fresh()->enabledStages()));
-        if (! $payment) {
-            app(RegistrationWorkflowService::class)->issueApplicantCard($registration, $staff);
-            $this->assertSame($documents ? 'documents' : 'selection', $registration->fresh()->current_stage);
+
+        $registration->refresh();
+
+        $this->assertSame(
+            $payment ? 'virtual_account' : ($documents ? 'documents' : 'selection'),
+            $registration->current_stage,
+        );
+        $this->assertSame($payment, array_key_exists('payment', $registration->enabledStages()));
+        $this->assertSame($documents, array_key_exists('documents', $registration->enabledStages()));
+
+        if ($payment) {
+            $this->assertNull($registration->registration_number);
+            $this->assertNull($registration->applicant_card_number);
+        } else {
+            $this->assertNotNull($registration->registration_number);
+            $this->assertNotNull($registration->applicant_card_number);
+            $this->assertNotNull($registration->applicant_card_issued_at);
         }
     }
 
