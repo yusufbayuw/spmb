@@ -74,7 +74,12 @@ class UnitConfigurationTest extends TestCase
         [, $staff] = $this->fixture();
         $this->actingAs($staff);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
-        Livewire::test(UnitRegistrationSettings::class)->assertSee('Pengaturan Pendaftaran Unit')->call('showPreview')->assertHasNoFormErrors()->assertSee('Nama Lengkap');
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSee('Pengaturan Pendaftaran Unit')
+            ->assertSee('Proses Pasca-Pengumuman')
+            ->call('showPreview')
+            ->assertHasNoFormErrors()
+            ->assertSee('Nama Lengkap');
     }
 
     #[TestWith([false, false])]
