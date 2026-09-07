@@ -132,15 +132,51 @@ class TestBookingTest extends TestCase
 
     public function test_missing_required_test_result_blocks_selection_but_optional_test_does_not(): void
     {
-        [$registration, , $session, $staff] = $this->fixture();
-        $required = AdmissionTest::create(['unit_id' => $registration->unit_id, 'name' => 'Wawancara', 'is_required' => true, 'is_active' => true]);
-        AdmissionTest::create(['unit_id' => $registration->unit_id, 'name' => 'Minat', 'is_required' => false, 'is_active' => true]);
-        $result = AdmissionTestResult::create(['registration_id' => $registration->id, 'admission_test_id' => $session->admission_test_id, 'status' => 'scheduled', 'result' => 'pending']);
+        [$registration, $parent, $session, $staff] = $this->fixture();
+
+        $required = AdmissionTest::create([
+            'unit_id' => $registration->unit_id,
+            'name' => 'Wawancara',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+        AdmissionTest::create([
+            'unit_id' => $registration->unit_id,
+            'name' => 'Minat',
+            'is_required' => false,
+            'is_active' => true,
+        ]);
+
+        $bookingService = app(TestBookingService::class);
+        $bookingService->book($registration, $session, $parent);
+
+        $result = $registration->testResults()
+            ->where('admission_test_id', $session->admission_test_id)
+            ->firstOrFail();
+
         $workflow = app(RegistrationWorkflowService::class);
         $workflow->recordTestResult($result, $staff, ['status' => 'completed', 'result' => 'pass']);
+
         $this->assertSame('tests', $registration->fresh()->current_stage);
-        $secondResult = AdmissionTestResult::create(['registration_id' => $registration->id, 'admission_test_id' => $required->id, 'status' => 'scheduled', 'result' => 'pending']);
+
+        $secondSession = TestSession::create([
+            'admission_test_id' => $required->id,
+            'starts_at' => now()->addDays(4),
+            'ends_at' => now()->addDays(4)->addHour(),
+            'booking_closes_at' => now()->addDays(3),
+            'location' => 'Ruang 2',
+            'capacity' => 1,
+            'status' => 'active',
+        ]);
+
+        $bookingService->book($registration, $secondSession, $parent);
+
+        $secondResult = $registration->testResults()
+            ->where('admission_test_id', $required->id)
+            ->firstOrFail();
+
         $workflow->recordTestResult($secondResult, $staff, ['status' => 'completed', 'result' => 'pass']);
+
         $this->assertSame('selection', $registration->fresh()->current_stage);
     }
 
