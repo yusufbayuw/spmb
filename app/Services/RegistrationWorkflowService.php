@@ -474,12 +474,25 @@ class RegistrationWorkflowService
             $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $lockedRegistration->assertCurrentStage('selection');
 
+            if ($lockedRegistration->selectionMode() === 'manual') {
+                throw ValidationException::withMessages([
+                    'selection' => 'Versi pendaftaran ini menggunakan penetapan hasil manual tanpa batch.',
+                ]);
+            }
+
             $selection = Selection::query()
+                ->with('batch')
                 ->where('registration_id', $lockedRegistration->id)
                 ->lockForUpdate()
                 ->first();
 
-            if ($selection?->system_recommendation && $selection->system_recommendation !== $decision && blank($notes)) {
+            if (! $selection || $selection->batch?->status !== 'ranked') {
+                throw ValidationException::withMessages([
+                    'selection' => 'Kandidat harus berasal dari batch yang telah diranking untuk menggunakan review keputusan.',
+                ]);
+            }
+
+            if ($selection->system_recommendation && $selection->system_recommendation !== $decision && blank($notes)) {
                 throw ValidationException::withMessages([
                     'notes' => 'Alasan wajib diisi ketika keputusan berbeda dari rekomendasi sistem.',
                 ]);
@@ -517,7 +530,24 @@ class RegistrationWorkflowService
             $lockedRegistration = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $lockedRegistration->assertCurrentStage('selection');
 
-            $selection = Selection::query()->where('registration_id', $lockedRegistration->id)->lockForUpdate()->first();
+            if ($lockedRegistration->usesSelectionBatch()) {
+                throw ValidationException::withMessages([
+                    'selection' => 'Versi pendaftaran ini mewajibkan Batch Seleksi. Buat ranking lalu finalkan melalui Penetapan Hasil.',
+                ]);
+            }
+
+            $selection = Selection::query()
+                ->with('batch')
+                ->where('registration_id', $lockedRegistration->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($selection?->selection_batch_id) {
+                throw ValidationException::withMessages([
+                    'selection' => 'Kandidat sudah masuk Batch Seleksi. Gunakan Review Keputusan dan Finalkan Batch.',
+                ]);
+            }
+
             if ($decision === 'accepted') {
                 app(AdmissionDecisionService::class)->assertCapacityForAcceptance($lockedRegistration, $selection);
             }
