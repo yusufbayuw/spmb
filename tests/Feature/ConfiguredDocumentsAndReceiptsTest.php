@@ -51,10 +51,10 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
 
         Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
             ->fillForm([
-                'report_card' => UploadedFile::fake()->image('rapor.jpg', 800, 600),
-                'family_card' => UploadedFile::fake()->image('kk.jpg', 800, 600),
-                'birth_certificate' => UploadedFile::fake()->image('akta.jpg', 800, 600),
-                'photo' => UploadedFile::fake()->image('foto.jpg', 400, 600),
+                'report_card' => [UploadedFile::fake()->image('rapor.jpg', 800, 600)],
+                'family_card' => [UploadedFile::fake()->image('kk.jpg', 800, 600)],
+                'birth_certificate' => [UploadedFile::fake()->image('akta.jpg', 800, 600)],
+                'photo' => [UploadedFile::fake()->image('foto.jpg', 400, 600)],
             ])
             ->call('submit')
             ->assertHasNoFormErrors();
@@ -71,6 +71,49 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
             Storage::disk('applicant-private')->assertExists($document->file_path);
             $this->assertGreaterThan(548, (int) Storage::disk('applicant-private')->size($document->file_path));
         }
+    }
+
+    public function test_single_slot_fields_and_optional_template_document_save_together(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+
+        [$registration, $parent, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+
+        $templatePath = 'templates/'.$registration->unit_id.'/supporting.pdf';
+        Storage::disk('applicant-private')->put($templatePath, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF");
+
+        $draft = $service->draft($registration->unit, $staff);
+        $data = $draft->toArray();
+        $data['document_requirements'] = [
+            ['key' => 'family_card', 'label' => 'Kartu Keluarga', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+            ['key' => 'birth_certificate', 'label' => 'Akta Kelahiran', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+            ['key' => 'photo', 'label' => 'Pas Foto', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['png'], 'instructions' => '', 'template_path' => null],
+            ['key' => 'supporting_document', 'label' => 'Dokumen Pendukung', 'active' => true, 'required' => false, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => $templatePath],
+        ];
+
+        $configuration = $service->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->fillForm([
+                'family_card' => [UploadedFile::fake()->image('kk.jpg', 800, 600)],
+                'birth_certificate' => [UploadedFile::fake()->image('akta.jpg', 800, 600)],
+                'photo' => [UploadedFile::fake()->image('foto.png', 400, 600)],
+                'supporting_document' => [UploadedFile::fake()->image('pendukung.jpg', 800, 600)],
+            ])
+            ->call('submit')
+            ->assertHasNoFormErrors();
+
+        $registration->refresh();
+
+        $this->assertSame('document_verification', $registration->current_stage);
+        $this->assertSame(4, $registration->documents()->count());
+        $this->assertTrue($registration->documentsComplete());
     }
 
     public function test_verified_single_document_upload_is_locked_for_applicant(): void
