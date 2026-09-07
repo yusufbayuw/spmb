@@ -19,6 +19,10 @@ class AdmissionTestResultResource extends Resource
 
     protected static ?string $navigationLabel = 'Hasil Tes';
 
+    protected static ?string $modelLabel = 'Hasil Tes';
+
+    protected static ?string $pluralModelLabel = 'Hasil Tes';
+
     protected static ?string $navigationGroup = 'Pendaftaran';
 
     protected static ?int $navigationSort = 4;
@@ -37,8 +41,23 @@ class AdmissionTestResultResource extends Resource
                 Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable(),
                 Tables\Columns\TextColumn::make('admissionTest.name')->label('Tes'),
                 Tables\Columns\TextColumn::make('score')->label('Nilai'),
-                Tables\Columns\TextColumn::make('result')->label('Hasil')->badge(),
-                Tables\Columns\TextColumn::make('status')->label('Status')->badge(),
+                Tables\Columns\TextColumn::make('result')
+                    ->label('Hasil')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pass' => 'Lulus',
+                        'fail' => 'Tidak Lulus',
+                        default => 'Belum Dinilai',
+                    })
+                    ->badge(),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'completed' => 'Selesai',
+                        'absent' => 'Tidak Hadir',
+                        'exempted' => 'Dibebaskan',
+                        default => 'Terjadwal',
+                    })
+                    ->badge(),
             ])
             ->actions([]);
     }
@@ -75,6 +94,6 @@ class AdmissionTestResultResource extends Resource
             $q->whereHas('registration', fn (Builder $x) => $x->where('unit_id', auth()->user()->unit_id));
         }
 
-return $q;
+        return $q;
     }
 }
