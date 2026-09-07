@@ -1,7 +1,7 @@
 @once
 <div
     id="file-preview-modal"
-    class="fixed inset-0 z-[9999] hidden"
+    class="fixed inset-0 hidden"
     role="dialog"
     aria-modal="true"
     aria-labelledby="file-preview-title"
@@ -43,6 +43,17 @@
 </div>
 
 <style>
+    #file-preview-modal {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2147483647 !important;
+    }
+
+    #file-preview-modal [data-file-preview-backdrop] {
+        position: absolute;
+        inset: 0;
+    }
+
     #file-preview-modal [data-file-preview-shell] {
         height: calc(100vh - 1rem);
         height: calc(100dvh - 1rem);
