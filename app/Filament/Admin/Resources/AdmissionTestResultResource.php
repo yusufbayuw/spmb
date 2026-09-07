@@ -20,7 +20,7 @@ class AdmissionTestResultResource extends Resource
 
     protected static ?string $navigationLabel = 'Hasil Tes';
 
-    protected static ?string $navigationGroup = 'Seleksi';
+    protected static ?string $navigationGroup = 'Seleksi & Pengumuman';
 
     protected static ?int $navigationSort = 2;
 
