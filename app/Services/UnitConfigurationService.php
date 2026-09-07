@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\AdmissionTest;
+use App\Models\AdmissionTestResult;
 use App\Models\Registration;
+use App\Models\Selection;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
@@ -74,6 +76,139 @@ class UnitConfigurationService
             $current = $this->initialize($unit);
 
             return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+        });
+    }
+
+    /**
+     * Apply the latest published configuration to active registrations that can
+     * still be changed safely without invalidating completed selection work.
+     *
+     * @return array{updated:int,moved_to_tests:int,skipped:int}
+     */
+    public function applyCurrentToEligibleActiveRegistrations(Unit $unit, User $actor): array
+    {
+        $this->authorize($actor, $unit->id);
+
+        $configuration = $this->current($unit->id);
+
+        if (! $configuration) {
+            throw ValidationException::withMessages([
+                'configuration' => 'Belum ada konfigurasi terpublikasi untuk unit ini.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($unit, $configuration, $actor): array {
+            Unit::query()->lockForUpdate()->findOrFail($unit->id);
+
+            $registrations = Registration::query()
+                ->with(['selection', 'announcement', 'testResults', 'configuration', 'unit', 'opening'])
+                ->where('unit_id', $unit->id)
+                ->where('lifecycle_status', 'active')
+                ->where('unit_configuration_id', '!=', $configuration->id)
+                ->whereIn('current_stage', [
+                    'data_validation',
+                    'virtual_account',
+                    'payment',
+                    'payment_verification',
+                    'applicant_card',
+                    'documents',
+                    'document_verification',
+                    'tests',
+                    'selection',
+                ])
+                ->lockForUpdate()
+                ->get();
+
+            $updated = 0;
+            $movedToTests = 0;
+            $skipped = 0;
+
+            foreach ($registrations as $registration) {
+                $hasAssessedTests = $registration->testResults->contains(
+                    fn (AdmissionTestResult $result): bool => filled($result->assessed_at)
+                        || in_array($result->status, ['completed', 'absent', 'exempted'], true),
+                );
+
+                if ($registration->current_stage === 'tests' && $hasAssessedTests) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                if ($registration->current_stage === 'selection') {
+                    $selection = $registration->selection;
+
+                    if ($hasAssessedTests
+                        || $registration->announcement
+                        || ($selection && ($selection->decision !== 'pending' || $selection->selection_batch_id))) {
+                        $skipped++;
+
+                        continue;
+                    }
+                }
+
+                $oldConfigurationId = $registration->unit_configuration_id;
+
+                $registration->forceFill([
+                    'unit_configuration_id' => $configuration->id,
+                ])->saveQuietly();
+
+                $tests = $registration->configuredTests();
+
+                foreach ($tests as $test) {
+                    AdmissionTestResult::firstOrCreate(
+                        [
+                            'registration_id' => $registration->id,
+                            'admission_test_id' => $test['id'],
+                        ],
+                        [
+                            'status' => 'scheduled',
+                            'result' => 'pending',
+                        ],
+                    );
+                }
+
+                $hasRequiredTests = collect($tests)->contains('is_required', true);
+
+                if ($hasRequiredTests && $registration->current_stage === 'selection') {
+                    $registration->forceFill([
+                        'current_stage' => 'tests',
+                    ])->saveQuietly();
+                    $movedToTests++;
+                } elseif (! $hasRequiredTests && $registration->current_stage === 'tests') {
+                    Selection::firstOrCreate(
+                        ['registration_id' => $registration->id],
+                        ['decision' => 'pending'],
+                    );
+
+                    $registration->forceFill([
+                        'current_stage' => 'selection',
+                    ])->saveQuietly();
+                }
+
+                app(AuditTrail::class)->record(
+                    'configuration.applied_to_active_registration',
+                    $registration,
+                    oldValues: ['unit_configuration_id' => $oldConfigurationId],
+                    newValues: [
+                        'unit_configuration_id' => $configuration->id,
+                        'current_stage' => $registration->current_stage,
+                    ],
+                    metadata: ['configuration_version' => $configuration->version],
+                    actor: $actor,
+                    unitId: $unit->id,
+                    registrationId: $registration->id,
+                    description: 'Konfigurasi pendaftaran terpublikasi diterapkan ke pendaftaran aktif yang masih aman diperbarui.',
+                );
+
+                $updated++;
+            }
+
+            return [
+                'updated' => $updated,
+                'moved_to_tests' => $movedToTests,
+                'skipped' => $skipped,
+            ];
         });
     }
 
