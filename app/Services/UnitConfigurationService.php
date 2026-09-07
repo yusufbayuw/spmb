@@ -160,21 +160,24 @@ class UnitConfigurationService
                 $registration->load('configuration');
 
                 $tests = $registration->configuredTests();
-
-                foreach ($tests as $test) {
-                    AdmissionTestResult::firstOrCreate(
-                        [
-                            'registration_id' => $registration->id,
-                            'admission_test_id' => $test['id'],
-                        ],
-                        [
-                            'status' => 'unbooked',
-                            'result' => 'pending',
-                        ],
-                    );
-                }
-
                 $hasRequiredTests = collect($tests)->contains('is_required', true);
+                $shouldMaterializeTests = $registration->current_stage === 'tests'
+                    || ($registration->current_stage === 'selection' && $hasRequiredTests);
+
+                if ($shouldMaterializeTests) {
+                    foreach ($tests as $test) {
+                        AdmissionTestResult::firstOrCreate(
+                            [
+                                'registration_id' => $registration->id,
+                                'admission_test_id' => $test['id'],
+                            ],
+                            [
+                                'status' => 'unbooked',
+                                'result' => 'pending',
+                            ],
+                        );
+                    }
+                }
 
                 if ($hasRequiredTests && $registration->current_stage === 'selection') {
                     $registration->forceFill([
