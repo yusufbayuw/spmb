@@ -97,6 +97,7 @@ class AdmissionDecisionManagementTest extends TestCase
         app(AdmissionDecisionService::class)->acceptOffer($offer->fresh(), $registration->user);
 
         $this->assertSame('accepted', $offer->fresh()->status);
+        $this->assertSame('confirmed', $registration->fresh()->status);
         $this->assertSame('enrollment', $registration->fresh()->current_stage);
 
         $this->expectException(ValidationException::class);
@@ -126,11 +127,12 @@ class AdmissionDecisionManagementTest extends TestCase
         [$unit, $opening, $staff] = $this->openingFixture();
         UnitConfiguration::create([
             'unit_id' => $unit->id,
-            'version' => 1,
+            'version' => 2,
             'status' => 'published',
             'payment_enabled' => true,
             'documents_enabled' => true,
             'tests_enabled' => false,
+            'post_announcement_enabled' => true,
             'fields' => [],
             'document_requirements' => [],
             'test_definitions' => [],
@@ -160,6 +162,22 @@ class AdmissionDecisionManagementTest extends TestCase
     private function openingFixture(): array
     {
         $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+
+        UnitConfiguration::create([
+            'unit_id' => $unit->id,
+            'version' => 1,
+            'status' => 'published',
+            'payment_enabled' => true,
+            'documents_enabled' => true,
+            'tests_enabled' => false,
+            'post_announcement_enabled' => true,
+            'fields' => [],
+            'document_requirements' => [],
+            'test_definitions' => [],
+            're_registration_requirements' => [],
+            'published_at' => now(),
+        ]);
+
         $opening = RegistrationOpening::create([
             'unit_id' => $unit->id,
             'academic_year' => '2027/2028',
