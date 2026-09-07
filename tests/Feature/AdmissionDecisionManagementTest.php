@@ -59,6 +59,55 @@ class AdmissionDecisionManagementTest extends TestCase
         $this->assertSame('waiting_list', $second->selection()->value('decision'));
     }
 
+    public function test_reviewed_batch_decisions_remain_in_selection_until_batch_is_finalized(): void
+    {
+        Queue::fake();
+        [, $opening, $staff] = $this->openingFixture();
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 1]);
+
+        $first = $this->selectionRegistration($opening, '3273010101010011', 90);
+        $second = $this->selectionRegistration($opening, '3273010101010012', 80);
+        $batch = SelectionBatch::create([
+            'registration_opening_id' => $opening->id,
+            'name' => 'Review Gelombang 1',
+            'waitlist_limit' => 0,
+        ]);
+
+        $admission = app(AdmissionDecisionService::class);
+        $workflow = app(RegistrationWorkflowService::class);
+
+        $admission->rank($batch, $staff);
+
+        $workflow->reviewDecision(
+            $first,
+            $staff,
+            'rejected',
+            90,
+            'Override setelah review panitia.',
+        );
+        $workflow->reviewDecision(
+            $second,
+            $staff,
+            'accepted',
+            80,
+            'Dialihkan sebagai kandidat diterima setelah review panitia.',
+        );
+
+        $this->assertSame('selection', $first->fresh()->current_stage);
+        $this->assertSame('selection', $second->fresh()->current_stage);
+        $this->assertNull($first->announcement()->first());
+        $this->assertNull($second->announcement()->first());
+
+        $admission->finalize($batch->fresh(), $staff);
+
+        $this->assertSame('rejected', $first->selection()->value('decision'));
+        $this->assertSame('accepted', $second->selection()->value('decision'));
+        $this->assertSame('announcement', $first->fresh()->current_stage);
+        $this->assertSame('announcement', $second->fresh()->current_stage);
+        $this->assertSame('draft', $first->announcement()->value('status'));
+        $this->assertSame('draft', $second->announcement()->value('status'));
+    }
+
     public function test_declined_offer_releases_seat_and_promotes_next_waiting_list_candidate(): void
     {
         Queue::fake();
