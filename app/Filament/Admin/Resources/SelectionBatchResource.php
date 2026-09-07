@@ -32,14 +32,38 @@ class SelectionBatchResource extends Resource
                 ->label('Pembukaan Pendaftaran')
                 ->options(fn (): array => RegistrationOpening::query()->when(auth()->user()?->isTU(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))->get()->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])->all())
                 ->searchable()
+                ->live()
                 ->required(),
             Forms\Components\Select::make('registration_pathway_id')
                 ->label('Jalur Pendaftaran')
-                ->options(fn (Forms\Get $get): array => RegistrationPathway::query()->where('unit_id', RegistrationOpening::query()->whereKey($get('registration_opening_id'))->value('unit_id'))->active()->pluck('name', 'id')->all())
+                ->options(fn (Forms\Get $get): array => static::pathwayOptions(
+                    filled($get('registration_opening_id')) ? (int) $get('registration_opening_id') : null,
+                ))
                 ->searchable(),
             Forms\Components\TextInput::make('name')->label('Nama batch')->required()->maxLength(150),
             Forms\Components\TextInput::make('waitlist_limit')->label('Maksimum rekomendasi daftar tunggu')->integer()->minValue(0)->required(),
         ])->columns(2);
+    }
+
+    public static function pathwayOptions(?int $registrationOpeningId): array
+    {
+        if (! $registrationOpeningId) {
+            return [];
+        }
+
+        $unitId = RegistrationOpening::query()
+            ->whereKey($registrationOpeningId)
+            ->value('unit_id');
+
+        if (! $unitId) {
+            return [];
+        }
+
+        return RegistrationPathway::query()
+            ->availableForUnit((int) $unitId)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
     }
 
     public static function table(Table $table): Table
