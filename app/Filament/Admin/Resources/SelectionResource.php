@@ -156,6 +156,21 @@ class SelectionResource extends Resource
         return false;
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) static::getEloquentQuery()
+            ->whereHas('registration', fn (Builder $query) => $query
+                ->where('lifecycle_status', 'active')
+                ->where('current_stage', 'selection'))
+            ->whereHas('batch', fn (Builder $query) => $query->where('status', 'ranked'))
+            ->count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
     public static function getPages(): array
     {
         return [
