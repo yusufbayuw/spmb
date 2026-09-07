@@ -117,7 +117,7 @@ class PaymentResource extends Resource
             ->where('status', 'paid')
             ->whereHas('registration', fn (Builder $q) => $q
                 ->where('lifecycle_status', 'active')
-                ->where('current_stage', 'payment'))
+                ->where('current_stage', 'payment_verification'))
             ->count();
     }
 
