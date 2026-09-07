@@ -8,7 +8,10 @@ use App\Services\ApplicantFileStorage;
 use App\Services\ApplicantUploadSecurity;
 use App\Services\RegistrationWorkflowService;
 use App\Services\SpmbNotificationService;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -92,10 +95,29 @@ class DocumentsUpload extends Page implements HasForms
                 $field->maxFiles(max(1, $remainingSlots));
             }
 
-            $fields[] = $field;
+            $components = [$field];
+
+            if (! empty($requirement['template_path'])) {
+                $components[] = Actions::make([
+                    Action::make('download_template_'.$requirement['key'])
+                        ->label('Unduh Template '.$requirement['label'])
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->url(route('registration.template', [$this->registrationRecord, $requirement['key']]))
+                        ->openUrlInNewTab(),
+                ]);
+            }
+
+            $fields[] = Group::make($components);
         }
 
-        return $form->schema([Section::make('Dokumen Pendaftaran')->schema($fields)->columns(2)])->statePath('data');
+        return $form
+            ->schema([
+                Section::make('Dokumen Pendaftaran')
+                    ->description('Unduh template pada dokumen yang menyediakannya, isi sesuai petunjuk, lalu unggah kembali pada field yang sama.')
+                    ->schema($fields)
+                    ->columns(2),
+            ])
+            ->statePath('data');
     }
 
     public function submit(ApplicantFileStorage $storage, ApplicantUploadSecurity $security): void
