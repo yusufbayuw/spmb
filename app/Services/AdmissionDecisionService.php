@@ -28,6 +28,12 @@ class AdmissionDecisionService
             $available = $quota ? max(0, $quota->capacity - $this->activeSeatCount($quota)) : PHP_INT_MAX;
             $selections = $this->candidates($lockedBatch)->lockForUpdate()->get();
 
+            if ($selections->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'selection_batch' => 'Tidak ada kandidat yang memenuhi syarat untuk batch ini.',
+                ]);
+            }
+
             $eligibleRank = 0;
 
             foreach ($selections as $index => $selection) {
@@ -441,9 +447,18 @@ class AdmissionDecisionService
     {
         return Selection::query()
             ->with(['registration.configuration', 'registration.opening', 'registration.testResults'])
+            ->where(function (Builder $query) use ($batch): void {
+                $query->whereNull('selection_batch_id')
+                    ->orWhere('selection_batch_id', $batch->id);
+            })
             ->whereHas('registration', function (Builder $query) use ($batch): void {
                 $query->where('registration_opening_id', $batch->registration_opening_id)
                     ->where('current_stage', 'selection')
+                    ->where(function (Builder $mode): void {
+                        $mode->whereDoesntHave('configuration')
+                            ->orWhereHas('configuration', fn (Builder $configuration) => $configuration
+                                ->whereIn('selection_mode', ['batch', 'flexible']));
+                    })
                     ->when($batch->registration_pathway_id, fn (Builder $q): Builder => $q->where('registration_pathway_id', $batch->registration_pathway_id), fn (Builder $q): Builder => $q->whereNull('registration_pathway_id'));
             })
             ->orderByRaw('case when final_score is null then 1 else 0 end')
