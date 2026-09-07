@@ -52,6 +52,7 @@ class AdmissionTestResultResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'unbooked' => 'Belum Terjadwal',
                         'completed' => 'Selesai',
                         'absent' => 'Tidak Hadir',
                         'exempted' => 'Dibebaskan',
@@ -65,6 +66,7 @@ class AdmissionTestResultResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         return (string) static::getEloquentQuery()
+            ->where('status', 'scheduled')
             ->where('result', 'pending')
             ->whereHas('registration', fn (Builder $query) => $query
                 ->where('lifecycle_status', 'active')
