@@ -27,7 +27,18 @@ class TestBookingTest extends TestCase
     {
         [$registration, $parent, $session] = $this->fixture();
         $service = app(TestBookingService::class);
+
+        $this->assertSame(
+            'unbooked',
+            $registration->testResults()->where('admission_test_id', $session->admission_test_id)->value('status'),
+        );
+
         $booking = $service->book($registration, $session, $parent);
+
+        $this->assertSame(
+            'scheduled',
+            $registration->testResults()->where('admission_test_id', $session->admission_test_id)->value('status'),
+        );
         $this->assertSame($booking->id, $service->book($registration, $session, $parent)->id);
         $other = $session->replicate();
         $other->starts_at = now()->addDays(4);
@@ -69,6 +80,10 @@ class TestBookingTest extends TestCase
         $booking = $service->book($registration, $session, $parent);
         $service->saveSession($session, array_replace($session->toArray(), ['status' => 'cancelled']), $staff);
         $this->assertNull($booking->fresh()->test_session_id);
+        $this->assertSame(
+            'unbooked',
+            $registration->testResults()->where('admission_test_id', $session->admission_test_id)->value('status'),
+        );
         $this->assertTrue($parent->notifications()->where('data->title', 'Sesi tes dibatalkan')->exists());
     }
 
@@ -100,6 +115,10 @@ class TestBookingTest extends TestCase
         $this->assertSame(0, $session->bookings()->count());
         $registration->changeLifecycle('active', $staff);
         $this->assertNull(TestBooking::first()->test_session_id);
+        $this->assertSame(
+            'unbooked',
+            $registration->testResults()->where('admission_test_id', $session->admission_test_id)->value('status'),
+        );
     }
 
     public function test_parent_cannot_access_another_registration_test_card(): void
@@ -175,6 +194,13 @@ class TestBookingTest extends TestCase
         $registration = Registration::create(['user_id' => $parent->id, 'unit_id' => $unit->id, 'registration_opening_id' => $opening->id, 'full_name' => 'Peserta Test', 'nik' => '3273010101010001', 'gender' => 'L', 'birth_place' => 'Bandung', 'birth_date' => '2010-01-01', 'home_address' => 'Bandung', 'current_stage' => 'tests']);
         $test = AdmissionTest::create(['unit_id' => $unit->id, 'name' => 'Tes Akademik', 'is_required' => true, 'is_active' => true]);
         $session = TestSession::create(['admission_test_id' => $test->id, 'starts_at' => now()->addDays(3), 'ends_at' => now()->addDays(3)->addHour(), 'booking_closes_at' => now()->addDays(2), 'location' => 'Ruang 1', 'capacity' => 1, 'status' => 'active']);
+
+        AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $test->id,
+            'status' => 'unbooked',
+            'result' => 'pending',
+        ]);
 
         return [$registration, $parent, $session, $staff];
     }
