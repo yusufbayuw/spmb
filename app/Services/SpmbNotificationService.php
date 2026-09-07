@@ -6,6 +6,7 @@ use App\Models\AdmissionOffer;
 use App\Models\Announcement;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Models\ReRegistrationItem;
 use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\SpmbDatabaseNotification;
@@ -49,13 +50,19 @@ class SpmbNotificationService
     {
         $registration->loadMissing('user');
 
+        $approvedBody = match ($registration->current_stage) {
+            'virtual_account' => 'Validasi data selesai. Sistem akan melanjutkan ke penerbitan Virtual Account.',
+            'applicant_card' => 'Validasi data selesai. Pembayaran tidak diperlukan untuk unit ini dan proses dilanjutkan ke penerbitan kartu pendaftar.',
+            default => 'Validasi data selesai. Proses dilanjutkan ke '.$registration->stageLabel().'.',
+        };
+
         $this->notify(
             collect([$registration->user]),
             $approved ? 'registration.data_validated' : 'registration.data_revision_required',
             'workflow',
             $approved ? 'Data pendaftaran dinyatakan valid' : 'Data pendaftaran perlu diperbaiki',
             $approved
-                ? 'Validasi data selesai. Sistem akan melanjutkan ke penerbitan Virtual Account.'
+                ? $approvedBody
                 : ('Catatan petugas: '.($notes ?: 'Silakan periksa kembali data pendaftaran.')),
             $approved ? 'success' : 'warning',
             $approved ? 'heroicon-o-check-badge' : 'heroicon-o-pencil-square',
@@ -151,16 +158,39 @@ class SpmbNotificationService
     {
         $registration->loadMissing('user');
 
+        [$body, $actionLabel, $actionUrl] = match ($registration->current_stage) {
+            'documents' => [
+                "Kartu {$registration->applicant_card_number} telah diterbitkan. Silakan lanjutkan kelengkapan berkas.",
+                'Lengkapi berkas',
+                url("/pendaftar/dokumen/{$registration->uuid}"),
+            ],
+            'tests' => [
+                "Kartu {$registration->applicant_card_number} telah diterbitkan. Proses dilanjutkan ke rangkaian tes.",
+                'Lihat progres',
+                $this->applicantStatusUrl($registration),
+            ],
+            'selection' => [
+                "Kartu {$registration->applicant_card_number} telah diterbitkan. Persyaratan awal selesai dan pendaftaran masuk tahap seleksi.",
+                'Lihat progres',
+                $this->applicantStatusUrl($registration),
+            ],
+            default => [
+                "Kartu {$registration->applicant_card_number} telah diterbitkan.",
+                'Lihat progres',
+                $this->applicantStatusUrl($registration),
+            ],
+        };
+
         $this->notify(
             collect([$registration->user]),
             'registration.card_issued',
             'workflow',
             'Kartu pendaftar tersedia',
-            "Kartu {$registration->applicant_card_number} telah diterbitkan. Silakan lanjutkan kelengkapan berkas.",
+            $body,
             'success',
             'heroicon-o-identification',
-            'Lengkapi berkas',
-            url("/pendaftar/dokumen/{$registration->uuid}"),
+            $actionLabel,
+            $actionUrl,
             $registration,
         );
     }
@@ -301,6 +331,46 @@ class SpmbNotificationService
             $registration->unit_id,
             $registration->id,
         );
+
+        $staffContent = match ($event) {
+            'accepted' => [
+                'admission.offer.accepted_staff',
+                'Pendaftar mengonfirmasi kursi',
+                "{$registration->registration_number} · {$registration->full_name} menerima penawaran. Tahap saat ini: {$registration->stageLabel()}.",
+                'success',
+            ],
+            'declined' => [
+                'admission.offer.declined_staff',
+                'Pendaftar menolak penawaran kursi',
+                "{$registration->registration_number} · {$registration->full_name} menolak penawaran.".($offer->decline_reason ? " Alasan: {$offer->decline_reason}" : ''),
+                'warning',
+            ],
+            'expired' => [
+                'admission.offer.expired_staff',
+                'Penawaran penerimaan berakhir',
+                "{$registration->registration_number} · {$registration->full_name} tidak mengonfirmasi kursi sampai batas waktu berakhir.",
+                'warning',
+            ],
+            default => null,
+        };
+
+        if ($staffContent) {
+            $this->notify(
+                $this->staffRecipients($registration->unit_id),
+                $staffContent[0],
+                'admission',
+                $staffContent[1],
+                $staffContent[2],
+                $staffContent[3],
+                'heroicon-o-academic-cap',
+                'Buka pendaftaran',
+                $this->adminRegistrationUrl($registration),
+                $offer,
+                ['admission_offer_uuid' => $offer->uuid],
+                $registration->unit_id,
+                $registration->id,
+            );
+        }
     }
 
     public function waitlistPromoted(AdmissionOffer $offer): void
@@ -322,6 +392,46 @@ class SpmbNotificationService
             $registration->unit_id,
             $registration->id,
         );
+
+        $this->notify(
+            $this->staffRecipients($registration->unit_id),
+            'waitlist.promoted_staff',
+            'admission',
+            'Daftar tunggu dipromosikan',
+            "{$registration->registration_number} · {$registration->full_name} dipromosikan dan menerima penawaran kursi.",
+            'info',
+            'heroicon-o-arrow-trending-up',
+            'Buka pendaftaran',
+            $this->adminRegistrationUrl($registration),
+            $offer,
+            ['admission_offer_uuid' => $offer->uuid],
+            $registration->unit_id,
+            $registration->id,
+        );
+    }
+
+    public function reRegistrationItemReviewed(ReRegistrationItem $item, bool $approved, ?string $reason = null): void
+    {
+        $item->loadMissing('registration.user');
+        $registration = $item->registration;
+
+        $this->notify(
+            collect([$registration->user]),
+            $approved ? 'reregistration.item_verified' : 'reregistration.item_rejected',
+            'reregistration',
+            $approved ? 'Persyaratan daftar ulang diverifikasi' : 'Persyaratan daftar ulang perlu diperbaiki',
+            $approved
+                ? "{$item->label} telah diverifikasi oleh petugas."
+                : "{$item->label} ditolak. Alasan: ".($reason ?: 'Silakan periksa kembali persyaratan daftar ulang.'),
+            $approved ? 'success' : 'warning',
+            $approved ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-triangle',
+            $approved ? 'Lihat daftar ulang' : 'Perbaiki daftar ulang',
+            url("/pendaftar/daftar-ulang/{$registration->uuid}"),
+            $item,
+            ['reregistration_item_uuid' => $item->uuid, 'approved' => $approved],
+            $registration->unit_id,
+            $registration->id,
+        );
     }
 
     public function reRegistrationCompleted(Registration $registration): void
@@ -333,7 +443,12 @@ class SpmbNotificationService
     public function reRegistrationStarted(Registration $registration): void
     {
         $registration->loadMissing('user');
-        $this->workflowEvent($registration, 'reregistration.started', 'Daftar ulang dimulai', 'Konfirmasi kursi berhasil. Silakan lengkapi persyaratan daftar ulang.', true, false);
+
+        $body = $registration->current_stage === 'enrollment'
+            ? 'Konfirmasi kursi berhasil. Tidak ada persyaratan daftar ulang yang tertunda dan pendaftaran siap untuk enrollment.'
+            : 'Konfirmasi kursi berhasil. Silakan lengkapi persyaratan daftar ulang.';
+
+        $this->workflowEvent($registration, 'reregistration.started', 'Daftar ulang dimulai', $body, true, false);
     }
 
     public function enrollmentCompleted(Registration $registration): void
