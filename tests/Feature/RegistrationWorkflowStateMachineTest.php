@@ -82,6 +82,10 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertSame('KARTU-SMA-20262027-0001', $registration->applicant_card_number);
         $this->assertNotNull($registration->applicant_card_issued_at);
         $this->assertSame($staff->id, $registration->applicant_card_issued_by);
+        $this->assertSame(
+            'REG-SMA-20262027-0001',
+            $registration->receipts()->firstOrFail()->details['registration_number'],
+        );
 
         foreach (RegistrationWorkflowService::REQUIRED_DOCUMENTS as $type) {
             Document::create([
