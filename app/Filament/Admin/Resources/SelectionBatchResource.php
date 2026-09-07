@@ -38,10 +38,12 @@ class SelectionBatchResource extends Resource
                 ->required(),
             Forms\Components\Select::make('registration_pathway_id')
                 ->label('Jalur Pendaftaran')
+                ->helperText('Satu batch seleksi mewakili satu jalur agar ranking dan daya tampung konsisten.')
                 ->options(fn (Forms\Get $get): array => static::pathwayOptions(
                     filled($get('registration_opening_id')) ? (int) $get('registration_opening_id') : null,
                 ))
-                ->searchable(),
+                ->searchable()
+                ->required(),
             Forms\Components\TextInput::make('name')->label('Nama batch')->required()->maxLength(150),
             Forms\Components\TextInput::make('waitlist_limit')->label('Maksimum rekomendasi daftar tunggu')->integer()->minValue(0)->required(),
         ])->columns(2);
@@ -80,25 +82,14 @@ class SelectionBatchResource extends Resource
             Tables\Columns\TextColumn::make('ranked_at')->label('Diranking')->dateTime('d M Y H:i')->placeholder('-'),
         ])->actions([
             Tables\Actions\Action::make('rank')
-                ->label('Buat Ranking')
+                ->label('Buat / Perbarui Ranking')
                 ->icon('heroicon-o-bars-arrow-down')
                 ->visible(fn (SelectionBatch $record): bool => $record->status !== 'finalized')
                 ->requiresConfirmation()
+                ->modalDescription('Sistem akan mengurutkan kandidat berdasarkan nilai akhir dan membuat rekomendasi. Review dan finalisasi dilakukan di menu Penetapan Hasil.')
                 ->action(function (SelectionBatch $record): void {
                     app(AdmissionDecisionService::class)->rank($record, auth()->user());
                     Notification::make()->title('Ranking dan rekomendasi sistem telah dibuat')->success()->send();
-                }),
-            Tables\Actions\Action::make('finalize')
-                ->label('Finalkan Hasil')
-                ->icon('heroicon-o-check-badge')
-                ->color('success')
-                ->visible(fn (SelectionBatch $record): bool => $record->status === 'ranked' && (bool) auth()->user()?->can('finalize_selectionbatch'))
-                ->requiresConfirmation()
-                ->modalHeading('Finalkan keputusan batch?')
-                ->modalDescription('Tindakan ini menerapkan rekomendasi yang telah direview sebagai keputusan final dan membuat draft pengumuman.')
-                ->action(function (SelectionBatch $record): void {
-                    app(AdmissionDecisionService::class)->finalize($record, auth()->user());
-                    Notification::make()->title('Keputusan batch difinalkan')->success()->send();
                 }),
             Tables\Actions\EditAction::make()->visible(fn (SelectionBatch $record): bool => $record->status !== 'finalized'),
         ])->bulkActions([]);
