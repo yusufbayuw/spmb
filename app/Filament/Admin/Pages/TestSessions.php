@@ -18,7 +18,11 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static ?string $navigationGroup = 'Seleksi';
+    protected static ?string $navigationLabel = 'Sesi Tes';
+
+    protected static ?string $navigationGroup = 'Seleksi & Pengumuman';
+
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $title = 'Sesi dan Kuota Tes';
 
