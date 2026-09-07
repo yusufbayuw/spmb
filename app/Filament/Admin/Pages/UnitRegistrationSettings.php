@@ -26,7 +26,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     protected static ?string $title = 'Pengaturan Pendaftaran Unit';
 
-    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+
+    protected static ?int $navigationSort = 1;
 
     protected static string $view = 'filament.admin.pages.unit-registration-settings';
 
