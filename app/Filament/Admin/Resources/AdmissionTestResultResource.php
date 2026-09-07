@@ -20,9 +20,9 @@ class AdmissionTestResultResource extends Resource
 
     protected static ?string $navigationLabel = 'Hasil Tes';
 
-    protected static ?string $navigationGroup = 'Seleksi & Pengumuman';
+    protected static ?string $navigationGroup = 'Pendaftaran';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
