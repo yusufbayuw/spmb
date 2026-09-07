@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Applicant\Pages\DocumentsUpload;
+use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -70,6 +71,121 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
             Storage::disk('applicant-private')->assertExists($document->file_path);
             $this->assertGreaterThan(548, (int) Storage::disk('applicant-private')->size($document->file_path));
         }
+    }
+
+    public function test_verified_single_document_upload_is_locked_for_applicant(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+
+        [$registration, $parent, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($registration->unit, $staff);
+        $data = $draft->toArray();
+        $data['document_requirements'] = [
+            ['key' => 'report_card', 'label' => 'Rapor', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+        ];
+        $configuration = $service->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        $path = 'documents/'.$registration->id.'/verified.jpg';
+        Storage::disk('applicant-private')->put($path, UploadedFile::fake()->image('verified.jpg')->getContent());
+
+        Document::create([
+            'registration_id' => $registration->id,
+            'requirement_key' => 'report_card',
+            'attachment_index' => 0,
+            'type' => 'report_card',
+            'file_path' => $path,
+            'original_name' => 'verified.jpg',
+            'file_type' => 'jpg',
+            'mime_type' => 'image/jpeg',
+            'file_size' => Storage::disk('applicant-private')->size($path),
+            'sha256' => hash('sha256', Storage::disk('applicant-private')->get($path)),
+            'security_scanned_at' => now(),
+            'is_verified' => true,
+            'verified_at' => now(),
+            'verified_by' => $staff->id,
+        ]);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->assertFormFieldIsDisabled('report_card');
+    }
+
+    public function test_verified_attachment_is_preserved_when_other_attachment_is_replaced(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+
+        [$registration, $parent, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($registration->unit, $staff);
+        $data = $draft->toArray();
+        $data['document_requirements'] = [
+            ['key' => 'certificates', 'label' => 'Sertifikat', 'active' => true, 'required' => true, 'max_files' => 2, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+        ];
+        $configuration = $service->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        $verifiedPath = 'documents/'.$registration->id.'/verified.jpg';
+        $replaceablePath = 'documents/'.$registration->id.'/rejected.jpg';
+        Storage::disk('applicant-private')->put($verifiedPath, UploadedFile::fake()->image('verified.jpg')->getContent());
+        Storage::disk('applicant-private')->put($replaceablePath, UploadedFile::fake()->image('rejected.jpg')->getContent());
+
+        $verified = Document::create([
+            'registration_id' => $registration->id,
+            'requirement_key' => 'certificates',
+            'attachment_index' => 0,
+            'type' => 'supporting_document',
+            'file_path' => $verifiedPath,
+            'original_name' => 'verified.jpg',
+            'file_type' => 'jpg',
+            'mime_type' => 'image/jpeg',
+            'file_size' => Storage::disk('applicant-private')->size($verifiedPath),
+            'sha256' => hash('sha256', Storage::disk('applicant-private')->get($verifiedPath)),
+            'security_scanned_at' => now(),
+            'is_verified' => true,
+            'verified_at' => now(),
+            'verified_by' => $staff->id,
+        ]);
+
+        $replaceable = Document::create([
+            'registration_id' => $registration->id,
+            'requirement_key' => 'certificates',
+            'attachment_index' => 1,
+            'type' => 'supporting_document',
+            'file_path' => $replaceablePath,
+            'original_name' => 'rejected.jpg',
+            'file_type' => 'jpg',
+            'mime_type' => 'image/jpeg',
+            'file_size' => Storage::disk('applicant-private')->size($replaceablePath),
+            'sha256' => hash('sha256', Storage::disk('applicant-private')->get($replaceablePath)),
+            'security_scanned_at' => now(),
+            'is_verified' => false,
+            'rejection_reason' => 'Perlu diganti',
+        ]);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->assertFormFieldIsEnabled('certificates')
+            ->fillForm(['certificates' => [UploadedFile::fake()->image('replacement.jpg')]])
+            ->call('submit')
+            ->assertHasNoFormErrors();
+
+        $this->assertTrue($verified->fresh()->is_verified);
+        $this->assertSame($verifiedPath, $verified->fresh()->file_path);
+        $this->assertNull($verified->fresh()->superseded_at);
+
+        $replaceable->refresh();
+        $this->assertFalse($replaceable->is_verified);
+        $this->assertNull($replaceable->rejection_reason);
+        $this->assertSame(1, (int) $replaceable->attachment_index);
+        $this->assertNotSame($replaceablePath, $replaceable->file_path);
     }
 
     public function test_custom_requirement_accepts_multiple_files_and_requires_each_verification(): void
