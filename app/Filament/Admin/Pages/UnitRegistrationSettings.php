@@ -89,11 +89,14 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia.')->schema([
+            Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan.')->schema([
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),
                 Forms\Components\Toggle::make('documents_enabled')->label('Dokumen'),
                 Forms\Components\Toggle::make('tests_enabled')->label('Tes'),
-            ])->columns(3),
+                Forms\Components\Toggle::make('post_announcement_enabled')
+                    ->label('Proses Pasca-Pengumuman')
+                    ->helperText('Aktifkan Penawaran Penerimaan, Daftar Tunggu, Daftar Ulang, dan Enrollment. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
+            ])->columns(4),
             Forms\Components\Section::make('Formulir Unit')->description('Pilih isian bawaan yang ingin disesuaikan atau tambahkan pertanyaan khusus. Identitas inti tetap wajib.')->schema([
                 Forms\Components\Repeater::make('fields')->label('Pengaturan field')->default([])->schema([
                     Forms\Components\Select::make('key')->label('Isian')->options(fn (Forms\Get $get): array => ConfiguredRegistrationForm::fieldLabels() + [(! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true) && $get('key') ? $get('key') : 'custom_'.strtolower(Str::random(8))) => 'Pertanyaan tambahan'])->default(fn (): string => 'custom_'.strtolower(Str::random(8)))->searchable()->required(),
@@ -123,7 +126,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Select::make('uuid')->label('Tes')->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())->pluck('name', 'uuid')->all())->required(),
                 ]),
             ])->collapsible(),
-            Forms\Components\Section::make('Daftar Ulang')->description('Persyaratan ini tersimpan pada versi konfigurasi dan hanya berlaku untuk pendaftar yang menggunakan versi tersebut.')->schema([
+            Forms\Components\Section::make('Daftar Ulang')->description('Persyaratan ini tersimpan pada versi konfigurasi dan hanya berlaku ketika Proses Pasca-Pengumuman diaktifkan.')->schema([
                 Forms\Components\Repeater::make('re_registration_requirements')->label('Persyaratan daftar ulang')->default([])->schema([
                     Forms\Components\Hidden::make('key')->default(fn (): string => 'reregistration_'.strtolower(Str::random(10)))->required(),
                     Forms\Components\TextInput::make('label')->label('Nama persyaratan')->required(),
@@ -132,7 +135,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(true),
                 ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Persyaratan baru'),
-            ])->collapsible(),
+            ])
+                ->visible(fn (Forms\Get $get): bool => (bool) $get('post_announcement_enabled'))
+                ->collapsible(),
         ])->statePath('data');
     }
 
