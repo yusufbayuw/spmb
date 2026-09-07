@@ -135,9 +135,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(true),
                 ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Persyaratan baru'),
-            ])
-                ->visible(fn (Forms\Get $get): bool => (bool) $get('post_announcement_enabled'))
-                ->collapsible(),
+            ])->collapsible(),
         ])->statePath('data');
     }
 
