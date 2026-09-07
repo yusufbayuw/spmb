@@ -29,9 +29,9 @@ class RegistrationResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pendaftaran';
 
-    protected static ?string $navigationGroup = 'SPMB';
+    protected static ?string $navigationGroup = 'Pendaftaran';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     public static function statusOptions(): array
     {
