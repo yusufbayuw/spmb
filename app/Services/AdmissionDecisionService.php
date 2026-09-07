@@ -28,16 +28,27 @@ class AdmissionDecisionService
             $available = $quota ? max(0, $quota->capacity - $this->activeSeatCount($quota)) : PHP_INT_MAX;
             $selections = $this->candidates($lockedBatch)->lockForUpdate()->get();
 
+            $eligibleRank = 0;
+
             foreach ($selections as $index => $selection) {
                 $rank = $index + 1;
-                $recommendation = $rank <= $available
-                    ? 'accepted'
-                    : ($lockedBatch->waitlist_limit > 0 && $rank <= $available + $lockedBatch->waitlist_limit ? 'waiting_list' : 'rejected');
+                $failedRequiredTest = $this->hasFailedRequiredTest($selection->registration);
+
+                if ($failedRequiredTest) {
+                    $recommendation = 'rejected';
+                    $waitlistRank = null;
+                } else {
+                    $eligibleRank++;
+                    $recommendation = $eligibleRank <= $available
+                        ? 'accepted'
+                        : ($lockedBatch->waitlist_limit > 0 && $eligibleRank <= $available + $lockedBatch->waitlist_limit ? 'waiting_list' : 'rejected');
+                    $waitlistRank = $recommendation === 'waiting_list' ? $eligibleRank - $available : null;
+                }
 
                 $selection->update([
                     'selection_batch_id' => $lockedBatch->id,
                     'rank' => $rank,
-                    'waitlist_rank' => $recommendation === 'waiting_list' ? $rank - $available : null,
+                    'waitlist_rank' => $waitlistRank,
                     'system_recommendation' => $recommendation,
                 ]);
             }
@@ -429,6 +440,7 @@ class AdmissionDecisionService
     private function candidates(SelectionBatch $batch): Builder
     {
         return Selection::query()
+            ->with(['registration.configuration', 'registration.opening', 'registration.testResults'])
             ->whereHas('registration', function (Builder $query) use ($batch): void {
                 $query->where('registration_opening_id', $batch->registration_opening_id)
                     ->where('current_stage', 'selection')
@@ -437,6 +449,22 @@ class AdmissionDecisionService
             ->orderByRaw('case when final_score is null then 1 else 0 end')
             ->orderByDesc('final_score')
             ->orderBy('registration_id');
+    }
+
+    private function hasFailedRequiredTest(Registration $registration): bool
+    {
+        $requiredTestIds = collect($registration->configuredTests())
+            ->where('is_required', true)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id);
+
+        if ($requiredTestIds->isEmpty()) {
+            return false;
+        }
+
+        return $registration->testResults
+            ->whereIn('admission_test_id', $requiredTestIds->all())
+            ->contains(fn ($result): bool => $result->result === 'fail');
     }
 
     private function assertUnitAccess(SelectionBatch $batch, User $actor): void
