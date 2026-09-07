@@ -23,7 +23,7 @@ class RegistrationResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationLabel = 'Pendaftaran';
+    protected static ?string $navigationLabel = 'Data Pendaftar';
 
     protected static ?string $modelLabel = 'Pendaftaran';
 
