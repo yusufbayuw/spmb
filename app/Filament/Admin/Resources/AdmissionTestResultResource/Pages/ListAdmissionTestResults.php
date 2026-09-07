@@ -100,6 +100,11 @@ class ListAdmissionTestResults extends ListRecords
             ->all();
     }
 
+    public function getDefaultActiveTab(): string|int|null
+    {
+        return 'scheduled';
+    }
+
     public function getTabs(): array
     {
         return [
