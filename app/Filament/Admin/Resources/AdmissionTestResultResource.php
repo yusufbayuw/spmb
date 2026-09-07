@@ -100,12 +100,17 @@ class AdmissionTestResultResource extends Resource
     {
         $q = parent::getEloquentQuery()
             ->with(['registration.unit', 'admissionTest'])
-            ->where(function (Builder $query): void {
-                $query
-                    ->whereIn('status', ['completed', 'absent', 'exempted'])
-                    ->orWhereHas('registration', fn (Builder $registration): Builder => $registration
-                        ->where('current_stage', 'tests'));
-            });
+            ->whereHas('registration', fn (Builder $registration): Builder => $registration
+                ->whereIn('current_stage', [
+                    'tests',
+                    'selection',
+                    'announcement',
+                    'waiting_list',
+                    'admission_offer',
+                    're_registration',
+                    'enrollment',
+                    'completed',
+                ]));
 
         if (auth()->user()?->isTU()) {
             $q->whereHas('registration', fn (Builder $x) => $x->where('unit_id', auth()->user()->unit_id));
