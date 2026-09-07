@@ -11,7 +11,7 @@ class UnitConfiguration extends Model
 {
     use HasPublicUuid;
 
-    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'post_announcement_enabled', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
+    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
 
     protected $casts = ['payment_enabled' => 'boolean', 'documents_enabled' => 'boolean', 'tests_enabled' => 'boolean', 'post_announcement_enabled' => 'boolean', 'fields' => 'array', 'document_requirements' => 'array', 'test_definitions' => 'array', 're_registration_requirements' => 'array', 'published_at' => 'datetime', 'legacy' => 'boolean'];
 
