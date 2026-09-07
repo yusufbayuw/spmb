@@ -409,7 +409,7 @@ class RegistrationWorkflowService
     {
         $tests = $registration->configuredTests();
         foreach ($tests as $test) {
-            AdmissionTestResult::firstOrCreate(['registration_id' => $registration->id, 'admission_test_id' => $test['id']], ['status' => 'scheduled', 'result' => 'pending']);
+            AdmissionTestResult::firstOrCreate(['registration_id' => $registration->id, 'admission_test_id' => $test['id']], ['status' => 'unbooked', 'result' => 'pending']);
         }
         $required = collect($tests)->where('is_required', true)->isNotEmpty();
         if (! $required) {
