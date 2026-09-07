@@ -321,7 +321,6 @@ class RegistrationWorkflowService
                 ]);
 
                 $lockedPayment->virtualAccount?->update(['status' => 'paid']);
-                app(ReceiptService::class)->issue($lockedPayment);
 
                 $registration->transitionTo('applicant_card', [
                     'status' => 'payment_verified',
@@ -330,6 +329,10 @@ class RegistrationWorkflowService
 
                 $registration->loadMissing(['configuration', 'opening', 'unit']);
                 app(RegistrationNumberService::class)->assign($registration);
+
+                // Receipt snapshots must already contain the official registration number.
+                app(ReceiptService::class)->issue($lockedPayment);
+
                 $this->advanceFromApplicantCard($registration, $staff);
                 $cardIssued = true;
 
