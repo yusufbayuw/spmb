@@ -158,7 +158,10 @@ class DocumentResource extends Resource
     {
         return (string) static::getEloquentQuery()
             ->where('is_verified', false)
-            ->whereHas('registration', fn (Builder $q) => $q->where('lifecycle_status', 'active'))
+            ->whereNull('rejection_reason')
+            ->whereHas('registration', fn (Builder $q) => $q
+                ->where('lifecycle_status', 'active')
+                ->whereIn('current_stage', ['documents', 'document_verification']))
             ->count();
     }
 
