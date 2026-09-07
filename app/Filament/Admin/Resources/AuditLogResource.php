@@ -19,7 +19,7 @@ class AuditLogResource extends Resource
     protected static ?string $modelLabel = 'Audit Log';
     protected static ?string $pluralModelLabel = 'Audit Trail';
     protected static ?string $navigationGroup = 'Sistem & Akses';
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
