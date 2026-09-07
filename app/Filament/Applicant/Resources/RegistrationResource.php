@@ -122,7 +122,9 @@ class RegistrationResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('full_name')->label('Peserta')->searchable()->weight('medium')->description(fn (Registration $record): ?string => $record->registration_number),
+                Tables\Columns\TextColumn::make('full_name')->label('Peserta')->searchable()->weight('medium')->description(
+                    fn (Registration $record): string => $record->registration_number ?: 'Nomor registrasi diterbitkan setelah pembayaran diverifikasi'
+                ),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit / Institusi')->badge(),
                 Tables\Columns\TextColumn::make('opening.studyProgram.name')
                     ->label('Program Studi')
