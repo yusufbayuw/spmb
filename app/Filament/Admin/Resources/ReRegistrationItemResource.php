@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\ReRegistrationItemResource\Pages;
 use App\Models\ReRegistrationItem;
+use App\Models\UnitConfiguration;
 use App\Services\ReRegistrationService;
 use Filament\Forms;
 use Filament\Resources\Resource;
@@ -22,6 +23,26 @@ class ReRegistrationItemResource extends Resource
     protected static ?string $navigationGroup = 'Pasca-Pengumuman';
 
     protected static ?int $navigationSort = 1;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        $latestPublishedConfigurationIds = UnitConfiguration::query()
+            ->selectRaw('MAX(id)')
+            ->where('status', 'published')
+            ->groupBy('unit_id');
+
+        return UnitConfiguration::query()
+            ->whereIn('id', $latestPublishedConfigurationIds)
+            ->where('post_announcement_enabled', true)
+            ->when($user->isTU(), fn (Builder $query): Builder => $query->where('unit_id', $user->unit_id))
+            ->exists();
+    }
 
     public static function form(Forms\Form $form): Forms\Form
     {
