@@ -87,7 +87,18 @@ class ListAdmissionTestResults extends ListRecords
     {
         return AdmissionTest::query()
             ->with('unit')
-            ->whereHas('results')
+            ->whereHas('results', fn (Builder $result): Builder => $result
+                ->where('status', 'scheduled')
+                ->whereHas('registration', fn (Builder $registration): Builder => $registration
+                    ->where('lifecycle_status', 'active')
+                    ->where('current_stage', 'tests'))
+                ->whereExists(function ($booking): void {
+                    $booking->selectRaw('1')
+                        ->from('test_bookings')
+                        ->whereColumn('test_bookings.registration_id', 'admission_test_results.registration_id')
+                        ->whereColumn('test_bookings.admission_test_id', 'admission_test_results.admission_test_id')
+                        ->whereNotNull('test_bookings.test_session_id');
+                }))
             ->when(
                 auth()->user()?->isTU(),
                 fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id),
