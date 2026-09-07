@@ -27,6 +27,51 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_single_required_private_uploads_advance_to_document_verification(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+
+        [$registration, $parent, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($registration->unit, $staff);
+        $data = $draft->toArray();
+        $data['document_requirements'] = [
+            ['key' => 'report_card', 'label' => 'Rapor', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+            ['key' => 'family_card', 'label' => 'Kartu Keluarga', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+            ['key' => 'birth_certificate', 'label' => 'Akta Kelahiran', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+            ['key' => 'photo', 'label' => 'Pas Foto', 'active' => true, 'required' => true, 'max_files' => 1, 'formats' => ['jpg'], 'instructions' => '', 'template_path' => null],
+        ];
+        $configuration = $service->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->fillForm([
+                'report_card' => UploadedFile::fake()->image('rapor.jpg', 800, 600),
+                'family_card' => UploadedFile::fake()->image('kk.jpg', 800, 600),
+                'birth_certificate' => UploadedFile::fake()->image('akta.jpg', 800, 600),
+                'photo' => UploadedFile::fake()->image('foto.jpg', 400, 600),
+            ])
+            ->call('submit')
+            ->assertHasNoFormErrors();
+
+        $registration->refresh();
+
+        $this->assertSame('document_verification', $registration->current_stage);
+        $this->assertNotNull($registration->documents_completed_at);
+        $this->assertSame(4, $registration->documents()->count());
+        $this->assertTrue($registration->documentsComplete());
+        $this->assertFalse($registration->documentsComplete(true));
+
+        foreach ($registration->documents as $document) {
+            Storage::disk('applicant-private')->assertExists($document->file_path);
+            $this->assertGreaterThan(548, (int) Storage::disk('applicant-private')->size($document->file_path));
+        }
+    }
+
     public function test_custom_requirement_accepts_multiple_files_and_requires_each_verification(): void
     {
         Storage::fake('local');
