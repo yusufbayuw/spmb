@@ -45,6 +45,8 @@ use App\Filament\Admin\Resources\UserResource\Pages\ListUsers;
 use App\Filament\Admin\Resources\VirtualAccountResource\Pages\ListVirtualAccounts;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages\ListRegistrations as ApplicantListRegistrations;
 use App\Filament\RedirectsToResourceIndex;
+use App\Models\Document;
+use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
@@ -91,6 +93,79 @@ class FilamentResourceBehaviorTest extends TestCase
 
         $this->assertSame(['ACT'], $tabs['active']->modifyQuery(Unit::query())->pluck('code')->all());
         $this->assertSame(['INA'], $tabs['inactive']->modifyQuery(Unit::query())->pluck('code')->all());
+    }
+
+    public function test_document_verification_groups_by_registration_not_account_user(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Sekolah Dasar',
+            'code' => 'SD-GROUP',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 0,
+            'status' => 'open',
+        ]);
+
+        $parent = User::factory()->create(['is_active' => true]);
+        $administrator = User::factory()->create(['is_active' => true]);
+        $administrator->assignRole(Role::firstOrCreate([
+            'name' => 'super_admin',
+            'guard_name' => 'web',
+        ]));
+
+        $first = Registration::create([
+            'user_id' => $parent->id,
+            'unit_id' => $unit->id,
+            'registration_opening_id' => $opening->id,
+            'registration_number' => 'REG-SD-20262027-0001',
+            'full_name' => 'Anak Pertama',
+            'nik' => '3273010101010101',
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2018-01-01',
+            'home_address' => 'Bandung',
+            'current_stage' => 'document_verification',
+            'lifecycle_status' => 'active',
+        ]);
+        $second = Registration::create([
+            'user_id' => $parent->id,
+            'unit_id' => $unit->id,
+            'registration_opening_id' => $opening->id,
+            'registration_number' => 'REG-SD-20262027-0002',
+            'full_name' => 'Anak Kedua',
+            'nik' => '3273010101010102',
+            'gender' => 'P',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2019-01-01',
+            'home_address' => 'Bandung',
+            'current_stage' => 'document_verification',
+            'lifecycle_status' => 'active',
+        ]);
+
+        foreach ([[$first, 'first.pdf'], [$second, 'second.pdf']] as [$registration, $filename]) {
+            Document::create([
+                'registration_id' => $registration->id,
+                'requirement_key' => 'supporting_document',
+                'attachment_index' => 0,
+                'type' => 'supporting_document',
+                'file_path' => 'documents/'.$registration->id.'/'.$filename,
+                'original_name' => $filename,
+                'file_type' => 'pdf',
+                'file_size' => 1024,
+                'is_verified' => false,
+            ]);
+        }
+
+        $this->actingAs($administrator);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(ListDocuments::class)
+            ->assertSee('REG-SD-20262027-0001 · Anak Pertama')
+            ->assertSee('REG-SD-20262027-0002 · Anak Kedua');
     }
 
     public function test_selection_batch_pathway_options_only_include_available_pathways_for_opening_unit(): void
