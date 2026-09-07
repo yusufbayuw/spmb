@@ -23,7 +23,7 @@ class VirtualAccountResource extends Resource
 
     protected static ?string $navigationGroup = 'Konfigurasi SPMB';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 5;
 
     public static function table(Table $table): Table
     {
