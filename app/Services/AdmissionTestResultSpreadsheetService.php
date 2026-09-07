@@ -66,13 +66,9 @@ class AdmissionTestResultSpreadsheetService
             ->where('admission_test_id', $test->id)
             ->whereHas('registration', fn (Builder $query): Builder => $query
                 ->where('lifecycle_status', 'active'))
-            ->orderBy(
-                \App\Models\Registration::query()
-                    ->select('registration_number')
-                    ->whereColumn('registrations.id', 'admission_test_results.registration_id')
-                    ->limit(1),
-            )
-            ->get();
+            ->get()
+            ->sortBy(fn (AdmissionTestResult $result): string => (string) $result->registration?->registration_number)
+            ->values();
 
         if ($results->isEmpty()) {
             throw ValidationException::withMessages([
@@ -265,10 +261,13 @@ class AdmissionTestResultSpreadsheetService
                 continue;
             }
 
-            foreach ($sheet->getRowIterator() as $rowIndex => $row) {
+            $rowNumber = 0;
+
+            foreach ($sheet->getRowIterator() as $row) {
+                $rowNumber++;
                 $values = $row->toArray();
 
-                if ($rowIndex === 1) {
+                if ($rowNumber === 1) {
                     $headers = array_map(
                         fn ($value): string => trim((string) $value),
                         $values,
