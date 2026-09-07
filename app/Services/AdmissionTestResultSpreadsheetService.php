@@ -161,6 +161,29 @@ class AdmissionTestResultSpreadsheetService
 
         $resultUuids = collect($rows)->pluck('RESULT_UUID')->filter()->values();
 
+        $expectedResultUuids = AdmissionTestResult::query()
+            ->where('admission_test_id', $test->id)
+            ->where('status', 'scheduled')
+            ->whereHas('registration', fn (Builder $query): Builder => $query
+                ->where('lifecycle_status', 'active')
+                ->where('current_stage', 'tests'))
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('test_bookings')
+                    ->whereColumn('test_bookings.registration_id', 'admission_test_results.registration_id')
+                    ->whereColumn('test_bookings.admission_test_id', 'admission_test_results.admission_test_id')
+                    ->whereNotNull('test_bookings.test_session_id');
+            })
+            ->pluck('uuid')
+            ->sort()
+            ->values();
+
+        if ($resultUuids->sort()->values()->all() !== $expectedResultUuids->all()) {
+            throw ValidationException::withMessages([
+                'file' => 'Daftar peserta pada file sudah tidak sama dengan peserta yang saat ini terjadwal. Download ulang file Hasil Tes terbaru.',
+            ]);
+        }
+
         if ($resultUuids->count() !== $resultUuids->unique()->count()) {
             throw ValidationException::withMessages([
                 'file' => 'Terdapat RESULT_UUID duplikat di dalam file.',
