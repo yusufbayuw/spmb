@@ -104,7 +104,10 @@ class UnitConfigurationService
                 ->with(['selection', 'announcement', 'testResults', 'configuration', 'unit', 'opening'])
                 ->where('unit_id', $unit->id)
                 ->where('lifecycle_status', 'active')
-                ->where('unit_configuration_id', '!=', $configuration->id)
+                ->where(function ($query) use ($configuration): void {
+                    $query->whereNull('unit_configuration_id')
+                        ->orWhere('unit_configuration_id', '!=', $configuration->id);
+                })
                 ->whereIn('current_stage', [
                     'data_validation',
                     'virtual_account',
@@ -152,6 +155,9 @@ class UnitConfigurationService
                 $registration->forceFill([
                     'unit_configuration_id' => $configuration->id,
                 ])->saveQuietly();
+
+                $registration->unsetRelation('configuration');
+                $registration->load('configuration');
 
                 $tests = $registration->configuredTests();
 
