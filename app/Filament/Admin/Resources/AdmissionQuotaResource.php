@@ -21,7 +21,9 @@ class AdmissionQuotaResource extends Resource
 
     protected static ?string $navigationLabel = 'Daya Tampung';
 
-    protected static ?string $navigationGroup = 'Seleksi';
+    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+
+    protected static ?int $navigationSort = 6;
 
     public static function form(Form $form): Form
     {
