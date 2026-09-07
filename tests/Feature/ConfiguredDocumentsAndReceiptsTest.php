@@ -227,8 +227,15 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
         $data['document_requirements'][0]['template_path'] = $path;
         $configuration = $service->save($draft, $staff, $data, true);
         $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->assertSee('Unduh Template Rapor');
+
         $url = route('registration.template', [$registration, 'report_card']);
-        $this->actingAs($parent)->get($url)->assertDownload('form.docx');
+        $this->get($url)->assertDownload('form.docx');
         $other = User::factory()->create(['is_active' => true]);
         $this->actingAs($other)->get($url)->assertNotFound();
         $zip->open(Storage::disk('applicant-private')->path($path));
