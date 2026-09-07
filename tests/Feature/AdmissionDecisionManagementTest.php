@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\AdmissionQuota;
+use App\Models\AdmissionTest;
+use App\Models\AdmissionTestResult;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Selection;
@@ -57,6 +59,104 @@ class AdmissionDecisionManagementTest extends TestCase
         $this->assertSame('announcement', $first->fresh()->current_stage);
         $this->assertSame('accepted', $first->selection()->value('decision'));
         $this->assertSame('waiting_list', $second->selection()->value('decision'));
+    }
+
+    public function test_completed_scored_tests_feed_ranking_and_failed_required_test_forces_rejection(): void
+    {
+        Queue::fake();
+
+        [$unit, $opening, $staff] = $this->openingFixture();
+
+        $scoreTestA = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik A',
+            'result_type' => 'score',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+        $scoreTestB = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik B',
+            'result_type' => 'score',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+        $passFailTest = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Wawancara',
+            'result_type' => 'pass_fail',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+
+        $configuration = UnitConfiguration::create([
+            'unit_id' => $unit->id,
+            'version' => 2,
+            'status' => 'published',
+            'payment_enabled' => true,
+            'documents_enabled' => true,
+            'tests_enabled' => true,
+            'post_announcement_enabled' => true,
+            'fields' => [],
+            'document_requirements' => [],
+            'test_definitions' => [
+                ['id' => $scoreTestA->id, 'name' => $scoreTestA->name, 'is_required' => true, 'result_type' => 'score', 'passing_score' => null],
+                ['id' => $scoreTestB->id, 'name' => $scoreTestB->name, 'is_required' => true, 'result_type' => 'score', 'passing_score' => null],
+                ['id' => $passFailTest->id, 'name' => $passFailTest->name, 'is_required' => true, 'result_type' => 'pass_fail', 'passing_score' => null],
+            ],
+            're_registration_requirements' => [],
+            'published_at' => now(),
+        ]);
+
+        $registration = $this->registration($opening, '3273010101010010');
+        $registration->update([
+            'unit_configuration_id' => $configuration->id,
+            'current_stage' => 'tests',
+            'data_validation_status' => 'valid',
+        ]);
+
+        $resultA = AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $scoreTestA->id,
+            'status' => 'scheduled',
+            'result' => 'pending',
+        ]);
+        $resultB = AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $scoreTestB->id,
+            'status' => 'scheduled',
+            'result' => 'pending',
+        ]);
+        $interview = AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $passFailTest->id,
+            'status' => 'scheduled',
+            'result' => 'pending',
+        ]);
+
+        $workflow = app(RegistrationWorkflowService::class);
+        $workflow->recordTestResult($resultA, $staff, ['status' => 'completed', 'score' => 80, 'result' => 'pass']);
+        $workflow->recordTestResult($resultB, $staff, ['status' => 'completed', 'score' => 90, 'result' => 'pass']);
+        $workflow->recordTestResult($interview, $staff, ['status' => 'completed', 'score' => null, 'result' => 'fail']);
+
+        $registration->refresh();
+
+        $this->assertSame('selection', $registration->current_stage);
+        $this->assertSame('85.00', $registration->selection()->value('final_score'));
+
+        AdmissionQuota::create([
+            'registration_opening_id' => $opening->id,
+            'capacity' => 1,
+        ]);
+        $batch = SelectionBatch::create([
+            'registration_opening_id' => $opening->id,
+            'name' => 'Ranking Tes',
+            'waitlist_limit' => 0,
+        ]);
+
+        app(AdmissionDecisionService::class)->rank($batch, $staff);
+
+        $this->assertSame('rejected', $registration->selection()->value('system_recommendation'));
     }
 
     public function test_reviewed_batch_decisions_remain_in_selection_until_batch_is_finalized(): void
