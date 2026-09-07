@@ -110,7 +110,15 @@ class ListAdmissionTestResults extends ListRecords
         return [
             'all' => Tab::make('Semua'),
             'unbooked' => Tab::make('Belum Terjadwal')->query(fn (Builder $query): Builder => $query->where('status', 'unbooked')),
-            'scheduled' => Tab::make('Terjadwal')->query(fn (Builder $query): Builder => $query->where('status', 'scheduled')),
+            'scheduled' => Tab::make('Terjadwal')->query(fn (Builder $query): Builder => $query
+                ->where('status', 'scheduled')
+                ->whereExists(function ($booking): void {
+                    $booking->selectRaw('1')
+                        ->from('test_bookings')
+                        ->whereColumn('test_bookings.registration_id', 'admission_test_results.registration_id')
+                        ->whereColumn('test_bookings.admission_test_id', 'admission_test_results.admission_test_id')
+                        ->whereNotNull('test_bookings.test_session_id');
+                })),
             'completed' => Tab::make('Selesai')->query(fn (Builder $query): Builder => $query->where('status', 'completed')),
             'absent' => Tab::make('Tidak Hadir')->query(fn (Builder $query): Builder => $query->where('status', 'absent')),
             'exempted' => Tab::make('Dibebaskan')->query(fn (Builder $query): Builder => $query->where('status', 'exempted')),
