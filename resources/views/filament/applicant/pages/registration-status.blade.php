@@ -187,7 +187,14 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                                         </div>
                                     </div>
                                     <x-filament::badge :color="in_array($result->status, ['completed', 'passed'], true) ? 'success' : ($result->status === 'failed' ? 'danger' : 'gray')">
-                                        {{ str($result->status)->replace('_', ' ')->title() }}
+                                        {{ match($result->status) {
+                                            'unbooked' => 'Belum Terjadwal',
+                                            'scheduled' => 'Terjadwal',
+                                            'completed' => 'Selesai',
+                                            'absent' => 'Tidak Hadir',
+                                            'exempted' => 'Dibebaskan',
+                                            default => str($result->status)->replace('_', ' ')->title(),
+                                        } }}
                                     </x-filament::badge>
                                 </div>
                             @endforeach
