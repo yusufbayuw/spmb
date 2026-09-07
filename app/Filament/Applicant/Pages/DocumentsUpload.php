@@ -223,7 +223,13 @@ class DocumentsUpload extends Page implements HasForms
                         }
 
                         $storedPaths[] = $storedPath;
-                        $inspection = $security->inspect($storedPath, $requirement['formats']);
+                        try {
+                            $inspection = $security->inspect($storedPath, $requirement['formats']);
+                        } catch (ValidationException $exception) {
+                            throw ValidationException::withMessages([
+                                'data.'.$requirement['key'] => $exception->validator->errors()->all(),
+                            ]);
+                        }
 
                         $document = $replaceable->first(
                             fn (Document $candidate): bool => ! in_array($candidate->id, $usedReplaceableIds, true),
@@ -310,6 +316,11 @@ class DocumentsUpload extends Page implements HasForms
                 }
             }
 
+            if ($exception instanceof ValidationException) {
+                $this->onValidationError($exception);
+                $this->dispatch('form-validation-error', livewireId: $this->getId());
+            }
+
             throw $exception;
         }
 
@@ -320,5 +331,15 @@ class DocumentsUpload extends Page implements HasForms
             ->send();
 
         $this->redirect(RegistrationStatus::getUrl(['registration' => $this->registrationRecord->uuid]));
+    }
+
+    protected function onValidationError(ValidationException $exception): void
+    {
+        Notification::make()
+            ->title('Dokumen belum berhasil disimpan')
+            ->body(e($exception->getMessage()))
+            ->danger()
+            ->persistent()
+            ->send();
     }
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Applicant\Pages\DocumentsUpload;
+use App\Filament\Applicant\Pages\RegistrationStatus;
 use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Registration;
@@ -16,6 +17,7 @@ use App\Services\ReceiptService;
 use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -27,6 +29,85 @@ use Tests\TestCase;
 class ConfiguredDocumentsAndReceiptsTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_rejected_file_shows_its_reason_and_rolls_back_all_document_uploads(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+        config(['spmb.uploads.clamav_binary' => 'not-installed-spmb-test-clamscan', 'spmb.uploads.require_malware_scan' => false]);
+        [$registration, $parent] = $this->fixture();
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+        $png = UploadedFile::fake()->image('photo.png')->getContent();
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->fillForm([
+                'family_card' => [UploadedFile::fake()->image('kk.jpg')],
+                'photo' => [UploadedFile::fake()->createWithContent('photo.jpeg', $png)],
+            ])
+            ->call('submit')
+            ->assertHasFormErrors(['photo'])
+            ->assertSee('Ekstensi dan isi file tidak konsisten.')
+            ->assertNotified(Notification::make()
+                ->title('Dokumen belum berhasil disimpan')
+                ->body('Ekstensi dan isi file tidak konsisten.')
+                ->danger()
+                ->persistent())
+            ->assertNotNotified('Dokumen berhasil disimpan')
+            ->assertNoRedirect();
+
+        $this->assertDatabaseCount('documents', 0);
+        $this->assertSame('documents', $registration->fresh()->current_stage);
+        Storage::disk('applicant-private')->assertDirectoryEmpty('documents/'.$registration->id);
+    }
+
+    public function test_form_validation_failure_shows_a_save_failure_notification(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+        [$registration, $parent] = $this->fixture();
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->fillForm(['photo' => [UploadedFile::fake()->image('photo.jpg')->size(5121)]])
+            ->call('submit')
+            ->assertHasFormErrors(['photo'])
+            ->assertNotified('Dokumen belum berhasil disimpan')
+            ->assertNoRedirect();
+
+        $this->assertDatabaseCount('documents', 0);
+        Storage::disk('applicant-private')->assertDirectoryEmpty('/');
+    }
+
+    public function test_pdf_documents_and_jpeg_photo_save_together(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+        config(['spmb.uploads.clamav_binary' => 'not-installed-spmb-test-clamscan', 'spmb.uploads.require_malware_scan' => false]);
+        [$registration, $parent] = $this->fixture();
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+        $pdf = "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF";
+
+        Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->fillForm([
+                'family_card' => [UploadedFile::fake()->createWithContent('dokumen-pendukung.pdf', $pdf)],
+                'birth_certificate' => [UploadedFile::fake()->createWithContent('akta (2).pdf', $pdf)],
+                'photo' => [UploadedFile::fake()->image('Logo_YTB_SQUARE.jpg.jpeg')],
+                'supporting_document' => [UploadedFile::fake()->createWithContent('dokumen-pendukung.pdf', $pdf)],
+            ])
+            ->call('submit')
+            ->assertHasNoFormErrors()
+            ->assertNotified('Dokumen berhasil disimpan')
+            ->assertRedirect(RegistrationStatus::getUrl(['registration' => $registration->uuid]));
+
+        $this->assertSame('document_verification', $registration->fresh()->current_stage);
+        $this->assertDatabaseCount('documents', 4);
+        foreach ($registration->documents as $document) {
+            Storage::disk('applicant-private')->assertExists($document->file_path);
+        }
+    }
 
     public function test_single_required_private_uploads_advance_to_document_verification(): void
     {
