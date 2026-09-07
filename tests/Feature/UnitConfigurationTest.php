@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\UnitRegistrationSettings;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration;
+use App\Models\AdmissionTest;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Models\Selection;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
@@ -102,6 +104,96 @@ class UnitConfigurationTest extends TestCase
             app(RegistrationWorkflowService::class)->issueApplicantCard($registration, $staff);
             $this->assertSame($documents ? 'documents' : 'selection', $registration->fresh()->current_stage);
         }
+    }
+
+    public function test_required_test_configuration_adds_test_stage_and_can_be_applied_to_pending_selection(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+
+        $oldConfiguration = $service->initialize($unit);
+
+        $test = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik',
+            'code' => 'AKD',
+            'sort_order' => 1,
+            'is_required' => true,
+            'is_active' => true,
+            'result_type' => 'score',
+        ]);
+
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['tests_enabled'] = true;
+        $data['test_definitions'] = [['id' => $test->id]];
+
+        $published = $service->save($draft, $staff, $data, true);
+
+        $registration->update([
+            'unit_configuration_id' => $oldConfiguration->id,
+            'current_stage' => 'selection',
+        ]);
+        Selection::firstOrCreate(
+            ['registration_id' => $registration->id],
+            ['decision' => 'pending'],
+        );
+
+        $result = $service->applyCurrentToEligibleActiveRegistrations($unit, $staff);
+
+        $registration->refresh();
+
+        $this->assertSame(1, $result['updated']);
+        $this->assertSame(1, $result['moved_to_tests']);
+        $this->assertSame($published->id, $registration->unit_configuration_id);
+        $this->assertSame('tests', $registration->current_stage);
+        $this->assertArrayHasKey('tests', $registration->enabledStages());
+        $this->assertDatabaseHas('admission_test_results', [
+            'registration_id' => $registration->id,
+            'admission_test_id' => $test->id,
+            'status' => 'scheduled',
+            'result' => 'pending',
+        ]);
+    }
+
+    public function test_active_configuration_sync_skips_selection_that_already_has_a_decision(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+
+        $oldConfiguration = $service->initialize($unit);
+
+        $test = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik',
+            'code' => 'AKD',
+            'sort_order' => 1,
+            'is_required' => true,
+            'is_active' => true,
+            'result_type' => 'score',
+        ]);
+
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['tests_enabled'] = true;
+        $data['test_definitions'] = [['id' => $test->id]];
+        $service->save($draft, $staff, $data, true);
+
+        $registration->update([
+            'unit_configuration_id' => $oldConfiguration->id,
+            'current_stage' => 'selection',
+        ]);
+        Selection::updateOrCreate(
+            ['registration_id' => $registration->id],
+            ['decision' => 'accepted', 'decided_at' => now(), 'decided_by' => $staff->id],
+        );
+
+        $result = $service->applyCurrentToEligibleActiveRegistrations($unit, $staff);
+
+        $this->assertSame(0, $result['updated']);
+        $this->assertSame(1, $result['skipped']);
+        $this->assertSame($oldConfiguration->id, $registration->fresh()->unit_configuration_id);
+        $this->assertSame('selection', $registration->fresh()->current_stage);
     }
 
     public function test_custom_choices_are_validated_and_unknown_answers_are_not_saved(): void
