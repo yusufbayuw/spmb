@@ -120,6 +120,11 @@ class Registration extends Model
         if (! $isAcceptedFlow) {
             unset($stages['admission_offer'], $stages['re_registration'], $stages['enrollment']);
         }
+
+        if (! $this->postAnnouncementEnabled()) {
+            unset($stages['waiting_list'], $stages['admission_offer'], $stages['re_registration'], $stages['enrollment']);
+        }
+
         $configuration = $this->configuration;
         if ($configuration && ! $configuration->payment_enabled) {
             unset($stages['virtual_account'], $stages['payment'], $stages['payment_verification']);
@@ -173,6 +178,11 @@ class Registration extends Model
     }
 
     /** @return list<array<string, mixed>> */
+    public function postAnnouncementEnabled(): bool
+    {
+        return (bool) ($this->configuration?->post_announcement_enabled ?? false);
+    }
+
     public function reRegistrationRequirements(): array
     {
         return array_values(array_filter(
@@ -396,6 +406,11 @@ class Registration extends Model
 
         if ($this->current_stage === $targetStage) {
             return true;
+        }
+
+        if (! $this->postAnnouncementEnabled()
+            && in_array($this->current_stage, ['announcement', 'waiting_list', 'admission_offer', 're_registration', 'enrollment'], true)) {
+            return $targetStage === 'completed';
         }
 
         if ($this->configuration && ! $this->configuration->legacy) {
