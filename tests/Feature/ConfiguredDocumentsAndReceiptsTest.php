@@ -235,7 +235,7 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
             ->assertSee('Unduh Template Rapor');
 
         $url = route('registration.template', [$registration, 'report_card']);
-        $this->get($url)->assertDownload('form.docx');
+        $this->get($url)->assertDownload('rapor.docx');
         $other = User::factory()->create(['is_active' => true]);
         $this->actingAs($other)->get($url)->assertNotFound();
         $zip->open(Storage::disk('applicant-private')->path($path));
