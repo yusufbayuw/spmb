@@ -38,6 +38,23 @@ class TestBookingService
             }
             $booking = TestBooking::query()->where('registration_id', $registration->id)->where('admission_test_id', $session->admission_test_id)->lockForUpdate()->first();
             if ($booking?->test_session_id === $session->id) {
+                AdmissionTestResult::firstOrCreate(
+                    [
+                        'registration_id' => $registration->id,
+                        'admission_test_id' => $session->admission_test_id,
+                    ],
+                    [
+                        'status' => 'scheduled',
+                        'result' => 'pending',
+                    ],
+                );
+
+                AdmissionTestResult::query()
+                    ->where('registration_id', $registration->id)
+                    ->where('admission_test_id', $session->admission_test_id)
+                    ->whereIn('status', ['unbooked', 'scheduled'])
+                    ->update(['status' => 'scheduled']);
+
                 return $booking;
             }
             if ($session->status !== 'active' || $session->booking_closes_at->lte(now()) || $session->starts_at->lte(now())) {
@@ -56,6 +73,17 @@ class TestBookingService
             }
             $booking ??= new TestBooking(['registration_id' => $registration->id, 'admission_test_id' => $session->admission_test_id]);
             $booking->fill(['test_session_id' => $session->id, 'revision' => ($booking->revision ?? 0) + 1])->save();
+
+            AdmissionTestResult::firstOrCreate(
+                [
+                    'registration_id' => $registration->id,
+                    'admission_test_id' => $session->admission_test_id,
+                ],
+                [
+                    'status' => 'scheduled',
+                    'result' => 'pending',
+                ],
+            );
 
             AdmissionTestResult::query()
                 ->where('registration_id', $registration->id)
