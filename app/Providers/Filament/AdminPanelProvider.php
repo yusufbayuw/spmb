@@ -36,7 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([Widgets\AccountWidget::class])
             ->plugins([FilamentShieldPlugin::make()])
-            ->navigationGroups(['SPMB','Verifikasi','Seleksi','Laporan','Master Data','Akses & Keamanan'])
+            ->navigationGroups(['Pendaftaran','Verifikasi','Seleksi & Pengumuman','Pasca-Pengumuman','Laporan','Konfigurasi SPMB','Sistem & Akses'])
             ->sidebarCollapsibleOnDesktop()
             ->renderHook(
                 PanelsRenderHook::BODY_END,
