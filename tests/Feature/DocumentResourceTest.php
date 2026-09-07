@@ -15,7 +15,7 @@ class DocumentResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_documents_are_grouped_by_account_name_without_repeating_registration_identity_columns(): void
+    public function test_documents_are_grouped_by_registration_identity_instead_of_account_name(): void
     {
         $this->seed(ShieldSeeder::class);
         $unit = Unit::create([
@@ -66,9 +66,8 @@ class DocumentResourceTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSeeText('Nama Akun Pendaftar')
-            ->assertDontSeeText('Nama Peserta Tidak Ditampilkan')
-            ->assertDontSeeText((string) $registration->registration_number)
+            ->assertSeeText(($registration->registration_number ?: 'Tanpa nomor registrasi').' · Nama Peserta Tidak Ditampilkan')
+            ->assertDontSeeText('Nama Akun Pendaftar')
             ->assertSeeText('foto.jpg')
             ->assertSeeText('akta.pdf');
     }
