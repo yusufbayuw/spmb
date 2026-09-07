@@ -119,6 +119,23 @@ class DocumentsUpload extends Page implements HasForms
             ->statePath('data');
     }
 
+    /** @return list<TemporaryUploadedFile> */
+    public function normalizeUploads(mixed $state): array
+    {
+        if ($state instanceof TemporaryUploadedFile) {
+            return [$state];
+        }
+
+        if (! is_array($state)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $state,
+            fn ($upload): bool => $upload instanceof TemporaryUploadedFile,
+        ));
+    }
+
     public function submit(ApplicantFileStorage $storage, ApplicantUploadSecurity $security): void
     {
         $data = $this->form->getState();
@@ -134,7 +151,7 @@ class DocumentsUpload extends Page implements HasForms
                 $registration->assertCurrentStage(['documents', 'document_verification']);
 
                 foreach ($registration->documentRequirements() as $requirement) {
-                    $uploads = array_values(array_filter((array) ($data[$requirement['key']] ?? [])));
+                    $uploads = $this->normalizeUploads($data[$requirement['key']] ?? null);
                     $existing = $registration->documents()
                         ->where(fn ($q) => $q
                             ->where('requirement_key', $requirement['key'])
