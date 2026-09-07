@@ -25,9 +25,9 @@ class RegistrationPathwayResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Jalur Pendaftaran';
 
-    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
