@@ -268,12 +268,16 @@ class SpmbNotificationService
 
     public function selectionDecided(Registration $registration, string $decision): void
     {
+        $body = $registration->current_stage === 'announcement'
+            ? "{$registration->registration_number}: keputusan {$decision} sudah final dan menunggu publikasi hasil."
+            : "{$registration->registration_number}: keputusan {$decision} telah dicatat untuk proses review/finalisasi.";
+
         $this->notify(
             $this->staffRecipients($registration->unit_id),
             'selection.decided',
             'workflow',
             'Keputusan seleksi tersimpan',
-            "{$registration->registration_number}: keputusan {$decision} telah dicatat untuk proses review/finalisasi.",
+            $body,
             'info',
             'heroicon-o-megaphone',
             'Buka pendaftaran',
