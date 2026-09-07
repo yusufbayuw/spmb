@@ -30,7 +30,9 @@ class ReRegistrationService
             throw ValidationException::withMessages(['reason' => 'Alasan penolakan wajib diisi.']);
         }
 
-        $completed = DB::transaction(function () use ($item, $staff, $approved, $reason): ?Registration {
+        $reviewed = null;
+
+        $completed = DB::transaction(function () use ($item, $staff, $approved, $reason, &$reviewed): ?Registration {
             $lockedItem = ReRegistrationItem::query()->lockForUpdate()->findOrFail($item->id);
             $registration = Registration::query()->lockForUpdate()->findOrFail($lockedItem->registration_id);
             abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
@@ -42,6 +44,8 @@ class ReRegistrationService
                 'rejection_reason' => $approved ? null : trim((string) $reason),
             ]);
 
+            $reviewed = $lockedItem->fresh(['registration.user']);
+
             if (! $registration->reRegistrationComplete()) {
                 return null;
             }
@@ -51,6 +55,14 @@ class ReRegistrationService
 
             return $registration->fresh('user');
         }, 5);
+
+        if ($reviewed && (! $completed || ! $approved)) {
+            app(SpmbNotificationService::class)->reRegistrationItemReviewed(
+                $reviewed,
+                $approved,
+                $approved ? null : trim((string) $reason),
+            );
+        }
 
         if ($completed) {
             app(SpmbNotificationService::class)->reRegistrationCompleted($completed);
