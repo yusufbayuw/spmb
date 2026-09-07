@@ -23,7 +23,7 @@ class UnitResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Unit / Institusi';
 
-    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationGroup = 'Sistem & Akses';
 
     protected static ?int $navigationSort = 1;
 
