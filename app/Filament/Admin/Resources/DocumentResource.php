@@ -74,11 +74,10 @@ class DocumentResource extends Resource
                     ->requiresConfirmation()
                     ->visible(fn (Document $record) => auth()->user()?->can('verify_document_document')
                         && ! $record->is_verified
-                        && $record->registration?->isOperational()
-                        && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
+                        && $record->canBeReviewed()
                     )
                     ->action(function (Document $record): void {
-                        $record->registration->assertCurrentStage(['documents', 'document_verification']);
+                        $record->refresh()->assertCanBeReviewed();
 
                         if (! $record->security_scanned_at || ! $record->sha256) {
                             $definition = collect($record->registration->documentRequirements())->firstWhere('key', $record->requirement_key ?: $record->type);
@@ -99,7 +98,9 @@ class DocumentResource extends Resource
                             'verified_by' => auth()->id(),
                         ]);
 
-                        app(RegistrationWorkflowService::class)->refreshDocumentStage($record->registration);
+                        if (in_array($record->registration->current_stage, ['documents', 'document_verification'], true)) {
+                            app(RegistrationWorkflowService::class)->refreshDocumentStage($record->registration);
+                        }
                         app(SpmbNotificationService::class)->workflowEvent($record->registration->fresh(), 'document.verified', 'Berkas diverifikasi', $record->original_name.' telah diverifikasi oleh petugas.');
                         Notification::make()->title('Berkas lolos pemeriksaan keamanan dan diverifikasi')->success()->send();
                     }),
@@ -110,8 +111,7 @@ class DocumentResource extends Resource
                         Textarea::make('rejection_reason')->label('Alasan penolakan')->required()->maxLength(2000),
                     ])
                     ->visible(fn (Document $record): bool => (bool) auth()->user()?->can('verify_document_document')
-                        && $record->registration?->isOperational()
-                        && in_array($record->registration?->current_stage, ['documents', 'document_verification'], true)
+                        && $record->canBeReviewed()
                     )
                     ->action(function (Document $record, array $data): void {
                         app(RegistrationWorkflowService::class)->rejectDocument($record, auth()->user(), $data['rejection_reason']);

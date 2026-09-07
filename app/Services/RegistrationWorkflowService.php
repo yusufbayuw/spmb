@@ -39,19 +39,34 @@ class RegistrationWorkflowService
         DB::transaction(function () use ($document, $staff, $reason): void {
             $registration = Registration::query()->lockForUpdate()->findOrFail($document->registration_id);
             abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
-            $registration->assertCurrentStage(['documents', 'document_verification']);
             $lockedDocument = $registration->documents()->lockForUpdate()->findOrFail($document->id);
+            $lockedDocument->setRelation('registration', $registration);
+            $lockedDocument->assertCanBeReviewed();
             $lockedDocument->update([
                 'is_verified' => false,
                 'verified_at' => null,
                 'verified_by' => $staff->id,
                 'rejection_reason' => trim($reason),
             ]);
-            $registration->transitionTo('documents', [
-                'documents_completed_at' => null,
-                'documents_verified_at' => null,
-            ]);
+            if (in_array($registration->current_stage, ['documents', 'document_verification'], true)) {
+                $registration->transitionTo('documents', [
+                    'documents_completed_at' => null,
+                    'documents_verified_at' => null,
+                ]);
+            }
         });
+
+        $registration = $document->registration->fresh();
+        if (! in_array($registration->current_stage, ['documents', 'document_verification'], true)) {
+            $this->notifications->workflowEvent(
+                $registration,
+                'document.optional_rejected',
+                'Berkas opsional ditolak',
+                $document->original_name.' ditolak. Alasan: '.trim($reason),
+            );
+
+            return;
+        }
 
         $this->notifications->documentNeedsAttention(
             $document->registration->fresh(),

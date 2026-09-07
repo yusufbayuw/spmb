@@ -12,6 +12,7 @@ use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\RegistrationWorkflowService;
+use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -195,6 +196,106 @@ class SpmbTrialIssuesTest extends TestCase
         $this->assertSame('Ganti foto', $document->fresh()->rejection_reason);
         $this->assertSame('documents', $registration->fresh()->current_stage);
         $this->assertNull($registration->fresh()->documents_completed_at);
+    }
+
+    #[TestWith(['verify', 'selection'])]
+    #[TestWith(['reject', 'selection'])]
+    #[TestWith(['verify', 'completed'])]
+    #[TestWith(['reject', 'completed'])]
+    public function test_optional_documents_can_be_reviewed_without_changing_later_stages(string $action, string $stage): void
+    {
+        $this->freezeTime();
+        [$registration, $staff, $parent] = $this->fixture(stage: $stage);
+        $registration->update(['documents_completed_at' => now(), 'documents_verified_at' => now()]);
+        $document = $this->document($registration, 'supporting_document');
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(ListDocuments::class)
+            ->assertTableActionVisible('verify', $document)
+            ->assertTableActionVisible('reject', $document)
+            ->callTableAction($action, $document, $action === 'reject' ? ['rejection_reason' => 'Dokumen tidak terbaca.'] : [])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertDatabaseHas('documents', [
+            'id' => $document->id,
+            'is_verified' => $action === 'verify',
+            'verified_by' => $staff->id,
+            'rejection_reason' => $action === 'reject' ? 'Dokumen tidak terbaca.' : null,
+        ]);
+        $this->assertDatabaseHas('registrations', [
+            'id' => $registration->id,
+            'current_stage' => $stage,
+            'documents_completed_at' => now()->toDateTimeString(),
+            'documents_verified_at' => now()->toDateTimeString(),
+        ]);
+        $event = $action === 'verify' ? 'document.verified' : 'document.optional_rejected';
+        $this->assertSame(1, $parent->notifications()->where('data->spmb_event', $event)->count());
+    }
+
+    public function test_optional_document_actions_remain_available_after_last_required_document_is_verified(): void
+    {
+        [$registration, $staff] = $this->fixture();
+        $this->document($registration, 'family_card', true);
+        $this->document($registration, 'birth_certificate', true);
+        $photo = $this->document($registration, 'photo');
+        $optional = $this->document($registration, 'supporting_document');
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(ListDocuments::class)
+            ->callTableAction('verify', $photo)
+            ->assertHasNoTableActionErrors()
+            ->assertTableActionVisible('verify', $optional)
+            ->assertTableActionVisible('reject', $optional);
+
+        $this->assertSame('selection', $registration->fresh()->current_stage);
+    }
+
+    public function test_optional_document_review_stays_blocked_for_inactive_registrations_and_other_units(): void
+    {
+        [$registration, $staff] = $this->fixture(stage: 'selection');
+        $registration->update(['lifecycle_status' => 'cancelled']);
+        $document = $this->document($registration, 'supporting_document');
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(ListDocuments::class)
+            ->assertTableActionHidden('verify', $document)
+            ->assertTableActionHidden('reject', $document);
+
+        $staff->update(['unit_id' => Unit::create(['name' => 'Unit lain', 'code' => 'OTHER', 'is_active' => true])->id]);
+        Livewire::test(ListDocuments::class)->assertCanNotSeeTableRecords([$document]);
+        $this->assertFalse($document->fresh()->is_verified);
+        $this->assertNull($document->fresh()->rejection_reason);
+    }
+
+    #[TestWith([true])]
+    #[TestWith([false])]
+    public function test_late_document_review_uses_the_configured_requirement_instead_of_document_type(bool $required): void
+    {
+        [$registration, $staff] = $this->fixture(stage: 'selection');
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($registration->unit, $staff);
+        $data = $draft->toArray();
+        $data['document_requirements'] = [[
+            'key' => 'custom_attachment', 'label' => 'Lampiran Tambahan', 'active' => true,
+            'required' => $required, 'max_files' => 1, 'formats' => ['png'],
+        ]];
+        $configuration = $service->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+        $document = $this->document($registration, 'supporting_document');
+        $document->update(['requirement_key' => 'custom_attachment']);
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(ListDocuments::class);
+
+        if ($required) {
+            $page->assertTableActionHidden('verify', $document)->assertTableActionHidden('reject', $document);
+        } else {
+            $page->assertTableActionVisible('verify', $document)->assertTableActionVisible('reject', $document);
+        }
     }
 
     private function document(Registration $registration, string $type, bool $verified = false): Document

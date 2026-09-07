@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class Document extends Model
 {
@@ -42,5 +43,34 @@ class Document extends Model
     public function verifier()
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function canBeReviewed(): bool
+    {
+        if ($this->superseded_at || ! $this->registration?->isOperational()) {
+            return false;
+        }
+
+        if (in_array($this->registration->current_stage, ['documents', 'document_verification'], true)) {
+            return true;
+        }
+
+        $definition = collect($this->registration->documentRequirements())
+            ->firstWhere('key', $this->requirement_key ?: $this->type);
+
+        return $definition !== null && ! $definition['required']
+            && in_array($this->registration->current_stage, [
+                'tests', 'selection', 'announcement', 'waiting_list', 'admission_offer',
+                're_registration', 'enrollment', 'completed',
+            ], true);
+    }
+
+    public function assertCanBeReviewed(): void
+    {
+        if (! $this->canBeReviewed()) {
+            throw ValidationException::withMessages([
+                'document' => 'Berkas tidak dapat diperiksa pada tahap atau lifecycle pendaftaran saat ini.',
+            ]);
+        }
     }
 }
