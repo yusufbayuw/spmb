@@ -142,7 +142,7 @@ class AdmissionDecisionManagementTest extends TestCase
         $registration->refresh();
 
         $this->assertSame('selection', $registration->current_stage);
-        $this->assertSame('85.00', $registration->selection()->value('final_score'));
+        $this->assertSame(85.0, (float) $registration->selection()->value('final_score'));
 
         AdmissionQuota::create([
             'registration_opening_id' => $opening->id,
