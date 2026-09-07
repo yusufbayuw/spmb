@@ -165,6 +165,11 @@ class DocumentResource extends Resource
             ->count();
     }
 
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
     public static function canDelete($record): bool
     {
         return false;
