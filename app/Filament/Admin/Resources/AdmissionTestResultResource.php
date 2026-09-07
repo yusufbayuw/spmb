@@ -98,7 +98,15 @@ class AdmissionTestResultResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $q = parent::getEloquentQuery()->with(['registration.unit', 'admissionTest']);
+        $q = parent::getEloquentQuery()
+            ->with(['registration.unit', 'admissionTest'])
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereIn('status', ['completed', 'absent', 'exempted'])
+                    ->orWhereHas('registration', fn (Builder $registration): Builder => $registration
+                        ->where('current_stage', 'tests'));
+            });
+
         if (auth()->user()?->isTU()) {
             $q->whereHas('registration', fn (Builder $x) => $x->where('unit_id', auth()->user()->unit_id));
         }
