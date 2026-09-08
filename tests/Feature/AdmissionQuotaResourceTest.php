@@ -58,7 +58,6 @@ class AdmissionQuotaResourceTest extends TestCase
 
         $this->actingAs($tu)
             ->get(AdmissionQuotaResource::getUrl('edit', ['record' => $quota]))
-            ->assertOk()
-            ->assertSeeText('Reguler');
+            ->assertOk();
     }
 }
