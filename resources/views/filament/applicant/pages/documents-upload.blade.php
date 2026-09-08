@@ -7,11 +7,11 @@
             <div class="mt-3 grid gap-3 md:grid-cols-2">
             @forelse($registrationRecord->documents->filter(fn ($document) => ($document->requirement_key ?: $document->type) === $requirement['key']) as $document)
                 <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                    <p>{{ $document->original_name }}</p>
+                    <p>{{ $document->displayFileName() }}</p>
                     @if($document->is_verified)<x-filament::badge color="success">Terverifikasi</x-filament::badge>
                     @elseif($document->rejection_reason)<x-filament::badge color="danger">Ditolak</x-filament::badge><p class="mt-2 text-sm">Alasan penolakan: {{ $document->rejection_reason }}</p>
                     @else<x-filament::badge color="warning">Menunggu verifikasi</x-filament::badge>@endif
-                    <a href="{{ route('files.applicant.documents.show', $document) }}" class="mt-3 inline-block text-primary-600" @if($document->file_type !== 'docx') data-file-preview data-file-name="{{ $document->original_name }}" @endif>Lihat file</a>
+                    <a href="{{ route('files.applicant.documents.show', $document) }}" class="mt-3 inline-block text-primary-600" @if($document->file_type !== 'docx') data-file-preview data-file-name="{{ $document->displayFileName() }}" @endif>Lihat file</a>
                 </div>
             @empty<p class="text-sm text-gray-500">Belum diunggah</p>@endforelse
             </div>
