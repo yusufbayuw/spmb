@@ -7,11 +7,13 @@ use App\Models\Announcement;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class AnnouncementResource extends Resource
 {
@@ -115,6 +117,76 @@ class AnnouncementResource extends Resource
                     ->visible(fn (Announcement $record): bool => $record->status !== 'published'
                         && $record->registration?->current_stage === 'announcement'
                     ),
+                Tables\Actions\Action::make('correctPublishedDecision')
+                    ->label('Koreksi Hasil')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->visible(fn (Announcement $record): bool => (bool) auth()->user()?->can('decide_selection')
+                        && (bool) auth()->user()?->can('publish_announcement')
+                        && app(RegistrationWorkflowService::class)->canCorrectPublished($record)
+                    )
+                    ->fillForm(fn (Announcement $record): array => [
+                        'decision' => $record->registration?->selection?->decision,
+                        'reason' => null,
+                        'acknowledge' => false,
+                    ])
+                    ->form([
+                        Forms\Components\Select::make('decision')
+                            ->label('Keputusan Baru')
+                            ->options([
+                                'accepted' => 'Diterima',
+                                'rejected' => 'Ditolak',
+                                'waiting_list' => 'Daftar Tunggu',
+                            ])
+                            ->required(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan Koreksi')
+                            ->helperText('Alasan wajib diisi dan dicatat pada Audit Log.')
+                            ->required(),
+                        Forms\Components\Checkbox::make('acknowledge')
+                            ->label('Saya memahami bahwa hasil ini sudah dipublikasikan dan koreksi akan diberitahukan kembali kepada pendaftar.')
+                            ->accepted()
+                            ->required(),
+                    ])
+                    ->requiresConfirmation()
+                    ->modalHeading('Koreksi hasil yang sudah dipublikasikan?')
+                    ->modalDescription('Koreksi hanya diizinkan sebelum peserta memasuki daftar ulang/enrollment atau menerima penawaran. Sistem akan menyelaraskan tahap, kuota, dan pengumuman.')
+                    ->action(function (Announcement $record, array $data): void {
+                        app(RegistrationWorkflowService::class)->correctPublishedDecision(
+                            $record,
+                            auth()->user(),
+                            $data['decision'],
+                            $data['reason'],
+                        );
+
+                        Notification::make()
+                            ->title('Hasil terpublikasi berhasil dikoreksi')
+                            ->body('Pendaftar akan menerima pengumuman koreksi terbaru.')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('publishSelected')
+                    ->label('Publikasikan Terpilih')
+                    ->icon('heroicon-o-megaphone')
+                    ->color('success')
+                    ->visible(fn (): bool => (bool) auth()->user()?->can('publish_announcement'))
+                    ->requiresConfirmation()
+                    ->modalHeading('Publikasikan semua hasil terpilih?')
+                    ->modalDescription('Semua record terpilih harus masih berstatus draft dan memiliki keputusan final yang valid.')
+                    ->action(function (Collection $records): void {
+                        $count = app(RegistrationWorkflowService::class)->bulkPublishAnnouncements(
+                            $records,
+                            auth()->user(),
+                        );
+
+                        Notification::make()
+                            ->title($count.' pengumuman berhasil dipublikasikan')
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
             ]);
     }
 
