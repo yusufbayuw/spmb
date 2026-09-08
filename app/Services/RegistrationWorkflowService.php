@@ -562,6 +562,7 @@ class RegistrationWorkflowService
                 [
                     'decision' => $decision,
                     'final_score' => $score,
+                    'waitlist_rank' => $this->waitlistRankFor($lockedRegistration, $selection, $decision),
                     'notes' => $notes,
                     'override_reason' => $selection?->system_recommendation && $selection->system_recommendation !== $decision ? $notes : null,
                     'decided_by' => $staff->id,
@@ -621,6 +622,7 @@ class RegistrationWorkflowService
                 [
                     'decision' => $decision,
                     'final_score' => $score,
+                    'waitlist_rank' => $this->waitlistRankFor($lockedRegistration, $selection ?? new Selection(['registration_id' => $lockedRegistration->id]), $decision),
                     'notes' => $notes,
                     'override_reason' => $selection?->system_recommendation && $selection->system_recommendation !== $decision ? $notes : null,
                     'decided_by' => $staff->id,
