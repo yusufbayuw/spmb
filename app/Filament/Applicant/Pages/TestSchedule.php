@@ -40,6 +40,14 @@ class TestSchedule extends Page
         return TestBooking::with('session')->where('registration_id', $this->registrationRecord->id)->where('admission_test_id', $testId)->first();
     }
 
+    public function hasSelectedSession(): bool
+    {
+        return TestBooking::query()
+            ->where('registration_id', $this->registrationRecord->id)
+            ->whereNotNull('test_session_id')
+            ->exists();
+    }
+
     public function choose(string $sessionId): void
     {
         app(TestBookingService::class)->book($this->registrationRecord, TestSession::where('uuid', $sessionId)->firstOrFail(), auth()->user());

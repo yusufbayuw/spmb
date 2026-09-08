@@ -22,7 +22,9 @@ $booking = $this->booking($test['id']);
         </x-filament::section>
     @endforeach
     <div class="flex flex-wrap gap-3">
-        <x-filament::button tag="a" :href="route('registration.test-card', $registrationRecord)" target="_blank">Cetak Kartu Tes</x-filament::button>
+        @if($this->hasSelectedSession())
+            <x-filament::button tag="a" :href="route('registration.test-card', $registrationRecord)" target="_blank">Cetak Kartu Tes</x-filament::button>
+        @endif
         <x-filament::button tag="a" :href="\App\Filament\Applicant\Pages\RegistrationStatus::getUrl(['registration' => $registrationRecord->uuid])" color="gray">Kembali ke Status</x-filament::button>
     </div>
 </x-filament-panels::page>
