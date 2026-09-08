@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class Document extends Model
@@ -63,6 +64,37 @@ class Document extends Model
                 'tests', 'selection', 'announcement', 'waiting_list', 'admission_offer',
                 're_registration', 'enrollment', 'completed',
             ], true);
+    }
+
+    public function displayFileName(): string
+    {
+        $registration = $this->registration;
+        $requirement = $registration
+            ? collect($registration->documentRequirements())
+                ->firstWhere('key', $this->requirement_key ?: $this->type)
+            : null;
+
+        $label = (string) ($requirement['label'] ?? Str::of($this->requirement_key ?: $this->type)
+            ->replace('_', ' ')
+            ->headline()
+            ->toString());
+
+        $documentName = Str::of($label)
+            ->ascii()
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_')
+            ->toString();
+
+        $registrationNumber = $registration?->registration_number ?: 'tanpa_nomor_registrasi';
+        $attachmentSuffix = (int) $this->attachment_index > 0
+            ? '_'.((int) $this->attachment_index + 1)
+            : '';
+
+        $extension = strtolower((string) ($this->file_type
+            ?: pathinfo((string) ($this->original_name ?: $this->file_path), PATHINFO_EXTENSION)));
+
+        return $documentName.'_'.$registrationNumber.$attachmentSuffix.($extension !== '' ? '.'.$extension : '');
     }
 
     public function assertCanBeReviewed(): void
