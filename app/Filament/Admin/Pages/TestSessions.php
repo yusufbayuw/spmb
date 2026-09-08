@@ -40,9 +40,9 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
     {
         return [
             Forms\Components\Select::make('admission_test_uuid')->label('Jenis Tes')->options(fn (): array => AdmissionTest::query()->when(auth()->user()->isTU(), fn ($q) => $q->where('unit_id', auth()->user()->unit_id))->pluck('name', 'uuid')->all())->required(),
-            Forms\Components\DateTimePicker::make('starts_at')->label('Mulai')->timezone(config('app.timezone'))->required(),
-            Forms\Components\DateTimePicker::make('ends_at')->label('Selesai')->timezone(config('app.timezone'))->required(),
-            Forms\Components\DateTimePicker::make('booking_closes_at')->label('Batas pemesanan/perpindahan')->timezone(config('app.timezone'))->helperText('Kosongkan untuk 24 jam sebelum mulai.'),
+            Forms\Components\DateTimePicker::make('starts_at')->label('Mulai')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->required(),
+            Forms\Components\DateTimePicker::make('ends_at')->label('Selesai')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->required(),
+            Forms\Components\DateTimePicker::make('booking_closes_at')->label('Batas pemesanan/perpindahan')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->helperText('Kosongkan untuk 24 jam sebelum mulai.'),
             Forms\Components\TextInput::make('location')->label('Lokasi')->required(),
             Forms\Components\TextInput::make('capacity')->label('Kuota')->integer()->minValue(1)->required(),
             Forms\Components\Textarea::make('instructions')->label('Petunjuk peserta'),
@@ -60,7 +60,7 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
             ->latest())
             ->columns([
                 Tables\Columns\TextColumn::make('admissionTest.name')->label('Tes'),
-                Tables\Columns\TextColumn::make('starts_at')->label('Mulai')->dateTime('d M Y H:i'),
+                Tables\Columns\TextColumn::make('starts_at')->label('Mulai')->dateTime('d/m/Y H:i', timezone: config('app.timezone')),
                 Tables\Columns\TextColumn::make('location')->label('Lokasi'),
                 Tables\Columns\TextColumn::make('bookings_count')->label('Terisi'),
                 Tables\Columns\TextColumn::make('capacity')->label('Kuota'),
