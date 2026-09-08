@@ -10,15 +10,22 @@ class IndonesiaRegionSeeder extends Seeder
 {
     public function run(): void
     {
-        $path = database_path('data/indonesia_regions.csv');
+        $directory = database_path('data/indonesia_regions');
 
-        if (! is_file($path)) {
+        if (! is_dir($directory)) {
             throw new RuntimeException(
-                'File database/data/indonesia_regions.csv belum tersedia. '
-                .'Gunakan php artisan spmb:import-regions <file.csv> atau letakkan CSV pada path tersebut.'
+                'Direktori database/data/indonesia_regions belum tersedia.'
             );
         }
 
-        app(IndonesiaRegionImportService::class)->import($path);
+        $importer = app(IndonesiaRegionImportService::class);
+        $result = $importer->importDirectory($directory);
+        $importer->assertComplete($result);
+
+        $this->command?->info(
+            "{$result['rows']} baris wilayah diproses; "
+            ."{$result['provinces']} provinsi, {$result['regencies']} kabupaten/kota, "
+            ."{$result['districts']} kecamatan, {$result['villages']} desa/kelurahan."
+        );
     }
 }
