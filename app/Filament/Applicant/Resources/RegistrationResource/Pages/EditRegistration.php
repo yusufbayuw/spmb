@@ -4,6 +4,7 @@ namespace App\Filament\Applicant\Resources\RegistrationResource\Pages;
 
 use App\Filament\Applicant\Resources\RegistrationResource;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\RegistrationRegionService;
 use App\Services\SpmbNotificationService;
 use Filament\Resources\Pages\EditRecord;
 
@@ -24,6 +25,7 @@ class EditRegistration extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $data['unit_configuration_id'] = $this->record->unit_configuration_id;
+        $data = app(RegistrationRegionService::class)->normalize($data);
         $data['custom_answers'] = app(ConfiguredRegistrationForm::class)->validateAnswers($this->record->configuration, $data['custom_answers'] ?? []);
         $data['registrant_relationship'] = ($data['registrant_type'] ?? 'parent') === 'self'
             ? 'self'
