@@ -132,8 +132,13 @@ class CreateRegistration extends CreateRecord
         if (($data['unit_uuid'] ?? null) !== $opening->unit->uuid) {
             throw ValidationException::withMessages(['unit_uuid' => 'Unit pendaftaran tidak sesuai pembukaan yang dipilih.']);
         }
-        $data = app(RegistrationRegionService::class)->normalize($data);
-        $data['custom_answers'] = app(ConfiguredRegistrationForm::class)->validateAnswers($configuration, $data['custom_answers'] ?? []);
+        $configuredForm = app(ConfiguredRegistrationForm::class);
+
+        if ($configuredForm->hasActiveRegionFields($configuration)) {
+            $data = app(RegistrationRegionService::class)->normalize($data);
+        }
+
+        $data['custom_answers'] = $configuredForm->validateAnswers($configuration, $data['custom_answers'] ?? []);
         $data['user_id'] = auth()->id();
         $data['registration_opening_id'] = $opening->id;
         $data['registration_pathway_id'] = $pathway->id;
