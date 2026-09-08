@@ -94,7 +94,7 @@ class IndonesiaRegionImportService
             $counts['rows']++;
 
             if (count($buffers['villages']) >= $chunkSize) {
-                $this->flush($buffers, $counts);
+                $this->flush($buffers);
                 $buffers = $this->emptyBuffers();
             }
         }
@@ -113,11 +113,10 @@ class IndonesiaRegionImportService
 
     /**
      * @param array<string, array<string, array<string, mixed>>> $buffers
-     * @param array{rows:int,provinces:int,regencies:int,districts:int,villages:int} $counts
      */
-    private function flush(array $buffers, array &$counts): void
+    private function flush(array $buffers): void
     {
-        DB::transaction(function () use ($buffers, &$counts): void {
+        DB::transaction(function () use ($buffers): void {
             foreach (['provinces', 'regencies', 'districts', 'villages'] as $table) {
                 $rows = array_values($buffers[$table]);
 
