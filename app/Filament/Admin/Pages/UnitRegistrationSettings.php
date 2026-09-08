@@ -124,12 +124,37 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ])->columns(5),
             Forms\Components\Section::make('Formulir Unit')->description('Pilih isian bawaan yang ingin disesuaikan atau tambahkan pertanyaan khusus. Identitas inti tetap wajib.')->schema([
                 Forms\Components\Repeater::make('fields')->label('Pengaturan field')->default([])->schema([
-                    Forms\Components\Select::make('key')->label('Isian')->options(fn (Forms\Get $get): array => ConfiguredRegistrationForm::fieldLabels() + [(! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true) && $get('key') ? $get('key') : 'custom_'.strtolower(Str::random(8))) => 'Pertanyaan tambahan'])->default(fn (): string => 'custom_'.strtolower(Str::random(8)))->searchable()->required(),
+                    Forms\Components\Select::make('key')
+                        ->label('Isian')
+                        ->options(fn (Forms\Get $get): array => ConfiguredRegistrationForm::fieldLabels() + [(! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true) && $get('key') ? $get('key') : 'custom_'.strtolower(Str::random(8))) => 'Pertanyaan tambahan'])
+                        ->default(fn (): string => 'custom_'.strtolower(Str::random(8)))
+                        ->searchable()
+                        ->live()
+                        ->afterStateUpdated(function (?string $state, Forms\Set $set): void {
+                            if (! in_array($state, ConfiguredRegistrationForm::REGION_FIELDS, true)) {
+                                return;
+                            }
+
+                            $set('label', ConfiguredRegistrationForm::fieldLabels()[$state] ?? $state);
+                            $set('type', 'select');
+                            $set('options', []);
+                        })
+                        ->required(),
                     Forms\Components\TextInput::make('label')->label('Label')->required(),
-                    Forms\Components\Select::make('type')->label('Jenis')->options(['text' => 'Teks', 'textarea' => 'Teks panjang', 'number' => 'Angka', 'date' => 'Tanggal', 'select' => 'Pilihan tunggal', 'multiselect' => 'Pilihan jamak', 'boolean' => 'Ya/Tidak'])->default('text')->required(),
+                    Forms\Components\Select::make('type')
+                        ->label('Jenis')
+                        ->options(['text' => 'Teks', 'textarea' => 'Teks panjang', 'number' => 'Angka', 'date' => 'Tanggal', 'select' => 'Pilihan tunggal', 'multiselect' => 'Pilihan jamak', 'boolean' => 'Ya/Tidak'])
+                        ->default('text')
+                        ->disabled(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true))
+                        ->dehydrated()
+                        ->required(),
                     Forms\Components\TextInput::make('group')->label('Kelompok')->default('Informasi Tambahan'),
                     Forms\Components\Textarea::make('help')->label('Petunjuk'),
-                    Forms\Components\TagsInput::make('options')->label('Opsi pilihan')->default([]),
+                    Forms\Components\TagsInput::make('options')
+                        ->label('Opsi pilihan')
+                        ->helperText(fn (Forms\Get $get): ?string => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true) ? 'Opsi wilayah diambil otomatis dari master wilayah Indonesia.' : null)
+                        ->hidden(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true))
+                        ->default([]),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
                 ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Field baru'),
