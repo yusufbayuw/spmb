@@ -85,6 +85,25 @@ class UnitConfigurationTest extends TestCase
             ->assertSee('Nama Lengkap');
     }
 
+    public function test_publish_saves_current_form_state_before_publishing(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm(['documents_enabled' => false])
+            ->call('publish')
+            ->assertHasNoFormErrors();
+
+        $published = app(UnitConfigurationService::class)->current($unit->id);
+
+        $this->assertNotNull($published);
+        $this->assertFalse($published->documents_enabled);
+        $this->assertSame('published', $published->status);
+    }
+
     #[TestWith([false, false])]
     #[TestWith([false, true])]
     #[TestWith([true, false])]
