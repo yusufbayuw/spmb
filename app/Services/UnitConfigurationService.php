@@ -252,7 +252,9 @@ class UnitConfigurationService
                 if (in_array($field['key'], ConfiguredRegistrationForm::CORE_FIELDS, true)) {
                     throw ValidationException::withMessages(['fields' => 'Identitas inti tidak boleh diubah.']);
                 }
-                if (in_array($field['type'], ['select', 'multiselect'], true) && empty($field['options'])) {
+                if (in_array($field['type'], ['select', 'multiselect'], true)
+                    && empty($field['options'])
+                    && ! in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
                     throw ValidationException::withMessages(['fields' => 'Field pilihan harus memiliki opsi.']);
                 }
             }
