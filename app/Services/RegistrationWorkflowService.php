@@ -692,7 +692,7 @@ class RegistrationWorkflowService
             $lockedSelection->update([
                 'decision' => $decision,
                 'final_score' => $score ?? $lockedSelection->final_score,
-                'waitlist_rank' => $decision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                'waitlist_rank' => $this->waitlistRankFor($registration, $lockedSelection, $decision),
                 'override_reason' => trim($reason),
                 'decided_by' => $staff->id,
                 'decided_at' => now(),
@@ -794,7 +794,7 @@ class RegistrationWorkflowService
 
                         $lockedSelection->update([
                             'decision' => $targetDecision,
-                            'waitlist_rank' => $targetDecision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                            'waitlist_rank' => $this->waitlistRankFor($registration, $lockedSelection, $targetDecision),
                             'override_reason' => $lockedSelection->system_recommendation !== $targetDecision ? trim($reason) : null,
                             'notes' => trim($reason),
                             'decided_by' => $staff->id,
@@ -813,7 +813,7 @@ class RegistrationWorkflowService
 
                         $lockedSelection->update([
                             'decision' => $targetDecision,
-                            'waitlist_rank' => $targetDecision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                            'waitlist_rank' => $this->waitlistRankFor($registration, $lockedSelection, $targetDecision),
                             'override_reason' => $lockedSelection->system_recommendation && $lockedSelection->system_recommendation !== $targetDecision ? trim($reason) : null,
                             'notes' => trim($reason),
                             'decided_by' => $staff->id,
@@ -845,7 +845,7 @@ class RegistrationWorkflowService
 
                     $lockedSelection->update([
                         'decision' => $targetDecision,
-                        'waitlist_rank' => $targetDecision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                        'waitlist_rank' => $this->waitlistRankFor($registration, $lockedSelection, $targetDecision),
                         'override_reason' => trim($reason),
                         'notes' => trim($reason),
                         'decided_by' => $staff->id,
@@ -1005,7 +1005,7 @@ class RegistrationWorkflowService
 
             $lockedSelection->update([
                 'decision' => $decision,
-                'waitlist_rank' => $decision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                'waitlist_rank' => $this->waitlistRankFor($registration, $lockedSelection, $decision),
                 'override_reason' => trim($reason),
                 'notes' => trim($reason),
                 'decided_by' => $staff->id,
@@ -1147,6 +1147,32 @@ class RegistrationWorkflowService
         }
 
         return $records->count();
+    }
+
+    private function waitlistRankFor(Registration $registration, Selection $selection, string $decision): ?int
+    {
+        if ($decision !== 'waiting_list') {
+            return null;
+        }
+
+        if ($selection->waitlist_rank) {
+            return (int) $selection->waitlist_rank;
+        }
+
+        $maxRank = Selection::query()
+            ->where('id', '!=', $selection->id)
+            ->where('decision', 'waiting_list')
+            ->whereHas('registration', function ($query) use ($registration): void {
+                $query->where('registration_opening_id', $registration->registration_opening_id)
+                    ->when(
+                        $registration->registration_pathway_id,
+                        fn ($scope) => $scope->where('registration_pathway_id', $registration->registration_pathway_id),
+                        fn ($scope) => $scope->whereNull('registration_pathway_id'),
+                    );
+            })
+            ->max('waitlist_rank');
+
+        return ((int) $maxRank) + 1;
     }
 
     private function assertSelectionDecision(string $decision): void
