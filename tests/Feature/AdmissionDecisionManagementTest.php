@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AdmissionQuota;
 use App\Models\AdmissionTest;
+use App\Models\AuditLog;
 use App\Models\AdmissionTestResult;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -367,6 +368,154 @@ class AdmissionDecisionManagementTest extends TestCase
         $this->assertSame('enrollment', $registration->fresh()->current_stage);
         app(ReRegistrationService::class)->enroll($registration->fresh(), $staff);
         $this->assertSame('enrolled', $registration->fresh()->status);
+    }
+
+    public function test_finalized_draft_decision_can_be_corrected_with_audit_trail(): void
+    {
+        Queue::fake();
+
+        [, $opening, $staff] = $this->openingFixture();
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 2]);
+
+        $registration = $this->selectionRegistration($opening, '3273010101010031', 88);
+        $workflow = app(RegistrationWorkflowService::class);
+
+        $workflow->decide($registration, $staff, 'accepted', 88, 'Keputusan awal.');
+
+        $corrected = $workflow->correctDraftDecision(
+            $registration->fresh()->selection,
+            $staff,
+            'rejected',
+            88,
+            'Salah input pada penetapan awal.',
+        );
+
+        $this->assertSame('rejected', $corrected->decision);
+        $this->assertSame('announcement', $registration->fresh()->current_stage);
+        $this->assertSame('draft', $registration->fresh()->announcement()->value('status'));
+        $this->assertDatabaseHas('audit_logs', [
+            'registration_id' => $registration->id,
+            'event' => 'selection.decision_corrected',
+        ]);
+    }
+
+    public function test_bulk_manual_decision_is_atomic_when_acceptance_exceeds_capacity(): void
+    {
+        Queue::fake();
+
+        [, $opening, $staff] = $this->openingFixture();
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 1]);
+
+        $first = $this->selectionRegistration($opening, '3273010101010032', 90);
+        $second = $this->selectionRegistration($opening, '3273010101010033', 80);
+
+        try {
+            app(RegistrationWorkflowService::class)->bulkSetDecisions(
+                Selection::query()
+                    ->whereIn('registration_id', [$first->id, $second->id])
+                    ->get(),
+                $staff,
+                'accepted',
+                'Penetapan massal panitia.',
+            );
+
+            $this->fail('Bulk acceptance seharusnya ditolak karena melebihi daya tampung.');
+        } catch (ValidationException) {
+            // Expected.
+        }
+
+        $this->assertSame('selection', $first->fresh()->current_stage);
+        $this->assertSame('selection', $second->fresh()->current_stage);
+        $this->assertSame('pending', $first->selection()->value('decision'));
+        $this->assertSame('pending', $second->selection()->value('decision'));
+        $this->assertNull($first->announcement()->first());
+        $this->assertNull($second->announcement()->first());
+    }
+
+    public function test_bulk_publish_publishes_all_valid_selected_drafts(): void
+    {
+        Queue::fake();
+
+        [, $opening, $staff] = $this->openingFixture();
+        $first = $this->selectionRegistration($opening, '3273010101010034', 75);
+        $second = $this->selectionRegistration($opening, '3273010101010035', 70);
+        $workflow = app(RegistrationWorkflowService::class);
+
+        $workflow->decide($first, $staff, 'rejected', 75, 'Tidak memenuhi kriteria.');
+        $workflow->decide($second, $staff, 'rejected', 70, 'Tidak memenuhi kriteria.');
+
+        $count = $workflow->bulkPublishAnnouncements(
+            App\Models\Announcement::query()
+                ->whereIn('registration_id', [$first->id, $second->id])
+                ->get(),
+            $staff,
+        );
+
+        $this->assertSame(2, $count);
+        $this->assertSame('published', $first->fresh()->announcement()->value('status'));
+        $this->assertSame('published', $second->fresh()->announcement()->value('status'));
+        $this->assertSame('completed', $first->fresh()->current_stage);
+        $this->assertSame('completed', $second->fresh()->current_stage);
+    }
+
+    public function test_published_result_can_be_corrected_before_offer_acceptance(): void
+    {
+        Queue::fake();
+
+        [, $opening, $staff] = $this->openingFixture();
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 1]);
+
+        $registration = $this->selectionRegistration($opening, '3273010101010036', 90);
+        $workflow = app(RegistrationWorkflowService::class);
+
+        $workflow->decide($registration, $staff, 'accepted', 90, 'Keputusan awal.');
+        $workflow->publish($registration, $staff);
+
+        $offer = $registration->fresh()->admissionOffer;
+        $this->assertSame('offered', $offer->status);
+
+        $workflow->correctPublishedDecision(
+            $registration->fresh()->announcement,
+            $staff,
+            'rejected',
+            'Ditemukan kesalahan administrasi sebelum offer diterima.',
+        );
+
+        $this->assertSame('rejected', $registration->selection()->value('decision'));
+        $this->assertSame('completed', $registration->fresh()->current_stage);
+        $this->assertSame('rejected', $registration->fresh()->status);
+        $this->assertSame('expired', $offer->fresh()->status);
+        $this->assertDatabaseHas('audit_logs', [
+            'registration_id' => $registration->id,
+            'event' => 'selection.published_decision_corrected',
+        ]);
+    }
+
+    public function test_published_result_correction_is_blocked_after_offer_is_accepted(): void
+    {
+        Queue::fake();
+
+        [, $opening, $staff] = $this->openingFixture();
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 1]);
+
+        $registration = $this->selectionRegistration($opening, '3273010101010037', 90);
+        $workflow = app(RegistrationWorkflowService::class);
+
+        $workflow->decide($registration, $staff, 'accepted', 90, 'Keputusan awal.');
+        $workflow->publish($registration, $staff);
+        app(AdmissionDecisionService::class)->acceptOffer(
+            $registration->fresh()->admissionOffer,
+            $registration->user,
+        );
+
+        $this->expectException(ValidationException::class);
+
+        $workflow->correctPublishedDecision(
+            $registration->fresh()->announcement,
+            $staff,
+            'rejected',
+            'Mencoba koreksi setelah offer diterima.',
+        );
     }
 
     private function openingFixture(): array
