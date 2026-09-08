@@ -5,11 +5,31 @@ namespace App\Services;
 use App\Models\District;
 use App\Models\Province;
 use App\Models\Regency;
+use App\Models\Registration;
 use App\Models\Village;
 use Illuminate\Validation\ValidationException;
 
 class RegistrationRegionService
 {
+    /**
+     * Decide whether submitted region state represents a real region edit.
+     *
+     * Legacy registrations may contain only text names. Blank code fields must
+     * not erase those names when another field is edited.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function shouldNormalize(array $data, ?Registration $registration = null): bool
+    {
+        foreach (['province_code', 'city_code', 'district_code', 'village_code'] as $field) {
+            if (filled($data[$field] ?? null) || filled($registration?->{$field})) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Normalize region codes into canonical names while validating the hierarchy.
      *
