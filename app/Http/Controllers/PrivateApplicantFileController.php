@@ -36,7 +36,7 @@ class PrivateApplicantFileController extends Controller
             $document,
             'document',
             $document->file_path,
-            $document->original_name ?: basename($document->file_path),
+            $document->displayFileName(),
         );
     }
 
