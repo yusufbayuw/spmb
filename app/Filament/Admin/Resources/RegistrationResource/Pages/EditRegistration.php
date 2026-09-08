@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\RegistrationResource;
 use App\Filament\RedirectsToResourceIndex;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Services\RegistrationRegionService;
 use App\Services\RegistrationWorkflowService;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -45,6 +46,7 @@ class EditRegistration extends EditRecord
             $data['data_validated_at'],
         );
 
+        $data = app(RegistrationRegionService::class)->normalize($data);
         $record->update($data);
 
         $canValidate = auth()->user()?->can('validate_data_registration') ?? false;
