@@ -6,6 +6,7 @@ use App\Filament\Applicant\Pages\RegistrationOpenings;
 use App\Filament\Applicant\Pages\RegistrationStatus;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
+use App\Filament\Forms\RegionFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
@@ -105,6 +106,7 @@ class RegistrationResource extends Resource
                     Forms\Components\TextInput::make('phone')->label('Nomor Telepon')->tel()->maxLength(20),
                     Forms\Components\TextInput::make('email')->label('Email Peserta')->email()->maxLength(100),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->rows(3)->columnSpanFull(),
+                    ...RegionFields::schema(),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric()->minValue(2000)->maxValue(now()->year + 2),
                 ]),
