@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 
 class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Contracts\HasTable
 {
@@ -39,9 +40,9 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
     {
         return [
             Forms\Components\Select::make('admission_test_uuid')->label('Jenis Tes')->options(fn (): array => AdmissionTest::query()->when(auth()->user()->isTU(), fn ($q) => $q->where('unit_id', auth()->user()->unit_id))->pluck('name', 'uuid')->all())->required(),
-            Forms\Components\DateTimePicker::make('starts_at')->label('Mulai')->required(),
-            Forms\Components\DateTimePicker::make('ends_at')->label('Selesai')->required(),
-            Forms\Components\DateTimePicker::make('booking_closes_at')->label('Batas pemesanan/perpindahan')->helperText('Kosongkan untuk 24 jam sebelum mulai.'),
+            Forms\Components\DateTimePicker::make('starts_at')->label('Mulai')->timezone(config('app.timezone'))->required(),
+            Forms\Components\DateTimePicker::make('ends_at')->label('Selesai')->timezone(config('app.timezone'))->required(),
+            Forms\Components\DateTimePicker::make('booking_closes_at')->label('Batas pemesanan/perpindahan')->timezone(config('app.timezone'))->helperText('Kosongkan untuk 24 jam sebelum mulai.'),
             Forms\Components\TextInput::make('location')->label('Lokasi')->required(),
             Forms\Components\TextInput::make('capacity')->label('Kuota')->integer()->minValue(1)->required(),
             Forms\Components\Textarea::make('instructions')->label('Petunjuk peserta'),
@@ -67,7 +68,7 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
             ])->headerActions([
                 Tables\Actions\Action::make('create')->label('Tambah Sesi')->form($this->sessionFields())->action(fn (array $data) => app(TestBookingService::class)->saveSession(null, $this->sessionData($data), auth()->user())),
             ])->actions([
-                Tables\Actions\Action::make('edit')->label('Ubah Sesi')->form($this->sessionFields())->fillForm(fn (TestSession $record): array => array_merge($record->toArray(), ['admission_test_uuid' => $record->admissionTest->uuid]))->action(fn (TestSession $record, array $data) => app(TestBookingService::class)->saveSession($record, $this->sessionData($data), auth()->user())),
+                Tables\Actions\Action::make('edit')->label('Ubah Sesi')->form($this->sessionFields())->fillForm(fn (TestSession $record): array => $this->sessionFormData($record))->action(fn (TestSession $record, array $data) => app(TestBookingService::class)->saveSession($record, $this->sessionData($data), auth()->user())),
             ]);
     }
 
@@ -86,6 +87,30 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
         $data['admission_test_id'] = $test->id;
         unset($data['admission_test_uuid']);
 
+        foreach (['starts_at', 'ends_at', 'booking_closes_at'] as $field) {
+            if (filled($data[$field] ?? null)) {
+                $data[$field] = Carbon::parse($data[$field])
+                    ->timezone(config('app.timezone'))
+                    ->format('Y-m-d H:i:s');
+            }
+        }
+
         return $data;
+    }
+
+    private function sessionFormData(TestSession $record): array
+    {
+        $timezone = config('app.timezone');
+
+        return [
+            'admission_test_uuid' => $record->admissionTest->uuid,
+            'starts_at' => $record->starts_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
+            'ends_at' => $record->ends_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
+            'booking_closes_at' => $record->booking_closes_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
+            'location' => $record->location,
+            'capacity' => $record->capacity,
+            'instructions' => $record->instructions,
+            'status' => $record->status,
+        ];
     }
 }
