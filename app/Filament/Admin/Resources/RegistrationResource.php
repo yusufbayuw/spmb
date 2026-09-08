@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
+use App\Filament\Forms\RegionFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
@@ -142,6 +143,7 @@ class RegistrationResource extends Resource
                     Forms\Components\TextInput::make('phone')->label('Telepon')->tel(),
                     Forms\Components\TextInput::make('email')->label('Email')->email(),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->columnSpanFull(),
+                    ...RegionFields::schema(true),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->columnSpan(2),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric(),
                 ]),
