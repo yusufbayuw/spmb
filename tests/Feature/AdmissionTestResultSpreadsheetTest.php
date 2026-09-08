@@ -107,6 +107,57 @@ class AdmissionTestResultSpreadsheetTest extends TestCase
         }
     }
 
+    public function test_scheduled_rows_with_filled_results_are_processed_as_completed(): void
+    {
+        [$staff, $test, $first, $second] = $this->fixture();
+        $path = $this->writeImportWorkbook($test, [
+            [$first->testResults()->firstOrFail(), 80, 'TERJADWAL', 'LULUS', null],
+            [$second->testResults()->firstOrFail(), 60, 'TERJADWAL', 'TIDAK LULUS', null],
+        ]);
+
+        try {
+            $result = app(AdmissionTestResultSpreadsheetService::class)
+                ->import($path, $staff);
+
+            $this->assertSame(2, $result['updated']);
+            $this->assertSame(0, $result['skipped']);
+
+            $firstResult = $first->testResults()->firstOrFail();
+            $secondResult = $second->testResults()->firstOrFail();
+
+            $this->assertSame('completed', $firstResult->status);
+            $this->assertSame('pass', $firstResult->result);
+            $this->assertSame(80.0, (float) $firstResult->score);
+
+            $this->assertSame('completed', $secondResult->status);
+            $this->assertSame('fail', $secondResult->result);
+            $this->assertSame(60.0, (float) $secondResult->score);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_scheduled_rows_without_score_or_result_are_left_unchanged(): void
+    {
+        [$staff, $test, $first, $second] = $this->fixture();
+        $path = $this->writeImportWorkbook($test, [
+            [$first->testResults()->firstOrFail(), null, 'TERJADWAL', 'BELUM DINILAI', null],
+            [$second->testResults()->firstOrFail(), null, 'TERJADWAL', 'BELUM DINILAI', null],
+        ]);
+
+        try {
+            $result = app(AdmissionTestResultSpreadsheetService::class)
+                ->import($path, $staff);
+
+            $this->assertSame(0, $result['updated']);
+            $this->assertSame(2, $result['skipped']);
+            $this->assertSame('scheduled', $first->testResults()->value('status'));
+            $this->assertSame('scheduled', $second->testResults()->value('status'));
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_invalid_xlsx_row_prevents_partial_result_updates(): void
     {
         [$staff, $test, $first, $second] = $this->fixture();
@@ -277,7 +328,7 @@ class AdmissionTestResultSpreadsheetTest extends TestCase
     }
 
     /**
-     * @param list<array{0:AdmissionTestResult,1:int|float,2:string,3:string,4:?string}> $data
+     * @param list<array{0:AdmissionTestResult,1:int|float|null,2:string,3:string,4:?string}> $data
      */
     private function writeImportWorkbook(AdmissionTest $test, array $data): string
     {

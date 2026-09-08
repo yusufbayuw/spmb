@@ -12,8 +12,10 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Throwable;
 
 class ListAdmissionTestResults extends ListRecords
 {
@@ -33,7 +35,7 @@ class ListAdmissionTestResults extends ListRecords
                         ->searchable()
                         ->required(),
                 ])
-                ->modalDescription('Download satu file XLSX berisi seluruh peserta pada tes yang dipilih. Edit nilai/status/hasil di file tersebut lalu upload kembali.')
+                ->modalDescription('Download satu file XLSX berisi seluruh peserta pada tes yang dipilih. Untuk hasil normal, cukup isi NILAI/HASIL; STATUS TERJADWAL akan otomatis diproses sebagai SELESAI saat hasil diisi.')
                 ->action(function (array $data) {
                     $test = AdmissionTest::query()->findOrFail((int) $data['admission_test_id']);
 
@@ -48,12 +50,17 @@ class ListAdmissionTestResults extends ListRecords
                 ->form([
                     FileUpload::make('file')
                         ->label('File hasil tes (.xlsx)')
-                        ->helperText('Gunakan file yang sebelumnya diunduh dari sistem. Seluruh baris akan divalidasi sebelum disimpan.')
+                        ->helperText('Gunakan file hasil download sistem. Isi NILAI/HASIL untuk peserta yang selesai; ubah STATUS hanya untuk TIDAK HADIR atau DIBEBASKAN.')
                         ->storeFiles(false)
                         ->acceptedFileTypes([
                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                         ])
                         ->maxSize(10240)
+                        ->validationMessages([
+                            'required' => 'File hasil tes wajib dipilih.',
+                            'mimetypes' => 'File harus berformat XLSX hasil download sistem.',
+                            'max' => 'Ukuran file hasil tes maksimal 10 MB.',
+                        ])
                         ->required(),
                 ])
                 ->action(function (array $data): void {
@@ -65,13 +72,34 @@ class ListAdmissionTestResults extends ListRecords
                     }
 
                     if (! $file instanceof TemporaryUploadedFile) {
-                        throw ValidationException::withMessages([
-                            'file' => 'File XLSX tidak valid. Pilih ulang file hasil download sistem.',
-                        ]);
+                        $this->notifyUploadFailure('File XLSX tidak valid. Pilih ulang file hasil download sistem.');
+
+                        return;
                     }
 
-                    $result = app(AdmissionTestResultSpreadsheetService::class)
-                        ->import($file->getRealPath(), auth()->user());
+                    try {
+                        $result = app(AdmissionTestResultSpreadsheetService::class)
+                            ->import($file->getRealPath(), auth()->user());
+                    } catch (ValidationException $exception) {
+                        $this->notifyUploadFailure($this->validationErrorBody($exception));
+
+                        return;
+                    } catch (Throwable $exception) {
+                        report($exception);
+                        $this->notifyUploadFailure('File XLSX tidak dapat diproses. Pastikan file tidak rusak dan merupakan file hasil download dari menu Hasil Tes.');
+
+                        return;
+                    }
+
+                    if ($result['updated'] === 0) {
+                        Notification::make()
+                            ->title('Tidak ada hasil yang diperbarui')
+                            ->body('Semua baris belum berisi hasil baru atau nilainya sama dengan data sistem. Isi NILAI/HASIL untuk peserta yang sudah selesai tes.')
+                            ->warning()
+                            ->send();
+
+                        return;
+                    }
 
                     Notification::make()
                         ->title("Hasil {$result['test']->name} berhasil diupload")
@@ -80,6 +108,47 @@ class ListAdmissionTestResults extends ListRecords
                         ->send();
                 }),
         ];
+    }
+
+    protected function onValidationError(ValidationException $exception): void
+    {
+        $isUploadError = collect(array_keys($exception->errors()))
+            ->contains(fn (string $key): bool => $key === 'file' || Str::endsWith($key, '.file'));
+
+        Notification::make()
+            ->title($isUploadError ? 'Upload Hasil Tes gagal' : 'Data belum valid')
+            ->body($this->validationErrorBody($exception))
+            ->danger()
+            ->persistent()
+            ->send();
+    }
+
+    private function notifyUploadFailure(string $message): void
+    {
+        Notification::make()
+            ->title('Upload Hasil Tes gagal')
+            ->body($message)
+            ->danger()
+            ->persistent()
+            ->send();
+    }
+
+    private function validationErrorBody(ValidationException $exception): string
+    {
+        $messages = collect($exception->errors())
+            ->flatten()
+            ->filter(fn ($message): bool => is_string($message) && $message !== '')
+            ->unique()
+            ->take(20)
+            ->values();
+
+        if ($messages->isEmpty()) {
+            return 'File hasil tes tidak valid. Periksa file lalu coba upload kembali.';
+        }
+
+        return $messages
+            ->map(fn (string $message): string => '- '.$message)
+            ->implode("\n");
     }
 
     /** @return array<int,string> */

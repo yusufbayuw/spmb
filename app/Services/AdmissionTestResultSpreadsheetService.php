@@ -116,9 +116,10 @@ class AdmissionTestResultSpreadsheetService
             Row::fromValues(['STATUS yang diterima', 'TERJADWAL, SELESAI, TIDAK HADIR, DIBEBASKAN']),
             Row::fromValues(['HASIL yang diterima', 'BELUM DINILAI, LULUS, TIDAK LULUS']),
             Row::fromValues(['Tes bertipe Nilai', 'Isi NILAI. Jika nilai kelulusan dikonfigurasi, HASIL dihitung otomatis saat upload.']),
-            Row::fromValues(['TIDAK HADIR', 'Otomatis menjadi TIDAK LULUS.']),
-            Row::fromValues(['DIBEBASKAN', 'Otomatis menjadi LULUS.']),
-            Row::fromValues(['Baris TERJADWAL', 'Dibiarkan sebagai data yang belum dinilai.']),
+            Row::fromValues(['Hasil normal', 'STATUS boleh tetap TERJADWAL. Saat NILAI atau HASIL diisi, sistem otomatis memprosesnya sebagai SELESAI.']),
+            Row::fromValues(['TIDAK HADIR', 'Ubah STATUS menjadi TIDAK HADIR. Hasil otomatis menjadi TIDAK LULUS.']),
+            Row::fromValues(['DIBEBASKAN', 'Ubah STATUS menjadi DIBEBASKAN. Hasil otomatis menjadi LULUS.']),
+            Row::fromValues(['Baris tanpa hasil', 'Biarkan STATUS TERJADWAL serta NILAI/HASIL kosong atau BELUM DINILAI. Baris tersebut tidak akan diubah.']),
             Row::fromValues(['Penting', 'Upload harus memakai file hasil download sistem. Seluruh baris divalidasi sebelum ada data yang disimpan.']),
         ]);
 
@@ -156,7 +157,14 @@ class AdmissionTestResultSpreadsheetService
             ]);
         }
 
-        $test = AdmissionTest::query()->where('uuid', $testUuids->first())->firstOrFail();
+        $test = AdmissionTest::query()->where('uuid', $testUuids->first())->first();
+
+        if (! $test) {
+            throw ValidationException::withMessages([
+                'file' => 'Tes yang tercantum pada file tidak ditemukan. Download ulang file Hasil Tes terbaru.',
+            ]);
+        }
+
         $this->authorize($test, $actor);
 
         $resultUuids = collect($rows)->pluck('RESULT_UUID')->filter()->values();
@@ -358,6 +366,8 @@ class AdmissionTestResultSpreadsheetService
 
         $notes = trim((string) ($row['CATATAN'] ?? ''));
         $notes = $notes !== '' ? $notes : null;
+        $rawScore = $row['NILAI'] ?? null;
+        $inputResult = $this->normalizeResult($row['HASIL'] ?? null);
 
         if ($status === 'scheduled') {
             if ($model->status !== 'scheduled') {
@@ -366,7 +376,14 @@ class AdmissionTestResultSpreadsheetService
                 ]);
             }
 
-            return null;
+            $hasScoreInput = filled($rawScore);
+            $hasResultInput = $inputResult !== 'pending';
+
+            if (! $hasScoreInput && ! $hasResultInput) {
+                return null;
+            }
+
+            $status = 'completed';
         }
 
         $score = null;
@@ -378,8 +395,6 @@ class AdmissionTestResultSpreadsheetService
             $result = 'pass';
         } elseif ($status === 'completed') {
             if ($test->result_type === 'score') {
-                $rawScore = $row['NILAI'] ?? null;
-
                 if ($rawScore === null || $rawScore === '' || ! is_numeric($rawScore)) {
                     throw ValidationException::withMessages([
                         'file' => "Baris {$excelRow}: NILAI wajib berupa angka untuk tes bertipe Nilai.",
@@ -397,7 +412,7 @@ class AdmissionTestResultSpreadsheetService
                 if ($test->passing_score !== null) {
                     $result = $score >= (float) $test->passing_score ? 'pass' : 'fail';
                 } else {
-                    $result = $this->normalizeResult($row['HASIL'] ?? null) ?? 'pending';
+                    $result = $inputResult ?? 'pending';
 
                     if ($result === 'pending') {
                         throw ValidationException::withMessages([
@@ -406,7 +421,7 @@ class AdmissionTestResultSpreadsheetService
                     }
                 }
             } else {
-                $result = $this->normalizeResult($row['HASIL'] ?? null) ?? 'pending';
+                $result = $inputResult ?? 'pending';
 
                 if ($result === 'pending') {
                     throw ValidationException::withMessages([

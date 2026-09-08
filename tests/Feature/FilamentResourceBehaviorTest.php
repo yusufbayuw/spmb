@@ -253,6 +253,23 @@ class FilamentResourceBehaviorTest extends TestCase
         $this->assertContains('REG-AT-TEST', $visibleNumbers);
     }
 
+    public function test_test_result_upload_validation_sends_error_notification(): void
+    {
+        $administrator = User::factory()->create(['is_active' => true]);
+        $administrator->assignRole(Role::firstOrCreate([
+            'name' => 'super_admin',
+            'guard_name' => 'web',
+        ]));
+
+        $this->actingAs($administrator);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(ListAdmissionTestResults::class)
+            ->callAction('uploadResults', data: [])
+            ->assertHasActionErrors(['file'])
+            ->assertNotified('Upload Hasil Tes gagal');
+    }
+
     public function test_selection_batch_pathway_options_only_include_available_pathways_for_opening_unit(): void
     {
         $unit = Unit::create(['name' => 'Unit A', 'code' => 'UNIT-A', 'is_active' => true]);
