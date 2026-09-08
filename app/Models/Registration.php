@@ -64,7 +64,7 @@ class Registration extends Model
     ];
 
     protected $fillable = [
-        'unit_configuration_id', 'custom_answers', 'user_id', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'registration_number', 'nik', 'full_name', 'nickname', 'gender', 'birth_place', 'birth_date', 'religion', 'child_order', 'siblings_count', 'home_address', 'rt', 'rw', 'village', 'district', 'city', 'province', 'postal_code', 'phone', 'email', 'previous_school', 'previous_school_address', 'graduation_year', 'status', 'current_stage', 'lifecycle_status', 'lifecycle_reason', 'lifecycle_changed_by', 'lifecycle_changed_at', 'data_validation_status', 'data_validation_notes', 'data_validated_by', 'data_validated_at', 'applicant_card_number', 'applicant_card_issued_by', 'applicant_card_issued_at', 'documents_completed_at', 'documents_verified_at', 'rejection_reason', 'submitted_at', 'verified_at', 'payment_verified_at', 'accepted_at', 're_registration_completed_at', 'enrolled_at', 'enrolled_by',
+        'unit_configuration_id', 'custom_answers', 'user_id', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'registration_number', 'nik', 'full_name', 'nickname', 'gender', 'birth_place', 'birth_date', 'religion', 'child_order', 'siblings_count', 'home_address', 'rt', 'rw', 'village', 'district', 'city', 'province', 'province_code', 'city_code', 'district_code', 'village_code', 'postal_code', 'phone', 'email', 'previous_school', 'previous_school_address', 'graduation_year', 'status', 'current_stage', 'lifecycle_status', 'lifecycle_reason', 'lifecycle_changed_by', 'lifecycle_changed_at', 'data_validation_status', 'data_validation_notes', 'data_validated_by', 'data_validated_at', 'applicant_card_number', 'applicant_card_issued_by', 'applicant_card_issued_at', 'documents_completed_at', 'documents_verified_at', 'rejection_reason', 'submitted_at', 'verified_at', 'payment_verified_at', 'accepted_at', 're_registration_completed_at', 'enrolled_at', 'enrolled_by',
     ];
 
     protected $casts = [
@@ -239,6 +239,26 @@ class Registration extends Model
     public function pathway(): BelongsTo
     {
         return $this->belongsTo(RegistrationPathway::class, 'registration_pathway_id');
+    }
+
+    public function provinceRegion(): BelongsTo
+    {
+        return $this->belongsTo(Province::class, 'province_code', 'code');
+    }
+
+    public function regencyRegion(): BelongsTo
+    {
+        return $this->belongsTo(Regency::class, 'city_code', 'code');
+    }
+
+    public function districtRegion(): BelongsTo
+    {
+        return $this->belongsTo(District::class, 'district_code', 'code');
+    }
+
+    public function villageRegion(): BelongsTo
+    {
+        return $this->belongsTo(Village::class, 'village_code', 'code');
     }
 
     public function parentInfo()
