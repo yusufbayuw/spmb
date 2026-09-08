@@ -103,6 +103,11 @@ class IndonesiaRegionImportService
             $this->flush($buffers, $counts);
         }
 
+        $counts['provinces'] = DB::table('provinces')->count();
+        $counts['regencies'] = DB::table('regencies')->count();
+        $counts['districts'] = DB::table('districts')->count();
+        $counts['villages'] = DB::table('villages')->count();
+
         return $counts;
     }
 
@@ -128,7 +133,6 @@ class IndonesiaRegionImportService
                 };
 
                 DB::table($table)->upsert($rows, ['code'], $updates);
-                $counts[$table] += count($rows);
             }
         }, 5);
     }
