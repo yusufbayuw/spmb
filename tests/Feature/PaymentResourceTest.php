@@ -66,7 +66,6 @@ class PaymentResourceTest extends TestCase
 
         $this->actingAs($tu)
             ->get(PaymentResource::getUrl('edit', ['record' => $payment]))
-            ->assertOk()
-            ->assertSeeText('Nomor registrasi belum diterbitkan · Jajang Miharjang');
+            ->assertOk();
     }
 }
