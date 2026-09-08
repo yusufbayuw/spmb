@@ -15,6 +15,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class SelectionResource extends Resource
 {
@@ -217,6 +218,91 @@ class SelectionResource extends Resource
                         $data['final_score'] ?? null,
                         $data['notes'] ?? null,
                     )),
+                Tables\Actions\Action::make('correctDraftDecision')
+                    ->label('Koreksi Keputusan')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (Selection $record): bool => (bool) auth()->user()?->can('decide_selection')
+                        && $record->registration?->current_stage === 'announcement'
+                        && $record->registration?->announcement?->status === 'draft'
+                    )
+                    ->fillForm(fn (Selection $record): array => [
+                        'decision' => $record->decision,
+                        'final_score' => $record->final_score,
+                        'reason' => null,
+                    ])
+                    ->form([
+                        Forms\Components\Select::make('decision')
+                            ->label('Keputusan Baru')
+                            ->options([
+                                'accepted' => 'Diterima',
+                                'rejected' => 'Ditolak',
+                                'waiting_list' => 'Daftar Tunggu',
+                            ])
+                            ->required(),
+                        Forms\Components\TextInput::make('final_score')
+                            ->label('Nilai Akhir')
+                            ->numeric(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan Koreksi')
+                            ->helperText('Wajib diisi dan akan dicatat pada Audit Log.')
+                            ->required(),
+                    ])
+                    ->requiresConfirmation()
+                    ->modalHeading('Koreksi keputusan sebelum publikasi?')
+                    ->modalDescription('Keputusan dapat dikoreksi selama pengumuman masih draft. Ranking dan rekomendasi sistem tidak diubah.')
+                    ->action(function (Selection $record, array $data): void {
+                        app(RegistrationWorkflowService::class)->correctDraftDecision(
+                            $record,
+                            auth()->user(),
+                            $data['decision'],
+                            isset($data['final_score']) ? (float) $data['final_score'] : null,
+                            $data['reason'],
+                        );
+
+                        Notification::make()
+                            ->title('Keputusan berhasil dikoreksi')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('bulkDecision')
+                    ->label('Tetapkan / Koreksi Hasil')
+                    ->icon('heroicon-o-check-badge')
+                    ->visible(fn (): bool => (bool) auth()->user()?->can('decide_selection'))
+                    ->form([
+                        Forms\Components\Select::make('decision')
+                            ->label('Keputusan untuk peserta terpilih')
+                            ->options([
+                                'accepted' => 'Diterima',
+                                'rejected' => 'Ditolak',
+                                'waiting_list' => 'Daftar Tunggu',
+                                'system' => 'Ikuti Rekomendasi Sistem',
+                            ])
+                            ->required(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Catatan / Alasan')
+                            ->helperText('Satu alasan akan dicatat untuk seluruh peserta terpilih.')
+                            ->required(),
+                    ])
+                    ->requiresConfirmation()
+                    ->modalHeading('Terapkan keputusan ke peserta terpilih?')
+                    ->modalDescription('Operasi ini bersifat atomik: jika satu peserta tidak dapat diproses, seluruh perubahan dibatalkan.')
+                    ->action(function (Collection $records, array $data): void {
+                        $count = app(RegistrationWorkflowService::class)->bulkSetDecisions(
+                            $records,
+                            auth()->user(),
+                            $data['decision'],
+                            $data['reason'],
+                        );
+
+                        Notification::make()
+                            ->title($count.' hasil seleksi berhasil diperbarui')
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
             ]);
     }
 
