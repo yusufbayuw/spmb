@@ -71,4 +71,44 @@ class DocumentResourceTest extends TestCase
             ->assertSeeText('pas_foto_tanpa_nomor_registrasi.jpg')
             ->assertSeeText('akta_kelahiran_tanpa_nomor_registrasi.pdf');
     }
+
+    public function test_document_display_name_uses_requirement_and_registration_number(): void
+    {
+        $unit = Unit::create([
+            'name' => 'SMA Taruna Bakti',
+            'code' => 'SMA-NAME',
+            'institution_type' => 'school',
+            'is_active' => true,
+        ]);
+        $applicant = User::factory()->create(['is_active' => true]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'status' => 'open',
+        ]);
+        $registration = Registration::create([
+            'user_id' => $applicant->id,
+            'unit_id' => $unit->id,
+            'registration_opening_id' => $opening->id,
+            'registration_number' => 'REG-SMA-20262027-0001',
+            'registrant_type' => 'self',
+            'nik' => '3273010101010099',
+            'full_name' => 'Jajang Miharjang',
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2010-01-01',
+            'home_address' => 'Bandung',
+        ]);
+        $document = Document::create([
+            'registration_id' => $registration->id,
+            'type' => 'report_card',
+            'file_path' => 'applicants/'.$registration->id.'/upload-asli.pdf',
+            'original_name' => 'Absen Siswa X Dapodik.pdf',
+            'file_type' => 'pdf',
+            'file_size' => 1024,
+        ]);
+
+        $this->assertSame('rapor_REG-SMA-20262027-0001.pdf', $document->displayFileName());
+    }
 }
