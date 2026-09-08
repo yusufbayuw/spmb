@@ -293,6 +293,28 @@ class UnitConfigurationTest extends TestCase
         $this->assertSame('selection', $registration->fresh()->current_stage);
     }
 
+    public function test_region_fields_cannot_be_published_before_region_master_is_loaded(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [[
+            'key' => 'province_code',
+            'label' => 'Provinsi',
+            'type' => 'select',
+            'active' => true,
+            'required' => true,
+            'group' => 'Alamat',
+            'help' => null,
+            'options' => [],
+        ]];
+
+        $this->expectException(ValidationException::class);
+
+        $service->save($draft, $staff, $data, true);
+    }
+
     public function test_region_fields_must_be_configured_in_parent_child_order(): void
     {
         [$unit, $staff] = $this->fixture();
