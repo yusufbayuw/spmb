@@ -60,6 +60,7 @@ class DocumentResource extends Resource
                 Tables\Columns\TextColumn::make('original_name')
                     ->label('File')
                     ->searchable()
+                    ->formatStateUsing(fn (Document $record): string => $record->displayFileName())
                     ->url(fn (Document $record): string => route('files.applicant.documents.show', $record)),
                 Tables\Columns\TextColumn::make('malware_scan_status')
                     ->label('Security')
