@@ -68,7 +68,7 @@ class DocumentResourceTest extends TestCase
             ->assertOk()
             ->assertSeeText(($registration->registration_number ?: 'Tanpa nomor registrasi').' · Nama Peserta Tidak Ditampilkan')
             ->assertDontSeeText('Nama Akun Pendaftar')
-            ->assertSeeText('foto.jpg')
-            ->assertSeeText('akta.pdf');
+            ->assertSeeText('pas_foto_tanpa_nomor_registrasi.jpg')
+            ->assertSeeText('akta_kelahiran_tanpa_nomor_registrasi.pdf');
     }
 }
