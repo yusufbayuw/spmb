@@ -29,9 +29,23 @@ class RegistrationRegionTest extends TestCase
     public function test_region_import_upserts_complete_hierarchy(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'regions-');
+        $regencyCode = '32'.'73';
+        $districtCode = $regencyCode.'05';
+        $villageCode = $districtCode.'1002';
+        $row = implode(',', [
+            '32',
+            'Jawa Barat',
+            $regencyCode,
+            'Kota Bandung',
+            $districtCode,
+            'Bandung Wetan',
+            $villageCode,
+            'Cihapit',
+        ]);
+
         file_put_contents($path, implode("\n", [
             'province_code,province_name,regency_code,regency_name,district_code,district_name,village_code,village_name',
-            '32,Jawa Barat,32.73,Kota Bandung,32.73.05,Bandung Wetan,32.73.05.1002,Cihapit',
+            $row,
         ]));
 
         try {
