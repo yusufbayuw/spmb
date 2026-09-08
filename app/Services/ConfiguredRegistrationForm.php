@@ -17,11 +17,11 @@ class ConfiguredRegistrationForm
 {
     public const CORE_FIELDS = ['nik', 'full_name', 'gender', 'birth_place', 'birth_date', 'home_address', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'unit_configuration_id'];
 
-    public const BUILTIN_FIELDS = ['nickname', 'religion', 'phone', 'email', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_phone', 'mother_email', 'mother_income'];
+    public const BUILTIN_FIELDS = ['nickname', 'religion', 'phone', 'email', 'province_code', 'city_code', 'district_code', 'village_code', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_phone', 'mother_email', 'mother_income'];
 
     public static function fieldLabels(): array
     {
-        $labels = ['nickname' => 'Nama panggilan', 'religion' => 'Agama', 'phone' => 'Telepon peserta', 'email' => 'Email peserta', 'previous_school' => 'Sekolah asal', 'graduation_year' => 'Tahun lulus'];
+        $labels = ['nickname' => 'Nama panggilan', 'religion' => 'Agama', 'phone' => 'Telepon peserta', 'email' => 'Email peserta', 'province_code' => 'Provinsi', 'city_code' => 'Kabupaten/Kota', 'district_code' => 'Kecamatan', 'village_code' => 'Desa/Kelurahan', 'previous_school' => 'Sekolah asal', 'graduation_year' => 'Tahun lulus'];
         foreach (['father' => 'Ayah', 'mother' => 'Ibu'] as $prefix => $parent) {
             foreach (['name' => 'Nama', 'nik' => 'NIK', 'birth_place' => 'Tempat lahir', 'birth_date' => 'Tanggal lahir', 'education' => 'Pendidikan', 'occupation' => 'Pekerjaan', 'phone' => 'Telepon', 'email' => 'Email', 'income' => 'Penghasilan'] as $key => $label) {
                 $labels[$prefix.'_'.$key] = $label.' '.$parent;
