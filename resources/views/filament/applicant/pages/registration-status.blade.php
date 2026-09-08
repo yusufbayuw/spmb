@@ -277,6 +277,14 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                             <div><dt class="text-gray-500">Program studi</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->opening->studyProgram->label() }}</dd></div>
                         @endif
                         <div><dt class="text-gray-500">NIK {{ $participantLabel }}</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->nik }}</dd></div>
+                        @if($registration->province || $registration->city || $registration->district || $registration->village)
+                            <div>
+                                <dt class="text-gray-500">Wilayah domisili</dt>
+                                <dd class="mt-1 font-medium text-gray-950 dark:text-white">
+                                    {{ collect([$registration->village, $registration->district, $registration->city, $registration->province])->filter()->implode(', ') }}
+                                </dd>
+                            </div>
+                        @endif
                         <div><dt class="text-gray-500">Tanggal daftar</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->submitted_at?->format('d M Y H:i') ?? $registration->created_at->format('d M Y H:i') }}</dd></div>
                     </dl>
                 </x-filament::section>
