@@ -7,6 +7,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\RegistrationRegionService;
 use App\Services\UnitConfigurationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -62,6 +63,10 @@ class CreateRegistration extends CreateRecord
             'district',
             'city',
             'province',
+            'province_code',
+            'city_code',
+            'district_code',
+            'village_code',
             'postal_code',
         ]);
 
@@ -127,6 +132,7 @@ class CreateRegistration extends CreateRecord
         if (($data['unit_uuid'] ?? null) !== $opening->unit->uuid) {
             throw ValidationException::withMessages(['unit_uuid' => 'Unit pendaftaran tidak sesuai pembukaan yang dipilih.']);
         }
+        $data = app(RegistrationRegionService::class)->normalize($data);
         $data['custom_answers'] = app(ConfiguredRegistrationForm::class)->validateAnswers($configuration, $data['custom_answers'] ?? []);
         $data['user_id'] = auth()->id();
         $data['registration_opening_id'] = $opening->id;
