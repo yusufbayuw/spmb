@@ -175,6 +175,72 @@ class RegistrationRegionTest extends TestCase
             ->assertSeeText('Cihapit, Bandung Wetan, Kota Bandung, Jawa Barat');
     }
 
+    public function test_bundled_region_dataset_covers_all_indonesia(): void
+    {
+        $files = glob(database_path('data/indonesia_regions/*.csv')) ?: [];
+
+        $this->assertCount(38, $files);
+
+        $provinces = [];
+        $regencies = [];
+        $districts = [];
+        $villages = [];
+        $kelurahan = 0;
+        $desa = 0;
+
+        foreach ($files as $path) {
+            $file = new \SplFileObject($path, 'r');
+            $file->setFlags(\SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY);
+
+            $this->assertSame([
+                'province_code',
+                'province_name',
+                'regency_code',
+                'regency_name',
+                'district_code',
+                'district_name',
+                'village_code',
+                'village_name',
+            ], $file->fgetcsv());
+
+            while (! $file->eof()) {
+                $row = $file->fgetcsv();
+
+                if ($row === false || $row === [null]) {
+                    continue;
+                }
+
+                $this->assertCount(8, $row);
+
+                [$provinceCode, , $regencyCode, , $districtCode, , $villageCode] = $row;
+
+                $this->assertStringStartsWith($provinceCode.'.', $regencyCode);
+                $this->assertStringStartsWith($regencyCode.'.', $districtCode);
+                $this->assertStringStartsWith($districtCode.'.', $villageCode);
+
+                $provinces[$provinceCode] = true;
+                $regencies[$regencyCode] = true;
+                $districts[$districtCode] = true;
+                $villages[$villageCode] = true;
+
+                $localCode = explode('.', $villageCode)[3] ?? '';
+
+                if (str_starts_with($localCode, '1')) {
+                    $kelurahan++;
+                } elseif (str_starts_with($localCode, '2') || str_starts_with($localCode, '3')) {
+                    $desa++;
+                }
+            }
+        }
+
+        $this->assertCount(38, $provinces);
+        $this->assertCount(514, $regencies);
+        $this->assertCount(7285, $districts);
+        $this->assertCount(83762, $villages);
+        $this->assertSame(8496, $kelurahan);
+        $this->assertSame(75266, $desa);
+    }
+
     /**
      * @return array<string, mixed>
      */
