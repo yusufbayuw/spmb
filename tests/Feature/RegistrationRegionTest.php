@@ -155,6 +155,10 @@ class RegistrationRegionTest extends TestCase
         $this->assertSame('Kota Bandung', $registration->city);
         $this->assertSame('Bandung Wetan', $registration->district);
         $this->assertSame('Cihapit', $registration->village);
+
+        $this->get('/pendaftar/status/'.$registration->uuid)
+            ->assertOk()
+            ->assertSeeText('Cihapit, Bandung Wetan, Kota Bandung, Jawa Barat');
     }
 
     /**
