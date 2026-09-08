@@ -256,6 +256,37 @@ class UnitConfigurationService
                     throw ValidationException::withMessages(['fields' => 'Field pilihan harus memiliki opsi.']);
                 }
             }
+            $fieldsByKey = collect($validated['fields'])->keyBy('key');
+            $regionHierarchy = [
+                'city_code' => ['province_code'],
+                'district_code' => ['province_code', 'city_code'],
+                'village_code' => ['province_code', 'city_code', 'district_code'],
+            ];
+
+            foreach ($regionHierarchy as $fieldKey => $parentKeys) {
+                $field = $fieldsByKey->get($fieldKey);
+
+                if (! ($field['active'] ?? false)) {
+                    continue;
+                }
+
+                foreach ($parentKeys as $parentKey) {
+                    $parent = $fieldsByKey->get($parentKey);
+
+                    if (! ($parent['active'] ?? false)) {
+                        throw ValidationException::withMessages([
+                            'fields' => 'Field wilayah harus diaktifkan berurutan: Provinsi → Kabupaten/Kota → Kecamatan → Desa/Kelurahan.',
+                        ]);
+                    }
+
+                    if (($field['required'] ?? false) && ! ($parent['required'] ?? false)) {
+                        throw ValidationException::withMessages([
+                            'fields' => 'Jika field wilayah turunan wajib, seluruh field wilayah induknya juga harus wajib.',
+                        ]);
+                    }
+                }
+            }
+
             foreach ($validated['document_requirements'] as $requirement) {
                 if (! empty($requirement['template_path'])) {
                     if (! str_starts_with($requirement['template_path'], 'templates/'.$locked->unit_id.'/')) {
