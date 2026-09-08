@@ -29,7 +29,23 @@ class PaymentResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Select::make('registration_id')->relationship('registration', 'registration_number')->label('Pendaftaran')->disabled()->dehydrated(false),
+            Forms\Components\Select::make('registration_id')
+                ->label('Pendaftaran')
+                ->options(function (?Payment $record): array {
+                    $registration = $record?->registration;
+
+                    if (! $registration) {
+                        return [];
+                    }
+
+                    $label = $registration->registration_number
+                        ? $registration->registration_number.' · '.$registration->full_name
+                        : 'Nomor registrasi belum diterbitkan · '.$registration->full_name;
+
+                    return [$registration->id => $label];
+                })
+                ->disabled()
+                ->dehydrated(false),
             Forms\Components\TextInput::make('va_number')->label('VA')->disabled()->dehydrated(false),
             Forms\Components\TextInput::make('amount')->label('Nominal dari Pembukaan')->prefix('Rp')->disabled()->dehydrated(false),
             Forms\Components\Select::make('status')->options([
