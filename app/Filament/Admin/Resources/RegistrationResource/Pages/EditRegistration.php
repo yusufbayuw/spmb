@@ -46,7 +46,12 @@ class EditRegistration extends EditRecord
             $data['data_validated_at'],
         );
 
-        $data = app(RegistrationRegionService::class)->normalize($data);
+        $regionService = app(RegistrationRegionService::class);
+
+        if ($regionService->shouldNormalize($data, $record)) {
+            $data = $regionService->normalize($data);
+        }
+
         $record->update($data);
 
         $canValidate = auth()->user()?->can('validate_data_registration') ?? false;
