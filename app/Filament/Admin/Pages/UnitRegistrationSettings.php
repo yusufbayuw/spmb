@@ -138,6 +138,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                             $set('label', ConfiguredRegistrationForm::fieldLabels()[$state] ?? $state);
                             $set('type', 'select');
                             $set('options', []);
+                            $set('required', false);
                         })
                         ->required(),
                     Forms\Components\TextInput::make('label')->label('Label')->required(),
