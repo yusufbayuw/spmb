@@ -35,7 +35,26 @@ class AdmissionQuotaResource extends Resource
                 ->required(),
             Forms\Components\Select::make('registration_pathway_id')
                 ->label('Jalur Pendaftaran')
-                ->options(fn (Forms\Get $get): array => RegistrationPathway::query()->where('unit_id', RegistrationOpening::query()->whereKey($get('registration_opening_id'))->value('unit_id'))->active()->pluck('name', 'id')->all())
+                ->options(function (Forms\Get $get): array {
+                    $openingId = $get('registration_opening_id');
+
+                    if (! $openingId) {
+                        return [];
+                    }
+
+                    $unitId = RegistrationOpening::query()
+                        ->whereKey($openingId)
+                        ->value('unit_id');
+
+                    if (! $unitId) {
+                        return [];
+                    }
+
+                    return RegistrationPathway::query()
+                        ->availableForUnit((int) $unitId)
+                        ->pluck('name', 'id')
+                        ->all();
+                })
                 ->searchable(),
             Forms\Components\TextInput::make('capacity')->label('Daya tampung penerimaan')->integer()->minValue(0)->required(),
             Forms\Components\TextInput::make('offer_expires_in_hours')->label('Batas konfirmasi (jam)')->integer()->minValue(1)->required(),
