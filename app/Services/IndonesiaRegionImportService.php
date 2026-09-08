@@ -43,12 +43,15 @@ class IndonesiaRegionImportService
         $buffers = $this->emptyBuffers();
         $counts = ['rows' => 0, 'provinces' => 0, 'regencies' => 0, 'districts' => 0, 'villages' => 0];
 
-        foreach ($file as $index => $row) {
+        $line = 1;
+
+        while (! $file->eof()) {
+            $row = $file->fgetcsv();
+            $line++;
+
             if ($row === false || $row === [null]) {
                 continue;
             }
-
-            $line = $index + 1;
 
             if (count($row) !== count(self::HEADERS)) {
                 throw ValidationException::withMessages([
@@ -100,7 +103,7 @@ class IndonesiaRegionImportService
         }
 
         if ($buffers['villages'] !== []) {
-            $this->flush($buffers, $counts);
+            $this->flush($buffers);
         }
 
         $counts['provinces'] = DB::table('provinces')->count();
