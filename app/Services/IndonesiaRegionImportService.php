@@ -8,6 +8,13 @@ use SplFileObject;
 
 class IndonesiaRegionImportService
 {
+    public const EXPECTED_TOTALS = [
+        'provinces' => 38,
+        'regencies' => 514,
+        'districts' => 7285,
+        'villages' => 83762,
+    ];
+
     private const HEADERS = [
         'province_code',
         'province_name',
@@ -18,6 +25,56 @@ class IndonesiaRegionImportService
         'village_code',
         'village_name',
     ];
+
+    /**
+     * Import every CSV shard in a directory in lexical order.
+     *
+     * @return array{rows:int,provinces:int,regencies:int,districts:int,villages:int}
+     */
+    public function importDirectory(string $directory, int $chunkSize = 1000): array
+    {
+        if (! is_dir($directory) || ! is_readable($directory)) {
+            throw ValidationException::withMessages([
+                'file' => 'Direktori master wilayah tidak ditemukan atau tidak dapat dibaca.',
+            ]);
+        }
+
+        $files = glob(rtrim($directory, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'*.csv') ?: [];
+        sort($files, SORT_STRING);
+
+        if ($files === []) {
+            throw ValidationException::withMessages([
+                'file' => 'Direktori master wilayah tidak memiliki file CSV.',
+            ]);
+        }
+
+        $rows = 0;
+        $result = ['rows' => 0, 'provinces' => 0, 'regencies' => 0, 'districts' => 0, 'villages' => 0];
+
+        foreach ($files as $file) {
+            $imported = $this->import($file, $chunkSize);
+            $rows += $imported['rows'];
+            $result = $imported;
+        }
+
+        $result['rows'] = $rows;
+
+        return $result;
+    }
+
+    /**
+     * @param array{rows:int,provinces:int,regencies:int,districts:int,villages:int} $result
+     */
+    public function assertComplete(array $result): void
+    {
+        foreach (self::EXPECTED_TOTALS as $key => $expected) {
+            if (($result[$key] ?? null) !== $expected) {
+                throw ValidationException::withMessages([
+                    'file' => "Master wilayah belum lengkap: {$key} harus {$expected}, ditemukan ".($result[$key] ?? 0).'.',
+                ]);
+            }
+        }
+    }
 
     /**
      * @return array{rows:int,provinces:int,regencies:int,districts:int,villages:int}
