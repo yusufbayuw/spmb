@@ -52,6 +52,7 @@ use App\Models\Document;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Models\TestSession;
 use App\Models\Unit;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -309,6 +310,62 @@ class FilamentResourceBehaviorTest extends TestCase
             [$available->id => 'Reguler'],
             SelectionBatchResource::pathwayOptions($opening->id),
         );
+    }
+
+    public function test_edit_test_session_persists_changed_local_date_and_time(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Unit Jadwal',
+            'code' => 'JADWAL',
+            'is_active' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'tu',
+            'unit_id' => $unit->id,
+            'is_active' => true,
+        ]);
+        $staff->assignRole(Role::firstOrCreate([
+            'name' => 'tu',
+            'guard_name' => 'web',
+        ]));
+        $test = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Saringan Masuk',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+        $session = TestSession::create([
+            'admission_test_id' => $test->id,
+            'starts_at' => '2026-09-09 00:00:00',
+            'ends_at' => '2026-09-09 23:59:00',
+            'booking_closes_at' => '2026-09-08 19:00:00',
+            'location' => '52',
+            'capacity' => 10,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(TestSessions::class)
+            ->callTableAction('edit', $session, data: [
+                'admission_test_uuid' => $test->uuid,
+                'starts_at' => '2026-09-10 08:30:00',
+                'ends_at' => '2026-09-10 10:15:00',
+                'booking_closes_at' => '2026-09-09 19:00:00',
+                'location' => 'Ruang 52',
+                'capacity' => 10,
+                'instructions' => null,
+                'status' => 'active',
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $session->refresh();
+
+        $this->assertSame('2026-09-10 08:30:00', $session->starts_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-09-10 10:15:00', $session->ends_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-09-09 19:00:00', $session->booking_closes_at->format('Y-m-d H:i:s'));
+        $this->assertSame('Ruang 52', $session->location);
     }
 
     public function test_test_session_status_tab_accepts_only_supported_statuses(): void
