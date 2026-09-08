@@ -59,6 +59,23 @@ class TestBookingTest extends TestCase
         $this->assertSame(1, $other->bookings()->count());
     }
 
+    public function test_test_card_button_is_hidden_until_a_session_is_selected(): void
+    {
+        [$registration, $parent, $session] = $this->fixture();
+
+        $this->actingAs($parent)
+            ->get('/pendaftar/jadwal-tes/'.$registration->uuid)
+            ->assertOk()
+            ->assertDontSeeText('Cetak Kartu Tes');
+
+        app(TestBookingService::class)->book($registration, $session, $parent);
+
+        $this->actingAs($parent)
+            ->get('/pendaftar/jadwal-tes/'.$registration->uuid)
+            ->assertOk()
+            ->assertSeeText('Cetak Kartu Tes');
+    }
+
     public function test_rescheduling_releases_old_seat_and_changes_printed_card(): void
     {
         [$registration, $parent, $session] = $this->fixture();
