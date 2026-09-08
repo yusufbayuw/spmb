@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AdmissionQuota;
 use App\Models\AdmissionTest;
-use App\Models\AuditLog;
+use App\Models\Announcement;
 use App\Models\AdmissionTestResult;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -445,7 +445,7 @@ class AdmissionDecisionManagementTest extends TestCase
         $workflow->decide($second, $staff, 'rejected', 70, 'Tidak memenuhi kriteria.');
 
         $count = $workflow->bulkPublishAnnouncements(
-            App\Models\Announcement::query()
+            Announcement::query()
                 ->whereIn('registration_id', [$first->id, $second->id])
                 ->get(),
             $staff,
