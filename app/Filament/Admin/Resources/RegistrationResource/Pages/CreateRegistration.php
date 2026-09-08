@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\RegistrationResource\Pages;
 use App\Filament\Admin\Resources\RegistrationResource;
 use App\Filament\RedirectsToResourceIndex;
 use App\Models\RegistrationOpening;
+use App\Services\RegistrationRegionService;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateRegistration extends CreateRecord
@@ -23,6 +24,6 @@ class CreateRegistration extends CreateRecord
             }
         }
 
-        return $data;
+        return app(RegistrationRegionService::class)->normalize($data);
     }
 }
