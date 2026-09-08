@@ -4,11 +4,15 @@ namespace App\Services;
 
 use App\Models\AdmissionTest;
 use App\Models\AdmissionTestResult;
+use App\Models\District;
+use App\Models\Province;
+use App\Models\Regency;
 use App\Models\Registration;
 use App\Models\Selection;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
+use App\Models\Village;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
@@ -284,6 +288,23 @@ class UnitConfigurationService
                     if (($field['required'] ?? false) && ! ($parent['required'] ?? false)) {
                         throw ValidationException::withMessages([
                             'fields' => 'Jika field wilayah turunan wajib, seluruh field wilayah induknya juga harus wajib.',
+                        ]);
+                    }
+                }
+            }
+
+            if ($publish) {
+                $regionModels = [
+                    'province_code' => Province::class,
+                    'city_code' => Regency::class,
+                    'district_code' => District::class,
+                    'village_code' => Village::class,
+                ];
+
+                foreach ($regionModels as $fieldKey => $modelClass) {
+                    if (($fieldsByKey->get($fieldKey)['active'] ?? false) && ! $modelClass::query()->exists()) {
+                        throw ValidationException::withMessages([
+                            'fields' => 'Master wilayah Indonesia belum lengkap. Import master wilayah sebelum mempublikasikan field Provinsi/Kabupaten/Kecamatan/Desa.',
                         ]);
                     }
                 }
