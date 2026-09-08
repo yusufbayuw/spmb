@@ -173,18 +173,50 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         ])->statePath('data');
     }
 
-    public function save(bool $publish = false): void
+    public function save(): void
     {
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
+        $data = $this->configurationFormData($configuration);
+
+        app(UnitConfigurationService::class)->save($configuration, auth()->user(), $data);
+
+        Notification::make()
+            ->title('Draft tersimpan')
+            ->success()
+            ->send();
+    }
+
+    public function publish(): void
+    {
+        $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
+        $data = $this->configurationFormData($configuration);
+        $service = app(UnitConfigurationService::class);
+
+        $draft = $service->save($configuration, auth()->user(), $data);
+        $published = $service->save($draft->fresh(), auth()->user(), $data, true);
+
+        Notification::make()
+            ->title('Versi '.$published->version.' dipublikasikan untuk pendaftar baru')
+            ->body('Perubahan form telah disimpan sebagai draft lalu dipublikasikan.')
+            ->success()
+            ->send();
+
+        $this->loadUnit();
+    }
+
+    private function configurationFormData(UnitConfiguration $configuration): array
+    {
         $data = $this->form->getState();
         $data['test_definitions'] = collect($data['test_definitions'] ?? [])
-            ->map(fn (array $definition): array => ['id' => AdmissionTest::query()->where('unit_id', $configuration->unit_id)->where('uuid', $definition['uuid'] ?? null)->value('id')])
+            ->map(fn (array $definition): array => [
+                'id' => AdmissionTest::query()
+                    ->where('unit_id', $configuration->unit_id)
+                    ->where('uuid', $definition['uuid'] ?? null)
+                    ->value('id'),
+            ])
             ->all();
-        $saved = app(UnitConfigurationService::class)->save($configuration, auth()->user(), $data, $publish);
-        Notification::make()->title($publish ? 'Versi '.$saved->version.' dipublikasikan untuk pendaftar baru' : 'Draft tersimpan')->success()->send();
-        if ($publish) {
-            $this->loadUnit();
-        }
+
+        return $data;
     }
 
     public function applyPublishedToActiveRegistrations(): void
