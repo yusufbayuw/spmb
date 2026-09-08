@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\SendAnnouncementPublishedMail;
 use App\Jobs\SendVirtualAccountMail;
+use App\Models\AdmissionOffer;
 use App\Models\AdmissionTestResult;
 use App\Models\Announcement;
 use App\Models\Document;
@@ -13,6 +14,7 @@ use App\Models\Selection;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -642,6 +644,523 @@ class RegistrationWorkflowService
         $this->notifications->selectionDecided($registration->fresh(), $decision);
 
         return $selection;
+    }
+
+    public function correctDraftDecision(
+        Selection $selection,
+        User $staff,
+        string $decision,
+        ?float $score,
+        string $reason,
+    ): Selection {
+        $this->assertSelectionDecision($decision);
+
+        if (blank($reason)) {
+            throw ValidationException::withMessages([
+                'reason' => 'Alasan koreksi wajib diisi.',
+            ]);
+        }
+
+        $corrected = DB::transaction(function () use ($selection, $staff, $decision, $score, $reason): Selection {
+            $lockedSelection = Selection::query()
+                ->lockForUpdate()
+                ->findOrFail($selection->id);
+            $registration = Registration::query()
+                ->lockForUpdate()
+                ->findOrFail($lockedSelection->registration_id);
+
+            $this->assertUnitAccess($registration, $staff);
+            $registration->assertCurrentStage('announcement');
+
+            $announcement = Announcement::query()
+                ->where('registration_id', $registration->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $announcement || $announcement->status !== 'draft') {
+                throw ValidationException::withMessages([
+                    'announcement' => 'Keputusan hanya dapat dikoreksi dari Penetapan Hasil selama pengumuman masih berupa draft.',
+                ]);
+            }
+
+            $oldDecision = $lockedSelection->decision;
+
+            if ($decision === 'accepted' && $oldDecision !== 'accepted') {
+                app(AdmissionDecisionService::class)->assertCapacityForAcceptance($registration, $lockedSelection);
+            }
+
+            $lockedSelection->update([
+                'decision' => $decision,
+                'final_score' => $score ?? $lockedSelection->final_score,
+                'waitlist_rank' => $decision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                'override_reason' => trim($reason),
+                'decided_by' => $staff->id,
+                'decided_at' => now(),
+            ]);
+
+            app(AuditTrail::class)->record(
+                'selection.decision_corrected',
+                $lockedSelection,
+                oldValues: [
+                    'decision' => $oldDecision,
+                    'final_score' => $selection->final_score,
+                ],
+                newValues: [
+                    'decision' => $decision,
+                    'final_score' => $lockedSelection->final_score,
+                ],
+                metadata: ['reason' => trim($reason), 'published' => false],
+                actor: $staff,
+                unitId: $registration->unit_id,
+                registrationId: $registration->id,
+                description: 'Keputusan seleksi dikoreksi sebelum publikasi',
+            );
+
+            return $lockedSelection->fresh();
+        }, 5);
+
+        $this->notifications->selectionDecided($corrected->registration->fresh(), $decision);
+
+        return $corrected;
+    }
+
+    /**
+     * @param Collection<int, Selection> $selections
+     */
+    public function bulkSetDecisions(Collection $selections, User $staff, string $decision, string $reason): int
+    {
+        if (! in_array($decision, ['accepted', 'rejected', 'waiting_list', 'system'], true)) {
+            throw ValidationException::withMessages([
+                'decision' => 'Pilihan keputusan massal tidak valid.',
+            ]);
+        }
+
+        if (blank($reason)) {
+            throw ValidationException::withMessages([
+                'reason' => 'Catatan / alasan tindakan massal wajib diisi.',
+            ]);
+        }
+
+        $ids = $selections->pluck('id')->map(fn ($id): int => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty()) {
+            throw ValidationException::withMessages([
+                'selection' => 'Pilih minimal satu peserta.',
+            ]);
+        }
+
+        $changedRegistrationIds = [];
+
+        DB::transaction(function () use ($ids, $staff, $decision, $reason, &$changedRegistrationIds): void {
+            $lockedSelections = Selection::query()
+                ->with('batch')
+                ->whereIn('id', $ids)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($lockedSelections->count() !== $ids->count()) {
+                throw ValidationException::withMessages([
+                    'selection' => 'Sebagian data seleksi sudah berubah. Muat ulang tabel lalu pilih kembali.',
+                ]);
+            }
+
+            foreach ($lockedSelections as $lockedSelection) {
+                $registration = Registration::query()
+                    ->lockForUpdate()
+                    ->findOrFail($lockedSelection->registration_id);
+
+                $this->assertUnitAccess($registration, $staff);
+
+                $targetDecision = $decision === 'system'
+                    ? $lockedSelection->system_recommendation
+                    : $decision;
+
+                if (! in_array($targetDecision, ['accepted', 'rejected', 'waiting_list'], true)) {
+                    throw ValidationException::withMessages([
+                        'decision' => 'Sebagian peserta tidak memiliki rekomendasi sistem yang dapat diterapkan.',
+                    ]);
+                }
+
+                $oldDecision = $lockedSelection->decision;
+
+                if ($registration->current_stage === 'selection') {
+                    if ($lockedSelection->selection_batch_id) {
+                        if ($lockedSelection->batch?->status !== 'ranked') {
+                            throw ValidationException::withMessages([
+                                'selection' => 'Keputusan peserta dalam batch hanya dapat diubah setelah batch selesai diranking.',
+                            ]);
+                        }
+
+                        $lockedSelection->update([
+                            'decision' => $targetDecision,
+                            'waitlist_rank' => $targetDecision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                            'override_reason' => $lockedSelection->system_recommendation !== $targetDecision ? trim($reason) : null,
+                            'notes' => trim($reason),
+                            'decided_by' => $staff->id,
+                            'decided_at' => now(),
+                        ]);
+                    } else {
+                        if (! $registration->allowsManualSelection()) {
+                            throw ValidationException::withMessages([
+                                'selection' => 'Sebagian peserta wajib diproses melalui Batch Seleksi.',
+                            ]);
+                        }
+
+                        if ($targetDecision === 'accepted' && $oldDecision !== 'accepted') {
+                            app(AdmissionDecisionService::class)->assertCapacityForAcceptance($registration, $lockedSelection);
+                        }
+
+                        $lockedSelection->update([
+                            'decision' => $targetDecision,
+                            'waitlist_rank' => $targetDecision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                            'override_reason' => $lockedSelection->system_recommendation && $lockedSelection->system_recommendation !== $targetDecision ? trim($reason) : null,
+                            'notes' => trim($reason),
+                            'decided_by' => $staff->id,
+                            'decided_at' => now(),
+                        ]);
+
+                        Announcement::firstOrCreate(
+                            ['registration_id' => $registration->id],
+                            ['status' => 'draft', 'title' => 'Pengumuman Hasil SPMB'],
+                        );
+
+                        $registration->transitionTo('announcement');
+                    }
+                } elseif ($registration->current_stage === 'announcement') {
+                    $announcement = Announcement::query()
+                        ->where('registration_id', $registration->id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $announcement || $announcement->status !== 'draft') {
+                        throw ValidationException::withMessages([
+                            'selection' => 'Tindakan massal hanya dapat mengoreksi hasil yang pengumumannya masih draft.',
+                        ]);
+                    }
+
+                    if ($targetDecision === 'accepted' && $oldDecision !== 'accepted') {
+                        app(AdmissionDecisionService::class)->assertCapacityForAcceptance($registration, $lockedSelection);
+                    }
+
+                    $lockedSelection->update([
+                        'decision' => $targetDecision,
+                        'waitlist_rank' => $targetDecision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                        'override_reason' => trim($reason),
+                        'notes' => trim($reason),
+                        'decided_by' => $staff->id,
+                        'decided_at' => now(),
+                    ]);
+                } else {
+                    throw ValidationException::withMessages([
+                        'selection' => 'Sebagian peserta sudah melewati tahap yang aman untuk koreksi massal.',
+                    ]);
+                }
+
+                app(AuditTrail::class)->record(
+                    'selection.bulk_decision_set',
+                    $lockedSelection,
+                    oldValues: ['decision' => $oldDecision],
+                    newValues: ['decision' => $targetDecision],
+                    metadata: ['reason' => trim($reason)],
+                    actor: $staff,
+                    unitId: $registration->unit_id,
+                    registrationId: $registration->id,
+                    description: 'Keputusan seleksi diperbarui melalui tindakan massal',
+                );
+
+                $changedRegistrationIds[] = $registration->id;
+            }
+        }, 5);
+
+        foreach (array_unique($changedRegistrationIds) as $registrationId) {
+            $registration = Registration::query()->find($registrationId);
+
+            if ($registration) {
+                $this->notifications->selectionDecided(
+                    $registration,
+                    (string) $registration->selection()->value('decision'),
+                );
+            }
+        }
+
+        return count(array_unique($changedRegistrationIds));
+    }
+
+    public function canCorrectPublished(Announcement $announcement): bool
+    {
+        if ($announcement->status !== 'published') {
+            return false;
+        }
+
+        $registration = $announcement->registration;
+
+        if (! $registration || ! $registration->isOperational()) {
+            return false;
+        }
+
+        if (in_array($registration->current_stage, ['re_registration', 'enrollment'], true)
+            || filled($registration->enrolled_at)
+            || $registration->reRegistrationItems()->exists()) {
+            return false;
+        }
+
+        $offer = AdmissionOffer::query()
+            ->where('registration_id', $registration->id)
+            ->first();
+
+        return ! $offer || $offer->status === 'offered';
+    }
+
+    public function correctPublishedDecision(
+        Announcement $announcement,
+        User $staff,
+        string $decision,
+        string $reason,
+    ): Selection {
+        $this->assertSelectionDecision($decision);
+
+        if (blank($reason)) {
+            throw ValidationException::withMessages([
+                'reason' => 'Alasan koreksi hasil terpublikasi wajib diisi.',
+            ]);
+        }
+
+        $offerToPromoteFrom = null;
+
+        $selection = DB::transaction(function () use ($announcement, $staff, $decision, $reason, &$offerToPromoteFrom): Selection {
+            $lockedAnnouncement = Announcement::query()
+                ->lockForUpdate()
+                ->findOrFail($announcement->id);
+
+            if ($lockedAnnouncement->status !== 'published') {
+                throw ValidationException::withMessages([
+                    'announcement' => 'Pengumuman belum dipublikasikan.',
+                ]);
+            }
+
+            $registration = Registration::query()
+                ->with('configuration')
+                ->lockForUpdate()
+                ->findOrFail($lockedAnnouncement->registration_id);
+
+            $this->assertUnitAccess($registration, $staff);
+
+            if (! $this->canCorrectPublished($lockedAnnouncement->setRelation('registration', $registration))) {
+                throw ValidationException::withMessages([
+                    'announcement' => 'Hasil tidak dapat dikoreksi langsung karena peserta sudah memasuki proses lanjutan. Gunakan koreksi administratif.',
+                ]);
+            }
+
+            $lockedSelection = Selection::query()
+                ->where('registration_id', $registration->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $oldDecision = $lockedSelection->decision;
+
+            if ($oldDecision === $decision) {
+                throw ValidationException::withMessages([
+                    'decision' => 'Keputusan baru sama dengan keputusan yang sudah dipublikasikan.',
+                ]);
+            }
+
+            $offer = AdmissionOffer::query()
+                ->where('registration_id', $registration->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($decision === 'accepted' && $oldDecision !== 'accepted') {
+                if ($offer) {
+                    throw ValidationException::withMessages([
+                        'decision' => 'Peserta memiliki riwayat penawaran penerimaan. Koreksi menjadi Diterima harus dilakukan melalui koreksi administratif.',
+                    ]);
+                }
+
+                app(AdmissionDecisionService::class)->assertCapacityForAcceptance($registration, $lockedSelection);
+            }
+
+            if ($offer && $offer->status === 'offered' && $decision !== 'accepted') {
+                $offer->update([
+                    'status' => 'expired',
+                    'expired_at' => now(),
+                ]);
+                $offerToPromoteFrom = $offer->fresh('quota');
+
+                app(AuditTrail::class)->record(
+                    'admission.offer_cancelled_by_result_correction',
+                    $offer,
+                    oldValues: ['status' => 'offered'],
+                    newValues: ['status' => 'expired'],
+                    metadata: ['reason' => trim($reason)],
+                    actor: $staff,
+                    unitId: $registration->unit_id,
+                    registrationId: $registration->id,
+                    description: 'Penawaran penerimaan dibatalkan karena koreksi hasil',
+                );
+            }
+
+            $oldStage = $registration->current_stage;
+            $oldStatus = $registration->status;
+
+            $lockedSelection->update([
+                'decision' => $decision,
+                'waitlist_rank' => $decision === 'waiting_list' ? $lockedSelection->waitlist_rank : null,
+                'override_reason' => trim($reason),
+                'notes' => trim($reason),
+                'decided_by' => $staff->id,
+                'decided_at' => now(),
+            ]);
+
+            $lockedAnnouncement->update([
+                'published_by' => $staff->id,
+                'published_at' => now(),
+                'email_sent_at' => null,
+            ]);
+
+            if (! $registration->postAnnouncementEnabled()) {
+                $registration->forceFill([
+                    'current_stage' => 'completed',
+                    'status' => $decision,
+                    'accepted_at' => $decision === 'accepted' ? ($registration->accepted_at ?: now()) : null,
+                ])->save();
+            } elseif ($decision === 'accepted') {
+                $registration->forceFill([
+                    'current_stage' => 'announcement',
+                    'status' => 'accepted',
+                    'accepted_at' => $registration->accepted_at ?: now(),
+                ])->save();
+            } elseif ($decision === 'waiting_list') {
+                $registration->forceFill([
+                    'current_stage' => 'waiting_list',
+                    'status' => 'waiting_list',
+                    'accepted_at' => null,
+                ])->save();
+            } else {
+                $registration->forceFill([
+                    'current_stage' => 'completed',
+                    'status' => 'rejected',
+                    'accepted_at' => null,
+                ])->save();
+            }
+
+            app(AuditTrail::class)->record(
+                'selection.published_decision_corrected',
+                $lockedSelection,
+                oldValues: ['decision' => $oldDecision],
+                newValues: ['decision' => $decision],
+                metadata: ['reason' => trim($reason)],
+                actor: $staff,
+                unitId: $registration->unit_id,
+                registrationId: $registration->id,
+                description: 'Hasil seleksi yang sudah dipublikasikan dikoreksi',
+            );
+
+            app(AuditTrail::class)->record(
+                'registration.stage_corrected_after_publication',
+                $registration,
+                oldValues: ['current_stage' => $oldStage, 'status' => $oldStatus],
+                newValues: ['current_stage' => $registration->current_stage, 'status' => $registration->status],
+                metadata: ['reason' => trim($reason), 'decision' => $decision],
+                actor: $staff,
+                unitId: $registration->unit_id,
+                registrationId: $registration->id,
+                description: 'Tahap pendaftaran diselaraskan setelah koreksi hasil terpublikasi',
+            );
+
+            return $lockedSelection->fresh();
+        }, 5);
+
+        $freshRegistration = $selection->registration->fresh(['configuration']);
+
+        if ($freshRegistration->postAnnouncementEnabled() && $decision === 'accepted') {
+            app(AdmissionDecisionService::class)->publishAccepted($freshRegistration);
+        }
+
+        if ($offerToPromoteFrom?->quota && $decision !== 'accepted') {
+            app(AdmissionDecisionService::class)->promoteForQuota($offerToPromoteFrom->quota);
+        }
+
+        $freshAnnouncement = $announcement->fresh(['registration.user']);
+        SendAnnouncementPublishedMail::dispatch($freshAnnouncement->id);
+
+        $this->notifications->workflowEvent(
+            $freshRegistration->fresh(),
+            'selection.corrected',
+            'Hasil seleksi diperbarui',
+            'Hasil seleksi Anda telah dikoreksi oleh petugas. Silakan lihat pengumuman terbaru di portal.',
+            true,
+            true,
+        );
+
+        return $selection->fresh();
+    }
+
+    /**
+     * @param Collection<int, Announcement> $announcements
+     */
+    public function bulkPublishAnnouncements(Collection $announcements, User $staff): int
+    {
+        $ids = $announcements->pluck('id')->map(fn ($id): int => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty()) {
+            throw ValidationException::withMessages([
+                'announcement' => 'Pilih minimal satu pengumuman.',
+            ]);
+        }
+
+        $records = Announcement::query()
+            ->with(['registration.selection'])
+            ->whereIn('id', $ids)
+            ->get();
+
+        if ($records->count() !== $ids->count()) {
+            throw ValidationException::withMessages([
+                'announcement' => 'Sebagian pengumuman sudah berubah. Muat ulang tabel lalu pilih kembali.',
+            ]);
+        }
+
+        foreach ($records as $record) {
+            $registration = $record->registration;
+            $this->assertUnitAccess($registration, $staff);
+
+            if ($record->status !== 'draft' || $registration->current_stage !== 'announcement') {
+                throw ValidationException::withMessages([
+                    'announcement' => 'Semua pengumuman terpilih harus masih berupa draft pada tahap Pengumuman.',
+                ]);
+            }
+
+            if (! in_array($registration->selection?->decision, ['accepted', 'rejected', 'waiting_list'], true)) {
+                throw ValidationException::withMessages([
+                    'selection' => 'Semua peserta terpilih harus memiliki keputusan final yang valid.',
+                ]);
+            }
+        }
+
+        foreach ($records as $record) {
+            $this->publish(
+                $record->registration,
+                $staff,
+                $record->title,
+                $record->message,
+            );
+        }
+
+        return $records->count();
+    }
+
+    private function assertSelectionDecision(string $decision): void
+    {
+        if (! in_array($decision, ['accepted', 'rejected', 'waiting_list'], true)) {
+            throw ValidationException::withMessages([
+                'decision' => 'Keputusan seleksi harus Diterima, Ditolak, atau Daftar Tunggu.',
+            ]);
+        }
+    }
+
+    private function assertUnitAccess(Registration $registration, User $staff): void
+    {
+        abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
     }
 
     public function publish(Registration $registration, User $staff, ?string $title = null, ?string $message = null): Announcement
