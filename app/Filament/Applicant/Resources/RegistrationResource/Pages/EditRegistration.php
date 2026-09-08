@@ -27,8 +27,11 @@ class EditRegistration extends EditRecord
         $data['unit_configuration_id'] = $this->record->unit_configuration_id;
         $configuredForm = app(ConfiguredRegistrationForm::class);
 
-        if ($configuredForm->hasActiveRegionFields($this->record->configuration)) {
-            $data = app(RegistrationRegionService::class)->normalize($data);
+        $regionService = app(RegistrationRegionService::class);
+
+        if ($configuredForm->hasActiveRegionFields($this->record->configuration)
+            && $regionService->shouldNormalize($data, $this->record)) {
+            $data = $regionService->normalize($data);
         }
 
         $data['custom_answers'] = $configuredForm->validateAnswers($this->record->configuration, $data['custom_answers'] ?? []);
