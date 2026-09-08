@@ -64,6 +64,10 @@ class IndonesiaRegionImportService
                 $row,
             ));
 
+            foreach (['province_code', 'regency_code', 'district_code', 'village_code'] as $codeField) {
+                $data[$codeField] = $this->normalizeCode($data[$codeField], $codeField);
+            }
+
             $this->validateRow($data, $line);
             $now = now();
 
@@ -166,6 +170,25 @@ class IndonesiaRegionImportService
             fn ($value): string => strtolower(trim((string) $value)),
             $header,
         );
+    }
+
+    private function normalizeCode(string $code, string $field): string
+    {
+        $digits = str_replace('.', '', trim($code));
+
+        return match ($field) {
+            'province_code' => strlen($digits) === 2 ? $digits : $code,
+            'regency_code' => strlen($digits) === 4
+                ? substr($digits, 0, 2).'.'.substr($digits, 2, 2)
+                : $code,
+            'district_code' => strlen($digits) === 6
+                ? substr($digits, 0, 2).'.'.substr($digits, 2, 2).'.'.substr($digits, 4, 2)
+                : $code,
+            'village_code' => strlen($digits) === 10
+                ? substr($digits, 0, 2).'.'.substr($digits, 2, 2).'.'.substr($digits, 4, 2).'.'.substr($digits, 6, 4)
+                : $code,
+            default => $code,
+        };
     }
 
     /**
