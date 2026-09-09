@@ -239,6 +239,25 @@ class UnitConfigurationService
         return DB::transaction(function () use ($configuration, $data, $publish): UnitConfiguration {
             Unit::query()->lockForUpdate()->findOrFail($configuration->unit_id);
             $locked = UnitConfiguration::query()->lockForUpdate()->findOrFail($configuration->id);
+
+            $data['academic_scores_enabled'] ??= false;
+            $data['academic_score_settings'] = array_replace([
+                'required' => false,
+                'min_score' => 0,
+                'max_score' => 100,
+                'pathway_uuids' => [],
+                'grades' => [],
+                'subjects' => [],
+                'assessments' => [],
+            ], is_array($data['academic_score_settings'] ?? null) ? $data['academic_score_settings'] : []);
+            $data['achievements_enabled'] ??= false;
+            $data['achievement_settings'] = array_replace([
+                'required' => false,
+                'max_entries' => 3,
+                'pathway_uuids' => [],
+                'levels' => ['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'],
+            ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
+
             $validated = Validator::make($data, [
                 'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
                 'academic_scores_enabled' => ['required', 'boolean'],
