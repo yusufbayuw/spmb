@@ -2,7 +2,7 @@ name: SPMB CI
 
 on:
   push:
-    branches: [main, feature/unit-academic-scores-achievements]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
