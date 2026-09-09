@@ -66,6 +66,7 @@ class RegistrationResource extends Resource
                         ))
                         ->searchable()
                         ->preload()
+                        ->live()
                         ->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Pendaftaran dilakukan oleh')
