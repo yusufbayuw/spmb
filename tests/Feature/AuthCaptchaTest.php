@@ -33,7 +33,7 @@ class AuthCaptchaTest extends TestCase
         $this->get('/admin/login')
             ->assertOk()
             ->assertSee('Kode Keamanan')
-            ->assertSee('data:image/png;base64,', false);
+            ->assertSee('fi-fo-shield-captcha', false);
     }
 
     public function test_applicant_login_registration_and_reset_request_render_local_captcha(): void
@@ -46,7 +46,7 @@ class AuthCaptchaTest extends TestCase
             $this->get($url)
                 ->assertOk()
                 ->assertSee('Kode Keamanan')
-                ->assertSee('data:image/png;base64,', false);
+                ->assertSee('fi-fo-shield-captcha', false);
         }
     }
 
