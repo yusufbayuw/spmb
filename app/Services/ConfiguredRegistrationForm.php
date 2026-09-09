@@ -147,9 +147,9 @@ class ConfiguredRegistrationForm
                         ->schema([
                             TextInput::make('title')->label('Nama Prestasi')->required()->maxLength(200)->columnSpan(2),
                             Select::make('level')->label('Tingkat')->options($levels)->required(),
-                            TextInput::make('year')->label('Tahun')->numeric()->minValue(1900)->maxValue(now()->year + 1),
-                            TextInput::make('organizer')->label('Penyelenggara')->maxLength(200),
-                            Textarea::make('description')->label('Keterangan')->rows(2)->maxLength(2000)->columnSpanFull(),
+                            TextInput::make('year')->label('Tahun')->numeric()->minValue(1900)->maxValue(now()->year + 1)->visible((bool) ($settings['show_year'] ?? false)),
+                            TextInput::make('organizer')->label('Penyelenggara')->maxLength(200)->visible((bool) ($settings['show_organizer'] ?? false)),
+                            Textarea::make('description')->label('Keterangan')->rows(2)->maxLength(2000)->columnSpanFull()->visible((bool) ($settings['show_description'] ?? false)),
                         ])
                         ->columns(2)
                         ->itemLabel(fn (array $state): string => $state['title'] ?? 'Prestasi'),
