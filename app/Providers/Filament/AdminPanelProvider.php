@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Admin\Pages\Auth\Login;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -27,7 +28,7 @@ class AdminPanelProvider extends PanelProvider
     public function panel(Panel $panel): Panel
     {
         return $panel
-            ->default()->id('admin')->path('admin')->login()
+            ->default()->id('admin')->path('admin')->login(Login::class)
             ->brandName('SPMB Taruna Bakti')
             ->colors(['primary' => Color::Blue])
             ->databaseNotifications()
