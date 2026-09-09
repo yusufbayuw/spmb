@@ -58,7 +58,7 @@ class RegistrationResource extends Resource
             Forms\Components\Placeholder::make('academic_profile_display')
                 ->label('Nilai & Prestasi')
                 ->content(fn (?Registration $record) => view('registration.academic-profile', ['registration' => $record?->loadMissing(['configuration', 'academicScores', 'achievements'])]))
-                ->visible(fn (?Registration $record): bool => (bool) ($record?->academicScores()->exists() || $record?->achievements()->exists()))
+                ->visible(fn (?Registration $record): bool => (bool) ($record && ($record->academicScores->isNotEmpty() || $record->achievements->isNotEmpty())))
                 ->columnSpanFull(),
             Forms\Components\Section::make('Kepemilikan Pendaftaran')
                 ->columns(2)
