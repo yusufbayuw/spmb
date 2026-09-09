@@ -33,7 +33,9 @@ class AuthCaptchaTest extends TestCase
         $this->get('/admin/login')
             ->assertOk()
             ->assertSee('Kode Keamanan')
-            ->assertSee('fi-fo-shield-captcha', false);
+            ->assertSee('fi-fo-shield-captcha', false)
+            ->assertSee('wire:model="data.captcha"', false)
+            ->assertSee('fi-input block w-full', false);
     }
 
     public function test_applicant_login_registration_and_reset_request_render_local_captcha(): void
