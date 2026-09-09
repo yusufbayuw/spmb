@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "796bfb36390d14e3e527dcc6a16e03a9",
+    "content-hash": "5a0e38dd6271c90523aad04c5a694cad",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -3425,6 +3425,58 @@
                 }
             ],
             "time": "2026-09-02T12:39:56+00:00"
+        },
+        {
+            "name": "mortezaashrafi/filament-shield-captcha",
+            "version": "v1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mortezaashrafi/filament-shield-captcha.git",
+                "reference": "38b8702e62d8603fa3127762b005f4ce2b46e720"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mortezaashrafi/filament-shield-captcha/zipball/38b8702e62d8603fa3127762b005f4ce2b46e720",
+                "reference": "38b8702e62d8603fa3127762b005f4ce2b46e720",
+                "shasum": ""
+            },
+            "require": {
+                "ext-gd": "*",
+                "filament/filament": "^3.0 || ^4.0 || ^5.0",
+                "illuminate/cache": "^11.0 || ^12.0 || ^13.0",
+                "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
+                "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+                "php": "^8.2 || ^8.3 || ^8.4 || ^8.5"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.0",
+                "orchestra/testbench": "^9.0 || ^10.0 || ^11.0",
+                "phpstan/phpstan": "^1.11",
+                "phpunit/phpunit": "^10.0 || ^11.0 || ^12.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "MortezaAshrafi\\FilamentShieldCaptcha\\FilamentShieldCaptchaServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MortezaAshrafi\\FilamentShieldCaptcha\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Production-grade inline image CAPTCHA field for Filament forms (PHP GD, zero image persistence).",
+            "support": {
+                "issues": "https://github.com/mortezaashrafi/filament-shield-captcha/issues",
+                "source": "https://github.com/mortezaashrafi/filament-shield-captcha/tree/v1.0.1"
+            },
+            "time": "2026-05-31T10:09:39+00:00"
         },
         {
             "name": "nesbot/carbon",
@@ -10457,5 +10509,5 @@
         "php": "^8.3"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }
