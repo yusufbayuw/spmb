@@ -59,7 +59,7 @@ class AuthCaptchaTest extends TestCase
         $this->get($url)
             ->assertOk()
             ->assertSee('Kode Keamanan')
-            ->assertSee('data:image/png;base64,', false);
+            ->assertSee('fi-fo-shield-captcha', false);
     }
 
     public function test_captcha_defaults_prioritize_readability_and_avoid_ambiguous_characters(): void
