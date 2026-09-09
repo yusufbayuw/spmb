@@ -30,6 +30,8 @@ class RegistrationStatus extends Page
                 'unit',
                 'opening.studyProgram',
                 'parentInfo',
+                'academicScores',
+                'achievements',
                 'documents',
                 'latestPayment.virtualAccount',
                 'testResults.admissionTest.studyProgram',
