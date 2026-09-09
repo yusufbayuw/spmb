@@ -2,6 +2,7 @@
 
 namespace App\Filament\Applicant\Pages\Auth;
 
+use App\Filament\Support\Concerns\ResetsCaptchaOnValidationError;
 use App\Filament\Support\SpmbCaptcha;
 use App\Models\User;
 use Filament\Forms\Form;
@@ -12,6 +13,8 @@ use Spatie\Permission\Models\Role;
 
 class Register extends BaseRegister
 {
+    use ResetsCaptchaOnValidationError;
+
     public function form(Form $form): Form
     {
         $form = parent::form($form);
