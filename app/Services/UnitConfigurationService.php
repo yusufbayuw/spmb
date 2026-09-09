@@ -300,6 +300,9 @@ class UnitConfigurationService
                 'max_entries' => 3,
                 'pathway_uuids' => [],
                 'levels' => ['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'],
+                'show_year' => false,
+                'show_organizer' => false,
+                'show_description' => false,
             ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
             $validated = Validator::make($data, [
