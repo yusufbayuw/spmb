@@ -19,6 +19,8 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Swis\Filament\Backgrounds\FilamentBackgroundsPlugin;
+use App\Filament\Support\LocalLoginBackgrounds;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -35,7 +37,11 @@ class AdminPanelProvider extends PanelProvider
             ->pages([Pages\Dashboard::class])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([Widgets\AccountWidget::class])
-            ->plugins([FilamentShieldPlugin::make()])
+            ->plugins([
+                FilamentShieldPlugin::make(),
+                FilamentBackgroundsPlugin::make()
+                    ->imageProvider(LocalLoginBackgrounds::make('images/login-admin')),
+            ])
             ->navigationGroups(['Pendaftaran','Pasca-Pengumuman','Laporan','Konfigurasi SPMB','Sistem & Akses'])
             ->sidebarCollapsibleOnDesktop()
             ->renderHook(
