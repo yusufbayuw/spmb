@@ -103,7 +103,18 @@ class RegistrationSupplementalDataTest extends TestCase
         $service = app(UnitConfigurationService::class);
         $old = $service->initialize($unit);
         $draft = $service->draft($unit, $staff);
-        $published = $service->save($draft, $staff, array_replace($draft->toArray(), ['documents_enabled' => false]), true);
+        $data = $draft->toArray();
+        $data['academic_scores_enabled'] = true;
+        $data['academic_score_settings'] = [
+            'required' => false,
+            'min_score' => 0,
+            'max_score' => 100,
+            'pathway_uuids' => [],
+            'grades' => [['key' => 'vii', 'label' => 'Kelas VII']],
+            'subjects' => [['key' => 'matematika', 'label' => 'Matematika']],
+            'assessments' => [['key' => 'rapor_s1', 'label' => 'Rapor S-1']],
+        ];
+        $published = $service->save($draft, $staff, $data, true);
 
         $registration->update(['unit_configuration_id' => $old->id, 'current_stage' => 'payment']);
         $result = $service->applyCurrentToEligibleActiveRegistrations($unit, $staff);
