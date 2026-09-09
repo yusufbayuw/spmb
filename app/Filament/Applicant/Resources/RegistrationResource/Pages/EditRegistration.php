@@ -46,10 +46,7 @@ class EditRegistration extends EditRecord
 
         $data['custom_answers'] = $configuredForm->validateAnswers($this->record->configuration, $data['custom_answers'] ?? []);
 
-        $pathway = \App\Models\RegistrationPathway::query()
-            ->where('uuid', $data['registration_pathway_uuid'] ?? $this->record->pathway?->uuid)
-            ->where('unit_id', $this->record->unit_id)
-            ->firstOrFail();
+        $pathway = $this->record->pathway()->firstOrFail();
 
         $supplemental = app(RegistrationSupplementalDataService::class);
         $this->validatedAcademicScores = $supplemental->validateAcademicScores(
