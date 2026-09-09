@@ -47,22 +47,22 @@
                 x-on:focus-input.stop="$el.querySelector('input')?.focus()"
                 class="w-full"
             >
-                <input
-                    {{
-                        $attributes
+                <x-filament::input
+                    :attributes="
+                        \Filament\Support\prepare_inherited_attributes($getExtraInputAttributeBag())
                             ->merge([
                                 'id' => $id,
+                                'type' => 'text',
                                 'inputmode' => 'text',
                                 'autocomplete' => 'off',
                                 'autocapitalize' => 'off',
                                 'spellcheck' => 'false',
                                 'disabled' => $isDisabled,
-                                'aria-required' => $isRequired() ? 'true' : 'false',
+                                'required' => $isRequired(),
+                                'placeholder' => 'Ketik kode keamanan',
                                 $applyStateBindingModifiers('wire:model') => $statePath,
                             ], escape: false)
-                            ->class(['fi-input'])
-                    }}
-                    type="text"
+                    "
                 />
             </x-filament::input.wrapper>
         </div>
