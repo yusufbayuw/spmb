@@ -6,6 +6,7 @@ use App\Models\UnitConfiguration;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -87,6 +88,77 @@ class ConfiguredRegistrationForm
         }
         foreach ($groups as $label => $fields) {
             $components[] = Section::make($label)->schema($fields)->columns(2);
+        }
+
+        if ($configuration->academic_scores_enabled) {
+            $settings = $configuration->academic_score_settings ?? [];
+            $scoreFields = [];
+
+            foreach ($settings['grades'] ?? [] as $grade) {
+                $gradeFields = [];
+
+                foreach ($settings['subjects'] ?? [] as $subject) {
+                    $subjectFields = [];
+
+                    foreach ($settings['assessments'] ?? [] as $assessment) {
+                        $subjectFields[] = TextInput::make(
+                            'academic_scores.'.($grade['key'] ?? '').'.'.($subject['key'] ?? '').'.'.($assessment['key'] ?? '')
+                        )
+                            ->label($assessment['label'] ?? $assessment['key'] ?? 'Nilai')
+                            ->numeric()
+                            ->minValue((float) ($settings['min_score'] ?? 0))
+                            ->maxValue((float) ($settings['max_score'] ?? 100))
+                            ->required((bool) ($settings['required'] ?? false));
+                    }
+
+                    $gradeFields[] = Fieldset::make($subject['label'] ?? $subject['key'] ?? 'Mata Pelajaran')
+                        ->schema($subjectFields)
+                        ->columns(min(4, max(1, count($subjectFields))));
+                }
+
+                $scoreFields[] = Section::make($grade['label'] ?? $grade['key'] ?? 'Kelas')
+                    ->schema($gradeFields)
+                    ->compact()
+                    ->collapsible();
+            }
+
+            $components[] = Section::make('Data Nilai')
+                ->description('Isikan nilai sesuai komponen yang diminta unit tujuan.')
+                ->schema($scoreFields)
+                ->visible(fn ($get): bool => app(RegistrationSupplementalDataService::class)->featureApplies(
+                    true,
+                    $settings,
+                    $get('registration_pathway_uuid'),
+                ));
+        }
+
+        if ($configuration->achievements_enabled) {
+            $settings = $configuration->achievement_settings ?? [];
+            $levels = array_combine($settings['levels'] ?? [], $settings['levels'] ?? []);
+
+            $components[] = Section::make('Prestasi yang Pernah Diraih')
+                ->description('Tambahkan prestasi yang relevan dengan jalur pendaftaran.')
+                ->schema([
+                    Repeater::make('achievements')
+                        ->label('Prestasi')
+                        ->default([])
+                        ->maxItems((int) ($settings['max_entries'] ?? 3))
+                        ->minItems((bool) ($settings['required'] ?? false) ? 1 : 0)
+                        ->schema([
+                            TextInput::make('title')->label('Nama Prestasi')->required()->maxLength(200)->columnSpan(2),
+                            Select::make('level')->label('Tingkat')->options($levels)->required(),
+                            TextInput::make('year')->label('Tahun')->numeric()->minValue(1900)->maxValue(now()->year + 1),
+                            TextInput::make('organizer')->label('Penyelenggara')->maxLength(200),
+                            Textarea::make('description')->label('Keterangan')->rows(2)->maxLength(2000)->columnSpanFull(),
+                        ])
+                        ->columns(2)
+                        ->itemLabel(fn (array $state): string => $state['title'] ?? 'Prestasi'),
+                ])
+                ->visible(fn ($get): bool => app(RegistrationSupplementalDataService::class)->featureApplies(
+                    true,
+                    $settings,
+                    $get('registration_pathway_uuid'),
+                ));
         }
 
         return $components;
