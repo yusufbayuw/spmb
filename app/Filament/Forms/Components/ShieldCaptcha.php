@@ -3,13 +3,13 @@
 namespace App\Filament\Forms\Components;
 
 use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Field;
 use MortezaAshrafi\FilamentShieldCaptcha\CaptchaManager;
 use MortezaAshrafi\FilamentShieldCaptcha\Concerns\HasCaptchaOptions;
 use MortezaAshrafi\FilamentShieldCaptcha\Enums\Theme;
 use MortezaAshrafi\FilamentShieldCaptcha\Rules\CaptchaRule;
 
-final class ShieldCaptcha extends TextInput
+final class ShieldCaptcha extends Field
 {
     use HasCaptchaOptions;
 
