@@ -38,7 +38,6 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
-use MortezaAshrafi\FilamentShieldCaptcha\Forms\Components\Captcha;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -53,14 +52,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // filament-shield-captcha v1.0.1 calls getLivewireKey(), which exists on
-        // newer Filament components but not on Filament 3.3. Provide the exact
-        // nullable compatibility hook expected by the package so it falls back
-        // to the component key/state path for challenge isolation.
-        if (! method_exists(Captcha::class, 'getLivewireKey') && ! Captcha::hasMacro('getLivewireKey')) {
-            Captcha::macro('getLivewireKey', fn (): ?string => null);
-        }
-
         FilamentShield::configurePermissionIdentifierUsing(
             fn (string $resource): string => str($resource::getModel())
                 ->afterLast('\\')
