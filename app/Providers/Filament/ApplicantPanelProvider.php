@@ -20,6 +20,8 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Swis\Filament\Backgrounds\FilamentBackgroundsPlugin;
+use Swis\Filament\Backgrounds\ImageProviders\MyImages;
 
 class ApplicantPanelProvider extends PanelProvider
 {
@@ -50,6 +52,10 @@ class ApplicantPanelProvider extends PanelProvider
             ])
             ->widgets([
                 AccountWidget::class,
+            ])
+            ->plugins([
+                FilamentBackgroundsPlugin::make()
+                    ->imageProvider(MyImages::make()->directory('images/login-pendaftar')),
             ])
             ->sidebarCollapsibleOnDesktop()
             ->renderHook(
