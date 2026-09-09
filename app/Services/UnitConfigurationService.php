@@ -129,7 +129,17 @@ class UnitConfigurationService
                     $query->whereNull('unit_configuration_id')
                         ->orWhere('unit_configuration_id', '!=', $configuration->id);
                 })
-                ->where('current_stage', 'data_validation')
+                ->whereIn('current_stage', [
+                    'data_validation',
+                    'virtual_account',
+                    'payment',
+                    'payment_verification',
+                    'applicant_card',
+                    'documents',
+                    'document_verification',
+                    'tests',
+                    'selection',
+                ])
                 ->lockForUpdate()
                 ->get();
 
@@ -138,6 +148,13 @@ class UnitConfigurationService
             $skipped = 0;
 
             foreach ($registrations as $registration) {
+                if ($registration->current_stage !== 'data_validation'
+                    && $this->supplementalConfigurationChanged($registration->configuration, $configuration)) {
+                    $skipped++;
+
+                    continue;
+                }
+
                 $hasAssessedTests = $registration->testResults->contains(
                     fn (AdmissionTestResult $result): bool => filled($result->assessed_at)
                         || in_array($result->status, ['completed', 'absent', 'exempted'], true),
@@ -230,6 +247,30 @@ class UnitConfigurationService
                 'skipped' => $skipped,
             ];
         });
+    }
+
+    private function supplementalConfigurationChanged(?UnitConfiguration $from, UnitConfiguration $to): bool
+    {
+        $fromScoresEnabled = (bool) ($from?->academic_scores_enabled ?? false);
+        $toScoresEnabled = (bool) $to->academic_scores_enabled;
+
+        if ($fromScoresEnabled !== $toScoresEnabled) {
+            return true;
+        }
+
+        if ($toScoresEnabled && ($from?->academic_score_settings ?? []) !== ($to->academic_score_settings ?? [])) {
+            return true;
+        }
+
+        $fromAchievementsEnabled = (bool) ($from?->achievements_enabled ?? false);
+        $toAchievementsEnabled = (bool) $to->achievements_enabled;
+
+        if ($fromAchievementsEnabled !== $toAchievementsEnabled) {
+            return true;
+        }
+
+        return $toAchievementsEnabled
+            && ($from?->achievement_settings ?? []) !== ($to->achievement_settings ?? []);
     }
 
     public function save(UnitConfiguration $configuration, User $actor, array $data, bool $publish = false): UnitConfiguration
