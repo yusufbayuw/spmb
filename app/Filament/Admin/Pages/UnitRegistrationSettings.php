@@ -214,48 +214,45 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->label('Kelas / Tingkat')
                         ->default([])
                         ->schema([
-                            Forms\Components\TextInput::make('key')
-                                ->label('Kode')
-                                ->helperText('Contoh: vii, viii, ix')
-                                ->required()
-                                ->regex('/^[a-z0-9_]+$/'),
+                            Forms\Components\Hidden::make('key')
+                                ->default(fn (): string => 'grade_'.strtolower(Str::random(10)))
+                                ->required(),
                             Forms\Components\TextInput::make('label')
                                 ->label('Label')
                                 ->placeholder('Kelas VII')
                                 ->required(),
                         ])
-                        ->columns(2)
+                        ->columns(1)
+                        ->itemLabel(fn (array $state): string => $state['label'] ?? 'Kelas / tingkat')
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
                     Forms\Components\Repeater::make('academic_score_settings.subjects')
                         ->label('Mata Pelajaran')
                         ->default([])
                         ->schema([
-                            Forms\Components\TextInput::make('key')
-                                ->label('Kode')
-                                ->helperText('Contoh: matematika')
-                                ->required()
-                                ->regex('/^[a-z0-9_]+$/'),
+                            Forms\Components\Hidden::make('key')
+                                ->default(fn (): string => 'subject_'.strtolower(Str::random(10)))
+                                ->required(),
                             Forms\Components\TextInput::make('label')
                                 ->label('Nama Mata Pelajaran')
                                 ->required(),
                         ])
-                        ->columns(2)
+                        ->columns(1)
+                        ->itemLabel(fn (array $state): string => $state['label'] ?? 'Mata pelajaran')
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
                     Forms\Components\Repeater::make('academic_score_settings.assessments')
                         ->label('Komponen Nilai')
                         ->default([])
                         ->schema([
-                            Forms\Components\TextInput::make('key')
-                                ->label('Kode')
-                                ->helperText('Contoh: rapor_s1, kkm_s1')
-                                ->required()
-                                ->regex('/^[a-z0-9_]+$/'),
+                            Forms\Components\Hidden::make('key')
+                                ->default(fn (): string => 'assessment_'.strtolower(Str::random(10)))
+                                ->required(),
                             Forms\Components\TextInput::make('label')
                                 ->label('Label')
                                 ->placeholder('Nilai Rapor S-1')
                                 ->required(),
                         ])
-                        ->columns(2)
+                        ->columns(1)
+                        ->itemLabel(fn (array $state): string => $state['label'] ?? 'Komponen nilai')
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
                 ])
                 ->columns(2)
