@@ -67,6 +67,8 @@ class RegistrationResource extends Resource
                         ->searchable()
                         ->preload()
                         ->live()
+                        ->disabled(fn (?Registration $record): bool => filled($record))
+                        ->dehydrated()
                         ->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Pendaftaran dilakukan oleh')
