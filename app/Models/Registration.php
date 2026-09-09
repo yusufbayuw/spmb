@@ -301,6 +301,16 @@ class Registration extends Model
         return $this->hasMany(AdmissionTestResult::class);
     }
 
+    public function academicScores(): HasMany
+    {
+        return $this->hasMany(RegistrationAcademicScore::class);
+    }
+
+    public function achievements(): HasMany
+    {
+        return $this->hasMany(RegistrationAchievement::class);
+    }
+
     public function selection()
     {
         return $this->hasOne(Selection::class);
