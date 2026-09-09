@@ -46,6 +46,23 @@ class UnitConfigurationService
             'tests_enabled' => count($tests) > 0,
             'selection_mode' => 'flexible',
             'post_announcement_enabled' => false,
+            'academic_scores_enabled' => false,
+            'academic_score_settings' => [
+                'required' => false,
+                'min_score' => 0,
+                'max_score' => 100,
+                'pathway_uuids' => [],
+                'grades' => [],
+                'subjects' => [],
+                'assessments' => [],
+            ],
+            'achievements_enabled' => false,
+            'achievement_settings' => [
+                'required' => false,
+                'max_entries' => 3,
+                'pathway_uuids' => [],
+                'levels' => ['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'],
+            ],
             'fields' => [],
             'document_requirements' => $documents,
             'test_definitions' => $tests,
@@ -79,7 +96,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -112,17 +129,7 @@ class UnitConfigurationService
                     $query->whereNull('unit_configuration_id')
                         ->orWhere('unit_configuration_id', '!=', $configuration->id);
                 })
-                ->whereIn('current_stage', [
-                    'data_validation',
-                    'virtual_account',
-                    'payment',
-                    'payment_verification',
-                    'applicant_card',
-                    'documents',
-                    'document_verification',
-                    'tests',
-                    'selection',
-                ])
+                ->where('current_stage', 'data_validation')
                 ->lockForUpdate()
                 ->get();
 
@@ -234,6 +241,30 @@ class UnitConfigurationService
             $locked = UnitConfiguration::query()->lockForUpdate()->findOrFail($configuration->id);
             $validated = Validator::make($data, [
                 'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
+                'academic_scores_enabled' => ['required', 'boolean'],
+                'academic_score_settings' => ['present', 'array'],
+                'academic_score_settings.required' => ['required', 'boolean'],
+                'academic_score_settings.min_score' => ['required', 'numeric', 'min:0'],
+                'academic_score_settings.max_score' => ['required', 'numeric', 'gt:academic_score_settings.min_score'],
+                'academic_score_settings.pathway_uuids' => ['present', 'array'],
+                'academic_score_settings.pathway_uuids.*' => ['uuid'],
+                'academic_score_settings.grades' => ['present', 'array', 'max:12'],
+                'academic_score_settings.grades.*.key' => ['required', 'regex:/^[a-z0-9_]+$/', 'distinct', 'max:60'],
+                'academic_score_settings.grades.*.label' => ['required', 'string', 'max:100'],
+                'academic_score_settings.subjects' => ['present', 'array', 'max:50'],
+                'academic_score_settings.subjects.*.key' => ['required', 'regex:/^[a-z0-9_]+$/', 'distinct', 'max:60'],
+                'academic_score_settings.subjects.*.label' => ['required', 'string', 'max:150'],
+                'academic_score_settings.assessments' => ['present', 'array', 'max:20'],
+                'academic_score_settings.assessments.*.key' => ['required', 'regex:/^[a-z0-9_]+$/', 'distinct', 'max:60'],
+                'academic_score_settings.assessments.*.label' => ['required', 'string', 'max:150'],
+                'achievements_enabled' => ['required', 'boolean'],
+                'achievement_settings' => ['present', 'array'],
+                'achievement_settings.required' => ['required', 'boolean'],
+                'achievement_settings.max_entries' => ['required', 'integer', 'min:1', 'max:20'],
+                'achievement_settings.pathway_uuids' => ['present', 'array'],
+                'achievement_settings.pathway_uuids.*' => ['uuid'],
+                'achievement_settings.levels' => ['present', 'array', 'max:30'],
+                'achievement_settings.levels.*' => ['required', 'string', 'distinct', 'max:100'],
                 'fields' => ['present', 'array', 'max:100'], 'fields.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
                 'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean'])],
                 'fields.*.active' => ['required', 'boolean'], 'fields.*.required' => ['required', 'boolean'], 'fields.*.group' => ['nullable', 'string', 'max:100'],
@@ -252,6 +283,40 @@ class UnitConfigurationService
                 're_registration_requirements.*.required' => ['required', 'boolean'],
                 're_registration_requirements.*.instructions' => ['nullable', 'string', 'max:2000'],
             ])->validate();
+            $pathwayUuids = collect($validated['academic_score_settings']['pathway_uuids'] ?? [])
+                ->merge($validated['achievement_settings']['pathway_uuids'] ?? [])
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($pathwayUuids->isNotEmpty()) {
+                $matchingPathways = $locked->unit->registrationPathways()
+                    ->whereIn('uuid', $pathwayUuids)
+                    ->count();
+
+                if ($matchingPathways !== $pathwayUuids->count()) {
+                    throw ValidationException::withMessages([
+                        'configuration' => 'Jalur yang dipilih untuk Nilai/Prestasi harus berasal dari unit yang sama.',
+                    ]);
+                }
+            }
+
+            if ($validated['academic_scores_enabled']) {
+                foreach (['grades' => 'kelas', 'subjects' => 'mata pelajaran', 'assessments' => 'komponen nilai'] as $key => $label) {
+                    if (empty($validated['academic_score_settings'][$key])) {
+                        throw ValidationException::withMessages([
+                            'academic_score_settings' => "Saat Data Nilai aktif, minimal satu {$label} harus dikonfigurasi.",
+                        ]);
+                    }
+                }
+            }
+
+            if ($validated['achievements_enabled'] && empty($validated['achievement_settings']['levels'])) {
+                throw ValidationException::withMessages([
+                    'achievement_settings' => 'Saat Prestasi aktif, minimal satu tingkat prestasi harus tersedia.',
+                ]);
+            }
+
             foreach ($validated['fields'] as $field) {
                 if (in_array($field['key'], ConfiguredRegistrationForm::CORE_FIELDS, true)) {
                     throw ValidationException::withMessages(['fields' => 'Identitas inti tidak boleh diubah.']);
