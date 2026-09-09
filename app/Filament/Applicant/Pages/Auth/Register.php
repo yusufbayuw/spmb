@@ -2,7 +2,9 @@
 
 namespace App\Filament\Applicant\Pages\Auth;
 
+use App\Filament\Support\SpmbCaptcha;
 use App\Models\User;
+use Filament\Forms\Form;
 use Filament\Pages\Auth\Register as BaseRegister;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
@@ -10,6 +12,16 @@ use Spatie\Permission\Models\Role;
 
 class Register extends BaseRegister
 {
+    public function form(Form $form): Form
+    {
+        $form = parent::form($form);
+
+        return $form->schema([
+            ...$form->getComponents(),
+            SpmbCaptcha::make(),
+        ]);
+    }
+
     protected function handleRegistration(array $data): Model
     {
         $data['role'] = 'user';
