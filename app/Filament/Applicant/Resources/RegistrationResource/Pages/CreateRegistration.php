@@ -8,6 +8,7 @@ use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Services\ConfiguredRegistrationForm;
 use App\Services\RegistrationRegionService;
+use App\Services\RegistrationSupplementalDataService;
 use App\Services\UnitConfigurationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -19,6 +20,10 @@ use Illuminate\Validation\ValidationException;
 class CreateRegistration extends CreateRecord
 {
     protected static string $resource = RegistrationResource::class;
+
+    private array $validatedAcademicScores = [];
+
+    private array $validatedAchievements = [];
 
     public function mount(): void
     {
@@ -139,6 +144,20 @@ class CreateRegistration extends CreateRecord
         }
 
         $data['custom_answers'] = $configuredForm->validateAnswers($configuration, $data['custom_answers'] ?? []);
+
+        $supplemental = app(RegistrationSupplementalDataService::class);
+        $this->validatedAcademicScores = $supplemental->validateAcademicScores(
+            $configuration,
+            $pathway->uuid,
+            $data['academic_scores'] ?? [],
+        );
+        $this->validatedAchievements = $supplemental->validateAchievements(
+            $configuration,
+            $pathway->uuid,
+            $data['achievements'] ?? [],
+        );
+        unset($data['academic_scores'], $data['achievements']);
+
         $data['user_id'] = auth()->id();
         $data['registration_opening_id'] = $opening->id;
         $data['registration_pathway_id'] = $pathway->id;
@@ -166,7 +185,15 @@ class CreateRegistration extends CreateRecord
                 throw ValidationException::withMessages(['unit_configuration_uuid' => 'Konfigurasi berubah. Muat ulang formulir sebelum mengirim.']);
             }
 
-            return parent::handleRecordCreation($data);
+            $record = parent::handleRecordCreation($data);
+
+            app(RegistrationSupplementalDataService::class)->sync(
+                $record,
+                $this->validatedAcademicScores,
+                $this->validatedAchievements,
+            );
+
+            return $record;
         }, 5);
     }
 
