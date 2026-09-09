@@ -93,6 +93,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'max_entries' => 3,
             'pathway_uuids' => [],
             'levels' => ['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'],
+            'show_year' => false,
+            'show_organizer' => false,
+            'show_description' => false,
         ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
         $this->form->fill($data);
@@ -290,6 +293,18 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->default(['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'])
                         ->helperText('Contoh: Sekolah, Kabupaten/Kota, Provinsi, Nasional, Internasional.')
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                    Forms\Components\Toggle::make('achievement_settings.show_year')
+                        ->label('Tampilkan Tahun Prestasi')
+                        ->default(false)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                    Forms\Components\Toggle::make('achievement_settings.show_organizer')
+                        ->label('Tampilkan Penyelenggara')
+                        ->default(false)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                    Forms\Components\Toggle::make('achievement_settings.show_description')
+                        ->label('Tampilkan Keterangan Prestasi')
+                        ->default(false)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
                 ])
                 ->columns(2)
                 ->collapsible(),
@@ -388,7 +403,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
         Notification::make()
             ->title("{$result['updated']} pendaftaran aktif diperbarui")
-            ->body("Hanya pendaftaran yang masih berada pada tahap Validasi Data yang diperbarui. {$result['skipped']} pendaftaran lain tetap memakai versi konfigurasi sebelumnya.")
+            ->body("Perubahan Nilai/Prestasi hanya diterapkan ke pendaftar yang masih di tahap Validasi Data. Konfigurasi workflow lain tetap mengikuti pengaman proses yang sudah ada. {$result['skipped']} pendaftaran dilewati.")
             ->success()
             ->send();
     }
