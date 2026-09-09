@@ -79,6 +79,22 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             $data['test_definitions'] = $this->activeTestDefinitions();
         }
 
+        $data['academic_score_settings'] = array_replace([
+            'required' => false,
+            'min_score' => 0,
+            'max_score' => 100,
+            'pathway_uuids' => [],
+            'grades' => [],
+            'subjects' => [],
+            'assessments' => [],
+        ], is_array($data['academic_score_settings'] ?? null) ? $data['academic_score_settings'] : []);
+        $data['achievement_settings'] = array_replace([
+            'required' => false,
+            'max_entries' => 3,
+            'pathway_uuids' => [],
+            'levels' => ['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'],
+        ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
+
         $this->form->fill($data);
     }
 
@@ -160,6 +176,124 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
                 ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Field baru'),
             ])->collapsible(),
+            Forms\Components\Section::make('Data Nilai')
+                ->description('Default nonaktif. Jika diaktifkan, pendaftar mengisi nilai sesuai kelas, mata pelajaran, dan komponen yang ditentukan unit. Dapat dibatasi hanya untuk jalur tertentu.')
+                ->schema([
+                    Forms\Components\Toggle::make('academic_scores_enabled')
+                        ->label('Aktifkan Data Nilai')
+                        ->default(false)
+                        ->live(),
+                    Forms\Components\Toggle::make('academic_score_settings.required')
+                        ->label('Semua nilai wajib diisi')
+                        ->default(false)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
+                    Forms\Components\Select::make('academic_score_settings.pathway_uuids')
+                        ->label('Berlaku untuk Jalur')
+                        ->helperText('Kosongkan untuk berlaku pada semua jalur pendaftaran unit.')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->options(fn (): array => $this->pathwayOptions())
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
+                    Forms\Components\TextInput::make('academic_score_settings.min_score')
+                        ->label('Nilai Minimum')
+                        ->numeric()
+                        ->default(0)
+                        ->required()
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
+                    Forms\Components\TextInput::make('academic_score_settings.max_score')
+                        ->label('Nilai Maksimum')
+                        ->numeric()
+                        ->default(100)
+                        ->required()
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
+                    Forms\Components\Repeater::make('academic_score_settings.grades')
+                        ->label('Kelas / Tingkat')
+                        ->default([])
+                        ->schema([
+                            Forms\Components\TextInput::make('key')
+                                ->label('Kode')
+                                ->helperText('Contoh: vii, viii, ix')
+                                ->required()
+                                ->regex('/^[a-z0-9_]+$/'),
+                            Forms\Components\TextInput::make('label')
+                                ->label('Label')
+                                ->placeholder('Kelas VII')
+                                ->required(),
+                        ])
+                        ->columns(2)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
+                    Forms\Components\Repeater::make('academic_score_settings.subjects')
+                        ->label('Mata Pelajaran')
+                        ->default([])
+                        ->schema([
+                            Forms\Components\TextInput::make('key')
+                                ->label('Kode')
+                                ->helperText('Contoh: matematika')
+                                ->required()
+                                ->regex('/^[a-z0-9_]+$/'),
+                            Forms\Components\TextInput::make('label')
+                                ->label('Nama Mata Pelajaran')
+                                ->required(),
+                        ])
+                        ->columns(2)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
+                    Forms\Components\Repeater::make('academic_score_settings.assessments')
+                        ->label('Komponen Nilai')
+                        ->default([])
+                        ->schema([
+                            Forms\Components\TextInput::make('key')
+                                ->label('Kode')
+                                ->helperText('Contoh: rapor_s1, kkm_s1')
+                                ->required()
+                                ->regex('/^[a-z0-9_]+$/'),
+                            Forms\Components\TextInput::make('label')
+                                ->label('Label')
+                                ->placeholder('Nilai Rapor S-1')
+                                ->required(),
+                        ])
+                        ->columns(2)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
+                ])
+                ->columns(2)
+                ->collapsible(),
+
+            Forms\Components\Section::make('Prestasi')
+                ->description('Default nonaktif. Prestasi menggunakan daftar dinamis dan dapat dibatasi hanya untuk jalur tertentu.')
+                ->schema([
+                    Forms\Components\Toggle::make('achievements_enabled')
+                        ->label('Aktifkan Prestasi')
+                        ->default(false)
+                        ->live(),
+                    Forms\Components\Toggle::make('achievement_settings.required')
+                        ->label('Minimal satu prestasi wajib')
+                        ->default(false)
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                    Forms\Components\TextInput::make('achievement_settings.max_entries')
+                        ->label('Maksimal Prestasi')
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(20)
+                        ->default(3)
+                        ->required()
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                    Forms\Components\Select::make('achievement_settings.pathway_uuids')
+                        ->label('Berlaku untuk Jalur')
+                        ->helperText('Kosongkan untuk berlaku pada semua jalur pendaftaran unit.')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->options(fn (): array => $this->pathwayOptions())
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                    Forms\Components\TagsInput::make('achievement_settings.levels')
+                        ->label('Tingkat Prestasi')
+                        ->default(['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'])
+                        ->helperText('Contoh: Sekolah, Kabupaten/Kota, Provinsi, Nasional, Internasional.')
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                ])
+                ->columns(2)
+                ->collapsible(),
+
             Forms\Components\Section::make('Persyaratan Dokumen')->schema([
                 Forms\Components\Repeater::make('document_requirements')->label('Dokumen')->schema([
                     Forms\Components\Hidden::make('key')->default(fn (): string => 'document_'.strtolower(Str::random(10)))->required(),
@@ -254,9 +388,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
         Notification::make()
             ->title("{$result['updated']} pendaftaran aktif diperbarui")
-            ->body($result['moved_to_tests'] > 0
-                ? "{$result['moved_to_tests']} pendaftaran dipindahkan ke tahap Rangkaian Tes. {$result['skipped']} pendaftaran dilewati demi menjaga proses yang sudah berjalan."
-                : "{$result['skipped']} pendaftaran dilewati demi menjaga proses yang sudah berjalan.")
+            ->body("Hanya pendaftaran yang masih berada pada tahap Validasi Data yang diperbarui. {$result['skipped']} pendaftaran lain tetap memakai versi konfigurasi sebelumnya.")
             ->success()
             ->send();
     }
@@ -285,6 +417,22 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->get()
             ->map(fn (AdmissionTest $test): array => ['uuid' => $test->uuid])
             ->values()
+            ->all();
+    }
+
+    private function pathwayOptions(): array
+    {
+        $unitId = $this->unitId();
+
+        if (! $unitId) {
+            return [];
+        }
+
+        return \App\Models\RegistrationPathway::query()
+            ->where('unit_id', $unitId)
+            ->whereNull('archived_at')
+            ->orderBy('name')
+            ->pluck('name', 'uuid')
             ->all();
     }
 
