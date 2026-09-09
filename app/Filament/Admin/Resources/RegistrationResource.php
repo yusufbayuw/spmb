@@ -55,6 +55,11 @@ class RegistrationResource extends Resource
     {
         return $form->schema([
             Forms\Components\Placeholder::make('custom_answers_display')->label('Informasi Tambahan')->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))->columnSpanFull(),
+            Forms\Components\Placeholder::make('academic_profile_display')
+                ->label('Nilai & Prestasi')
+                ->content(fn (?Registration $record) => view('registration.academic-profile', ['registration' => $record?->loadMissing(['configuration', 'academicScores', 'achievements'])]))
+                ->visible(fn (?Registration $record): bool => (bool) ($record?->academicScores()->exists() || $record?->achievements()->exists()))
+                ->columnSpanFull(),
             Forms\Components\Section::make('Kepemilikan Pendaftaran')
                 ->columns(2)
                 ->schema([
@@ -277,7 +282,7 @@ class RegistrationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway']);
+        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway', 'configuration', 'academicScores', 'achievements']);
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
         }
