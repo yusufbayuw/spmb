@@ -3,6 +3,9 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Applicant\Pages\Auth\EmailVerificationPrompt;
+use App\Filament\Applicant\Pages\Auth\ResetPassword;
+use App\Filament\Applicant\Pages\Auth\RequestPasswordReset;
+use App\Filament\Applicant\Pages\Auth\Login;
 use App\Filament\Applicant\Pages\Auth\Register;
 use App\Filament\Applicant\Pages\Dashboard;
 use Filament\Http\Middleware\Authenticate;
@@ -30,9 +33,9 @@ class ApplicantPanelProvider extends PanelProvider
         return $panel
             ->id('pendaftar')
             ->path('pendaftar')
-            ->login()
+            ->login(Login::class)
             ->registration(Register::class)
-            ->passwordReset()
+            ->passwordReset(RequestPasswordReset::class, ResetPassword::class)
             ->emailVerification(EmailVerificationPrompt::class)
             ->profile(isSimple: false)
             ->brandName('SPMB Taruna Bakti')
