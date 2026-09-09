@@ -49,8 +49,8 @@
             >
                 <x-filament::input
                     :attributes="
-                        \Filament\Support\prepare_inherited_attributes($getExtraInputAttributeBag())
-                            ->merge([
+                        \Filament\Support\prepare_inherited_attributes(
+                            new \Illuminate\View\ComponentAttributeBag([
                                 'id' => $id,
                                 'type' => 'text',
                                 'inputmode' => 'text',
@@ -61,7 +61,8 @@
                                 'required' => $isRequired(),
                                 'placeholder' => 'Ketik kode keamanan',
                                 $applyStateBindingModifiers('wire:model') => $statePath,
-                            ], escape: false)
+                            ]),
+                        )
                     "
                 />
             </x-filament::input.wrapper>
