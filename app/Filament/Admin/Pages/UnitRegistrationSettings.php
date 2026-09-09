@@ -408,8 +408,24 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function showPreview(): void
     {
         $this->save();
+
         $unit = Unit::query()->where('uuid', $this->unitUuid)->firstOrFail();
-        $this->previewForm->fill(['unit_uuid' => $unit->uuid, 'unit_configuration_uuid' => $this->configurationUuid, 'registration_opening_uuid' => $unit->registrationOpenings()->value('uuid'), 'registrant_type' => 'parent']);
+        $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
+        $configuredPathwayUuid = collect([
+            ...($configuration->academic_score_settings['pathway_uuids'] ?? []),
+            ...($configuration->achievement_settings['pathway_uuids'] ?? []),
+        ])->filter()->first();
+
+        $pathwayUuid = $configuredPathwayUuid
+            ?: $unit->registrationPathways()->where('is_active', true)->whereNull('archived_at')->value('uuid');
+
+        $this->previewForm->fill([
+            'unit_uuid' => $unit->uuid,
+            'unit_configuration_uuid' => $this->configurationUuid,
+            'registration_opening_uuid' => $unit->registrationOpenings()->value('uuid'),
+            'registration_pathway_uuid' => $pathwayUuid,
+            'registrant_type' => 'parent',
+        ]);
         $this->preview = true;
     }
 
