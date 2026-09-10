@@ -187,6 +187,7 @@ class TestBookingService
 
             $oldSessionId = $booking?->test_session_id;
             $oldRevision = (int) ($booking?->revision ?? 0);
+            $oldResultStatus = $result->status;
             $deadlineOverride = $session->booking_closes_at?->lte(now()) ?? false;
 
             $booking ??= new TestBooking([
@@ -211,7 +212,7 @@ class TestBookingService
                 oldValues: [
                     'test_session_id' => $oldSessionId,
                     'revision' => $oldRevision,
-                    'result_status' => $result->getRawOriginal('status'),
+                    'result_status' => $oldResultStatus,
                 ],
                 newValues: [
                     'test_session_id' => $session->id,
