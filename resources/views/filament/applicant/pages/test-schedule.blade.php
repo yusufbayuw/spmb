@@ -11,7 +11,7 @@ $booking = $this->booking($test['id']);
                 @forelse($this->sessions($test['id']) as $session)
                     <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                         <p class="font-semibold">{{ $session->label() }}</p>
-                        <p class="text-sm">Sisa kuota: {{ max(0, $session->capacity - $session->bookings_count) }} · Pemesanan sampai {{ $session->booking_closes_at->format('d M Y H:i') }}</p>
+                        <p class="text-sm">Sisa kuota: {{ max(0, $session->capacity - $session->bookings_count) }} · Pemesanan sampai {{ $session->booking_closes_at->format('d/m/Y H:i') }}</p>
                         <p class="my-3 text-sm">{{ $session->instructions }}</p>
                         <x-filament::button wire:click="choose('{{ $session->uuid }}')" :disabled="$booking?->test_session_id === $session->id || $session->bookings_count >= $session->capacity">{{ $booking?->test_session_id === $session->id ? 'Dipilih' : 'Pilih Sesi' }}</x-filament::button>
                     </div>
