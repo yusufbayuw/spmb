@@ -97,6 +97,153 @@ class TestBookingService
         }, 5);
     }
 
+    public function assignByStaff(AdmissionTestResult $result, TestSession $session, User $actor, string $reason): TestBooking
+    {
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'reason' => 'Alasan penjadwalan manual wajib diisi.',
+            ]);
+        }
+
+        $registration = Registration::query()->findOrFail($result->registration_id);
+        app(UnitConfigurationService::class)->authorize($actor, (int) $registration->unit_id);
+
+        return DB::transaction(function () use ($result, $session, $actor, $reason): TestBooking {
+            $this->lockUnit((int) Registration::query()->whereKey($result->registration_id)->value('unit_id'));
+
+            $result = AdmissionTestResult::query()->lockForUpdate()->findOrFail($result->id);
+            $registration = Registration::query()->lockForUpdate()->findOrFail($result->registration_id);
+            $registration->assertCurrentStage('tests');
+
+            if (! in_array($result->status, ['unbooked', 'scheduled'], true)
+                || $result->result !== 'pending'
+                || filled($result->assessed_at)) {
+                throw ValidationException::withMessages([
+                    'session' => 'Tes sudah memiliki hasil akhir dan jadwal tidak dapat diubah.',
+                ]);
+            }
+
+            $session = TestSession::query()
+                ->with('admissionTest')
+                ->lockForUpdate()
+                ->findOrFail($session->id);
+
+            $definition = collect($registration->configuredTests())->firstWhere('id', $result->admission_test_id);
+            if (! $definition
+                || (int) $session->admission_test_id !== (int) $result->admission_test_id
+                || (int) $session->admissionTest->unit_id !== (int) $registration->unit_id) {
+                throw ValidationException::withMessages([
+                    'session' => 'Sesi tidak sesuai tes dan unit pendaftaran.',
+                ]);
+            }
+
+            if ($session->status !== 'active' || $session->starts_at->lte(now())) {
+                throw ValidationException::withMessages([
+                    'session' => 'Sesi tidak aktif atau sudah dimulai.',
+                ]);
+            }
+
+            $booking = TestBooking::query()
+                ->where('registration_id', $registration->id)
+                ->where('admission_test_id', $result->admission_test_id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($booking?->test_session_id === $session->id) {
+                if ($result->status !== 'scheduled') {
+                    $result->update(['status' => 'scheduled']);
+                }
+
+                return $booking;
+            }
+
+            $booking?->loadMissing('session');
+            if ($booking?->session?->starts_at?->lte(now())) {
+                throw ValidationException::withMessages([
+                    'session' => 'Sesi lama sudah dimulai dan tidak dapat dipindahkan.',
+                ]);
+            }
+
+            if ($session->bookings()->count() >= $session->capacity) {
+                throw ValidationException::withMessages([
+                    'session' => 'Kuota sesi sudah penuh. Kursi lama tetap tersimpan.',
+                ]);
+            }
+
+            $conflict = TestBooking::query()
+                ->where('registration_id', $registration->id)
+                ->where('admission_test_id', '!=', $result->admission_test_id)
+                ->whereHas('session', fn ($query) => $query
+                    ->where('starts_at', '<', $session->ends_at)
+                    ->where('ends_at', '>', $session->starts_at))
+                ->exists();
+
+            if ($conflict) {
+                throw ValidationException::withMessages([
+                    'session' => 'Jadwal berbenturan dengan tes lain yang sudah dipilih.',
+                ]);
+            }
+
+            $oldSessionId = $booking?->test_session_id;
+            $oldRevision = (int) ($booking?->revision ?? 0);
+            $deadlineOverride = $session->booking_closes_at?->lte(now()) ?? false;
+
+            $booking ??= new TestBooking([
+                'registration_id' => $registration->id,
+                'admission_test_id' => $result->admission_test_id,
+            ]);
+
+            $booking->fill([
+                'test_session_id' => $session->id,
+                'revision' => $oldRevision + 1,
+            ])->save();
+
+            $result->update([
+                'status' => 'scheduled',
+                'result' => 'pending',
+            ]);
+
+            $event = $oldSessionId ? 'test.booking.admin_rescheduled' : 'test.booking.admin_assigned';
+            app(AuditTrail::class)->record(
+                $event,
+                $booking,
+                oldValues: [
+                    'test_session_id' => $oldSessionId,
+                    'revision' => $oldRevision,
+                    'result_status' => $result->getRawOriginal('status'),
+                ],
+                newValues: [
+                    'test_session_id' => $session->id,
+                    'revision' => $booking->revision,
+                    'result_status' => 'scheduled',
+                ],
+                metadata: [
+                    'admission_test_id' => $result->admission_test_id,
+                    'reason' => $reason,
+                    'deadline_override' => $deadlineOverride,
+                ],
+                actor: $actor,
+                unitId: $registration->unit_id,
+                registrationId: $registration->id,
+                description: $oldSessionId
+                    ? 'Jadwal tes dipindahkan secara manual oleh petugas.'
+                    : 'Jadwal tes ditetapkan secara manual oleh petugas.',
+            );
+
+            app(SpmbNotificationService::class)->workflowEvent(
+                $registration,
+                $event.'.'.$booking->id.'.'.$booking->revision,
+                $oldSessionId ? 'Jadwal tes diubah panitia' : 'Jadwal tes ditetapkan panitia',
+                $definition['name'].' · '.$session->label().'. Silakan cetak ulang kartu tes untuk memastikan jadwal terbaru.',
+                true,
+                false,
+            );
+
+            return $booking->fresh(['session', 'admissionTest']);
+        }, 5);
+    }
+
     public function saveSession(?TestSession $session, array $data, User $actor): TestSession
     {
         $test = AdmissionTest::findOrFail($session?->admission_test_id ?? $data['admission_test_id']);
