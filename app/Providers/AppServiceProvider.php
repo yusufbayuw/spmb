@@ -140,14 +140,14 @@ class AppServiceProvider extends ServiceProvider
                     'auth.password_reset',
                     $event->user,
                     actor: $event->user,
-                    description: 'Password berhasil direset',
+                    description: 'Kata sandi berhasil diatur ulang',
                 );
 
                 app(SpmbNotificationService::class)->securityNotice(
                     $event->user,
                     'security.password_reset',
-                    'Password berhasil diubah',
-                    'Password akun Anda baru saja direset. Jika bukan Anda yang melakukan perubahan ini, segera hubungi administrator.',
+                    'Kata sandi berhasil diubah',
+                    'Kata sandi akun Anda baru saja diatur ulang. Jika bukan Anda yang melakukan perubahan ini, segera hubungi administrator.',
                 );
 
                 $event->user->notify(new ApplicantPasswordChanged);
