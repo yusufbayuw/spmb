@@ -136,7 +136,7 @@ class RegistrationOpeningResource extends Resource
                         default => 'info',
                     }),
                 Tables\Columns\TextColumn::make('opened_at')->label('Mulai')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->sortable(),
-                Tables\Columns\TextColumn::make('closed_at')->label('Selesai')->dateTime('d M Y H:i')->sortable(),
+                Tables\Columns\TextColumn::make('closed_at')->label('Selesai')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->sortable(),
                 Tables\Columns\TextColumn::make('registrations_count')->counts('registrations')->label('Pendaftar'),
             ])
             ->filters([
