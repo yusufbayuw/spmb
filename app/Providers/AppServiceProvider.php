@@ -29,6 +29,7 @@ use App\Services\AuditTrail;
 use App\Services\IdempotentDatabaseChannel;
 use App\Services\SpmbNotificationService;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Notifications\Auth\ResetPassword as FilamentResetPassword;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -52,6 +53,18 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        DateTimePicker::configureUsing(function (DateTimePicker $component): void {
+            if (! $component->hasTime()) {
+                return;
+            }
+
+            $component
+                ->native(false)
+                ->seconds(false)
+                ->timezone(config('app.timezone'))
+                ->displayFormat($component->hasDate() ? 'd/m/Y H:i' : 'H:i');
+        });
+
         FilamentShield::configurePermissionIdentifierUsing(
             fn (string $resource): string => str($resource::getModel())
                 ->afterLast('\\')
