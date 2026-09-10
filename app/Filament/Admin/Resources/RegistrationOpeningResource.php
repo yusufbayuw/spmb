@@ -89,12 +89,16 @@ class RegistrationOpeningResource extends Resource
                         ->helperText('Nominal ini otomatis disalin ke transaksi pembayaran saat VA di-assign.'),
                     Forms\Components\DateTimePicker::make('opened_at')
                         ->label('Dibuka pada')
+                        ->timezone(config('app.timezone'))
                         ->native(false)
+                        ->displayFormat('d/m/Y H:i')
                         ->seconds(false)
                         ->required(),
                     Forms\Components\DateTimePicker::make('closed_at')
                         ->label('Ditutup pada')
+                        ->timezone(config('app.timezone'))
                         ->native(false)
+                        ->displayFormat('d/m/Y H:i')
                         ->seconds(false)
                         ->after('opened_at')
                         ->required(),
@@ -131,7 +135,7 @@ class RegistrationOpeningResource extends Resource
                         'archived' => 'gray',
                         default => 'info',
                     }),
-                Tables\Columns\TextColumn::make('opened_at')->label('Mulai')->dateTime('d M Y H:i')->sortable(),
+                Tables\Columns\TextColumn::make('opened_at')->label('Mulai')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->sortable(),
                 Tables\Columns\TextColumn::make('closed_at')->label('Selesai')->dateTime('d M Y H:i')->sortable(),
                 Tables\Columns\TextColumn::make('registrations_count')->counts('registrations')->label('Pendaftar'),
             ])
