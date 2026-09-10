@@ -183,7 +183,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                                             @elseif($registration->configuration && ! $registration->configuration->legacy)
                                                 Jadwal belum dipilih
                                             @elseif ($result->admissionTest?->scheduled_at)
-                                                {{ $result->admissionTest->scheduled_at->format('d M Y H:i') }}
+                                                {{ $result->admissionTest->scheduled_at->format('d/m/Y H:i') }}
                                             @else
                                                 Jadwal akan diinformasikan
                                             @endif
@@ -226,7 +226,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                     <x-filament::section icon="heroicon-o-academic-cap" icon-color="success">
                         <x-slot name="heading">Selamat, Anda Diterima</x-slot>
                         <p class="text-sm text-gray-700 dark:text-gray-300">
-                            Konfirmasikan penerimaan sebelum {{ $registration->admissionOffer->expires_at->translatedFormat('d F Y H:i') }}.
+                            Konfirmasikan penerimaan sebelum {{ $registration->admissionOffer->expires_at->format('d/m/Y H:i') }}.
                         </p>
                         <div class="mt-4 flex flex-col gap-3 sm:flex-row">
                             <form method="POST" action="{{ route('admission-offers.accept', $registration->admissionOffer) }}">
@@ -291,7 +291,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                                 </dd>
                             </div>
                         @endif
-                        <div><dt class="text-gray-500">Tanggal daftar</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->submitted_at?->format('d M Y H:i') ?? $registration->created_at->format('d M Y H:i') }}</dd></div>
+                        <div><dt class="text-gray-500">Tanggal daftar</dt><dd class="mt-1 font-medium text-gray-950 dark:text-white">{{ $registration->submitted_at?->format('d/m/Y H:i') ?? $registration->created_at->format('d/m/Y H:i') }}</dd></div>
                     </dl>
                 </x-filament::section>
 
