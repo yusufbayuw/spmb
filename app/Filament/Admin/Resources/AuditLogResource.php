@@ -33,7 +33,7 @@ class AuditLogResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Waktu')
-                    ->dateTime('d M Y H:i:s')
+                    ->dateTime('d/m/Y H:i:s', timezone: config('app.timezone'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Pelaku')
