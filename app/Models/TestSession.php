@@ -27,6 +27,6 @@ class TestSession extends Model
 
     public function label(): string
     {
-        return $this->starts_at->format('d M Y H:i').' – '.$this->ends_at->format('H:i').' · '.$this->location;
+        return $this->starts_at->format('d/m/Y H:i').' – '.$this->ends_at->format('H:i').' · '.$this->location;
     }
 }
