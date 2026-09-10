@@ -128,7 +128,7 @@ class SelectionBatchResource extends Resource
             Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->placeholder('Jalur legacy'),
             Tables\Columns\TextColumn::make('selections_count')->counts('selections')->label('Kandidat'),
             Tables\Columns\TextColumn::make('status')->badge(),
-            Tables\Columns\TextColumn::make('ranked_at')->label('Diranking')->dateTime('d M Y H:i')->placeholder('-'),
+            Tables\Columns\TextColumn::make('ranked_at')->label('Diranking')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->placeholder('-'),
         ])->actions([
             Tables\Actions\Action::make('rank')
                 ->label('Buat / Perbarui Ranking')
