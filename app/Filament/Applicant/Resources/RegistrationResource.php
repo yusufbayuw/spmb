@@ -89,7 +89,7 @@ class RegistrationResource extends Resource
                 ->columns(3)
                 ->schema([
                     Forms\Components\TextInput::make('nik')
-                        ->label('NIK')->required()->rule('digits:16')
+                        ->label('NIK')->validationAttribute('NIK')->required()->rule('digits:16')
                         ->unique(
                             ignoreRecord: true,
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
