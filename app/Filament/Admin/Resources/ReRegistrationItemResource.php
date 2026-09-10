@@ -64,7 +64,7 @@ class ReRegistrationItemResource extends Resource
             Tables\Columns\TextColumn::make('original_name')->label('Berkas')->url(fn (ReRegistrationItem $record): ?string => $record->file_path ? route('files.applicant.re-registration.show', $record) : null)->openUrlInNewTab()->placeholder('-'),
             Tables\Columns\TextColumn::make('type')->badge(),
             Tables\Columns\TextColumn::make('status')->badge(),
-            Tables\Columns\TextColumn::make('verified_at')->label('Diperiksa')->dateTime('d M Y H:i')->placeholder('-'),
+            Tables\Columns\TextColumn::make('verified_at')->label('Diperiksa')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->placeholder('-'),
         ])->actions([
             Tables\Actions\Action::make('verify')
                 ->label('Verifikasi')
