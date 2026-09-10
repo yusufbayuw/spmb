@@ -50,7 +50,7 @@ class VirtualAccountResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi')->searchable()->default('-'),
                 Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable()->default('-'),
-                Tables\Columns\TextColumn::make('assigned_at')->label('Assigned')->dateTime('d M Y H:i')->placeholder('-')->toggleable(),
+                Tables\Columns\TextColumn::make('assigned_at')->label('Assigned')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->placeholder('-')->toggleable(),
                 Tables\Columns\TextColumn::make('batch.id')->label('Batch')->formatStateUsing(fn ($state) => $state ? '#'.$state : '-')->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
