@@ -91,7 +91,7 @@ class AnnouncementResource extends Resource
                     ->color(fn (?string $state): string => $state === 'published' ? 'success' : 'warning'),
                 Tables\Columns\TextColumn::make('published_at')
                     ->label('Dipublikasikan Pada')
-                    ->dateTime('d M Y H:i')
+                    ->dateTime('d/m/Y H:i', timezone: config('app.timezone'))
                     ->placeholder('-'),
             ])
             ->actions([
