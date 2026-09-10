@@ -19,6 +19,7 @@ final class ParentInfoFields
                         ->columnSpan(2),
                     Forms\Components\TextInput::make('father_nik')
                         ->label('NIK Ayah')
+                        ->validationAttribute('NIK Ayah')
                         ->rule('digits:16'),
                     Forms\Components\TextInput::make('father_birth_place')
                         ->label('Tempat Lahir Ayah')
@@ -59,6 +60,7 @@ final class ParentInfoFields
                         ->columnSpan(2),
                     Forms\Components\TextInput::make('mother_nik')
                         ->label('NIK Ibu')
+                        ->validationAttribute('NIK Ibu')
                         ->rule('digits:16'),
                     Forms\Components\TextInput::make('mother_birth_place')
                         ->label('Tempat Lahir Ibu')
