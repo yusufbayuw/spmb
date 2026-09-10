@@ -625,7 +625,7 @@ class SpmbNotificationService
             ] + $metadata,
             unitId: $unitId,
             registrationId: $registrationId,
-            description: "Filament notification queued: {$title}",
+            description: "Notifikasi Filament masuk antrean: {$title}",
         );
     }
 
