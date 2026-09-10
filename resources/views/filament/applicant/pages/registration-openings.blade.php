@@ -120,7 +120,7 @@
                                 <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10">
                                     <p class="text-xs text-gray-500 dark:text-gray-400">
                                         @if ($opening->opened_at && $opening->closed_at)
-                                            {{ $opening->opened_at->format('d M Y H:i') }}–{{ $opening->closed_at->format('d M Y H:i') }}
+                                            {{ $opening->opened_at->format('d/m/Y H:i') }}–{{ $opening->closed_at->format('d/m/Y H:i') }}
                                         @else
                                             Periode ditentukan oleh unit
                                         @endif
