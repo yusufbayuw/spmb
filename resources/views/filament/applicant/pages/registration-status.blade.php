@@ -65,11 +65,6 @@
             <x-filament::section heading="Informasi Tambahan">@include('registration.custom-answers', ['registration' => $registration])</x-filament::section>
         @endif
 
-        @if($registration->academicScores->isNotEmpty() || $registration->achievements->isNotEmpty())
-            <x-filament::section heading="Nilai & Prestasi">
-                @include('registration.academic-profile', ['registration' => $registration])
-            </x-filament::section>
-        @endif
         <div class="grid gap-6 xl:grid-cols-3">
             <div class="space-y-6 xl:col-span-2">
                 <x-filament::section>
