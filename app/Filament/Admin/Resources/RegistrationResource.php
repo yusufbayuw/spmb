@@ -167,7 +167,14 @@ class RegistrationResource extends Resource
                         ->options(['pending' => 'Menunggu Validasi', 'valid' => 'Valid', 'revision' => 'Perlu Revisi'])
                         ->required()
                         ->disabled(fn (?Registration $record): bool => ! ($record && $record->isOperational() && $record->current_stage === 'data_validation' && (auth()->user()?->can('validate_data_registration') ?? false))),
-                    Forms\Components\DateTimePicker::make('data_validated_at')->label('Divalidasi pada')->disabled()->dehydrated(false),
+                    Forms\Components\DateTimePicker::make('data_validated_at')
+                        ->label('Divalidasi pada')
+                        ->timezone(config('app.timezone'))
+                        ->native(false)
+                        ->displayFormat('d/m/Y H:i')
+                        ->seconds(false)
+                        ->disabled()
+                        ->dehydrated(false),
                     Forms\Components\Textarea::make('data_validation_notes')
                         ->label('Catatan Validasi')
                         ->helperText('Wajib diisi bila meminta revisi.')
@@ -201,7 +208,7 @@ class RegistrationResource extends Resource
                         'cancelled' => 'danger',
                         default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')->dateTime('d M Y H:i')->sortable(),
+                Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
