@@ -142,7 +142,7 @@ class RegistrationRegionTest extends TestCase
             ->assertSee('Kabupaten/Kota')
             ->assertSee('Kecamatan')
             ->assertSee('Desa/Kelurahan')
-            ->assertSee('Daftar')
+            ->assertSee('Simpan')
             ->assertDontSee('Buat & buat lainnya');
 
         $component
