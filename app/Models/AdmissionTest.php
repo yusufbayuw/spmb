@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
 
 class AdmissionTest extends Model
@@ -54,5 +55,10 @@ class AdmissionTest extends Model
     public function results()
     {
         return $this->hasMany(AdmissionTestResult::class);
+    }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(TestSession::class);
     }
 }

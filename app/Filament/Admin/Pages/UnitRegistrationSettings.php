@@ -5,14 +5,21 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Applicant\Resources\RegistrationResource;
 use App\Models\AdmissionTest;
 use App\Models\Registration;
+use App\Models\StudyProgram;
+use App\Models\TestSession;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\TestBookingService;
 use App\Services\UnitConfigurationService;
 use Filament\Forms;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -320,18 +327,61 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Dokumen baru'),
             ])->collapsible(),
             Forms\Components\Section::make('Tes pada Versi Ini')
-                ->description('Toggle Tes hanya mengaktifkan tahapnya. Daftar di bawah menentukan tes yang benar-benar masuk ke versi pendaftaran. Saat Tes baru diaktifkan, tes aktif dari Konfigurasi Tes akan dimasukkan otomatis.')
+                ->description('Pilih master tes yang berlaku pada versi ini. Sesi tetap merupakan data operasional: dapat ditambah atau diubah tanpa membuat versi konfigurasi baru.')
                 ->schema([
-                    Forms\Components\Repeater::make('test_definitions')->label('Daftar tes')->default([])->schema([
-                        Forms\Components\Select::make('uuid')
-                            ->label('Tes')
-                            ->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())
-                                ->where('is_active', true)
-                                ->orderBy('sort_order')
-                                ->pluck('name', 'uuid')
-                                ->all())
-                            ->required(),
-                    ]),
+                    Forms\Components\Repeater::make('test_definitions')
+                        ->label('Daftar tes')
+                        ->default([])
+                        ->schema([
+                            Forms\Components\Select::make('uuid')
+                                ->label('Tes')
+                                ->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())
+                                    ->where('is_active', true)
+                                    ->orderBy('sort_order')
+                                    ->pluck('name', 'uuid')
+                                    ->all())
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->createOptionForm($this->admissionTestCreateFields())
+                                ->createOptionUsing(fn (array $data): string => $this->createAdmissionTest($data))
+                                ->createOptionAction(fn (Action $action): Action => $action
+                                    ->modalHeading('Buat Tes Baru')
+                                    ->modalWidth(MaxWidth::ThreeExtraLarge))
+                                ->required(),
+                        ])
+                        ->extraItemActions([
+                            Action::make('manageSessions')
+                                ->label('Kelola Sesi')
+                                ->icon('heroicon-m-calendar-days')
+                                ->color('gray')
+                                ->visible(function (array $arguments, Forms\Components\Repeater $component): bool {
+                                    $item = $component->getRawItemState($arguments['item']);
+
+                                    return filled($item['uuid'] ?? null);
+                                })
+                                ->modalHeading('Kelola Sesi Tes')
+                                ->modalDescription('Perubahan sesi berlaku langsung sebagai data operasional dan tidak mengubah versi konfigurasi pendaftaran.')
+                                ->modalWidth(MaxWidth::SevenExtraLarge)
+                                ->slideOver()
+                                ->modalSubmitActionLabel('Simpan Sesi')
+                                ->form($this->sessionManagerFields())
+                                ->mountUsing(function (Form $form, array $arguments, Forms\Components\Repeater $component): void {
+                                    $test = $this->testFromRepeaterItem($arguments, $component);
+                                    $form->fill(['sessions' => $this->sessionRows($test)]);
+                                })
+                                ->action(function (array $data, array $arguments, Forms\Components\Repeater $component): void {
+                                    $test = $this->testFromRepeaterItem($arguments, $component);
+                                    $this->saveManagedSessions($test, $data['sessions'] ?? []);
+
+                                    Notification::make()
+                                        ->title('Sesi tes tersimpan')
+                                        ->body('Perubahan sesi '.$test->name.' berlaku langsung tanpa membuat versi konfigurasi baru.')
+                                        ->success()
+                                        ->send();
+                                }),
+                        ])
+                        ->collapsible(),
                 ])->collapsible(),
             Forms\Components\Section::make('Daftar Ulang')->description('Persyaratan ini tersimpan pada versi konfigurasi dan hanya berlaku ketika Proses Pasca-Pengumuman diaktifkan.')->schema([
                 Forms\Components\Repeater::make('re_registration_requirements')->label('Persyaratan daftar ulang')->default([])->schema([
@@ -465,6 +515,196 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->map(fn (AdmissionTest $test): array => ['uuid' => $test->uuid])
             ->values()
             ->all();
+    }
+
+    private function admissionTestCreateFields(): array
+    {
+        return [
+            Forms\Components\TextInput::make('name')
+                ->label('Nama Tes')
+                ->required()
+                ->maxLength(150),
+            Forms\Components\TextInput::make('code')
+                ->label('Kode')
+                ->maxLength(50),
+            Forms\Components\Textarea::make('description')
+                ->label('Deskripsi')
+                ->columnSpanFull(),
+            Forms\Components\Select::make('study_program_id')
+                ->label('Program Studi')
+                ->placeholder('Semua program studi pada institusi')
+                ->options(fn (): array => StudyProgram::query()
+                    ->where('unit_id', $this->unitId())
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->get()
+                    ->mapWithKeys(fn (StudyProgram $program): array => [$program->id => $program->label()])
+                    ->all())
+                ->visible(fn (): bool => Unit::query()->whereKey($this->unitId())->where('institution_type', 'university')->exists())
+                ->searchable()
+                ->preload(),
+            Forms\Components\Select::make('result_type')
+                ->label('Jenis Hasil')
+                ->options(['score' => 'Nilai', 'pass_fail' => 'Lulus/Tidak'])
+                ->default('score')
+                ->required(),
+            Forms\Components\TextInput::make('passing_score')
+                ->label('Nilai Minimum')
+                ->numeric(),
+            Forms\Components\TextInput::make('sort_order')
+                ->label('Urutan')
+                ->numeric()
+                ->default(0),
+            Forms\Components\Toggle::make('is_required')
+                ->label('Wajib')
+                ->default(true),
+        ];
+    }
+
+    private function createAdmissionTest(array $data): string
+    {
+        $unitId = $this->unitId();
+        abort_unless($unitId, 404);
+        app(UnitConfigurationService::class)->authorize(auth()->user(), $unitId);
+
+        $test = AdmissionTest::create($data + ['unit_id' => $unitId, 'is_active' => true]);
+
+        return $test->uuid;
+    }
+
+    private function sessionManagerFields(): array
+    {
+        return [
+            Forms\Components\Repeater::make('sessions')
+                ->label('Sesi')
+                ->default([])
+                ->schema([
+                    Forms\Components\Hidden::make('uuid'),
+                    Forms\Components\DateTimePicker::make('starts_at')
+                        ->label('Mulai')
+                        ->timezone(config('app.timezone'))
+                        ->native(false)
+                        ->displayFormat('d/m/Y H:i')
+                        ->seconds(false)
+                        ->required(),
+                    Forms\Components\DateTimePicker::make('ends_at')
+                        ->label('Selesai')
+                        ->timezone(config('app.timezone'))
+                        ->native(false)
+                        ->displayFormat('d/m/Y H:i')
+                        ->seconds(false)
+                        ->required(),
+                    Forms\Components\DateTimePicker::make('booking_closes_at')
+                        ->label('Batas pemesanan/perpindahan')
+                        ->timezone(config('app.timezone'))
+                        ->native(false)
+                        ->displayFormat('d/m/Y H:i')
+                        ->seconds(false)
+                        ->helperText('Kosongkan untuk otomatis 24 jam sebelum mulai.'),
+                    Forms\Components\TextInput::make('location')
+                        ->label('Lokasi')
+                        ->required()
+                        ->maxLength(255),
+                    Forms\Components\TextInput::make('capacity')
+                        ->label('Kuota')
+                        ->integer()
+                        ->minValue(1)
+                        ->required(),
+                    Forms\Components\Select::make('status')
+                        ->label('Status')
+                        ->options([
+                            'active' => 'Aktif',
+                            'closed' => 'Pemesanan ditutup',
+                            'cancelled' => 'Dibatalkan',
+                        ])
+                        ->default('active')
+                        ->required(),
+                    Forms\Components\Textarea::make('instructions')
+                        ->label('Petunjuk Peserta')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2)
+                ->addActionLabel('Tambah Sesi')
+                ->deletable(false)
+                ->reorderable(false)
+                ->collapsible()
+                ->itemLabel(fn (array $state): string => filled($state['starts_at'] ?? null)
+                    ? Carbon::parse($state['starts_at'])->timezone(config('app.timezone'))->format('d/m/Y H:i').' · '.($state['location'] ?: 'Lokasi belum diisi')
+                    : 'Sesi baru'),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function sessionRows(AdmissionTest $test): array
+    {
+        $timezone = config('app.timezone');
+
+        return $test->sessions()
+            ->orderBy('starts_at')
+            ->get()
+            ->map(fn (TestSession $session): array => [
+                'uuid' => $session->uuid,
+                'starts_at' => $session->starts_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
+                'ends_at' => $session->ends_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
+                'booking_closes_at' => $session->booking_closes_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
+                'location' => $session->location,
+                'capacity' => $session->capacity,
+                'status' => $session->status,
+                'instructions' => $session->instructions,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function testFromRepeaterItem(array $arguments, Forms\Components\Repeater $component): AdmissionTest
+    {
+        $item = $component->getRawItemState($arguments['item']);
+
+        return AdmissionTest::query()
+            ->where('unit_id', $this->unitId())
+            ->where('uuid', $item['uuid'] ?? null)
+            ->firstOrFail();
+    }
+
+    /** @param list<array<string, mixed>> $rows */
+    private function saveManagedSessions(AdmissionTest $test, array $rows): void
+    {
+        app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $test->unit_id);
+
+        DB::transaction(function () use ($test, $rows): void {
+            foreach ($rows as $row) {
+                $session = filled($row['uuid'] ?? null)
+                    ? TestSession::query()
+                        ->where('admission_test_id', $test->id)
+                        ->where('uuid', $row['uuid'])
+                        ->firstOrFail()
+                    : null;
+
+                $payload = [
+                    'admission_test_id' => $test->id,
+                    'starts_at' => $this->normalizeSessionDate($row['starts_at'] ?? null),
+                    'ends_at' => $this->normalizeSessionDate($row['ends_at'] ?? null),
+                    'booking_closes_at' => $this->normalizeSessionDate($row['booking_closes_at'] ?? null),
+                    'location' => $row['location'] ?? null,
+                    'capacity' => $row['capacity'] ?? null,
+                    'instructions' => $row['instructions'] ?? null,
+                    'status' => $row['status'] ?? 'active',
+                ];
+
+                app(TestBookingService::class)->saveSession($session, $payload, auth()->user());
+            }
+        });
+    }
+
+    private function normalizeSessionDate(mixed $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        return Carbon::parse($value)
+            ->timezone(config('app.timezone'))
+            ->format('Y-m-d H:i:s');
     }
 
     private function pathwayOptions(): array

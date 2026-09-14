@@ -50,19 +50,15 @@ class AdmissionTestResource extends Resource
                 ->visible(fn (Forms\Get $get): bool => filled($get('unit_id')) && Unit::query()->whereKey($get('unit_id'))->where('institution_type', 'university')->exists())
                 ->searchable()
                 ->preload(),
-            Forms\Components\TextInput::make('name')->label('Nama Tes')->required(),
-            Forms\Components\TextInput::make('code')->label('Kode'),
+            Forms\Components\TextInput::make('name')->label('Nama Tes')->maxLength(150)->required(),
+            Forms\Components\TextInput::make('code')->label('Kode')->maxLength(50),
             Forms\Components\Textarea::make('description')->label('Deskripsi'),
             Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
             Forms\Components\Select::make('result_type')->options(['score' => 'Nilai', 'pass_fail' => 'Lulus/Tidak'])->default('score')->required(),
             Forms\Components\TextInput::make('passing_score')->numeric()->label('Nilai Minimum'),
-            Forms\Components\DateTimePicker::make('scheduled_at')
-                ->label('Jadwal')
-                ->timezone(config('app.timezone'))
-                ->native(false)
-                ->displayFormat('d/m/Y H:i')
-                ->seconds(false),
-            Forms\Components\TextInput::make('location')->label('Lokasi'),
+            Forms\Components\Placeholder::make('session_management')
+                ->label('Jadwal dan Lokasi')
+                ->content('Jadwal, lokasi, kuota, dan status pelaksanaan dikelola sebagai Sesi Tes. Gunakan menu Sesi Tes atau tombol Kelola Sesi pada Pengaturan Pendaftaran Unit.'),
             Forms\Components\Toggle::make('is_required')->default(true),
             Forms\Components\Toggle::make('is_active')->default(true),
         ]);
@@ -80,8 +76,7 @@ class AdmissionTestResource extends Resource
                     ->formatStateUsing(fn ($state, AdmissionTest $record): string => $record->studyProgram?->label() ?? 'Semua program')
                     ->placeholder('Semua program'),
                 Tables\Columns\TextColumn::make('name')->label('Tes')->searchable(),
-                Tables\Columns\TextColumn::make('scheduled_at')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->placeholder('-'),
-                Tables\Columns\TextColumn::make('location')->default('-'),
+                Tables\Columns\TextColumn::make('sessions_count')->label('Sesi')->badge(),
                 Tables\Columns\IconColumn::make('is_required')->boolean(),
                 Tables\Columns\ToggleColumn::make('is_active'),
             ])
@@ -103,6 +98,7 @@ class AdmissionTestResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['unit', 'studyProgram'])
+            ->withCount('sessions')
             ->when(auth()->user()?->isTU(), fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id));
     }
 
