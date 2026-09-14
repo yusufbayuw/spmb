@@ -31,6 +31,7 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame(2, UnitConfiguration::query()
             ->where('unit_id', $unit->id)
             ->where('status', 'published')
+            ->orderByDesc('version')
             ->value('version'));
         $this->assertSame(3, UnitConfiguration::query()
             ->where('unit_id', $unit->id)
@@ -65,6 +66,7 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame(1, UnitConfiguration::query()
             ->where('unit_id', $unit->id)
             ->where('status', 'published')
+            ->orderByDesc('version')
             ->value('version'));
         $this->assertSame(2, UnitConfiguration::query()
             ->where('unit_id', $unit->id)
