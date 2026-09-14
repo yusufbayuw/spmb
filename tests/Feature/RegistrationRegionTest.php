@@ -136,8 +136,16 @@ class RegistrationRegionTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
         $nik = str_repeat('9', 15).'8';
 
-        Livewire::withQueryParams(['opening' => $opening->uuid])
+        $component = Livewire::withQueryParams(['opening' => $opening->uuid])
             ->test(CreateRegistration::class)
+            ->assertSee('Provinsi')
+            ->assertSee('Kabupaten/Kota')
+            ->assertSee('Kecamatan')
+            ->assertSee('Desa/Kelurahan')
+            ->assertSee('Daftar')
+            ->assertDontSee('Buat & buat lainnya');
+
+        $component
             ->fillForm([
                 'registration_pathway_uuid' => $pathway->uuid,
                 'registrant_type' => 'self',
