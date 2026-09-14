@@ -202,7 +202,7 @@ class CreateRegistration extends CreateRecord
 
     protected function getCreateFormAction(): Action
     {
-        return parent::getCreateFormAction()->label('Daftar');
+        return parent::getCreateFormAction()->label('Simpan');
     }
 
     protected function getRedirectUrl(): string
