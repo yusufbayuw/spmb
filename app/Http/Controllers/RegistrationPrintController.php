@@ -6,6 +6,7 @@ use App\Models\PaymentReceipt;
 use App\Models\Registration;
 use App\Models\TestBooking;
 use App\Services\ApplicantFileStorage;
+use App\Services\TestCardEligibilityService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -27,10 +28,10 @@ class RegistrationPrintController extends Controller
         return view('registration.card', compact('registration'));
     }
 
-    public function testCard(Request $request, Registration $registration): View
+    public function testCard(Request $request, Registration $registration, TestCardEligibilityService $eligibility): View
     {
         $this->authorizeRegistration($request, $registration);
-        abort_unless($registration->isOperational(), 404);
+        abort_unless($registration->isOperational() && $eligibility->canPrint($registration), 404);
         $bookings = TestBooking::with(['session', 'admissionTest'])->where('registration_id', $registration->id)->whereNotNull('test_session_id')->get();
         abort_if($bookings->isEmpty(), 404);
 
