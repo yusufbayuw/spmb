@@ -14,6 +14,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 
 class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
@@ -364,16 +365,34 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $data = $this->configurationFormData($configuration);
         $service = app(UnitConfigurationService::class);
 
-        $draft = $service->save($configuration, auth()->user(), $data);
-        $published = $service->save($draft->fresh(), auth()->user(), $data, true);
+        try {
+            $draft = $service->save($configuration, auth()->user(), $data);
+            $published = $service->save($draft->fresh(), auth()->user(), $data, true);
+        } catch (ValidationException $exception) {
+            foreach ($exception->errors() as $key => $messages) {
+                foreach ($messages as $message) {
+                    $this->addError('data.'.$key, $message);
+                }
+            }
+
+            Notification::make()
+                ->title('Publikasi konfigurasi gagal')
+                ->body(collect($exception->errors())->flatten()->first() ?: 'Periksa kembali konfigurasi sebelum mempublikasikan.')
+                ->danger()
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        $publishedVersion = $published->version;
+        $this->loadUnit();
 
         Notification::make()
-            ->title('Versi '.$published->version.' dipublikasikan untuk pendaftar baru')
-            ->body('Perubahan form telah disimpan sebagai draft lalu dipublikasikan.')
+            ->title('Publikasi v'.$publishedVersion.' berhasil')
+            ->body('Konfigurasi v'.$publishedVersion.' telah diaktifkan untuk pendaftar baru.')
             ->success()
             ->send();
-
-        $this->loadUnit();
     }
 
     private function configurationFormData(UnitConfiguration $configuration): array
