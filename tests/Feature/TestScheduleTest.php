@@ -144,6 +144,47 @@ class TestScheduleTest extends TestCase
             ->assertSeeText('Bawa alat tulis.');
     }
 
+    public function test_test_card_requires_sessions_for_every_required_test_but_ignores_optional_tests(): void
+    {
+        $this->travelTo('2026-09-14 08:00:00');
+        [$registration, $parent, $session] = $this->fixture(true);
+        $secondRequiredTest = AdmissionTest::query()
+            ->where('unit_id', $registration->unit_id)
+            ->where('code', 'WAW')
+            ->firstOrFail();
+        $secondSession = TestSession::create([
+            'admission_test_id' => $secondRequiredTest->id,
+            'starts_at' => '2026-09-21 10:00:00',
+            'ends_at' => '2026-09-21 11:00:00',
+            'booking_closes_at' => '2026-09-20 10:00:00',
+            'location' => 'Ruang Wawancara',
+            'capacity' => 10,
+            'status' => 'active',
+        ]);
+        $service = app(TestBookingService::class);
+        $this->actingAs($parent);
+
+        $service->book($registration, $session, $parent);
+
+        $this->get('/pendaftar/jadwal-tes/'.$registration->uuid)
+            ->assertOk()
+            ->assertDontSeeText('Cetak Kartu Tes')
+            ->assertSeeText('Kartu tes dapat dicetak setelah seluruh tes wajib memiliki sesi.');
+        $this->get(route('registration.test-card', $registration))
+            ->assertNotFound();
+
+        $service->book($registration, $secondSession, $parent);
+
+        $this->get('/pendaftar/jadwal-tes/'.$registration->uuid)
+            ->assertOk()
+            ->assertSeeText('Cetak Kartu Tes')
+            ->assertDontSeeText('Kartu tes dapat dicetak setelah seluruh tes wajib memiliki sesi.');
+        $this->get(route('registration.test-card', $registration))
+            ->assertOk()
+            ->assertSeeText('Ruang 1')
+            ->assertSeeText('Ruang Wawancara');
+    }
+
     public function test_cancelled_selected_session_requires_rebooking_and_removes_test_card(): void
     {
         $this->travelTo('2026-09-14 08:00:00');
@@ -180,7 +221,7 @@ class TestScheduleTest extends TestCase
     }
 
     /** @return array{Registration, User, TestSession, User, AdmissionTest, RegistrationOpening} */
-    private function fixture(): array
+    private function fixture(bool $withAdditionalTests = false): array
     {
         $this->seed(ShieldSeeder::class);
 
@@ -196,6 +237,25 @@ class TestScheduleTest extends TestCase
             'is_required' => true,
             'is_active' => true,
         ]);
+        $tests = [$test];
+
+        if ($withAdditionalTests) {
+            $tests[] = AdmissionTest::create([
+                'unit_id' => $unit->id,
+                'name' => 'Wawancara',
+                'code' => 'WAW',
+                'is_required' => true,
+                'is_active' => true,
+            ]);
+            $tests[] = AdmissionTest::create([
+                'unit_id' => $unit->id,
+                'name' => 'Tes Minat',
+                'code' => 'MINAT',
+                'is_required' => false,
+                'is_active' => true,
+            ]);
+        }
+
         app(UnitConfigurationService::class)->initialize($unit);
 
         $parent = User::factory()->create(['is_active' => true]);
@@ -224,12 +284,16 @@ class TestScheduleTest extends TestCase
             'home_address' => 'Bandung',
             'current_stage' => 'tests',
         ]);
-        AdmissionTestResult::create([
-            'registration_id' => $registration->id,
-            'admission_test_id' => $test->id,
-            'status' => 'unbooked',
-            'result' => 'pending',
-        ]);
+
+        foreach ($tests as $configuredTest) {
+            AdmissionTestResult::create([
+                'registration_id' => $registration->id,
+                'admission_test_id' => $configuredTest->id,
+                'status' => 'unbooked',
+                'result' => 'pending',
+            ]);
+        }
+
         $session = TestSession::create([
             'admission_test_id' => $test->id,
             'starts_at' => now()->addDays(3),
