@@ -21,9 +21,11 @@ $booking = $this->booking($test['id']);
             </div>
         </x-filament::section>
     @endforeach
-    <div class="flex flex-wrap gap-3">
-        @if($this->hasSelectedSession())
+    <div class="flex flex-wrap items-center gap-3">
+        @if($this->canPrintTestCard())
             <x-filament::button tag="a" :href="route('registration.test-card', $registrationRecord)" target="_blank">Cetak Kartu Tes</x-filament::button>
+        @else
+            <p class="text-sm text-gray-500 dark:text-gray-400">Kartu tes dapat dicetak setelah seluruh tes wajib memiliki sesi.</p>
         @endif
         <x-filament::button tag="a" :href="\App\Filament\Applicant\Pages\RegistrationStatus::getUrl(['registration' => $registrationRecord->uuid])" color="gray">Kembali ke Status</x-filament::button>
     </div>
