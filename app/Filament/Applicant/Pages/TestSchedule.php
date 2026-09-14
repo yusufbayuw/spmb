@@ -6,6 +6,7 @@ use App\Models\Registration;
 use App\Models\TestBooking;
 use App\Models\TestSession;
 use App\Services\TestBookingService;
+use App\Services\TestCardEligibilityService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Database\Eloquent\Collection;
@@ -40,12 +41,9 @@ class TestSchedule extends Page
         return TestBooking::with('session')->where('registration_id', $this->registrationRecord->id)->where('admission_test_id', $testId)->first();
     }
 
-    public function hasSelectedSession(): bool
+    public function canPrintTestCard(): bool
     {
-        return TestBooking::query()
-            ->where('registration_id', $this->registrationRecord->id)
-            ->whereNotNull('test_session_id')
-            ->exists();
+        return app(TestCardEligibilityService::class)->canPrint($this->registrationRecord);
     }
 
     public function choose(string $sessionId): void
