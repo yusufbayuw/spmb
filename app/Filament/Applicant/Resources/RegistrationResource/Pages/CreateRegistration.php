@@ -10,6 +10,7 @@ use App\Services\ConfiguredRegistrationForm;
 use App\Services\RegistrationRegionService;
 use App\Services\RegistrationSupplementalDataService;
 use App\Services\UnitConfigurationService;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 class CreateRegistration extends CreateRecord
 {
     protected static string $resource = RegistrationResource::class;
+
+    protected static bool $canCreateAnother = false;
 
     private array $validatedAcademicScores = [];
 
@@ -195,6 +198,11 @@ class CreateRegistration extends CreateRecord
 
             return $record;
         }, 5);
+    }
+
+    protected function getCreateFormAction(): Action
+    {
+        return parent::getCreateFormAction()->label('Daftar');
     }
 
     protected function getRedirectUrl(): string
