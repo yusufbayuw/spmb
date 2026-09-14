@@ -12,6 +12,7 @@ use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\UnitConfiguration;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\UnitConfigurationService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -119,7 +120,31 @@ class RegistrationResource extends Resource
                 ->relationship('parentInfo')
                 ->visible(fn (Forms\Get $get): bool => ! static::isHigherEducationOpening($get('registration_opening_uuid')) || $get('registrant_type') === 'parent')
                 ->schema(ParentInfoFields::schema()),
-        ], $record?->configuration ?? UnitConfiguration::query()->where('uuid', data_get($form->getLivewire(), $form->getStatePath().'.unit_configuration_uuid'))->first()));
+        ], static::formConfiguration($form, $record)));
+    }
+
+    protected static function formConfiguration(Form $form, ?Registration $record): ?UnitConfiguration
+    {
+        if ($record?->configuration) {
+            return $record->configuration;
+        }
+
+        $configurationUuid = data_get($form->getLivewire(), $form->getStatePath().'.unit_configuration_uuid');
+        if (filled($configurationUuid)) {
+            $configuration = UnitConfiguration::query()->where('uuid', $configurationUuid)->first();
+            if ($configuration) {
+                return $configuration;
+            }
+        }
+
+        $openingUuid = request()->query('opening');
+        if (blank($openingUuid)) {
+            return null;
+        }
+
+        $unitId = RegistrationOpening::query()->where('uuid', $openingUuid)->value('unit_id');
+
+        return $unitId ? app(UnitConfigurationService::class)->current((int) $unitId) : null;
     }
 
     public static function table(Table $table): Table
