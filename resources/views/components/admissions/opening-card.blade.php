@@ -45,7 +45,7 @@
         <div>
             <dt class="text-xs font-semibold text-slate-500">{{ $dateLabel }}</dt>
             <dd class="mt-1 text-sm font-bold text-slate-900">
-                {{ $dateValue ? $dateValue->format('d F Y · H:i') . ' WIB' : 'Mengikuti informasi unit' }}
+                {{ $dateValue ? $dateValue->translatedFormat('d F Y · H:i') . ' WIB' : 'Mengikuti informasi unit' }}
             </dd>
         </div>
         <div>
