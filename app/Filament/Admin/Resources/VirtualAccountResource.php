@@ -37,6 +37,15 @@ class VirtualAccountResource extends Resource
                     ->badge()
                     ->description(fn (VirtualAccount $record): ?string => $record->unit?->code)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('studyProgram.name')
+                    ->label('Prodi')
+                    ->badge()
+                    ->formatStateUsing(fn ($state, VirtualAccount $record): string => $record->studyProgram
+                        ? $record->studyProgram->name.' ('.$record->studyProgram->code.')'
+                        : 'Semua Prodi')
+                    ->color(fn (VirtualAccount $record): string => $record->study_program_id ? 'primary' : 'gray')
+                    ->searchable(['name', 'code'])
+                    ->placeholder('Semua Prodi'),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -55,6 +64,14 @@ class VirtualAccountResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
+                Tables\Filters\SelectFilter::make('study_program_id')
+                    ->label('Prodi')
+                    ->relationship('studyProgram', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\Filter::make('general_pool')
+                    ->label('VA Umum')
+                    ->query(fn (Builder $query): Builder => $query->whereNull('study_program_id')),
                 Tables\Filters\SelectFilter::make('bank')->options(fn () => VirtualAccount::query()->distinct()->orderBy('bank')->pluck('bank', 'bank')->all()),
             ])
             ->actions([
@@ -75,7 +92,7 @@ class VirtualAccountResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'registration', 'batch']);
+        $query = parent::getEloquentQuery()->with(['unit', 'studyProgram', 'registration', 'batch']);
 
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
