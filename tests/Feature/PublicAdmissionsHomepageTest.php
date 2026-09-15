@@ -49,7 +49,7 @@ class PublicAdmissionsHomepageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Portal Resmi Penerimaan');
-        $response->assertSee('Pendaftaran yang tersedia', false);
+        $response->assertSee('Pendaftaran saat ini');
         $response->assertSee('Gelombang Aktif');
         $response->assertSee('Rp 300.000');
         $response->assertSee('Gelombang Mendatang');
