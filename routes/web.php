@@ -5,11 +5,15 @@ use App\Http\Controllers\Auth\ApplicantEmailVerificationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OperationalReportController;
 use App\Http\Controllers\PrivateApplicantFileController;
+use App\Http\Controllers\PublicRegistrationOpeningController;
 use App\Http\Controllers\RegistrationPrintController;
+use App\Http\Controllers\StartRegistrationController;
 use App\Http\Middleware\EnsureApplicantEmailIsVerified;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
+Route::get('/penerimaan/{registrationOpening}', PublicRegistrationOpeningController::class)->name('admissions.show');
+Route::get('/penerimaan/{registrationOpening}/daftar', StartRegistrationController::class)->name('admissions.apply');
 
 Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantEmailVerificationController::class)
     ->middleware(['auth', 'signed', 'throttle:6,1'])
