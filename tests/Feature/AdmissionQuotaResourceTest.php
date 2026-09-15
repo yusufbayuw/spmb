@@ -17,7 +17,7 @@ class AdmissionQuotaResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_tu_can_open_edit_quota_page_with_available_pathway_options(): void
+    public function test_admin_unit_can_open_edit_quota_page_with_available_pathway_options(): void
     {
         $this->seed(ShieldSeeder::class);
 
@@ -26,12 +26,12 @@ class AdmissionQuotaResourceTest extends TestCase
             'code' => 'KUOTA',
             'is_active' => true,
         ]);
-        $tu = User::factory()->create([
-            'role' => 'tu',
+        $adminUnit = User::factory()->create([
+            'role' => 'admin_unit',
             'unit_id' => $unit->id,
             'is_active' => true,
         ]);
-        $tu->assignRole('tu');
+        $adminUnit->assignRole('admin_unit');
 
         $opening = RegistrationOpening::create([
             'unit_id' => $unit->id,
@@ -56,7 +56,7 @@ class AdmissionQuotaResourceTest extends TestCase
 
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
-        $this->actingAs($tu)
+        $this->actingAs($adminUnit)
             ->get(AdmissionQuotaResource::getUrl('edit', ['record' => $quota]))
             ->assertOk();
     }
