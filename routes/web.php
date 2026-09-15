@@ -40,7 +40,7 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
         ->name('reports.operational.xlsx');
 
     Route::get('/dashboard', function () {
-        return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar');
+        return redirect(auth()->user()->hasAnyRole(['super_admin', 'admin_unit', 'tu']) ? '/admin' : '/pendaftar');
     })->name('dashboard');
 
     Route::get('/registration/create', fn () => redirect('/pendaftar/pendaftaran'))
@@ -70,7 +70,7 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
         ->name('admission-offers.decline');
 
     Route::get('/profile', function () {
-        return redirect(auth()->user()->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar/profile');
+        return redirect(auth()->user()->hasAnyRole(['super_admin', 'admin_unit', 'tu']) ? '/admin' : '/pendaftar/profile');
     })->name('profile.edit');
 });
 
