@@ -53,7 +53,8 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->is_active && (auth()->user()->isAdmin() || auth()->user()->isTU());
+        return (bool) auth()->user()?->is_active
+            && (auth()->user()->isAdmin() || auth()->user()->isAdminUnit());
     }
 
     public function mount(): void
