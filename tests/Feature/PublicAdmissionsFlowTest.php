@@ -28,6 +28,9 @@ class PublicAdmissionsFlowTest extends TestCase
             ->assertSee('SMA Taruna Bakti')
             ->assertSee('Daftar Sekarang')
             ->assertSee('Panitia SPMB SMA')
+            ->assertSee('Salin Link')
+            ->assertSee('Unduh QR')
+            ->assertSee(route('admissions.unit', ['unit' => $unit->code]), false)
             ->assertSee('https://wa.me/6281234567890', false);
 
         $closed = $this->opening($unit, [
@@ -50,6 +53,55 @@ class PublicAdmissionsFlowTest extends TestCase
         ]);
 
         $this->get(route('admissions.show', $archived))->assertNotFound();
+        $this->get(route('admissions.qr', $archived))->assertNotFound();
+    }
+
+    public function test_unit_admissions_page_is_evergreen_and_surfaces_open_and_upcoming_openings(): void
+    {
+        $unit = $this->schoolUnit([
+            'description' => 'Penerimaan resmi SMA Taruna Bakti.',
+            'public_contact_name' => 'Panitia SMA',
+        ]);
+        $open = $this->opening($unit);
+        $upcoming = $this->opening($unit, [
+            'wave' => 'Gelombang 2',
+            'opened_at' => now()->addDays(20),
+            'closed_at' => now()->addDays(40),
+        ]);
+
+        $this->get(route('admissions.unit', ['unit' => $unit->code]))
+            ->assertOk()
+            ->assertSee('Penerimaan SMA Taruna Bakti')
+            ->assertSee('Penerimaan resmi SMA Taruna Bakti.')
+            ->assertSee($open->wave)
+            ->assertSee($upcoming->wave)
+            ->assertSee('Bagikan halaman unit')
+            ->assertSee('Unduh QR')
+            ->assertSee('Panitia SMA');
+    }
+
+    public function test_unit_and_opening_qr_routes_return_svg_and_support_download(): void
+    {
+        $unit = $this->schoolUnit();
+        $opening = $this->opening($unit);
+
+        $unitQr = $this->get(route('admissions.unit.qr', ['unit' => $unit->code]));
+        $unitQr->assertOk();
+        $this->assertStringContainsString('image/svg+xml', (string) $unitQr->headers->get('Content-Type'));
+        $this->assertStringContainsString('<svg', $unitQr->getContent());
+
+        $openingQr = $this->get(route('admissions.qr', ['registrationOpening' => $opening, 'download' => 1]));
+        $openingQr->assertOk();
+        $this->assertStringContainsString('image/svg+xml', (string) $openingQr->headers->get('Content-Type'));
+        $this->assertStringStartsWith('attachment;', (string) $openingQr->headers->get('Content-Disposition'));
+    }
+
+    public function test_inactive_unit_admissions_page_and_qr_are_not_public(): void
+    {
+        $unit = $this->schoolUnit(['is_active' => false]);
+
+        $this->get(route('admissions.unit', ['unit' => $unit->code]))->assertNotFound();
+        $this->get(route('admissions.unit.qr', ['unit' => $unit->code]))->assertNotFound();
     }
 
     public function test_guest_apply_preserves_opening_intent_before_registration(): void
