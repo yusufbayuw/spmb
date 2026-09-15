@@ -44,7 +44,7 @@ class UnitConfigurationTest extends TestCase
         $published->update(['documents_enabled' => true]);
     }
 
-    public function test_tu_cannot_edit_configuration_of_other_unit(): void
+    public function test_admin_unit_cannot_edit_configuration_of_other_unit(): void
     {
         [$unit, $staff] = $this->fixture();
         $other = Unit::create(['name' => 'Other', 'code' => 'OTHER', 'is_active' => true]);
@@ -71,7 +71,7 @@ class UnitConfigurationTest extends TestCase
         $this->assertTrue($registration->fresh()->configuration->legacy);
     }
 
-    public function test_tu_settings_and_full_form_preview_render(): void
+    public function test_admin_unit_settings_and_full_form_preview_render(): void
     {
         [, $staff] = $this->fixture();
         $this->actingAs($staff);
@@ -403,8 +403,8 @@ class UnitConfigurationTest extends TestCase
     {
         $this->seed(ShieldSeeder::class);
         $unit = Unit::create(['name' => 'SD Test', 'code' => 'SD', 'is_active' => true]);
-        $staff = User::factory()->create(['role' => 'tu', 'unit_id' => $unit->id, 'is_active' => true]);
-        $staff->assignRole('tu');
+        $staff = User::factory()->create(['role' => 'admin_unit', 'unit_id' => $unit->id, 'is_active' => true]);
+        $staff->assignRole('admin_unit');
         $parent = User::factory()->create(['is_active' => true]);
         $parent->assignRole('pendaftar');
         $opening = RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
