@@ -216,7 +216,15 @@ class TestBookingTest extends TestCase
             $response = $this->get($url)->assertOk();
             $this->capturePage($name, $response->getContent());
         }
-        $this->actingAs($staff);
+
+        $adminUnit = User::factory()->create([
+            'role' => 'admin_unit',
+            'unit_id' => $registration->unit_id,
+            'is_active' => true,
+        ]);
+        $adminUnit->assignRole('admin_unit');
+
+        $this->actingAs($adminUnit);
         foreach (['sessions' => '/admin/test-sessions', 'settings' => '/admin/unit-registration-settings'] as $name => $url) {
             $response = $this->get($url)->assertOk();
             $this->capturePage($name, $response->getContent());
