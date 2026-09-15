@@ -176,6 +176,16 @@ class RegistrationOpening extends Model
             });
     }
 
+    public function scopeUpcoming(Builder $query): Builder
+    {
+        return $query
+            ->where('status', '!=', 'archived')
+            ->whereNotNull('opened_at')
+            ->whereNotNull('closed_at')
+            ->where('opened_at', '>', now())
+            ->where('closed_at', '>', now());
+    }
+
     public function scopeVisibleToApplicants(Builder $query): Builder
     {
         return $query
