@@ -159,9 +159,9 @@ class VirtualAccountImportTest extends TestCase
         $this->assertSame(['va_number', 'bank'], $this->firstXlsxRow($tuTemplate['path']));
 
         $adminTemplate = $service->generate($superAdmin);
-        $this->assertSame(['va_number', 'bank', 'unit'], $adminTemplate['headers']);
+        $this->assertSame(['va_number', 'bank', 'unit', 'prodi'], $adminTemplate['headers']);
         $this->assertSame('template-pool-va-super-admin.xlsx', $adminTemplate['filename']);
-        $this->assertSame(['va_number', 'bank', 'unit'], $this->firstXlsxRow($adminTemplate['path']));
+        $this->assertSame(['va_number', 'bank', 'unit', 'prodi'], $this->firstXlsxRow($adminTemplate['path']));
     }
 
     public function test_tu_cannot_import_virtual_account_for_another_unit(): void
