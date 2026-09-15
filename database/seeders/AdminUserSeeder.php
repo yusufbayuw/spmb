@@ -24,11 +24,13 @@ class AdminUserSeeder extends Seeder
             ],
         );
 
-        $admin->forceFill([
-            'username' => 'admin',
-            'is_active' => true,
-        ])->save();
-        $admin->syncRoles(['super_admin']);
+        if ($admin->wasRecentlyCreated) {
+            $admin->syncRoles(['super_admin']);
+        } elseif ($admin->username !== 'admin') {
+            // Username is the only canonical field introduced by this upgrade.
+            // Preserve password, active state, name, and other manual changes.
+            $admin->forceFill(['username' => 'admin'])->save();
+        }
 
         $staff = [
             'DC' => ['label' => 'Daycare', 'username' => 'tu.daycare', 'email' => 'tu.dc@tarunabakti.sch.id'],
@@ -61,13 +63,12 @@ class AdminUserSeeder extends Seeder
                 ],
             );
 
-            $tu->forceFill([
-                'username' => $identity['username'],
-                'role' => 'tu',
-                'unit_id' => $unit->id,
-                'is_active' => true,
-            ])->save();
-            $tu->syncRoles(['tu']);
+            if ($tu->wasRecentlyCreated) {
+                $tu->syncRoles(['tu']);
+            } elseif ($tu->username !== $identity['username']) {
+                // Do not reset operational changes on an existing staff account.
+                $tu->forceFill(['username' => $identity['username']])->save();
+            }
         }
     }
 }
