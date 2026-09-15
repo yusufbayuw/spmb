@@ -9,9 +9,11 @@ use App\Services\ApplicantEmailVerificationUrl;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
@@ -19,13 +21,24 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     use HasFactory, HasRoles, Notifiable;
     use HasPublicUuid;
 
-    protected $fillable = ['name', 'email', 'password', 'phone', 'role', 'unit_id', 'is_active'];
+    protected $fillable = ['name', 'username', 'email', 'password', 'phone', 'role', 'unit_id', 'is_active'];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
     {
         return ['email_verified_at' => 'datetime', 'password' => 'hashed', 'is_active' => 'boolean'];
+    }
+
+    protected function username(): Attribute
+    {
+        return Attribute::make(
+            set: function ($value): ?string {
+                $username = trim((string) $value);
+
+                return $username === '' ? null : Str::lower($username);
+            },
+        );
     }
 
     public function canAccessPanel(Panel $panel): bool
