@@ -114,6 +114,21 @@ class UnitResource extends Resource
                     ->options(Unit::INSTITUTION_TYPES),
             ])
             ->actions([
+                Tables\Actions\Action::make('shareAdmissions')
+                    ->label('Bagikan')
+                    ->icon('heroicon-o-qr-code')
+                    ->color('info')
+                    ->visible(fn (Unit $record): bool => $record->is_active)
+                    ->modalHeading(fn (Unit $record): string => 'Bagikan Penerimaan '.$record->name)
+                    ->modalContent(fn (Unit $record) => view('filament.admin.components.admission-share', [
+                        'title' => 'Penerimaan '.$record->name,
+                        'publicUrl' => route('admissions.unit', ['unit' => $record->code]),
+                        'qrUrl' => route('admissions.unit.qr', ['unit' => $record->code]),
+                        'shareText' => 'Informasi penerimaan '.$record->name,
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalWidth('md'),
                 Tables\Actions\EditAction::make(),
             ]);
     }
