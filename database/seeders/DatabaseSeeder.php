@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             AdmissionQuotaSeeder::class,
             ShieldSeeder::class,
             AdminUserSeeder::class,
+            AdminUnitUserSeeder::class,
             TestSessionSeeder::class,
             PaymentReceiptSeeder::class,
         ]);
