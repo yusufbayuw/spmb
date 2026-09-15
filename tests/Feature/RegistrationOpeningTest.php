@@ -168,25 +168,26 @@ class RegistrationOpeningTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
 
         $page = Livewire::test(RegistrationOpenings::class)
+            ->assertSet('availability', 'open')
             ->assertSee('Gelombang Terbuka')
-            ->assertSee('Gelombang Mendatang')
-            ->assertSee('Gelombang Ditutup');
+            ->assertDontSee('Gelombang Mendatang')
+            ->assertDontSee('Gelombang Ditutup');
 
-        $page->set('search', 'Mendatang')
+        $page->set('availability', 'scheduled')
             ->assertSee('Gelombang Mendatang')
             ->assertDontSee('Gelombang Terbuka')
+            ->set('search', 'Mendatang')
+            ->assertSee('Gelombang Mendatang')
             ->set('search', '')
+            ->set('availability', 'all')
             ->call('selectUnit', $university->uuid)
             ->assertSee('Gelombang Ditutup')
             ->assertDontSee('Gelombang Terbuka')
-            ->set('unitUuid', '')
-            ->set('availability', 'open')
+            ->call('clearFilters')
+            ->assertSet('availability', 'open')
             ->assertSee('Gelombang Terbuka')
             ->assertDontSee('Gelombang Mendatang')
-            ->call('clearFilters')
-            ->assertSee('Gelombang Terbuka')
-            ->assertSee('Gelombang Mendatang')
-            ->assertSee('Gelombang Ditutup');
+            ->assertDontSee('Gelombang Ditutup');
     }
 
     private function userWithRole(string $roleName): User
