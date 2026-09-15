@@ -163,12 +163,28 @@ class RegistrationWorkflowService
                 return $payment->load(['registration.user', 'registration.unit']);
             }
 
-            $va = VirtualAccount::query()
-                ->available()
-                ->where('unit_id', $lockedRegistration->unit_id)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->first();
+            $studyProgramId = $lockedRegistration->opening()->value('study_program_id');
+            $va = null;
+
+            if ($studyProgramId) {
+                $va = VirtualAccount::query()
+                    ->available()
+                    ->where('unit_id', $lockedRegistration->unit_id)
+                    ->where('study_program_id', $studyProgramId)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if (! $va) {
+                $va = VirtualAccount::query()
+                    ->available()
+                    ->where('unit_id', $lockedRegistration->unit_id)
+                    ->whereNull('study_program_id')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->first();
+            }
 
             if (! $va) {
                 return null;
@@ -224,7 +240,7 @@ class RegistrationWorkflowService
 
         foreach ($registrations as $registration) {
             if (! $this->assignAvailableVirtualAccount($registration, $staff)) {
-                break;
+                continue;
             }
 
             $assigned++;
