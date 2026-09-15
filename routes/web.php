@@ -1,19 +1,24 @@
 <?php
 
 use App\Http\Controllers\AdmissionOfferController;
+use App\Http\Controllers\AdmissionQrCodeController;
 use App\Http\Controllers\Auth\ApplicantEmailVerificationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OperationalReportController;
 use App\Http\Controllers\PrivateApplicantFileController;
 use App\Http\Controllers\PublicRegistrationOpeningController;
+use App\Http\Controllers\PublicUnitAdmissionsController;
 use App\Http\Controllers\RegistrationPrintController;
 use App\Http\Controllers\StartRegistrationController;
 use App\Http\Middleware\EnsureApplicantEmailIsVerified;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
-Route::get('/penerimaan/{registrationOpening}', PublicRegistrationOpeningController::class)->name('admissions.show');
-Route::get('/penerimaan/{registrationOpening}/daftar', StartRegistrationController::class)->name('admissions.apply');
+Route::get('/penerimaan/unit/{unit:code}/qr.svg', [AdmissionQrCodeController::class, 'unit'])->name('admissions.unit.qr');
+Route::get('/penerimaan/unit/{unit:code}', PublicUnitAdmissionsController::class)->name('admissions.unit');
+Route::get('/penerimaan/{registrationOpening}/qr.svg', [AdmissionQrCodeController::class, 'opening'])->whereUuid('registrationOpening')->name('admissions.qr');
+Route::get('/penerimaan/{registrationOpening}', PublicRegistrationOpeningController::class)->whereUuid('registrationOpening')->name('admissions.show');
+Route::get('/penerimaan/{registrationOpening}/daftar', StartRegistrationController::class)->whereUuid('registrationOpening')->name('admissions.apply');
 
 Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantEmailVerificationController::class)
     ->middleware(['auth', 'signed', 'throttle:6,1'])
