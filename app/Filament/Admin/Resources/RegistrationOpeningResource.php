@@ -146,6 +146,21 @@ class RegistrationOpeningResource extends Resource
                     ->options(fn (): array => RegistrationOpening::query()->orderByDesc('academic_year')->pluck('academic_year', 'academic_year')->all()),
             ])
             ->actions([
+                Tables\Actions\Action::make('share')
+                    ->label('Bagikan')
+                    ->icon('heroicon-o-qr-code')
+                    ->color('info')
+                    ->visible(fn (RegistrationOpening $record): bool => $record->operationalStatus() !== 'archived')
+                    ->modalHeading(fn (RegistrationOpening $record): string => 'Bagikan '.$record->label())
+                    ->modalContent(fn (RegistrationOpening $record) => view('filament.admin.components.admission-share', [
+                        'title' => $record->label(),
+                        'publicUrl' => route('admissions.show', $record),
+                        'qrUrl' => route('admissions.qr', $record),
+                        'shareText' => 'Informasi pendaftaran '.$record->label(),
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalWidth('md'),
                 Tables\Actions\Action::make('archive')
                     ->label('Arsipkan')->icon('heroicon-o-archive-box')->color('gray')->requiresConfirmation()
                     ->visible(fn (RegistrationOpening $record): bool => $record->operationalStatus() !== 'archived')
