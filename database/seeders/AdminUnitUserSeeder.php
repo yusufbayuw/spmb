@@ -16,13 +16,48 @@ class AdminUnitUserSeeder extends Seeder
         $this->call(AdminUnitRoleSeeder::class);
 
         $staff = [
-            'DC' => ['label' => 'Daycare', 'email' => 'adminunit.dc@tarunabakti.sch.id'],
-            'KB' => ['label' => 'KB', 'email' => 'adminunit.kb@tarunabakti.sch.id'],
-            'TK' => ['label' => 'TK', 'email' => 'adminunit.tk@tarunabakti.sch.id'],
-            'SD' => ['label' => 'SD', 'email' => 'adminunit.sd@tarunabakti.sch.id'],
-            'SMP' => ['label' => 'SMP', 'email' => 'adminunit.smp@tarunabakti.sch.id'],
-            'SMA' => ['label' => 'SMA', 'email' => 'adminunit.sma@tarunabakti.sch.id'],
-            'TBU' => ['label' => 'PMB TBU', 'email' => 'adminunit.tbu@tbu.ac.id'],
+            'DC' => [
+                'label' => 'Daycare',
+                'username' => 'admin.daycare',
+                'email' => 'admin.daycare@tarunabakti.sch.id',
+                'legacy_email' => 'adminunit.dc@tarunabakti.sch.id',
+            ],
+            'KB' => [
+                'label' => 'KB',
+                'username' => 'admin.kb',
+                'email' => 'admin.kb@tarunabakti.sch.id',
+                'legacy_email' => 'adminunit.kb@tarunabakti.sch.id',
+            ],
+            'TK' => [
+                'label' => 'TK',
+                'username' => 'admin.tk',
+                'email' => 'admin.tk@tarunabakti.sch.id',
+                'legacy_email' => 'adminunit.tk@tarunabakti.sch.id',
+            ],
+            'SD' => [
+                'label' => 'SD',
+                'username' => 'admin.sd',
+                'email' => 'admin.sd@tarunabakti.sch.id',
+                'legacy_email' => 'adminunit.sd@tarunabakti.sch.id',
+            ],
+            'SMP' => [
+                'label' => 'SMP',
+                'username' => 'admin.smp',
+                'email' => 'admin.smp@tarunabakti.sch.id',
+                'legacy_email' => 'adminunit.smp@tarunabakti.sch.id',
+            ],
+            'SMA' => [
+                'label' => 'SMA',
+                'username' => 'admin.sma',
+                'email' => 'admin.sma@tarunabakti.sch.id',
+                'legacy_email' => 'adminunit.sma@tarunabakti.sch.id',
+            ],
+            'TBU' => [
+                'label' => 'TBU',
+                'username' => 'admin.tbu',
+                'email' => 'admin.tbu@tbu.ac.id',
+                'legacy_email' => 'adminunit.tbu@tbu.ac.id',
+            ],
         ];
 
         foreach ($staff as $code => $identity) {
@@ -32,27 +67,37 @@ class AdminUnitUserSeeder extends Seeder
                 continue;
             }
 
-            $adminUnit = User::firstOrCreate(
-                ['email' => $identity['email']],
-                [
-                    'name' => 'Admin Unit '.$identity['label'],
+            // Reuse the previous development account when upgrading an existing
+            // database so we do not create duplicate Admin Unit users or reset
+            // a password that a developer has already changed.
+            $adminUnit = User::query()
+                ->where('email', $identity['email'])
+                ->orWhere('username', $identity['username'])
+                ->orWhere('email', $identity['legacy_email'])
+                ->first();
+
+            if (! $adminUnit) {
+                $adminUnit = User::create([
+                    'name' => 'Admin '.$identity['label'],
+                    'username' => $identity['username'],
+                    'email' => $identity['email'],
                     'password' => Hash::make('password123'),
                     'phone' => '081234567890',
                     'role' => 'admin_unit',
                     'unit_id' => $unit->id,
                     'email_verified_at' => now(),
                     'is_active' => true,
-                ],
-            );
-
-            // Dedicated development accounts must always point to their unit
-            // and carry the Admin Unit role. Password is intentionally not reset
-            // for an existing account.
-            $adminUnit->forceFill([
-                'role' => 'admin_unit',
-                'unit_id' => $unit->id,
-                'is_active' => true,
-            ])->save();
+                ]);
+            } else {
+                $adminUnit->forceFill([
+                    'name' => 'Admin '.$identity['label'],
+                    'username' => $identity['username'],
+                    'email' => $identity['email'],
+                    'role' => 'admin_unit',
+                    'unit_id' => $unit->id,
+                    'is_active' => true,
+                ])->save();
+            }
 
             $adminUnit->syncRoles(['admin_unit']);
         }
