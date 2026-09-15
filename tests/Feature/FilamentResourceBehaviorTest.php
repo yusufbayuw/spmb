@@ -320,12 +320,12 @@ class FilamentResourceBehaviorTest extends TestCase
             'is_active' => true,
         ]);
         $staff = User::factory()->create([
-            'role' => 'tu',
+            'role' => 'admin_unit',
             'unit_id' => $unit->id,
             'is_active' => true,
         ]);
         $staff->assignRole(Role::firstOrCreate([
-            'name' => 'tu',
+            'name' => 'admin_unit',
             'guard_name' => 'web',
         ]));
         $test = AdmissionTest::create([
