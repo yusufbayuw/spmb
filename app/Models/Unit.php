@@ -18,7 +18,20 @@ class Unit extends Model
         'university' => 'Perguruan Tinggi',
     ];
 
-    protected $fillable = ['name', 'code', 'institution_type', 'description', 'is_active'];
+    protected $fillable = [
+        'name',
+        'code',
+        'institution_type',
+        'description',
+        'public_contact_name',
+        'public_email',
+        'public_phone',
+        'public_whatsapp',
+        'public_service_hours',
+        'public_website_url',
+        'public_address',
+        'is_active',
+    ];
 
     protected $casts = ['is_active' => 'boolean'];
 
@@ -70,5 +83,16 @@ class Unit extends Model
     public function institutionTypeLabel(): string
     {
         return self::INSTITUTION_TYPES[$this->institution_type] ?? $this->institution_type;
+    }
+
+    public function hasPublicContact(): bool
+    {
+        return filled($this->public_contact_name)
+            || filled($this->public_email)
+            || filled($this->public_phone)
+            || filled($this->public_whatsapp)
+            || filled($this->public_service_hours)
+            || filled($this->public_website_url)
+            || filled($this->public_address);
     }
 }
