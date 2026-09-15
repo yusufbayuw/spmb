@@ -62,10 +62,17 @@ class ErrorPagesTest extends TestCase
 
     public function test_server_error_shows_safe_message_and_reference_id(): void
     {
-        $this->get('/__test/error/500')
+        $response = $this->get('/__test/error/500');
+
+        $response
             ->assertStatus(500)
             ->assertSeeText('Terjadi gangguan pada sistem')
-            ->assertSee('SPMB-', false)
             ->assertDontSee('Synthetic server error for testing.');
+
+        $requestId = $response->headers->get('X-Request-ID');
+
+        $this->assertNotNull($requestId);
+        $this->assertMatchesRegularExpression('/^SPMB-\d{6}-[A-Z0-9]{8}$/', $requestId);
+        $response->assertSeeText($requestId);
     }
 }
