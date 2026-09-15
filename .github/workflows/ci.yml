@@ -51,6 +51,8 @@ jobs:
           npm run build
 
       - name: Prepare application
+        env:
+          CACHE_STORE: array
         run: |
           cp .env.example .env
           touch database/database.sqlite
