@@ -36,7 +36,7 @@ class OperationalReport extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['super_admin', 'tu']) ?? false;
+        return auth()->user()?->hasAnyRole(['super_admin', 'admin_unit', 'tu']) ?? false;
     }
 
     public function form(Form $form): Form
