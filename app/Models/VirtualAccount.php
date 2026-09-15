@@ -21,7 +21,7 @@ class VirtualAccount extends Model
     ];
 
     protected $fillable = [
-        'batch_id', 'unit_id', 'bank', 'va_number', 'status', 'registration_id',
+        'batch_id', 'unit_id', 'study_program_id', 'bank', 'va_number', 'status', 'registration_id',
         'assigned_by', 'assigned_at',
     ];
 
@@ -37,6 +37,11 @@ class VirtualAccount extends Model
     public function unit()
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    public function studyProgram()
+    {
+        return $this->belongsTo(StudyProgram::class);
     }
 
     public function registration()
