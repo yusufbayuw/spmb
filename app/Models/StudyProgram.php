@@ -41,6 +41,34 @@ class StudyProgram extends Model
                     'unit_id' => 'Program studi hanya dapat dibuat pada unit perguruan tinggi.',
                 ]);
             }
+
+            $code = mb_strtoupper(trim((string) $program->code));
+
+            if ($code === '') {
+                throw ValidationException::withMessages([
+                    'code' => 'Kode program studi wajib diisi.',
+                ]);
+            }
+
+            if (! preg_match('/^[A-Z0-9][A-Z0-9_-]*$/', $code)) {
+                throw ValidationException::withMessages([
+                    'code' => 'Kode program studi hanya boleh berisi huruf, angka, tanda hubung (-), dan garis bawah (_).',
+                ]);
+            }
+
+            $duplicate = static::query()
+                ->where('unit_id', $program->unit_id)
+                ->whereRaw('UPPER(code) = ?', [$code])
+                ->when($program->exists, fn ($query) => $query->whereKeyNot($program->getKey()))
+                ->exists();
+
+            if ($duplicate) {
+                throw ValidationException::withMessages([
+                    'code' => 'Kode program studi sudah digunakan pada unit ini.',
+                ]);
+            }
+
+            $program->code = $code;
         });
     }
 
@@ -52,6 +80,11 @@ class StudyProgram extends Model
     public function registrationOpenings()
     {
         return $this->hasMany(RegistrationOpening::class);
+    }
+
+    public function virtualAccounts()
+    {
+        return $this->hasMany(VirtualAccount::class);
     }
 
     public function label(): string
