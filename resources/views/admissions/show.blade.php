@@ -20,6 +20,9 @@
     };
     $metaTitle = $title.' · '.$opening->academic_year.' · '.$opening->wave.' | Penerimaan Taruna Bakti';
     $metaDescription = 'Informasi '.$title.' '.$periodLabel.' '.$opening->academic_year.', '.$opening->wave.', biaya, jadwal, jalur pendaftaran, dan bantuan penerimaan.';
+    $shareUrl = route('admissions.show', $opening);
+    $qrUrl = route('admissions.qr', $opening);
+    $unitUrl = route('admissions.unit', ['unit' => $opening->unit?->code]);
 @endphp
 
 @section('title'){{ $metaTitle }}@endsection
@@ -29,7 +32,7 @@
     <meta property="og:title" content="{{ $metaTitle }}">
     <meta property="og:description" content="{{ $metaDescription }}">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ route('admissions.show', $opening) }}">
+    <meta property="og:url" content="{{ $shareUrl }}">
 @endpush
 
 @section('content')
@@ -38,7 +41,9 @@
             <nav class="text-sm font-semibold text-slate-500" aria-label="Breadcrumb">
                 <a href="{{ route('home') }}" class="hover:text-blue-700">Portal Penerimaan</a>
                 <span class="mx-2" aria-hidden="true">/</span>
-                <span class="text-slate-800">{{ $title }}</span>
+                <a href="{{ $unitUrl }}" class="hover:text-blue-700">{{ $opening->unit?->name }}</a>
+                <span class="mx-2" aria-hidden="true">/</span>
+                <span class="text-slate-800">{{ $opening->wave }}</span>
             </nav>
 
             @if (session('admission_notice'))
@@ -101,10 +106,25 @@
                     @elseif ($isScheduled)
                         <p class="mt-6 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold leading-6 text-blue-900">Pendaftaran belum dapat dimulai. Silakan kembali setelah waktu pembukaan.</p>
                     @else
-                        <a href="{{ route('home') }}#pendaftaran" class="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
-                            Lihat Pendaftaran Lain
+                        <a href="{{ $unitUrl }}" class="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+                            Lihat Pendaftaran {{ $opening->unit?->code }}
                         </a>
                     @endif
+
+                    <div class="mt-6 border-t border-slate-200 pt-5">
+                        <div class="flex items-center gap-4">
+                            <img src="{{ $qrUrl }}" alt="QR Code {{ $title }}" class="h-24 w-24 rounded-lg border border-slate-200 bg-white p-1.5">
+                            <div class="min-w-0">
+                                <p class="text-sm font-extrabold text-slate-950">Bagikan pembukaan ini</p>
+                                <p class="mt-1 text-xs leading-5 text-slate-500">QR mengarah ke halaman ini, bukan langsung ke formulir.</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                            <button type="button" onclick="navigator.clipboard?.writeText(@js($shareUrl)); this.textContent='Disalin'; setTimeout(() => this.textContent='Salin Link', 1600)" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Salin Link</button>
+                            <a href="{{ $qrUrl }}?download=1" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Unduh QR</a>
+                            <a href="https://wa.me/?text={{ urlencode('Informasi pendaftaran '.$opening->label().' '.$shareUrl) }}" target="_blank" rel="noopener" class="col-span-2 inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Bagikan via WhatsApp</a>
+                        </div>
+                    </div>
                 </aside>
             </div>
         </div>
@@ -151,7 +171,10 @@
                 </div>
             </div>
 
-            <x-admissions.helpdesk :unit="$opening->unit" />
+            <div class="space-y-5">
+                <x-admissions.helpdesk :unit="$opening->unit" />
+                <a href="{{ $unitUrl }}" class="block rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm font-bold text-blue-700 hover:border-blue-200 hover:bg-blue-50">Lihat seluruh penerimaan {{ $opening->unit?->name }} →</a>
+            </div>
         </div>
     </section>
 @endsection
