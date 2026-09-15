@@ -61,7 +61,9 @@ class StudyProgramResource extends Resource
                         ->label('Kode Program Studi')
                         ->required()
                         ->maxLength(30)
-                        ->unique(ignoreRecord: true),
+                        ->regex('/^[A-Za-z0-9][A-Za-z0-9_-]*$/')
+                        ->dehydrateStateUsing(fn ($state): string => mb_strtoupper(trim((string) $state)))
+                        ->helperText('Wajib dan unik per unit. Gunakan huruf, angka, tanda hubung (-), atau garis bawah (_). Kode ini dipakai pada template/import VA.'),
                     Forms\Components\TextInput::make('name')
                         ->label('Nama Program Studi')
                         ->required()
