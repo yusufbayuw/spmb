@@ -63,7 +63,7 @@ class RegistrationPathwayTest extends TestCase
         ]);
     }
 
-    public function test_tu_can_only_manage_pathways_from_their_own_unit(): void
+    public function test_admin_unit_can_only_manage_pathways_from_their_own_unit(): void
     {
         $this->seed(ShieldSeeder::class);
         $unit = $this->unit('SMA');
@@ -71,11 +71,11 @@ class RegistrationPathwayTest extends TestCase
         $ownPathway = $this->pathway($unit, 'Reguler');
         $otherPathway = $this->pathway($otherUnit, 'Prestasi');
         $staff = User::factory()->create([
-            'role' => 'tu',
+            'role' => 'admin_unit',
             'unit_id' => $unit->id,
             'is_active' => true,
         ]);
-        $staff->assignRole('tu');
+        $staff->assignRole('admin_unit');
 
         $this->assertTrue($staff->can('update', $ownPathway));
         $this->assertFalse($staff->can('update', $otherPathway));
