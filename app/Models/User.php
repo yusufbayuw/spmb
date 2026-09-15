@@ -39,7 +39,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         // unverified applicants would receive a 403 before Filament can show
         // the verification prompt.
         return match ($panel->getId()) {
-            'admin' => $this->hasAnyRole(['super_admin', 'tu']),
+            'admin' => $this->hasAnyRole(['super_admin', 'admin_unit', 'tu']),
             'pendaftar' => $this->hasRole('pendaftar'),
             default => false,
         };
@@ -60,9 +60,21 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->hasRole('super_admin');
     }
 
+    public function isAdminUnit(): bool
+    {
+        return $this->hasRole('admin_unit');
+    }
+
+    /**
+     * Determine whether the user is staff scoped to a single unit.
+     *
+     * Existing authorization and query scopes use isTU() as the unit-staff
+     * check. Admin Unit deliberately shares that same unit boundary while
+     * receiving a broader permission set than operational TU staff.
+     */
     public function isTU(): bool
     {
-        return $this->hasRole('tu');
+        return $this->hasAnyRole(['admin_unit', 'tu']);
     }
 
     public function isUser(): bool
