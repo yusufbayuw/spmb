@@ -20,10 +20,11 @@ Aplikasi dibangun dengan Laravel 12 dan Filament 3. Setiap unit memiliki pembuka
 | Peran | Portal | Ruang lingkup |
 | --- | --- | --- |
 | Pendaftar | `/pendaftar` | Registrasi akun, membuat pendaftaran, melengkapi data, pembayaran, dokumen, jadwal tes, pengumuman, dan daftar ulang. |
-| TU unit | `/admin` | Mengelola operasional SPMB pada unit yang menjadi kewenangannya. |
+| TU unit | `/admin` | Operasional harian SPMB pada unitnya: pendaftaran, verifikasi pembayaran/dokumen, hasil tes, seleksi, pengumuman, dan daftar ulang. Tidak memiliki akses ke group **Konfigurasi SPMB** dan **Sistem & Akses**. |
+| Admin Unit | `/admin` | Memiliki kewenangan unit yang sebelumnya dimiliki TU, termasuk operasional dan konfigurasi SPMB pada unitnya, tetap dengan scope satu unit. |
 | Super admin | `/admin` | Mengelola seluruh unit, master data, user, role/permission, konfigurasi, dan audit. |
 
-Akses admin menggunakan permission Filament Shield. Data operasional TU tetap dibatasi ke unit yang terkait, sedangkan super admin dapat bekerja lintas unit.
+Akses admin menggunakan permission Filament Shield. TU dan Admin Unit sama-sama dibatasi ke unit yang terkait; perbedaannya berada pada permission. Admin Unit membawa baseline permission TU lama, sedangkan TU difokuskan ke workflow operasional. Super admin dapat bekerja lintas unit.
 
 ## Alur utama
 
@@ -49,7 +50,7 @@ Tahap yang dinonaktifkan oleh konfigurasi unit dilewati oleh workflow. Untuk pem
 
 ## Konfigurasi pendaftaran per unit
 
-Menu **Pengaturan Pendaftaran Unit** menjadi pusat konfigurasi operasional per unit. Konfigurasi dapat disimpan sebagai draft, dipratinjau, lalu dipublikasikan sebagai versi baru.
+Menu **Pengaturan Pendaftaran Unit** menjadi pusat konfigurasi operasional per unit dan hanya dapat diakses oleh Admin Unit pada unitnya atau Super Admin. Konfigurasi dapat disimpan sebagai draft, dipratinjau, lalu dipublikasikan sebagai versi baru.
 
 Konfigurasi mencakup:
 
@@ -106,6 +107,7 @@ Tes dikelola sebagai `AdmissionTest`, `TestSession`, `TestBooking`, dan `Admissi
 - Setiap jenis tes dapat memiliki beberapa sesi dengan waktu, lokasi, kuota, batas pemesanan, instruksi, dan status.
 - Pendaftar dapat memilih atau memindahkan sesi selama sesi masih tersedia dan aturan booking terpenuhi.
 - TU dapat menetapkan sesi secara manual untuk kebutuhan operasional.
+- Admin Unit dapat mengelola master dan sesi tes pada konfigurasi unit.
 - Booking menggunakan transaksi/locking untuk menjaga kapasitas sesi.
 - Sistem mencegah jadwal tes yang berbenturan.
 - Jika sesi terpilih dibatalkan, pendaftar harus melakukan penjadwalan ulang.
@@ -162,6 +164,16 @@ Model SPMB utama menggunakan UUID untuk identifier yang diekspos ke URL, route b
 ### Role dan permission
 
 Authorization admin menggunakan Filament Shield dan Spatie Laravel Permission. Role tidak dijadikan satu-satunya sumber otorisasi; permission dan scope unit tetap menjadi pembatas operasi.
+
+Role `admin_unit` dan `tu` sama-sama unit-scoped. `admin_unit` mempertahankan baseline akses TU sebelum pemisahan role, sedangkan `tu` tidak memiliki permission resource pada group **Konfigurasi SPMB** dan **Sistem & Akses**. Halaman konfigurasi khusus juga memeriksa role Admin Unit/Super Admin secara eksplisit.
+
+Untuk database existing, perubahan role dapat diterapkan secara idempoten tanpa mengubah assignment user atau data bisnis:
+
+```bash
+php artisan db:seed --class=AdminUnitRoleSeeder
+```
+
+Seeder tersebut hanya menyinkronkan permission role `admin_unit` dan `tu`; user TU existing tetap menjadi TU sampai diubah secara eksplisit oleh administrator.
 
 ### CAPTCHA lokal
 
@@ -304,7 +316,7 @@ vendor/bin/pint --test
 npm run build
 ```
 
-Suite pengujian mencakup antara lain isolasi unit, konfigurasi versi, custom field/document, pembayaran dan nomor registrasi, data wilayah Indonesia, penjadwalan tes, kapasitas sesi, kartu tes, hasil tes, seleksi, pengumuman, daftar ulang, private file, UUID publik, notifikasi, dan authorization.
+Suite pengujian mencakup antara lain isolasi unit, konfigurasi versi, custom field/document, pembayaran dan nomor registrasi, data wilayah Indonesia, penjadwalan tes, kapasitas sesi, kartu tes, hasil tes, seleksi, pengumuman, daftar ulang, private file, UUID publik, notifikasi, role Admin Unit/TU, dan authorization.
 
 ## Catatan production
 
@@ -315,6 +327,12 @@ Deploy database menggunakan migrasi normal tanpa `migrate:fresh`:
 ```bash
 php artisan migrate --force
 php artisan optimize
+```
+
+Jika upgrade dari versi sebelum pemisahan Admin Unit/TU, jalankan juga:
+
+```bash
+php artisan db:seed --class=AdminUnitRoleSeeder
 ```
 
 Jika frontend berubah, build asset production dengan `npm run build` sebelum switch release.
