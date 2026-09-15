@@ -29,7 +29,7 @@ class RegistrationOpenings extends Page
 
     public ?string $unitUuid = null;
 
-    public string $availability = 'all';
+    public string $availability = 'open';
 
     public array $unitOptions = [];
 
@@ -37,6 +37,7 @@ class RegistrationOpenings extends Page
     {
         $this->unitOptions = Unit::query()
             ->whereHas('registrationOpenings', fn (Builder $query): Builder => $query->visibleToApplicants())
+            ->orderByRaw("CASE code WHEN 'DAYCARE' THEN 1 WHEN 'KB' THEN 2 WHEN 'TK' THEN 3 WHEN 'SD' THEN 4 WHEN 'SMP' THEN 5 WHEN 'SMA' THEN 6 ELSE 99 END")
             ->orderBy('name')
             ->pluck('name', 'uuid')
             ->all();
@@ -63,7 +64,7 @@ class RegistrationOpenings extends Page
     public function updatedAvailability(): void
     {
         if (! in_array($this->availability, ['all', 'open', 'scheduled', 'closed'], true)) {
-            $this->availability = 'all';
+            $this->availability = 'open';
         }
 
         $this->resetPage();
@@ -72,7 +73,7 @@ class RegistrationOpenings extends Page
     public function clearFilters(): void
     {
         $this->reset(['search', 'unitUuid']);
-        $this->availability = 'all';
+        $this->availability = 'open';
         $this->resetPage();
     }
 
@@ -104,7 +105,8 @@ class RegistrationOpenings extends Page
                         ->orWhere(fn (Builder $legacyQuery): Builder => $legacyQuery->where('status', 'closed')->where(fn (Builder $scheduleQuery): Builder => $scheduleQuery->whereNull('opened_at')->orWhereNull('closed_at')));
                 });
             })
-            ->orderByDesc('academic_year')
+            ->orderByRaw("CASE WHEN closed_at IS NULL THEN 1 ELSE 0 END")
+            ->orderBy('closed_at')
             ->orderBy('unit_id')
             ->orderBy('study_program_id')
             ->orderBy('wave')
@@ -118,6 +120,6 @@ class RegistrationOpenings extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Pilih satuan pendidikan atau program studi, tahun ajaran/akademik, dan gelombang yang tersedia.';
+        return 'Pilih satuan pendidikan atau program studi yang sedang membuka pendaftaran.';
     }
 }
