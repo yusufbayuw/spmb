@@ -7,5 +7,5 @@
     'hint' => request()->is('admin*')
         ? 'Jika akses ini diperlukan untuk pekerjaan Anda, hubungi administrator untuk memeriksa hak akses akun.'
         : null,
-    'primaryLabel' => request()->is('admin*') ? 'Kembali ke Panel' : 'Kembali ke Dashboard',
+    'primaryLabel' => request()->is('admin*') ? 'Kembali ke Panel' : (request()->is('pendaftar*') ? 'Kembali ke Dashboard' : 'Kembali ke Beranda'),
 ])
