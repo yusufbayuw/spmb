@@ -47,13 +47,21 @@ class ListVirtualAccounts extends ListRecords
                     Forms\Components\Placeholder::make('format_info')
                         ->label('Format File')
                         ->content(function (): string {
-                            if (auth()->user()?->isTU()) {
-                                $unit = auth()->user()?->unit?->code ?? auth()->user()?->unit?->name ?? '-';
+                            $user = auth()->user();
 
-                                return "Unit otomatis mengikuti akun TU ({$unit}). XLSX: kolom va_number, bank. TXT/CSV: nomor VA | BANK.";
+                            if ($user?->isTU()) {
+                                $unit = $user->unit;
+                                $unitLabel = $unit?->code ?? $unit?->name ?? '-';
+                                $hasPrograms = $unit?->studyPrograms()->where('is_active', true)->exists() ?? false;
+
+                                if ($hasPrograms) {
+                                    return "Unit otomatis mengikuti akun ({$unitLabel}). XLSX: va_number, bank, prodi. Kolom prodi berisi kode prodi dan boleh dikosongkan untuk VA umum/fallback. TXT/CSV: nomor VA | BANK | KODE_PRODI.";
+                                }
+
+                                return "Unit otomatis mengikuti akun ({$unitLabel}). XLSX: va_number, bank. TXT/CSV: nomor VA | BANK.";
                             }
 
-                            return 'Super admin wajib menyertakan unit. XLSX: kolom va_number, bank, unit. TXT/CSV: nomor VA | BANK | UNIT.';
+                            return 'Super admin wajib menyertakan unit. XLSX: va_number, bank, unit, prodi. Kolom prodi berisi kode prodi dan boleh kosong untuk VA umum. TXT/CSV: nomor VA | BANK | UNIT | KODE_PRODI.';
                         }),
                     Forms\Components\FileUpload::make('file')
                         ->label('File Pool VA')
@@ -67,24 +75,32 @@ class ListVirtualAccounts extends ListRecords
                         ])
                         ->maxSize(10240)
                         ->required()
-                        ->helperText(fn (): string => auth()->user()?->isTU()
-                            ? 'Mendukung XLSX, CSV, dan TXT. Untuk TU, unit otomatis memakai unit akun dan kolom unit tidak diperlukan.'
-                            : 'Mendukung XLSX, CSV, dan TXT. Untuk super admin, setiap baris wajib memiliki unit.'),
+                        ->helperText('Import bersifat atomik: jika ada satu baris tidak valid, seluruh file dibatalkan dan tidak ada VA yang disimpan.'),
                 ])
                 ->action(function (array $data): void {
                     $result = app(VirtualAccountImportService::class)->importFile($data['file'], auth()->user());
 
-                    $notification = Notification::make()
-                        ->title('Pool VA berhasil diproses')
-                        ->body("{$result['imported']} VA masuk, {$result['failed']} gagal, {$result['assigned']} pendaftar otomatis mendapat VA.");
-
                     if ($result['failed'] > 0) {
-                        $notification->warning();
-                    } else {
-                        $notification->success();
+                        $preview = collect($result['errors'] ?? [])->take(5)->implode("\n");
+                        $more = count($result['errors'] ?? []) > 5
+                            ? "\n... dan kesalahan lain. Perbaiki file lalu upload ulang."
+                            : '';
+
+                        Notification::make()
+                            ->title('Import Pool VA dibatalkan')
+                            ->body("Ditemukan {$result['failed']} baris tidak valid. Tidak ada VA yang disimpan.\n{$preview}{$more}")
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
                     }
 
-                    $notification->send();
+                    Notification::make()
+                        ->title('Pool VA berhasil diimport')
+                        ->body("{$result['imported']} VA masuk. {$result['assigned']} pendaftar otomatis mendapat VA.")
+                        ->success()
+                        ->send();
                 }),
         ];
     }
