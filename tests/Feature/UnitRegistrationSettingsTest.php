@@ -74,6 +74,28 @@ class UnitRegistrationSettingsTest extends TestCase
             ->value('version'));
     }
 
+    public function test_tu_cannot_access_unit_registration_settings(): void
+    {
+        $this->seed(ShieldSeeder::class);
+
+        $unit = Unit::create([
+            'name' => 'SD Test',
+            'code' => 'SD',
+            'is_active' => true,
+        ]);
+        $tu = User::factory()->create([
+            'role' => 'tu',
+            'unit_id' => $unit->id,
+            'is_active' => true,
+        ]);
+        $tu->assignRole('tu');
+
+        $this->actingAs($tu);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $this->assertFalse(UnitRegistrationSettings::canAccess());
+    }
+
     /** @return array{Unit, User} */
     private function fixture(): array
     {
@@ -85,11 +107,11 @@ class UnitRegistrationSettingsTest extends TestCase
             'is_active' => true,
         ]);
         $staff = User::factory()->create([
-            'role' => 'tu',
+            'role' => 'admin_unit',
             'unit_id' => $unit->id,
             'is_active' => true,
         ]);
-        $staff->assignRole('tu');
+        $staff->assignRole('admin_unit');
 
         return [$unit, $staff];
     }
