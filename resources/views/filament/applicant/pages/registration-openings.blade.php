@@ -4,7 +4,7 @@
             compact
             icon="heroicon-o-magnifying-glass"
             heading="Temukan pendaftaran"
-            description="Cari berdasarkan unit, program studi, fakultas, tahun ajaran, atau gelombang."
+            description="Pilih pendaftaran yang sedang dibuka. Gunakan pencarian dan filter bila diperlukan."
         >
             <x-slot name="headerEnd">
                 <x-filament::badge color="gray">
@@ -28,15 +28,15 @@
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Status</span>
                     <x-filament::input.wrapper>
                         <x-filament::input.select wire:model.live="availability">
-                            <option value="all">Semua status</option>
                             <option value="open">Sedang dibuka</option>
                             <option value="scheduled">Akan dibuka</option>
                             <option value="closed">Sudah ditutup</option>
+                            <option value="all">Semua status</option>
                         </x-filament::input.select>
                     </x-filament::input.wrapper>
                 </label>
 
-                @if (filled($search) || filled($unitUuid) || $availability !== 'all')
+                @if (filled($search) || filled($unitUuid) || $availability !== 'open')
                     <div class="flex items-end">
                         <x-filament::button color="gray" outlined icon="heroicon-m-x-mark" wire:click="clearFilters">
                             Atur ulang
@@ -69,8 +69,8 @@
                             <h3 class="text-base font-semibold text-gray-950 dark:text-white">Tidak ada pendaftaran yang cocok</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Ubah kata kunci atau filter untuk melihat pembukaan lain.</p>
                         </div>
-                        @if (filled($search) || filled($unitUuid) || $availability !== 'all')
-                            <x-filament::button color="gray" outlined wire:click="clearFilters">Tampilkan semua</x-filament::button>
+                        @if (filled($search) || filled($unitUuid) || $availability !== 'open')
+                            <x-filament::button color="gray" outlined wire:click="clearFilters">Tampilkan yang sedang dibuka</x-filament::button>
                         @endif
                     </div>
                 </x-filament::section>
@@ -78,13 +78,15 @@
                 <div class="grid gap-4 xl:grid-cols-2">
                     @foreach ($openings as $opening)
                         @php($isUniversity = $opening->unit?->isHigherEducation() ?? false)
+                        @php($status = $opening->operationalStatus())
+                        @php($importantDate = $status === 'scheduled' ? $opening->opened_at : $opening->closed_at)
                         <x-filament::section
                             compact
                             :heading="$opening->studyProgram?->label() ?? $opening->unit?->name"
                             :description="$isUniversity ? $opening->unit?->name.' · Tahun Akademik '.$opening->academic_year : 'Tahun Ajaran '.$opening->academic_year"
                         >
                             <x-slot name="headerEnd">
-                                <x-filament::badge :color="$opening->isOpen() ? 'success' : 'warning'">
+                                <x-filament::badge :color="$opening->isOpen() ? 'success' : ($status === 'scheduled' ? 'info' : 'gray')">
                                     {{ $opening->statusLabel() }}
                                 </x-filament::badge>
                             </x-slot>
@@ -102,14 +104,18 @@
                                     </div>
                                 @endif
 
-                                <dl class="grid gap-3 sm:grid-cols-2">
+                                <dl class="grid gap-3 sm:grid-cols-3">
                                     <div class="grid gap-1">
                                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Gelombang</dt>
                                         <dd class="text-sm font-semibold text-gray-950 dark:text-white">{{ $opening->wave }}</dd>
                                     </div>
                                     <div class="grid gap-1">
                                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Biaya formulir</dt>
-                                        <dd class="text-sm font-semibold text-gray-950 dark:text-white">{{ $opening->formattedFee() }}</dd>
+                                        <dd class="text-sm font-semibold text-gray-950 dark:text-white">{{ (float) $opening->registration_fee === 0.0 ? 'Gratis' : $opening->formattedFee() }}</dd>
+                                    </div>
+                                    <div class="grid gap-1">
+                                        <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $status === 'scheduled' ? 'Dibuka' : ($status === 'open' ? 'Batas daftar' : 'Ditutup') }}</dt>
+                                        <dd class="text-sm font-semibold text-gray-950 dark:text-white">{{ $importantDate ? $importantDate->translatedFormat('d M Y, H:i').' WIB' : 'Mengikuti informasi unit' }}</dd>
                                     </div>
                                 </dl>
 
@@ -118,26 +124,18 @@
                                 @endif
 
                                 <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10">
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        @if ($opening->opened_at && $opening->closed_at)
-                                            {{ $opening->opened_at->format('d/m/Y H:i') }}–{{ $opening->closed_at->format('d/m/Y H:i') }}
-                                        @else
-                                            Periode ditentukan oleh unit
-                                        @endif
-                                    </p>
+                                    <a href="{{ route('admissions.show', $opening) }}" class="text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+                                        Lihat detail
+                                    </a>
 
                                     @if ($opening->isOpen())
-                                        <x-filament::button
-                                            tag="a"
-                                            :href="\App\Filament\Applicant\Resources\RegistrationResource::getUrl('create', ['opening' => $opening->uuid])"
-                                            icon="heroicon-m-arrow-right"
-                                        >
-                                            {{ $isUniversity ? 'Pilih program' : 'Pilih pendaftaran' }}
+                                        <x-filament::button tag="a" :href="route('admissions.apply', $opening)" icon="heroicon-m-arrow-right">
+                                            Daftar
                                         </x-filament::button>
+                                    @elseif ($status === 'scheduled')
+                                        <span class="text-sm font-semibold text-gray-500 dark:text-gray-400">Belum dapat didaftarkan</span>
                                     @else
-                                        <x-filament::button disabled color="gray" icon="heroicon-m-lock-closed">
-                                            {{ $opening->operationalStatus() === 'scheduled' ? 'Belum dibuka' : 'Ditutup' }}
-                                        </x-filament::button>
+                                        <span class="text-sm font-semibold text-gray-500 dark:text-gray-400">Pendaftaran ditutup</span>
                                     @endif
                                 </div>
                             </div>
