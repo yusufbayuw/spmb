@@ -40,8 +40,6 @@
             <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-4">
                 @if ($hasOfficialLogo)
                     <img src="{{ asset($logoPath) }}" alt="Logo {{ $portal['foundation_name'] ?? 'Yayasan Taruna Bakti' }}" class="h-11 w-auto shrink-0 object-contain">
-                @else
-                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-sm font-extrabold tracking-tight text-blue-800" aria-hidden="true">YTB</span>
                 @endif
                 <span class="min-w-0">
                     <span class="block truncate text-sm font-extrabold tracking-tight text-slate-950 sm:text-base">Portal Penerimaan</span>
