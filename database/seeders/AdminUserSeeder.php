@@ -15,6 +15,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'admin@tarunabakti.sch.id'],
             [
                 'name' => 'Administrator',
+                'username' => 'admin',
                 'password' => Hash::make('password123'),
                 'phone' => '081234567890',
                 'role' => 'admin',
@@ -22,18 +23,21 @@ class AdminUserSeeder extends Seeder
                 'is_active' => true,
             ],
         );
-        if ($admin->wasRecentlyCreated) {
-            $admin->syncRoles(['super_admin']);
-        }
+
+        $admin->forceFill([
+            'username' => 'admin',
+            'is_active' => true,
+        ])->save();
+        $admin->syncRoles(['super_admin']);
 
         $staff = [
-            'DC' => ['label' => 'Daycare', 'email' => 'tu.dc@tarunabakti.sch.id'],
-            'KB' => ['label' => 'KB', 'email' => 'tu.kb@tarunabakti.sch.id'],
-            'TK' => ['label' => 'TK', 'email' => 'tu.tk@tarunabakti.sch.id'],
-            'SD' => ['label' => 'SD', 'email' => 'tu.sd@tarunabakti.sch.id'],
-            'SMP' => ['label' => 'SMP', 'email' => 'tu.smp@tarunabakti.sch.id'],
-            'SMA' => ['label' => 'SMA', 'email' => 'tu.sma@tarunabakti.sch.id'],
-            'TBU' => ['label' => 'PMB TBU', 'email' => 'tu.tbu@tbu.ac.id'],
+            'DC' => ['label' => 'Daycare', 'username' => 'tu.daycare', 'email' => 'tu.dc@tarunabakti.sch.id'],
+            'KB' => ['label' => 'KB', 'username' => 'tu.kb', 'email' => 'tu.kb@tarunabakti.sch.id'],
+            'TK' => ['label' => 'TK', 'username' => 'tu.tk', 'email' => 'tu.tk@tarunabakti.sch.id'],
+            'SD' => ['label' => 'SD', 'username' => 'tu.sd', 'email' => 'tu.sd@tarunabakti.sch.id'],
+            'SMP' => ['label' => 'SMP', 'username' => 'tu.smp', 'email' => 'tu.smp@tarunabakti.sch.id'],
+            'SMA' => ['label' => 'SMA', 'username' => 'tu.sma', 'email' => 'tu.sma@tarunabakti.sch.id'],
+            'TBU' => ['label' => 'PMB TBU', 'username' => 'tu.tbu', 'email' => 'tu.tbu@tbu.ac.id'],
         ];
 
         foreach ($staff as $code => $identity) {
@@ -47,6 +51,7 @@ class AdminUserSeeder extends Seeder
                 ['email' => $identity['email']],
                 [
                     'name' => 'TU '.$identity['label'],
+                    'username' => $identity['username'],
                     'password' => Hash::make('password123'),
                     'phone' => '081234567890',
                     'role' => 'tu',
@@ -55,9 +60,14 @@ class AdminUserSeeder extends Seeder
                     'is_active' => true,
                 ],
             );
-            if ($tu->wasRecentlyCreated) {
-                $tu->syncRoles(['tu']);
-            }
+
+            $tu->forceFill([
+                'username' => $identity['username'],
+                'role' => 'tu',
+                'unit_id' => $unit->id,
+                'is_active' => true,
+            ])->save();
+            $tu->syncRoles(['tu']);
         }
     }
 }
