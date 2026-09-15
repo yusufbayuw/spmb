@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Models\VirtualAccountBatch;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -99,23 +101,29 @@ class VirtualAccountImportService
             throw ValidationException::withMessages(['file' => 'File pool VA tidak dapat dibaca.']);
         }
 
-        $batch = null;
         $total = 0;
-        $imported = 0;
         $failed = 0;
         $errors = [];
         $seen = [];
+        $validatedRows = [];
         $touchedUnits = [];
+        $filename = $batchFilename ?? basename($storedPath);
 
         $staffUnit = null;
+        $staffUnitHasPrograms = false;
+
         if ($staff->isTU()) {
             $staffUnit = Unit::query()->where('is_active', true)->find($staff->unit_id);
 
             if (! $staffUnit) {
                 throw ValidationException::withMessages([
-                    'file' => 'Akun TU belum memiliki unit aktif. Hubungkan akun TU dengan unit sekolah terlebih dahulu.',
+                    'file' => 'Akun unit belum memiliki unit aktif. Hubungkan akun dengan unit terlebih dahulu.',
                 ]);
             }
+
+            $staffUnitHasPrograms = $staffUnit->studyPrograms()
+                ->where('is_active', true)
+                ->exists();
         }
 
         try {
@@ -138,26 +146,39 @@ class VirtualAccountImportService
                 'va_number', 'va', 'virtual_account',
                 'bank',
                 'unit', 'unit_code', 'kode_unit', 'unit_sekolah',
+                'prodi', 'kode_prodi', 'program_studi', 'study_program', 'study_program_code',
             ];
             $hasHeader = count(array_intersect($normalized, $headerKeys)) >= 2;
             $headerMap = $hasHeader ? array_flip($normalized) : null;
 
-            $batch = VirtualAccountBatch::create([
-                'filename' => $batchFilename ?? basename($storedPath),
-                'imported_by' => $staff->id,
-                'imported_at' => now(),
-            ]);
-
             $process = function (array $row, int $rowNumber) use (
-                &$total, &$imported, &$failed, &$errors, &$seen, &$touchedUnits,
-                $headerMap, $batch, $staff, $staffUnit
+                &$total, &$failed, &$errors, &$seen, &$validatedRows, &$touchedUnits,
+                $headerMap, $staff, $staffUnit, $staffUnitHasPrograms
             ): void {
                 $total++;
 
                 try {
                     $vaNumber = $this->cleanCell($this->valueFromRow($row, $headerMap, ['va_number', 'va', 'virtual_account'], 0));
-                    $bank = strtoupper($this->cleanCell($this->valueFromRow($row, $headerMap, ['bank'], 1)));
-                    $unitValue = $this->cleanCell($this->valueFromRow($row, $headerMap, ['unit', 'unit_code', 'kode_unit', 'unit_sekolah'], 2));
+                    $bank = mb_strtoupper($this->cleanCell($this->valueFromRow($row, $headerMap, ['bank'], 1)));
+
+                    if ($headerMap !== null) {
+                        $unitValue = $this->cleanCell($this->valueFromRow($row, $headerMap, ['unit', 'unit_code', 'kode_unit', 'unit_sekolah'], null));
+                        $programValue = $this->cleanCell($this->valueFromRow($row, $headerMap, ['prodi', 'kode_prodi', 'program_studi', 'study_program', 'study_program_code'], null));
+                    } elseif ($staff->isTU()) {
+                        if (count($row) >= 4) {
+                            $unitValue = $this->cleanCell($row[2] ?? null);
+                            $programValue = $this->cleanCell($row[3] ?? null);
+                        } elseif ($staffUnitHasPrograms) {
+                            $unitValue = '';
+                            $programValue = $this->cleanCell($row[2] ?? null);
+                        } else {
+                            $unitValue = $this->cleanCell($row[2] ?? null);
+                            $programValue = '';
+                        }
+                    } else {
+                        $unitValue = $this->cleanCell($row[2] ?? null);
+                        $programValue = $this->cleanCell($row[3] ?? null);
+                    }
 
                     if ($vaNumber === '' || mb_strlen($vaNumber) > 50) {
                         throw new RuntimeException('Nomor VA kosong atau lebih dari 50 karakter.');
@@ -174,7 +195,7 @@ class VirtualAccountImportService
                             $rowUnit = $this->resolveUnit($unitValue);
 
                             if (! $rowUnit || (int) $rowUnit->id !== (int) $staffUnit->id) {
-                                throw new RuntimeException('Unit pada baris tidak sesuai dengan unit akun TU.');
+                                throw new RuntimeException('Unit pada baris tidak sesuai dengan unit akun.');
                             }
                         }
                     } else {
@@ -188,6 +209,15 @@ class VirtualAccountImportService
                         }
                     }
 
+                    $program = null;
+                    if ($programValue !== '') {
+                        $program = $this->resolveStudyProgram($unit, $programValue);
+
+                        if (! $program) {
+                            throw new RuntimeException("Kode prodi '{$programValue}' tidak ditemukan atau tidak aktif pada unit {$unit->code}.");
+                        }
+                    }
+
                     $duplicateKey = $bank.'|'.$vaNumber;
                     if (isset($seen[$duplicateKey])) {
                         throw new RuntimeException('Nomor VA duplikat di dalam file untuk bank yang sama.');
@@ -198,21 +228,14 @@ class VirtualAccountImportService
                         throw new RuntimeException('Nomor VA sudah ada di sistem untuk bank tersebut.');
                     }
 
-                    VirtualAccount::create([
-                        'batch_id' => $batch->id,
+                    $validatedRows[] = [
                         'unit_id' => $unit->id,
+                        'study_program_id' => $program?->id,
                         'bank' => $bank,
                         'va_number' => $vaNumber,
                         'status' => 'available',
-                    ]);
-
+                    ];
                     $touchedUnits[$unit->id] = $unit;
-                    $imported++;
-                } catch (QueryException) {
-                    $failed++;
-                    if (count($errors) < 100) {
-                        $errors[] = "Baris {$rowNumber}: nomor VA duplikat atau tidak valid.";
-                    }
                 } catch (Throwable $exception) {
                     $failed++;
                     if (count($errors) < 100) {
@@ -238,23 +261,63 @@ class VirtualAccountImportService
             Storage::disk('local')->delete($storedPath);
         }
 
-        if (! $batch) {
-            throw ValidationException::withMessages(['file' => 'File pool VA tidak menghasilkan batch import.']);
+        if ($total === 0) {
+            throw ValidationException::withMessages(['file' => 'File pool VA tidak memiliki baris data.']);
         }
 
-        $batch->update([
-            'total_rows' => $total,
-            'imported_rows' => $imported,
-            'failed_rows' => $failed,
-            'errors' => $errors ?: null,
-        ]);
+        if ($failed > 0) {
+            return [
+                'batch' => null,
+                'total' => $total,
+                'imported' => 0,
+                'failed' => $failed,
+                'assigned' => 0,
+                'errors' => $errors,
+            ];
+        }
+
+        try {
+            $batch = DB::transaction(function () use ($filename, $staff, $validatedRows, $total): VirtualAccountBatch {
+                $batch = VirtualAccountBatch::create([
+                    'filename' => $filename,
+                    'total_rows' => $total,
+                    'imported_rows' => $total,
+                    'failed_rows' => 0,
+                    'errors' => null,
+                    'imported_by' => $staff->id,
+                    'imported_at' => now(),
+                ]);
+
+                foreach ($validatedRows as $attributes) {
+                    VirtualAccount::create($attributes + ['batch_id' => $batch->id]);
+                }
+
+                return $batch;
+            });
+        } catch (QueryException) {
+            return [
+                'batch' => null,
+                'total' => $total,
+                'imported' => 0,
+                'failed' => 1,
+                'assigned' => 0,
+                'errors' => ['Data berubah saat import diproses atau terdapat nomor VA duplikat. Tidak ada VA yang disimpan.'],
+            ];
+        }
 
         $assigned = 0;
         foreach ($touchedUnits as $unit) {
             $assigned += $this->workflow->assignWaitingRegistrationsForUnit($unit, $staff);
         }
 
-        return compact('batch', 'total', 'imported', 'failed', 'assigned');
+        return [
+            'batch' => $batch,
+            'total' => $total,
+            'imported' => $total,
+            'failed' => 0,
+            'assigned' => $assigned,
+            'errors' => [],
+        ];
     }
 
     private function detectDelimiter(string $line): string
@@ -284,7 +347,7 @@ class VirtualAccountImportService
         return trim((string) $value);
     }
 
-    private function valueFromRow(array $row, ?array $headerMap, array $keys, int $fallbackIndex): mixed
+    private function valueFromRow(array $row, ?array $headerMap, array $keys, ?int $fallbackIndex): mixed
     {
         if ($headerMap !== null) {
             foreach ($keys as $key) {
@@ -296,7 +359,7 @@ class VirtualAccountImportService
             return null;
         }
 
-        return $row[$fallbackIndex] ?? null;
+        return $fallbackIndex === null ? null : ($row[$fallbackIndex] ?? null);
     }
 
     private function resolveUnit(string $value): ?Unit
@@ -309,6 +372,17 @@ class VirtualAccountImportService
                 $query->whereRaw('LOWER(code) = ?', [$needle])
                     ->orWhereRaw('LOWER(name) = ?', [$needle]);
             })
+            ->first();
+    }
+
+    private function resolveStudyProgram(Unit $unit, string $value): ?StudyProgram
+    {
+        $code = mb_strtoupper(trim($value));
+
+        return StudyProgram::query()
+            ->where('unit_id', $unit->id)
+            ->where('is_active', true)
+            ->whereRaw('UPPER(code) = ?', [$code])
             ->first();
     }
 
