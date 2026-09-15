@@ -55,6 +55,40 @@ class UnitResource extends Resource
                         ->rows(4)
                         ->columnSpanFull(),
                 ]),
+            Forms\Components\Section::make('Informasi Publik & Helpdesk')
+                ->description('Informasi ini dapat ditampilkan pada portal penerimaan publik. Kosongkan field yang tidak ingin dipublikasikan.')
+                ->columns(2)
+                ->schema([
+                    Forms\Components\TextInput::make('public_contact_name')
+                        ->label('Nama Helpdesk')
+                        ->placeholder('Panitia SPMB SMA Taruna Bakti')
+                        ->maxLength(120),
+                    Forms\Components\TextInput::make('public_email')
+                        ->label('Email Publik')
+                        ->email()
+                        ->maxLength(150),
+                    Forms\Components\TextInput::make('public_phone')
+                        ->label('Telepon Publik')
+                        ->tel()
+                        ->maxLength(30),
+                    Forms\Components\TextInput::make('public_whatsapp')
+                        ->label('WhatsApp Publik')
+                        ->helperText('Simpan nomor dalam format internasional tanpa tanda +, contoh: 6281234567890.')
+                        ->rule('regex:/^[0-9]{8,20}$/')
+                        ->maxLength(30),
+                    Forms\Components\TextInput::make('public_service_hours')
+                        ->label('Jam Layanan')
+                        ->placeholder('Senin–Jumat, 08.00–14.00 WIB')
+                        ->maxLength(120),
+                    Forms\Components\TextInput::make('public_website_url')
+                        ->label('Website Unit')
+                        ->url()
+                        ->maxLength(255),
+                    Forms\Components\Textarea::make('public_address')
+                        ->label('Alamat Layanan')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ]),
         ]);
     }
 
