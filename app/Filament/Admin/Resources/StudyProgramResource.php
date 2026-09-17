@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\StudyProgramResource\Pages;
+use App\Models\EducationLevel;
 use App\Models\StudyProgram;
 use App\Models\Unit;
 use Filament\Forms;
@@ -53,10 +54,21 @@ class StudyProgramResource extends Resource
                         ->searchable()
                         ->preload()
                         ->required(),
-                    Forms\Components\Select::make('degree_level')
+                    Forms\Components\Select::make('education_level_id')
                         ->label('Jenjang')
-                        ->options(['D3' => 'Diploma 3 (D3)', 'D4' => 'Sarjana Terapan (D4)', 'S1' => 'Sarjana (S1)', 'S2' => 'Magister (S2)', 'S3' => 'Doktor (S3)'])
-                        ->required(),
+                        ->options(fn (): array => EducationLevel::query()
+                            ->active()
+                            ->where('category', 'higher_education')
+                            ->ordered()
+                            ->get()
+                            ->mapWithKeys(fn (EducationLevel $level): array => [
+                                $level->id => $level->code.' — '.$level->name,
+                            ])
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->helperText('Jenjang menjadi sumber urutan dan filter portal publik.'),
                     Forms\Components\TextInput::make('code')
                         ->label('Kode Program Studi')
                         ->required()
@@ -80,10 +92,11 @@ class StudyProgramResource extends Resource
                         ->suffix('tahun')
                         ->helperText('Kosongkan bila program studi tidak memiliki batas usia.'),
                     Forms\Components\TextInput::make('sort_order')
-                        ->label('Urutan')
+                        ->label('Urutan Program dalam Jenjang')
                         ->numeric()
                         ->default(0)
-                        ->minValue(0),
+                        ->minValue(0)
+                        ->helperText('Digunakan untuk mengurutkan program studi di dalam jenjang yang sama, bukan urutan antarjenjang.'),
                     Forms\Components\Textarea::make('description')
                         ->label('Deskripsi')
                         ->rows(4)
@@ -101,7 +114,7 @@ class StudyProgramResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('unit.name')->label('Perguruan Tinggi')->badge(),
-                Tables\Columns\TextColumn::make('degree_level')->label('Jenjang')->badge()->sortable(),
+                Tables\Columns\TextColumn::make('educationLevel.code')->label('Jenjang')->badge()->sortable(),
                 Tables\Columns\TextColumn::make('name')->label('Program Studi')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('code')->label('Kode')->copyable()->searchable(),
                 Tables\Columns\TextColumn::make('faculty')->label('Fakultas')->placeholder('-')->toggleable(),
@@ -110,9 +123,14 @@ class StudyProgramResource extends Resource
                 Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('degree_level')
+                Tables\Filters\SelectFilter::make('education_level_id')
                     ->label('Jenjang')
-                    ->options(['D3' => 'D3', 'D4' => 'D4', 'S1' => 'S1', 'S2' => 'S2', 'S3' => 'S3']),
+                    ->options(fn (): array => EducationLevel::query()
+                        ->active()
+                        ->where('category', 'higher_education')
+                        ->ordered()
+                        ->pluck('code', 'id')
+                        ->all()),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -122,7 +140,7 @@ class StudyProgramResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('unit')
+            ->with(['unit', 'educationLevel'])
             ->when(
                 auth()->user()?->isTU() && auth()->user()?->unit_id,
                 fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id),

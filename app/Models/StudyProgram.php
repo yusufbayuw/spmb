@@ -6,6 +6,8 @@ use App\Models\Concerns\HasPublicUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class StudyProgram extends Model
@@ -15,6 +17,7 @@ class StudyProgram extends Model
 
     protected $fillable = [
         'unit_id',
+        'education_level_id',
         'code',
         'name',
         'degree_level',
@@ -40,6 +43,23 @@ class StudyProgram extends Model
                 throw ValidationException::withMessages([
                     'unit_id' => 'Program studi hanya dapat dibuat pada unit perguruan tinggi.',
                 ]);
+            }
+
+            if (Schema::hasTable('education_levels') && Schema::hasColumn('study_programs', 'education_level_id')) {
+                $level = $program->education_level_id
+                    ? EducationLevel::query()->find($program->education_level_id)
+                    : EducationLevel::query()
+                        ->where('code', mb_strtoupper(trim((string) $program->degree_level)))
+                        ->first();
+
+                if (! $level || ! $level->isHigherEducation()) {
+                    throw ValidationException::withMessages([
+                        'education_level_id' => 'Pilih jenjang perguruan tinggi yang valid.',
+                    ]);
+                }
+
+                $program->education_level_id = $level->id;
+                $program->degree_level = $level->code;
             }
 
             $code = mb_strtoupper(trim((string) $program->code));
@@ -77,6 +97,11 @@ class StudyProgram extends Model
         return $this->belongsTo(Unit::class);
     }
 
+    public function educationLevel(): BelongsTo
+    {
+        return $this->belongsTo(EducationLevel::class);
+    }
+
     public function registrationOpenings()
     {
         return $this->hasMany(RegistrationOpening::class);
@@ -89,7 +114,9 @@ class StudyProgram extends Model
 
     public function label(): string
     {
-        return trim($this->degree_level.' '.$this->name);
+        $level = $this->educationLevel?->code ?? $this->degree_level;
+
+        return trim($level.' '.$this->name);
     }
 
     public function assertApplicantAge(string|\DateTimeInterface|null $birthDate): void

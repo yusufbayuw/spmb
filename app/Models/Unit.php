@@ -5,7 +5,10 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class Unit extends Model
 {
@@ -22,6 +25,7 @@ class Unit extends Model
         'name',
         'code',
         'institution_type',
+        'education_level_id',
         'description',
         'public_contact_name',
         'public_email',
@@ -34,6 +38,49 @@ class Unit extends Model
     ];
 
     protected $casts = ['is_active' => 'boolean'];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Unit $unit): void {
+            if (! Schema::hasTable('education_levels') || ! Schema::hasColumn('units', 'education_level_id')) {
+                return;
+            }
+
+            if ($unit->institution_type === 'university') {
+                $unit->education_level_id = null;
+
+                return;
+            }
+
+            if (! $unit->education_level_id && filled($unit->code)) {
+                $matchingLevel = EducationLevel::query()
+                    ->where('code', mb_strtoupper(trim((string) $unit->code)))
+                    ->where('category', $unit->institution_type)
+                    ->first();
+
+                if ($matchingLevel) {
+                    $unit->education_level_id = $matchingLevel->id;
+                }
+            }
+
+            if (! $unit->education_level_id) {
+                return;
+            }
+
+            $level = EducationLevel::query()->find($unit->education_level_id);
+
+            if (! $level || $level->category !== $unit->institution_type) {
+                throw ValidationException::withMessages([
+                    'education_level_id' => 'Jenjang pendidikan tidak sesuai dengan jenis institusi yang dipilih.',
+                ]);
+            }
+        });
+    }
+
+    public function educationLevel(): BelongsTo
+    {
+        return $this->belongsTo(EducationLevel::class);
+    }
 
     public function registrations()
     {
@@ -72,7 +119,14 @@ class Unit extends Model
 
     public function studyPrograms()
     {
-        return $this->hasMany(StudyProgram::class)->orderBy('sort_order')->orderBy('degree_level')->orderBy('name');
+        return $this->hasMany(StudyProgram::class)
+            ->orderBy(
+                EducationLevel::query()
+                    ->select('sort_order')
+                    ->whereColumn('education_levels.id', 'study_programs.education_level_id')
+            )
+            ->orderBy('sort_order')
+            ->orderBy('name');
     }
 
     public function isHigherEducation(): bool

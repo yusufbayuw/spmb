@@ -2,56 +2,64 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EducationLevel;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
-use App\Models\Unit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class HomeController extends Controller
 {
     public function __invoke(Request $request): View
     {
-        $selectedCategory = $request->string('kategori')->toString() === 'universitas' ? 'universitas' : 'sekolah';
-        $selectedUnitCode = trim($request->string('unit')->toString()) ?: null;
-        $selectedDegree = trim($request->string('jenjang')->toString()) ?: null;
-
-        $schoolUnits = Unit::query()
-            ->where('is_active', true)
-            ->whereIn('institution_type', ['early_childhood', 'school'])
-            ->orderByRaw("CASE code WHEN 'DC' THEN 1 WHEN 'KB' THEN 2 WHEN 'TK' THEN 3 WHEN 'SD' THEN 4 WHEN 'SMP' THEN 5 WHEN 'SMA' THEN 6 ELSE 99 END")
-            ->orderBy('name')
+        $educationLevels = EducationLevel::query()
+            ->active()
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereHas('units', fn (Builder $unitQuery): Builder => $unitQuery
+                        ->where('is_active', true)
+                        ->whereIn('institution_type', ['early_childhood', 'school']))
+                    ->orWhereHas('studyPrograms', fn (Builder $programQuery): Builder => $programQuery
+                        ->where('is_active', true)
+                        ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery
+                            ->where('is_active', true)
+                            ->where('institution_type', 'university')));
+            })
+            ->ordered()
             ->get();
 
-        $universities = Unit::query()
-            ->where('is_active', true)
-            ->where('institution_type', 'university')
-            ->with(['studyPrograms' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order')])
-            ->orderBy('name')
-            ->get();
+        $selectedLevelCode = mb_strtoupper(trim($request->string('jenjang')->toString())) ?: null;
 
-        $openOfferings = $this->applyPublicFilters(
-            RegistrationOpening::query()->currentlyOpen()->with(['unit', 'studyProgram']),
-            $selectedCategory,
-            $selectedUnitCode,
-            $selectedDegree,
-        )
-            ->orderBy('closed_at')
-            ->orderBy('unit_id')
-            ->orderBy('study_program_id')
-            ->get();
+        // Backward compatibility for old public links such as ?kategori=sekolah&unit=SD.
+        if (! $selectedLevelCode) {
+            $selectedLevelCode = mb_strtoupper(trim($request->string('unit')->toString())) ?: null;
+        }
 
-        $upcomingOfferings = $this->applyPublicFilters(
-            RegistrationOpening::query()->upcoming()->with(['unit', 'studyProgram']),
-            $selectedCategory,
-            $selectedUnitCode,
-            $selectedDegree,
-        )
-            ->orderBy('opened_at')
-            ->orderBy('unit_id')
-            ->orderBy('study_program_id')
-            ->get();
+        if ($selectedLevelCode && ! $educationLevels->contains('code', $selectedLevelCode)) {
+            $selectedLevelCode = null;
+        }
+
+        $openOfferings = $this->sortOfferings(
+            $this->applyPublicFilters(
+                RegistrationOpening::query()
+                    ->currentlyOpen()
+                    ->with(['unit.educationLevel', 'studyProgram.educationLevel']),
+                $selectedLevelCode,
+            )->get(),
+            'closed_at',
+        );
+
+        $upcomingOfferings = $this->sortOfferings(
+            $this->applyPublicFilters(
+                RegistrationOpening::query()
+                    ->upcoming()
+                    ->with(['unit.educationLevel', 'studyProgram.educationLevel']),
+                $selectedLevelCode,
+            )->get(),
+            'opened_at',
+        );
 
         $registrationPreviews = collect();
         $user = $request->user();
@@ -73,48 +81,69 @@ class HomeController extends Controller
             ->values();
 
         $headlineAcademicYear = $academicYears->count() === 1 ? $academicYears->first() : null;
-        $degreeOptions = $universities
-            ->flatMap->studyPrograms
-            ->pluck('degree_level')
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values();
 
         return view('welcome', compact(
-            'schoolUnits',
-            'universities',
+            'educationLevels',
             'openOfferings',
             'upcomingOfferings',
             'registrationPreviews',
             'headlineAcademicYear',
-            'selectedCategory',
-            'selectedUnitCode',
-            'selectedDegree',
-            'degreeOptions',
+            'selectedLevelCode',
         ));
     }
 
-    private function applyPublicFilters(
-        Builder $query,
-        string $category,
-        ?string $unitCode,
-        ?string $degree,
-    ): Builder {
-        $query->whereHas('unit', function (Builder $unitQuery) use ($category): void {
-            $category === 'universitas'
-                ? $unitQuery->where('institution_type', 'university')
-                : $unitQuery->whereIn('institution_type', ['early_childhood', 'school']);
+    private function applyPublicFilters(Builder $query, ?string $levelCode): Builder
+    {
+        if (! $levelCode) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $offeringQuery) use ($levelCode): void {
+            $offeringQuery
+                ->where(function (Builder $schoolQuery) use ($levelCode): void {
+                    $schoolQuery
+                        ->whereNull('study_program_id')
+                        ->whereHas('unit.educationLevel', fn (Builder $levelQuery): Builder => $levelQuery->where('code', $levelCode));
+                })
+                ->orWhereHas('studyProgram.educationLevel', fn (Builder $levelQuery): Builder => $levelQuery->where('code', $levelCode));
         });
+    }
 
-        if ($unitCode) {
-            $query->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->where('code', $unitCode));
-        }
+    private function sortOfferings(Collection $offerings, string $dateColumn): Collection
+    {
+        return $offerings
+            ->sort(function (RegistrationOpening $left, RegistrationOpening $right) use ($dateColumn): int {
+                $leftLevel = $left->studyProgram?->educationLevel ?? $left->unit?->educationLevel;
+                $rightLevel = $right->studyProgram?->educationLevel ?? $right->unit?->educationLevel;
 
-        if ($category === 'universitas' && $degree) {
-            $query->whereHas('studyProgram', fn (Builder $programQuery): Builder => $programQuery->where('degree_level', $degree));
-        }
+                $comparison = ($leftLevel?->sort_order ?? PHP_INT_MAX) <=> ($rightLevel?->sort_order ?? PHP_INT_MAX);
 
-        return $query;
+                if ($comparison !== 0) {
+                    return $comparison;
+                }
+
+                $leftDate = $left->{$dateColumn}?->getTimestamp() ?? PHP_INT_MAX;
+                $rightDate = $right->{$dateColumn}?->getTimestamp() ?? PHP_INT_MAX;
+                $comparison = $leftDate <=> $rightDate;
+
+                if ($comparison !== 0) {
+                    return $comparison;
+                }
+
+                $comparison = strcmp((string) $left->unit?->name, (string) $right->unit?->name);
+
+                if ($comparison !== 0) {
+                    return $comparison;
+                }
+
+                $comparison = ($left->studyProgram?->sort_order ?? 0) <=> ($right->studyProgram?->sort_order ?? 0);
+
+                if ($comparison !== 0) {
+                    return $comparison;
+                }
+
+                return ($left->id ?? 0) <=> ($right->id ?? 0);
+            })
+            ->values();
     }
 }

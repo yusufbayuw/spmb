@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\UnitResource\Pages;
+use App\Models\EducationLevel;
 use App\Models\Unit;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -46,7 +47,24 @@ class UnitResource extends Resource
                         ->label('Jenis Institusi')
                         ->options(Unit::INSTITUTION_TYPES)
                         ->default('school')
+                        ->live()
                         ->required(),
+                    Forms\Components\Select::make('education_level_id')
+                        ->label('Jenjang Pendidikan')
+                        ->options(fn (): array => EducationLevel::query()
+                            ->active()
+                            ->whereIn('category', ['early_childhood', 'school'])
+                            ->ordered()
+                            ->get()
+                            ->mapWithKeys(fn (EducationLevel $level): array => [
+                                $level->id => $level->code.' — '.$level->name,
+                            ])
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->visible(fn ($get): bool => $get('institution_type') !== 'university')
+                        ->required(fn ($get): bool => $get('institution_type') !== 'university')
+                        ->helperText('Jenjang menjadi sumber urutan dan filter portal publik.'),
                     Forms\Components\Toggle::make('is_active')
                         ->label('Aktif')
                         ->default(true),
@@ -99,6 +117,11 @@ class UnitResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Unit / Institusi')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('code')->label('Kode')->badge(),
+                Tables\Columns\TextColumn::make('educationLevel.code')
+                    ->label('Jenjang')
+                    ->badge()
+                    ->placeholder('-')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('institution_type')
                     ->label('Jenis')
                     ->badge()
@@ -112,6 +135,13 @@ class UnitResource extends Resource
                 Tables\Filters\SelectFilter::make('institution_type')
                     ->label('Jenis Institusi')
                     ->options(Unit::INSTITUTION_TYPES),
+                Tables\Filters\SelectFilter::make('education_level_id')
+                    ->label('Jenjang')
+                    ->options(fn (): array => EducationLevel::query()
+                        ->active()
+                        ->ordered()
+                        ->pluck('code', 'id')
+                        ->all()),
             ])
             ->actions([
                 Tables\Actions\Action::make('shareAdmissions')
@@ -145,6 +175,7 @@ class UnitResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with('educationLevel')
             ->when(
                 auth()->user()?->isTU(),
                 fn (Builder $query): Builder => $query->whereKey(auth()->user()->unit_id),
