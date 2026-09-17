@@ -48,13 +48,14 @@ class PublicAdmissionsHomepageTest extends TestCase
         $response = $this->get('/?kategori=sekolah');
 
         $response->assertOk();
-        $response->assertSee('Portal Resmi Penerimaan');
-        $response->assertSee('Pendaftaran saat ini');
+        $response->assertSee('Pendaftaran Taruna Bakti');
+        $response->assertSee('Pilih jenjang dan pembukaan pendaftaran');
         $response->assertSee('Gelombang Aktif');
         $response->assertSee('Rp 300.000');
         $response->assertSee('Gelombang Mendatang');
         $response->assertSee('Akan Dibuka');
         $response->assertDontSee('Gelombang Arsip');
+        $response->assertDontSee('Portal Resmi Penerimaan');
         $response->assertSee(route('admissions.show', $open), false);
         $response->assertSee(route('admissions.apply', $open), false);
     }
