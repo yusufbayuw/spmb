@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
+use App\Support\SpmbOperationalMode;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,6 +39,12 @@ class StudyProgram extends Model
     protected static function booted(): void
     {
         static::saving(function (StudyProgram $program): void {
+            if (! SpmbOperationalMode::allowsHigherEducation()) {
+                throw ValidationException::withMessages([
+                    'unit_id' => 'Program studi tidak tersedia pada mode operasional K12.',
+                ]);
+            }
+
             $unit = Unit::query()->find($program->unit_id);
 
             if (! $unit?->isHigherEducation()) {
@@ -90,6 +98,17 @@ class StudyProgram extends Model
 
             $program->code = $code;
         });
+    }
+
+    public function scopeForOperationalMode(Builder $query): Builder
+    {
+        return $query->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->forOperationalMode());
+    }
+
+    public function isAllowedByOperationalMode(): bool
+    {
+        return SpmbOperationalMode::allowsHigherEducation()
+            && ($this->unit?->isAllowedByOperationalMode() ?? false);
     }
 
     public function unit()

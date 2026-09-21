@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\RegistrationOpeningResource\Pages;
 use App\Models\RegistrationOpening;
 use App\Models\StudyProgram;
 use App\Models\Unit;
+use App\Support\SpmbOperationalMode;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -44,7 +45,7 @@ class RegistrationOpeningResource extends Resource
                             'name',
                             fn (Builder $query): Builder => auth()->user()?->isTU() && auth()->user()?->unit_id
                                 ? $query->whereKey(auth()->user()->unit_id)
-                                : $query->where('is_active', true),
+                                : $query->forOperationalMode()->where('is_active', true),
                         )
                         ->default(fn () => auth()->user()?->isTU() ? auth()->user()->unit_id : null)
                         ->disabled(fn (): bool => auth()->user()?->isTU() ?? false)
@@ -174,7 +175,9 @@ class RegistrationOpeningResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'studyProgram']);
+        $query = parent::getEloquentQuery()
+            ->forOperationalMode()
+            ->with(['unit', 'studyProgram']);
 
         if (auth()->user()?->isTU() && auth()->user()?->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
@@ -185,7 +188,9 @@ class RegistrationOpeningResource extends Resource
 
     public static function isUniversityUnit($unitId): bool
     {
-        return filled($unitId) && Unit::query()->whereKey($unitId)->where('institution_type', 'university')->exists();
+        return SpmbOperationalMode::allowsHigherEducation()
+            && filled($unitId)
+            && Unit::query()->forOperationalMode()->whereKey($unitId)->where('institution_type', 'university')->exists();
     }
 
     public static function canDelete($record): bool

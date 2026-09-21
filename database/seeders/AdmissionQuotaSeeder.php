@@ -13,7 +13,7 @@ class AdmissionQuotaSeeder extends Seeder
      */
     public function run(): void
     {
-        RegistrationOpening::query()->with('unit')->each(function (RegistrationOpening $opening): void {
+        RegistrationOpening::query()->forOperationalMode()->with('unit')->each(function (RegistrationOpening $opening): void {
             AdmissionQuota::firstOrCreate(
                 ['registration_opening_id' => $opening->id, 'registration_pathway_id' => null],
                 [

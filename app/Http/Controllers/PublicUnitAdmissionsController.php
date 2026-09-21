@@ -12,7 +12,7 @@ class PublicUnitAdmissionsController extends Controller
 {
     public function __invoke(Unit $unit): View
     {
-        abort_unless($unit->is_active, 404);
+        abort_unless($unit->is_active && $unit->isAllowedByOperationalMode(), 404);
 
         $openings = $this->sortOpenings(
             $unit->registrationOpenings()

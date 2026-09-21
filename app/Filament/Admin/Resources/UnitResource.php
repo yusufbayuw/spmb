@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\UnitResource\Pages;
 use App\Models\EducationLevel;
 use App\Models\Unit;
+use App\Support\SpmbOperationalMode;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -45,13 +46,19 @@ class UnitResource extends Resource
                         ->unique(ignoreRecord: true),
                     Forms\Components\Select::make('institution_type')
                         ->label('Jenis Institusi')
-                        ->options(Unit::INSTITUTION_TYPES)
-                        ->default('school')
+                        ->options(fn (): array => array_intersect_key(
+                            Unit::INSTITUTION_TYPES,
+                            array_flip(SpmbOperationalMode::allowedInstitutionTypes()),
+                        ))
+                        ->default(fn (): string => SpmbOperationalMode::isHigherEducation() ? 'university' : 'school')
+                        ->disabled(fn (): bool => SpmbOperationalMode::isHigherEducation())
+                        ->dehydrated()
                         ->live()
                         ->required(),
                     Forms\Components\Select::make('education_level_id')
                         ->label('Jenjang Pendidikan')
                         ->options(fn (): array => EducationLevel::query()
+                            ->forOperationalMode()
                             ->active()
                             ->whereIn('category', ['early_childhood', 'school'])
                             ->ordered()
@@ -134,10 +141,14 @@ class UnitResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('institution_type')
                     ->label('Jenis Institusi')
-                    ->options(Unit::INSTITUTION_TYPES),
+                    ->options(fn (): array => array_intersect_key(
+                        Unit::INSTITUTION_TYPES,
+                        array_flip(SpmbOperationalMode::allowedInstitutionTypes()),
+                    )),
                 Tables\Filters\SelectFilter::make('education_level_id')
                     ->label('Jenjang')
                     ->options(fn (): array => EducationLevel::query()
+                        ->forOperationalMode()
                         ->active()
                         ->ordered()
                         ->pluck('code', 'id')
@@ -175,6 +186,7 @@ class UnitResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->forOperationalMode()
             ->with('educationLevel')
             ->when(
                 auth()->user()?->isTU(),

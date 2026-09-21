@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\StudyProgramResource\Pages;
 use App\Models\EducationLevel;
 use App\Models\StudyProgram;
 use App\Models\Unit;
+use App\Support\SpmbOperationalMode;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -28,6 +29,18 @@ class StudyProgramResource extends Resource
     protected static ?string $navigationGroup = 'Konfigurasi SPMB';
 
     protected static ?int $navigationSort = 4;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return SpmbOperationalMode::allowsHigherEducation()
+            && parent::shouldRegisterNavigation();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return SpmbOperationalMode::allowsHigherEducation()
+            && parent::canViewAny();
+    }
 
     public static function form(Form $form): Form
     {
@@ -57,6 +70,7 @@ class StudyProgramResource extends Resource
                     Forms\Components\Select::make('education_level_id')
                         ->label('Jenjang')
                         ->options(fn (): array => EducationLevel::query()
+                            ->forOperationalMode()
                             ->active()
                             ->where('category', 'higher_education')
                             ->ordered()
@@ -126,6 +140,7 @@ class StudyProgramResource extends Resource
                 Tables\Filters\SelectFilter::make('education_level_id')
                     ->label('Jenjang')
                     ->options(fn (): array => EducationLevel::query()
+                        ->forOperationalMode()
                         ->active()
                         ->where('category', 'higher_education')
                         ->ordered()
@@ -140,6 +155,7 @@ class StudyProgramResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->forOperationalMode()
             ->with(['unit', 'educationLevel'])
             ->when(
                 auth()->user()?->isTU() && auth()->user()?->unit_id,
@@ -149,6 +165,10 @@ class StudyProgramResource extends Resource
 
     public static function canCreate(): bool
     {
+        if (! SpmbOperationalMode::allowsHigherEducation()) {
+            return false;
+        }
+
         if (auth()->user()?->isAdmin()) {
             return true;
         }
@@ -158,6 +178,7 @@ class StudyProgramResource extends Resource
         }
 
         return Unit::query()
+            ->forOperationalMode()
             ->whereKey(auth()->user()->unit_id)
             ->where('institution_type', 'university')
             ->exists();

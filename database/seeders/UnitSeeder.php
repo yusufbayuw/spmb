@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Unit;
+use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Seeder;
 
 class UnitSeeder extends Seeder
@@ -62,6 +63,10 @@ class UnitSeeder extends Seeder
         ];
 
         foreach ($units as $unit) {
+            if (! SpmbOperationalMode::allowsInstitutionType($unit['institution_type'])) {
+                continue;
+            }
+
             Unit::firstOrCreate(['code' => $unit['code']], $unit);
         }
     }

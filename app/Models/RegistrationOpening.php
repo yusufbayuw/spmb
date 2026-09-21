@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
 use App\Services\UnitConfigurationService;
+use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -55,6 +56,13 @@ class RegistrationOpening extends Model
             $opening->setAttribute('pathway', $opening->getAttribute('pathway') ?? '');
 
             $unit = Unit::query()->find($opening->unit_id);
+
+            if (! $unit || ! $unit->isAllowedByOperationalMode()) {
+                throw ValidationException::withMessages([
+                    'unit_id' => 'Unit / institusi tidak tersedia pada mode operasional aplikasi saat ini.',
+                ]);
+            }
+
             $configuration = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
             if ($configuration && ! $configuration->payment_enabled && in_array($opening->status, ['open', 'scheduled'], true) && (float) $opening->registration_fee > 0) {
                 throw ValidationException::withMessages(['registration_fee' => 'Biaya harus nol karena pembayaran dinonaktifkan pada konfigurasi unit.']);
@@ -153,9 +161,15 @@ class RegistrationOpening extends Model
         return $this->hasMany(SelectionBatch::class);
     }
 
+    public function scopeForOperationalMode(Builder $query): Builder
+    {
+        return $query->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->forOperationalMode());
+    }
+
     public function scopeCurrentlyOpen(Builder $query): Builder
     {
         return $query
+            ->forOperationalMode()
             ->where('status', '!=', 'archived')
             ->where(function (Builder $availability): void {
                 $availability
@@ -179,6 +193,7 @@ class RegistrationOpening extends Model
     public function scopeUpcoming(Builder $query): Builder
     {
         return $query
+            ->forOperationalMode()
             ->where('status', '!=', 'archived')
             ->whereNotNull('opened_at')
             ->whereNotNull('closed_at')
@@ -189,6 +204,7 @@ class RegistrationOpening extends Model
     public function scopeVisibleToApplicants(Builder $query): Builder
     {
         return $query
+            ->forOperationalMode()
             ->where('status', '!=', 'archived')
             ->where(function (Builder $visibility): void {
                 $visibility

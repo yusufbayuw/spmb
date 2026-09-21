@@ -13,7 +13,7 @@ class UnitRegistrationConfigurationSeeder extends Seeder
     public function run(): void
     {
         $service = app(UnitConfigurationService::class);
-        Unit::query()->each(function (Unit $unit) use ($service): void {
+        Unit::query()->forOperationalMode()->each(function (Unit $unit) use ($service): void {
             if ($service->current($unit->id) || Registration::where('unit_id', $unit->id)->exists()) {
                 $service->initialize($unit);
 

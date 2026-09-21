@@ -6,14 +6,15 @@ use App\Models\RegistrationOpening;
 use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Services\UnitConfigurationService;
+use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Seeder;
 
 class RegistrationOpeningSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['DC', 'KB', 'TK', 'SD', 'SMP', 'SMA'] as $code) {
-            $unit = Unit::query()->where('code', $code)->first();
+        foreach (SpmbOperationalMode::allowsK12() ? ['DC', 'KB', 'TK', 'SD', 'SMP', 'SMA'] : [] as $code) {
+            $unit = Unit::query()->forOperationalMode()->where('code', $code)->first();
 
             if (! $unit) {
                 continue;
@@ -36,7 +37,11 @@ class RegistrationOpeningSeeder extends Seeder
             );
         }
 
-        $tbu = Unit::query()->where('code', 'TBU')->first();
+        if (! SpmbOperationalMode::allowsHigherEducation()) {
+            return;
+        }
+
+        $tbu = Unit::query()->forOperationalMode()->where('code', 'TBU')->first();
 
         if (! $tbu) {
             return;

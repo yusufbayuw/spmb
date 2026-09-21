@@ -4,13 +4,17 @@ namespace Database\Seeders;
 
 use App\Models\AdmissionTest;
 use App\Models\TestSession;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 
 class TestSessionSeeder extends Seeder
 {
     public function run(): void
     {
-        AdmissionTest::query()->where('is_active', true)->each(function (AdmissionTest $test): void {
+        AdmissionTest::query()
+            ->where('is_active', true)
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->forOperationalMode())
+            ->each(function (AdmissionTest $test): void {
             if (TestSession::where('admission_test_id', $test->id)->exists()) {
                 return;
             }

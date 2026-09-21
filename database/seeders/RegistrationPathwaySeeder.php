@@ -10,7 +10,7 @@ class RegistrationPathwaySeeder extends Seeder
 {
     public function run(): void
     {
-        Unit::query()->each(function (Unit $unit): void {
+        Unit::query()->forOperationalMode()->each(function (Unit $unit): void {
             RegistrationPathway::query()->firstOrCreate(
                 [
                     'unit_id' => $unit->id,

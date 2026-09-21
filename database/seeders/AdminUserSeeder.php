@@ -43,7 +43,7 @@ class AdminUserSeeder extends Seeder
         ];
 
         foreach ($staff as $code => $identity) {
-            $unit = Unit::query()->where('code', $code)->first();
+            $unit = Unit::query()->forOperationalMode()->where('code', $code)->first();
 
             if (! $unit) {
                 continue;

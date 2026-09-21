@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
+use App\Support\SpmbOperationalMode;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,6 +44,14 @@ class Unit extends Model
     protected static function booted(): void
     {
         static::saving(function (Unit $unit): void {
+            $unit->institution_type ??= 'school';
+
+            if (! SpmbOperationalMode::allowsInstitutionType($unit->institution_type)) {
+                throw ValidationException::withMessages([
+                    'institution_type' => 'Jenis institusi tidak tersedia pada mode operasional aplikasi saat ini.',
+                ]);
+            }
+
             if (! Schema::hasTable('education_levels') || ! Schema::hasColumn('units', 'education_level_id')) {
                 return;
             }
@@ -75,6 +85,16 @@ class Unit extends Model
                 ]);
             }
         });
+    }
+
+    public function scopeForOperationalMode(Builder $query): Builder
+    {
+        return $query->whereIn('institution_type', SpmbOperationalMode::allowedInstitutionTypes());
+    }
+
+    public function isAllowedByOperationalMode(): bool
+    {
+        return SpmbOperationalMode::allowsInstitutionType($this->institution_type);
     }
 
     public function educationLevel(): BelongsTo

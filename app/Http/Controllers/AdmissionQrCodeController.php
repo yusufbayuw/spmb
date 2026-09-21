@@ -17,7 +17,7 @@ class AdmissionQrCodeController extends Controller
 {
     public function unit(Request $request, Unit $unit): Response
     {
-        abort_unless($unit->is_active, 404);
+        abort_unless($unit->is_active && $unit->isAllowedByOperationalMode(), 404);
 
         return $this->svgResponse(
             $request,

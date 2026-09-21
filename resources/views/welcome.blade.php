@@ -3,20 +3,20 @@
 @php
     $portal = config('spmb.portal', []);
     $pageTitle = $headlineAcademicYear
-        ? 'Penerimaan Taruna Bakti '.$headlineAcademicYear.' | SPMB & PMB'
-        : 'Penerimaan Taruna Bakti | SPMB & PMB';
+        ? 'Penerimaan Taruna Bakti '.$headlineAcademicYear.' | '.$operationalProfile['portal_label']
+        : 'Penerimaan Taruna Bakti | '.$operationalProfile['portal_label'];
 @endphp
 
 @section('title'){{ $pageTitle }}@endsection
-@section('description')Portal resmi penerimaan Yayasan Taruna Bakti dari Daycare hingga perguruan tinggi. Lihat pembukaan, jadwal, biaya, dan mulai pendaftaran secara daring.@endsection
+@section('description'){{ $operationalProfile['page_description'] }}@endsection
 
 @section('content')
     <section id="pendaftaran" class="scroll-mt-24 border-b border-slate-200 bg-white py-10 sm:py-12">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="max-w-3xl">
-                <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Pendaftaran Taruna Bakti</p>
-                <h1 class="mt-2 text-3xl font-extrabold tracking-[-0.03em] text-slate-950 sm:text-4xl">Pilih jenjang dan pembukaan pendaftaran</h1>
-                <p class="mt-3 text-base leading-7 text-slate-600">Pilih jenjang pendidikan atau program studi tujuan, lalu lihat pembukaan yang tersedia untuk memulai pendaftaran.</p>
+                <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">{{ $operationalProfile['public_eyebrow'] }}</p>
+                <h1 class="mt-2 text-3xl font-extrabold tracking-[-0.03em] text-slate-950 sm:text-4xl">{{ $operationalProfile['homepage_heading'] }}</h1>
+                <p class="mt-3 text-base leading-7 text-slate-600">{{ $operationalProfile['homepage_intro'] }}</p>
             </div>
 
             <div class="mt-6 flex flex-wrap gap-2" aria-label="Filter jenjang pendidikan">
@@ -90,7 +90,7 @@
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="max-w-3xl">
                 <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Pilih jenjang</p>
-                <h2 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Dari pendidikan anak usia dini hingga perguruan tinggi</h2>
+                <h2 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">{{ $operationalProfile['levels_heading'] }}</h2>
             </div>
             <div class="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ($educationLevels as $level)
@@ -155,8 +155,8 @@
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="max-w-3xl">
                 <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-300">{{ $portal['foundation_name'] ?? 'Yayasan Taruna Bakti' }}</p>
-                <h2 class="mt-3 text-3xl font-extrabold tracking-tight">Satu portal penerimaan untuk seluruh jenjang pendidikan.</h2>
-                <p class="mt-4 text-sm leading-7 text-slate-300">Portal ini merupakan kanal resmi penerimaan untuk Daycare, KB, TK, SD, SMP, SMA, dan perguruan tinggi di lingkungan Yayasan Taruna Bakti.</p>
+                <h2 class="mt-3 text-3xl font-extrabold tracking-tight">{{ $operationalProfile['scope_heading'] }}</h2>
+                <p class="mt-4 text-sm leading-7 text-slate-300">{{ $operationalProfile['scope_description'] }}</p>
                 @if (filled($portal['foundation_website'] ?? null))
                     <a href="{{ $portal['foundation_website'] }}" rel="noopener noreferrer" class="mt-5 inline-flex min-h-11 items-center rounded-xl border border-white/20 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10">Kunjungi Website Yayasan →</a>
                 @endif

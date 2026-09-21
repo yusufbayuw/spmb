@@ -4,13 +4,22 @@ namespace Database\Seeders;
 
 use App\Models\StudyProgram;
 use App\Models\Unit;
+use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Seeder;
 
 class StudyProgramSeeder extends Seeder
 {
     public function run(): void
     {
-        $tbu = Unit::query()->where('code', 'TBU')->firstOrFail();
+        if (! SpmbOperationalMode::allowsHigherEducation()) {
+            return;
+        }
+
+        $tbu = Unit::query()->forOperationalMode()->where('code', 'TBU')->first();
+
+        if (! $tbu) {
+            return;
+        }
 
         $programs = [
             [

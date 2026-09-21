@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EducationLevel;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,6 +16,7 @@ class HomeController extends Controller
     public function __invoke(Request $request): View
     {
         $educationLevels = EducationLevel::query()
+            ->forOperationalMode()
             ->active()
             ->where(function (Builder $query): void {
                 $query
@@ -81,6 +83,7 @@ class HomeController extends Controller
             ->values();
 
         $headlineAcademicYear = $academicYears->count() === 1 ? $academicYears->first() : null;
+        $operationalProfile = SpmbOperationalMode::profile();
 
         return view('welcome', compact(
             'educationLevels',
@@ -89,6 +92,7 @@ class HomeController extends Controller
             'registrationPreviews',
             'headlineAcademicYear',
             'selectedLevelCode',
+            'operationalProfile',
         ));
     }
 

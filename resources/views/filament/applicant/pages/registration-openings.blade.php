@@ -8,7 +8,7 @@
                             <x-filament::input
                                 type="search"
                                 wire:model.live.debounce.300ms="search"
-                                placeholder="Cari unit, program studi, atau gelombang..."
+                                placeholder="{{ $operationalProfile['search_placeholder'] }}"
                             />
                         </x-filament::input.wrapper>
                     </div>

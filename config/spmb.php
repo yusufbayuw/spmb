@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'operations' => [
+        'mode' => env('SPMB_MODE_OPS', 'MIXED'),
+    ],
+
     'portal' => [
         'name' => env('SPMB_PORTAL_NAME', 'Portal Penerimaan Taruna Bakti'),
         'foundation_name' => env('SPMB_FOUNDATION_NAME', 'Yayasan Taruna Bakti'),

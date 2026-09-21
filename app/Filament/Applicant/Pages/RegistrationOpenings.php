@@ -4,6 +4,7 @@ namespace App\Filament\Applicant\Pages;
 
 use App\Models\EducationLevel;
 use App\Models\RegistrationOpening;
+use App\Support\SpmbOperationalMode;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +37,7 @@ class RegistrationOpenings extends Page
     public function mount(): void
     {
         $this->educationLevelOptions = EducationLevel::query()
+            ->forOperationalMode()
             ->active()
             ->where(function (Builder $query): void {
                 $query
@@ -144,11 +146,14 @@ class RegistrationOpenings extends Page
 
     protected function getViewData(): array
     {
-        return ['openings' => $this->openings];
+        return [
+            'openings' => $this->openings,
+            'operationalProfile' => SpmbOperationalMode::profile(),
+        ];
     }
 
     public function getSubheading(): ?string
     {
-        return 'Pilih jenjang pendidikan atau program studi tujuan.';
+        return SpmbOperationalMode::profile()['applicant_subheading'];
     }
 }

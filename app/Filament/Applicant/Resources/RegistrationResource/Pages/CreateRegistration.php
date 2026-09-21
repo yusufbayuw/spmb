@@ -33,6 +33,7 @@ class CreateRegistration extends CreateRecord
         parent::mount();
 
         $opening = RegistrationOpening::query()
+            ->forOperationalMode()
             ->with(['unit', 'studyProgram'])
             ->where('uuid', request()->query('opening'))->first();
 
@@ -107,6 +108,7 @@ class CreateRegistration extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $opening = RegistrationOpening::query()
+            ->forOperationalMode()
             ->with(['unit', 'studyProgram'])
             ->where('uuid', $data['registration_opening_uuid'] ?? null)
             ->first();

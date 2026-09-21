@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -54,9 +55,19 @@ class EducationLevel extends Model
         return $this->hasMany(StudyProgram::class);
     }
 
+    public function scopeForOperationalMode(Builder $query): Builder
+    {
+        return $query->whereIn('category', SpmbOperationalMode::allowedEducationCategories());
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    public function isAllowedByOperationalMode(): bool
+    {
+        return in_array($this->category, SpmbOperationalMode::allowedEducationCategories(), true);
     }
 
     public function scopeOrdered(Builder $query): Builder
