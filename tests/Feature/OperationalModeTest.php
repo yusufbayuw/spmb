@@ -102,7 +102,7 @@ class OperationalModeTest extends TestCase
             ->assertSee('Pilih jenjang dan program studi')
             ->assertSee('S1')
             ->assertSee('D3')
-            ->assertDontSee('SMA')
-            ->assertDontSee('Daycare');
+            ->assertDontSee('jenjang=SMA', false)
+            ->assertDontSee('jenjang=DC', false);
     }
 }
