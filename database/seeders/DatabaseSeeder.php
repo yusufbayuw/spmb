@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             UnitSeeder::class,
             StudyProgramSeeder::class,
             RegistrationPathwaySeeder::class,
+            PublicContentSeeder::class,
             UnitRegistrationConfigurationSeeder::class,
             RegistrationOpeningSeeder::class,
             AdmissionQuotaSeeder::class,
