@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Faq;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
@@ -69,9 +70,23 @@ class PublicAdmissionsFlowTest extends TestCase
             'closed_at' => now()->addDays(40),
         ]);
 
+        Faq::create([
+            'unit_id' => $unit->id,
+            'question' => 'Kapan pendaftaran ditutup?',
+            'answer' => '<p>Ikuti tanggal yang tercantum pada gelombang aktif.</p>',
+            'is_active' => true,
+        ]);
+
+        $unit->update([
+            'public_headline' => 'Gabung Bersama SMA Taruna Bakti',
+            'public_body' => '<p>Kenali proses penerimaan dan siapkan dokumen sejak awal.</p>',
+        ]);
+
         $this->get(route('admissions.unit', ['unit' => $unit->code]))
             ->assertOk()
-            ->assertSee('Penerimaan SMA Taruna Bakti')
+            ->assertSee('Gabung Bersama SMA Taruna Bakti')
+            ->assertSee('Kenali proses penerimaan dan siapkan dokumen sejak awal.')
+            ->assertSee('Kapan pendaftaran ditutup?')
             ->assertSee('Penerimaan resmi SMA Taruna Bakti.')
             ->assertSee($open->wave)
             ->assertSee($upcoming->wave)

@@ -133,6 +133,66 @@
     <section class="bg-white py-16 sm:py-20">
         <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-8">
             <div class="space-y-12">
+                @if ($opening->studyProgram && (
+                    $opening->studyProgram->public_headline
+                    || $opening->studyProgram->description
+                    || $opening->studyProgram->public_body
+                    || $opening->studyProgram->study_duration
+                    || filled($opening->studyProgram->public_highlights)
+                    || filled($opening->studyProgram->public_target_audiences)
+                ))
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Informasi program</p>
+                        <h2 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">{{ $opening->studyProgram->public_headline ?: 'Tentang '.$opening->studyProgram->label() }}</h2>
+
+                        @if ($opening->studyProgram->description)
+                            <p class="mt-4 text-sm leading-7 text-slate-600">{{ $opening->studyProgram->description }}</p>
+                        @endif
+
+                        @if ($opening->studyProgram->study_duration)
+                            <div class="mt-5 inline-flex rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800">
+                                Durasi studi: {{ $opening->studyProgram->study_duration }}
+                            </div>
+                        @endif
+
+                        @if ($opening->studyProgram->public_body)
+                            <div class="cms-content mt-6">{!! $opening->studyProgram->public_body !!}</div>
+                        @endif
+
+                        @if (filled($opening->studyProgram->public_highlights))
+                            <div class="mt-7">
+                                <h3 class="text-lg font-extrabold text-slate-950">Keunggulan program</h3>
+                                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                    @foreach ($opening->studyProgram->public_highlights as $highlight)
+                                        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                            <p class="font-bold text-slate-900">{{ $highlight['title'] ?? 'Highlight' }}</p>
+                                            @if (filled($highlight['description'] ?? null))
+                                                <p class="mt-1 text-sm leading-6 text-slate-600">{{ $highlight['description'] }}</p>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        @if (filled($opening->studyProgram->public_target_audiences))
+                            <div class="mt-7">
+                                <h3 class="text-lg font-extrabold text-slate-950">Cocok untuk siapa?</h3>
+                                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                    @foreach ($opening->studyProgram->public_target_audiences as $audience)
+                                        <div class="rounded-xl border border-slate-200 p-4">
+                                            <p class="font-bold text-slate-900">{{ $audience['title'] ?? 'Calon mahasiswa' }}</p>
+                                            @if (filled($audience['description'] ?? null))
+                                                <p class="mt-1 text-sm leading-6 text-slate-600">{{ $audience['description'] }}</p>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
                 <div>
                     <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Jalur pendaftaran</p>
                     <h2 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">Pilihan jalur yang tersedia</h2>
@@ -151,6 +211,8 @@
                         <p class="mt-4 text-sm leading-7 text-slate-600">Jalur pendaftaran akan ditampilkan pada formulir sesuai konfigurasi unit.</p>
                     @endif
                 </div>
+
+                <x-admissions.faqs :faqs="$faqs" :contained="false" />
 
                 <div>
                     <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Sebelum mendaftar</p>

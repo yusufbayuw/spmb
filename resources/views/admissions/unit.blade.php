@@ -29,7 +29,7 @@
             <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
                 <div class="max-w-4xl">
                     <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Halaman resmi unit</p>
-                    <h1 class="mt-3 text-4xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-5xl">Penerimaan {{ $unit->name }}</h1>
+                    <h1 class="mt-3 text-4xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-5xl">{{ $unit->public_headline ?: 'Penerimaan '.$unit->name }}</h1>
                     @if ($unit->description)
                         <p class="mt-5 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">{{ $unit->description }}</p>
                     @else
@@ -50,6 +50,14 @@
             </div>
         </div>
     </section>
+
+    @if ($unit->public_body)
+        <section class="border-b border-slate-200 bg-white py-14 sm:py-16">
+            <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+                <div class="cms-content">{!! $unit->public_body !!}</div>
+            </div>
+        </section>
+    @endif
 
     <section class="bg-white py-16 sm:py-20">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -101,6 +109,8 @@
             @endif
         </div>
     </section>
+
+    <x-admissions.faqs :faqs="$faqs" />
 
     <section class="border-t border-slate-200 bg-slate-50 py-16">
         <div class="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-8">

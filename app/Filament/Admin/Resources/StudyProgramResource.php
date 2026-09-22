@@ -113,13 +113,77 @@ class StudyProgramResource extends Resource
                         ->minValue(0)
                         ->helperText('Digunakan untuk mengurutkan program studi di dalam jenjang yang sama, bukan urutan antarjenjang.'),
                     Forms\Components\Textarea::make('description')
-                        ->label('Deskripsi')
+                        ->label('Ringkasan Program')
+                        ->helperText('Ringkasan singkat yang dapat ditampilkan pada portal publik.')
                         ->rows(4)
                         ->columnSpanFull(),
                     Forms\Components\Toggle::make('is_active')
                         ->label('Aktif')
                         ->default(true),
                 ]),
+            Forms\Components\Section::make('Informasi Publik Program Studi')
+                ->description('Konten ini tampil pada halaman publik pembukaan program studi. Data biaya dan proses pendaftaran tetap berasal dari data bisnis, bukan dari editor konten.')
+                ->columns(2)
+                ->schema([
+                    Forms\Components\TextInput::make('public_headline')
+                        ->label('Judul Publik')
+                        ->placeholder('Kuliah Informatika dengan fondasi teknologi dan praktik nyata')
+                        ->maxLength(180)
+                        ->columnSpanFull(),
+                    Forms\Components\TextInput::make('study_duration')
+                        ->label('Durasi Studi')
+                        ->placeholder('8 semester / 4 tahun')
+                        ->maxLength(100),
+                    Forms\Components\RichEditor::make('public_body')
+                        ->label('Penjelasan Lengkap')
+                        ->toolbarButtons([
+                            'h2',
+                            'h3',
+                            'bold',
+                            'italic',
+                            'bulletList',
+                            'orderedList',
+                            'link',
+                            'undo',
+                            'redo',
+                        ])
+                        ->columnSpanFull(),
+                    Forms\Components\Repeater::make('public_highlights')
+                        ->label('Keunggulan / Highlight')
+                        ->default([])
+                        ->schema([
+                            Forms\Components\TextInput::make('title')
+                                ->label('Judul')
+                                ->required()
+                                ->maxLength(120),
+                            Forms\Components\Textarea::make('description')
+                                ->label('Keterangan')
+                                ->rows(2)
+                                ->maxLength(500),
+                        ])
+                        ->columns(2)
+                        ->columnSpanFull()
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): string => $state['title'] ?? 'Highlight'),
+                    Forms\Components\Repeater::make('public_target_audiences')
+                        ->label('Cocok untuk Siapa')
+                        ->default([])
+                        ->schema([
+                            Forms\Components\TextInput::make('title')
+                                ->label('Judul')
+                                ->required()
+                                ->maxLength(120),
+                            Forms\Components\Textarea::make('description')
+                                ->label('Keterangan')
+                                ->rows(2)
+                                ->maxLength(500),
+                        ])
+                        ->columns(2)
+                        ->columnSpanFull()
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): string => $state['title'] ?? 'Target calon mahasiswa'),
+                ])
+                ->collapsible(),
             Forms\Components\Section::make('Alur Pendaftaran Program Studi')
                 ->description('Template progres calon mahasiswa disimpan per program studi. Ubah label, penjelasan, urutan tampilan, atau sembunyikan tahap tertentu tanpa mengubah kunci workflow sistem.')
                 ->schema([

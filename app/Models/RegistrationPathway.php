@@ -67,6 +67,11 @@ class RegistrationPathway extends Model
         return $this->hasMany(Registration::class);
     }
 
+    public function faqs(): HasMany
+    {
+        return $this->hasMany(Faq::class);
+    }
+
     public function scopeAvailableForUnit(Builder $query, int $unitId): Builder
     {
         return $query

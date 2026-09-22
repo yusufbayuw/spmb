@@ -8,6 +8,7 @@ use App\Models\AdmissionTest;
 use App\Models\AdmissionTestResult;
 use App\Models\Announcement;
 use App\Models\Document;
+use App\Models\Faq;
 use App\Models\ParentInfo;
 use App\Models\Payment;
 use App\Models\Registration;
@@ -80,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
             StudyProgram::class,
             ParentInfo::class,
             Document::class,
+            Faq::class,
             Payment::class,
             VirtualAccount::class,
             VirtualAccountBatch::class,

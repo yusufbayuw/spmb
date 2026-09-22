@@ -29,6 +29,8 @@ class Unit extends Model
         'institution_type',
         'education_level_id',
         'description',
+        'public_headline',
+        'public_body',
         'public_contact_name',
         'public_email',
         'public_phone',
@@ -110,6 +112,11 @@ class Unit extends Model
     public function registrationOpenings()
     {
         return $this->hasMany(RegistrationOpening::class);
+    }
+
+    public function faqs(): HasMany
+    {
+        return $this->hasMany(Faq::class);
     }
 
     public function registrationPathways(): HasMany

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Faq;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use Illuminate\Http\Request;
@@ -26,6 +27,27 @@ class PublicRegistrationOpeningController extends Controller
             ->orderBy('name')
             ->get();
 
+        $faqs = Faq::query()
+            ->publiclyVisible()
+            ->where('unit_id', $registrationOpening->unit_id)
+            ->where(function ($query) use ($registrationOpening): void {
+                $query->whereNull('study_program_id');
+
+                if ($registrationOpening->study_program_id) {
+                    $query->orWhere('study_program_id', $registrationOpening->study_program_id);
+                }
+            })
+            ->where(function ($query) use ($pathways): void {
+                $query->whereNull('registration_pathway_id');
+
+                if ($pathways->isNotEmpty()) {
+                    $query->orWhereIn('registration_pathway_id', $pathways->pluck('id'));
+                }
+            })
+            ->with(['studyProgram', 'registrationPathway'])
+            ->ordered()
+            ->get();
+
         $existingRegistrations = collect();
         if ($request->user()?->isUser()) {
             $existingRegistrations = $request->user()
@@ -38,6 +60,7 @@ class PublicRegistrationOpeningController extends Controller
         return view('admissions.show', [
             'opening' => $registrationOpening,
             'pathways' => $pathways,
+            'faqs' => $faqs,
             'existingRegistrations' => $existingRegistrations,
         ]);
     }

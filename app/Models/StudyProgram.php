@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +26,11 @@ class StudyProgram extends Model
         'degree_level',
         'faculty',
         'description',
+        'public_headline',
+        'public_body',
+        'study_duration',
+        'public_highlights',
+        'public_target_audiences',
         'max_age',
         'sort_order',
         'is_active',
@@ -36,6 +42,8 @@ class StudyProgram extends Model
         'sort_order' => 'integer',
         'is_active' => 'boolean',
         'workflow_steps' => 'array',
+        'public_highlights' => 'array',
+        'public_target_audiences' => 'array',
     ];
 
     protected static function booted(): void
@@ -130,6 +138,11 @@ class StudyProgram extends Model
     public function registrationOpenings()
     {
         return $this->hasMany(RegistrationOpening::class);
+    }
+
+    public function faqs(): HasMany
+    {
+        return $this->hasMany(Faq::class);
     }
 
     public function virtualAccounts()

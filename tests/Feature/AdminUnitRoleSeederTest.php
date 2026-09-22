@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Admin\Pages\PublicInformationSettings;
 use App\Filament\Admin\Pages\TestSessions;
 use App\Filament\Admin\Pages\UnitRegistrationSettings;
 use App\Models\Unit;
@@ -94,9 +95,11 @@ class AdminUnitRoleSeederTest extends TestCase
         $this->actingAs($tu);
         $this->assertFalse(UnitRegistrationSettings::canAccess());
         $this->assertFalse(TestSessions::canAccess());
+        $this->assertFalse(PublicInformationSettings::canAccess());
 
         $this->actingAs($adminUnit);
         $this->assertTrue(UnitRegistrationSettings::canAccess());
         $this->assertTrue(TestSessions::canAccess());
+        $this->assertTrue(PublicInformationSettings::canAccess());
     }
 }

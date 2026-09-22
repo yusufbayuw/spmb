@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Faq;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use Illuminate\Database\Eloquent\Builder;
@@ -49,11 +50,20 @@ class PublicUnitAdmissionsController extends Controller
             )->take(3)->values();
         }
 
+        $faqs = Faq::query()
+            ->publiclyVisible()
+            ->where('unit_id', $unit->id)
+            ->whereNull('study_program_id')
+            ->whereNull('registration_pathway_id')
+            ->ordered()
+            ->get();
+
         return view('admissions.unit', [
             'unit' => $unit,
             'openings' => $openings,
             'upcomingOpenings' => $upcomingOpenings,
             'recentClosedOpenings' => $recentClosedOpenings,
+            'faqs' => $faqs,
         ]);
     }
 
