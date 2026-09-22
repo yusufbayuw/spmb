@@ -131,6 +131,16 @@ class Registration extends Model
             unset($stages['tests']);
         }
 
+        $unitStageLabels = is_array($configuration?->workflow_stage_labels)
+            ? $configuration->workflow_stage_labels
+            : [];
+
+        foreach ($stages as $stage => $defaultLabel) {
+            if (filled($unitStageLabels[$stage] ?? null)) {
+                $stages[$stage] = trim((string) $unitStageLabels[$stage]);
+            }
+        }
+
         return $stages;
     }
 
@@ -429,6 +439,12 @@ class Registration extends Model
             if (filled($configuredLabel)) {
                 return $configuredLabel;
             }
+        }
+
+        $unitConfiguredLabel = $this->configuration?->workflow_stage_labels[$this->current_stage] ?? null;
+
+        if (filled($unitConfiguredLabel)) {
+            return trim((string) $unitConfiguredLabel);
         }
 
         return self::STAGES[$this->current_stage] ?? (string) $this->current_stage;

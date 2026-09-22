@@ -80,11 +80,33 @@ class UnitConfigurationTest extends TestCase
             ->assertSee('Pengaturan Pendaftaran Unit')
             ->assertSee('Metode Penetapan Hasil')
             ->assertSee('Proses Pasca-Pengumuman')
+            ->assertSee('Nama Tahapan di Portal Pendaftar')
             ->assertSee('Kebijakan Isian Bawaan')
             ->assertSee('Wajibkan semua isian bawaan')
             ->call('showPreview')
             ->assertHasNoFormErrors()
             ->assertSee('Nama Lengkap');
+    }
+
+    public function test_admin_unit_can_customize_template_stage_labels(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['workflow_stage_labels']['selection'] = 'Seleksi Calon Siswa';
+
+        $published = $service->save($draft, $staff, $data, true);
+
+        $registration->update([
+            'unit_configuration_id' => $published->id,
+            'current_stage' => 'selection',
+        ]);
+
+        $registration->refresh();
+
+        $this->assertSame('Seleksi Calon Siswa', $registration->stageLabel());
+        $this->assertSame('Seleksi Calon Siswa', $registration->progressStages()['selection']);
     }
 
     public function test_all_required_builtin_policy_requires_defaults_without_expanding_every_field(): void

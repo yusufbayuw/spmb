@@ -57,13 +57,19 @@ class ReRegistration extends Page implements HasForms
     public function form(Form $form): Form
     {
         $fields = [];
+        $requirements = collect($this->registrationRecord->reRegistrationRequirements())->keyBy('key');
+
         foreach ($this->registrationRecord->reRegistrationItems as $item) {
             $label = $item->label.($item->is_required ? ' (wajib)' : '');
-            $helper = $item->rejection_reason ? 'Ditolak: '.$item->rejection_reason : match ($item->status) {
+            $instructions = trim((string) ($requirements->get($item->requirement_key)['instructions'] ?? ''));
+            $statusHelper = $item->rejection_reason ? 'Ditolak: '.$item->rejection_reason : match ($item->status) {
                 'verified' => 'Terverifikasi',
                 'submitted' => 'Menunggu verifikasi petugas',
                 default => 'Belum dikirim',
             };
+            $helper = collect([$instructions, $statusHelper])
+                ->filter(fn (?string $text): bool => filled($text))
+                ->implode(' • ');
             $field = match ($item->type) {
                 'document' => Forms\Components\FileUpload::make($item->requirement_key)
                     ->disk(ApplicantFileStorage::PRIVATE_DISK)

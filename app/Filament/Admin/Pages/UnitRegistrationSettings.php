@@ -78,6 +78,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $this->configurationUuid = $draft->uuid;
         $this->preview = false;
         $data = $draft->toArray();
+        $data['workflow_stage_labels'] = array_replace(
+            Registration::STAGES,
+            is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [],
+        );
         $data['test_definitions'] = collect($data['test_definitions'] ?? [])
             ->map(fn (array $definition): array => ['uuid' => AdmissionTest::query()->whereKey($definition['id'] ?? null)->value('uuid')])
             ->filter(fn (array $definition): bool => filled($definition['uuid']))
@@ -150,6 +154,19 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->label('Proses Pasca-Pengumuman')
                     ->helperText('Aktifkan workflow lanjutan setelah pengumuman. Untuk perguruan tinggi, nama dan urutan progres dapat diatur per Program Studi, misalnya Pembayaran Registrasi, Daftar Ulang, lalu Perwalian. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
             ])->columns(5),
+            Forms\Components\Section::make('Nama Tahapan di Portal Pendaftar')
+                ->description('Ubah nama tampilan setiap tahapan template tanpa mengubah kunci maupun logika workflow. Pada perguruan tinggi, pengaturan per Program Studi tetap menjadi override yang lebih spesifik.')
+                ->schema(
+                    collect(Registration::STAGES)
+                        ->map(fn (string $label, string $stage) => Forms\Components\TextInput::make('workflow_stage_labels.'.$stage)
+                            ->label($label)
+                            ->required()
+                            ->maxLength(120))
+                        ->values()
+                        ->all(),
+                )
+                ->columns(2)
+                ->collapsible(),
             Forms\Components\Section::make('Formulir Unit')
                 ->description('Tentukan kebijakan umum untuk isian bawaan. Repeater di bawah cukup digunakan untuk field yang perlu menjadi pengecualian atau dikustomisasi. Identitas inti tetap wajib.')
                 ->schema([

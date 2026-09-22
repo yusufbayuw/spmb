@@ -46,6 +46,7 @@ class UnitConfigurationService
             'tests_enabled' => count($tests) > 0,
             'selection_mode' => 'flexible',
             'post_announcement_enabled' => $unit->isHigherEducation(),
+            'workflow_stage_labels' => Registration::STAGES,
             'builtin_field_policy' => 'system_default',
             'academic_scores_enabled' => false,
             'academic_score_settings' => [
@@ -100,7 +101,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -286,6 +287,14 @@ class UnitConfigurationService
             $locked = UnitConfiguration::query()->lockForUpdate()->findOrFail($configuration->id);
 
             $data['builtin_field_policy'] ??= 'system_default';
+            $stageLabels = is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [];
+            $data['workflow_stage_labels'] = collect(Registration::STAGES)
+                ->mapWithKeys(fn (string $defaultLabel, string $stage): array => [
+                    $stage => filled($stageLabels[$stage] ?? null)
+                        ? trim((string) $stageLabels[$stage])
+                        : $defaultLabel,
+                ])
+                ->all();
             $data['academic_scores_enabled'] ??= false;
             $data['academic_score_settings'] = array_replace([
                 'required' => false,
@@ -309,6 +318,7 @@ class UnitConfigurationService
 
             $validated = Validator::make($data, [
                 'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
+                'workflow_stage_labels' => ['present', 'array'], 'workflow_stage_labels.*' => ['required', 'string', 'max:120'],
                 'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
                 'academic_scores_enabled' => ['required', 'boolean'],
                 'academic_score_settings' => ['present', 'array'],
