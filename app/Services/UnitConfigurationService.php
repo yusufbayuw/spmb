@@ -46,6 +46,7 @@ class UnitConfigurationService
             'tests_enabled' => count($tests) > 0,
             'selection_mode' => 'flexible',
             'post_announcement_enabled' => $unit->isHigherEducation(),
+            'builtin_field_policy' => 'system_default',
             'academic_scores_enabled' => false,
             'academic_score_settings' => [
                 'required' => false,
@@ -99,7 +100,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -284,6 +285,7 @@ class UnitConfigurationService
             Unit::query()->lockForUpdate()->findOrFail($configuration->unit_id);
             $locked = UnitConfiguration::query()->lockForUpdate()->findOrFail($configuration->id);
 
+            $data['builtin_field_policy'] ??= 'system_default';
             $data['academic_scores_enabled'] ??= false;
             $data['academic_score_settings'] = array_replace([
                 'required' => false,
@@ -307,6 +309,7 @@ class UnitConfigurationService
 
             $validated = Validator::make($data, [
                 'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
+                'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
                 'academic_scores_enabled' => ['required', 'boolean'],
                 'academic_score_settings' => ['present', 'array'],
                 'academic_score_settings.required' => ['required', 'boolean'],
@@ -397,6 +400,24 @@ class UnitConfigurationService
                 }
             }
             $fieldsByKey = collect($validated['fields'])->keyBy('key');
+            $allBuiltinsRequired = $validated['builtin_field_policy'] === 'all_required';
+            $effectiveBuiltin = function (string $key) use ($fieldsByKey, $allBuiltinsRequired): array {
+                $override = $fieldsByKey->get($key);
+
+                if ($override) {
+                    return [
+                        'active' => (bool) ($override['active'] ?? false),
+                        'required' => (bool) ($override['required'] ?? false),
+                    ];
+                }
+
+                if ($allBuiltinsRequired && in_array($key, ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                    return ['active' => true, 'required' => true];
+                }
+
+                return ['active' => false, 'required' => false];
+            };
+
             $regionHierarchy = [
                 'city_code' => ['province_code'],
                 'district_code' => ['province_code', 'city_code'],
@@ -404,22 +425,22 @@ class UnitConfigurationService
             ];
 
             foreach ($regionHierarchy as $fieldKey => $parentKeys) {
-                $field = $fieldsByKey->get($fieldKey);
+                $field = $effectiveBuiltin($fieldKey);
 
-                if (! ($field['active'] ?? false)) {
+                if (! $field['active']) {
                     continue;
                 }
 
                 foreach ($parentKeys as $parentKey) {
-                    $parent = $fieldsByKey->get($parentKey);
+                    $parent = $effectiveBuiltin($parentKey);
 
-                    if (! ($parent['active'] ?? false)) {
+                    if (! $parent['active']) {
                         throw ValidationException::withMessages([
                             'fields' => 'Field wilayah harus diaktifkan berurutan: Provinsi → Kabupaten/Kota → Kecamatan → Desa/Kelurahan.',
                         ]);
                     }
 
-                    if (($field['required'] ?? false) && ! ($parent['required'] ?? false)) {
+                    if ($field['required'] && ! $parent['required']) {
                         throw ValidationException::withMessages([
                             'fields' => 'Jika field wilayah turunan wajib, seluruh field wilayah induknya juga harus wajib.',
                         ]);
@@ -436,7 +457,7 @@ class UnitConfigurationService
                 ];
 
                 foreach ($regionModels as $fieldKey => $modelClass) {
-                    if (($fieldsByKey->get($fieldKey)['active'] ?? false) && ! $modelClass::query()->exists()) {
+                    if ($effectiveBuiltin($fieldKey)['active'] && ! $modelClass::query()->exists()) {
                         throw ValidationException::withMessages([
                             'fields' => 'Master wilayah Indonesia belum lengkap. Import master wilayah sebelum mempublikasikan field Provinsi/Kabupaten/Kecamatan/Desa.',
                         ]);

@@ -150,8 +150,20 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->label('Proses Pasca-Pengumuman')
                     ->helperText('Aktifkan workflow lanjutan setelah pengumuman. Untuk perguruan tinggi, nama dan urutan progres dapat diatur per Program Studi, misalnya Pembayaran Registrasi, Daftar Ulang, lalu Perwalian. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
             ])->columns(5),
-            Forms\Components\Section::make('Formulir Unit')->description('Pilih isian bawaan yang ingin disesuaikan atau tambahkan pertanyaan khusus. Identitas inti tetap wajib.')->schema([
-                Forms\Components\Repeater::make('fields')->label('Pengaturan field')->default([])->schema([
+            Forms\Components\Section::make('Formulir Unit')
+                ->description('Tentukan kebijakan umum untuk isian bawaan. Repeater di bawah cukup digunakan untuk field yang perlu menjadi pengecualian atau dikustomisasi. Identitas inti tetap wajib.')
+                ->schema([
+                Forms\Components\Select::make('builtin_field_policy')
+                    ->label('Kebijakan Isian Bawaan')
+                    ->options(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES)
+                    ->default('system_default')
+                    ->required()
+                    ->native(false)
+                    ->helperText('Pilih "Wajibkan semua isian bawaan" agar seluruh field bawaan aktif dan wajib tanpa mengatur satu per satu. Tambahkan field pada bagian pengecualian hanya bila perlu dibedakan.'),
+                Forms\Components\Repeater::make('fields')
+                    ->label('Kustomisasi / Pengecualian Field')
+                    ->helperText('Kosongkan bila semua field cukup mengikuti kebijakan di atas. Field yang ditambahkan di sini akan mengoverride status Aktif/Wajib, label, dan petunjuk untuk field tersebut.')
+                    ->default([])->schema([
                     Forms\Components\Select::make('key')
                         ->label('Isian')
                         ->options(fn (Forms\Get $get): array => ConfiguredRegistrationForm::fieldLabels() + [(! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true) && $get('key') ? $get('key') : 'custom_'.strtolower(Str::random(8))) => 'Pertanyaan tambahan'])

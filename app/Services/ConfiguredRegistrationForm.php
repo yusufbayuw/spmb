@@ -22,6 +22,11 @@ class ConfiguredRegistrationForm
 
     public const BUILTIN_FIELDS = ['nickname', 'religion', 'phone', 'email', 'province_code', 'city_code', 'district_code', 'village_code', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_phone', 'mother_email', 'mother_income'];
 
+    public const BUILTIN_FIELD_POLICIES = [
+        'system_default' => 'Gunakan bawaan sistem',
+        'all_required' => 'Wajibkan semua isian bawaan',
+    ];
+
     public static function fieldLabels(): array
     {
         $labels = ['nickname' => 'Nama panggilan', 'religion' => 'Agama', 'phone' => 'Telepon peserta', 'email' => 'Email peserta', 'province_code' => 'Provinsi', 'city_code' => 'Kabupaten/Kota', 'district_code' => 'Kecamatan', 'village_code' => 'Desa/Kelurahan', 'previous_school' => 'Sekolah asal', 'graduation_year' => 'Tahun lulus'];
@@ -36,9 +41,44 @@ class ConfiguredRegistrationForm
 
     public function hasActiveRegionFields(?UnitConfiguration $configuration): bool
     {
-        return collect($configuration?->fields ?? [])
-            ->contains(fn (array $field): bool => (bool) ($field['active'] ?? false)
-                && in_array($field['key'] ?? null, self::REGION_FIELDS, true));
+        if (! $configuration) {
+            return false;
+        }
+
+        return collect(self::REGION_FIELDS)
+            ->contains(fn (string $key): bool => (bool) ($this->builtinFieldState($configuration, $key)['active'] ?? false));
+    }
+
+    /**
+     * Resolve the effective built-in field state after applying the unit-wide
+     * policy and an optional per-field override.
+     *
+     * A null state means "leave the component's system default unchanged".
+     *
+     * @return array{active:?bool,required:?bool,overridden:bool}
+     */
+    public function builtinFieldState(?UnitConfiguration $configuration, string $key): array
+    {
+        if (! $configuration || ! in_array($key, self::BUILTIN_FIELDS, true)) {
+            return ['active' => null, 'required' => null, 'overridden' => false];
+        }
+
+        $definition = collect($configuration->fields ?? [])
+            ->first(fn (array $field): bool => ($field['key'] ?? null) === $key);
+
+        if ($definition) {
+            return [
+                'active' => (bool) ($definition['active'] ?? false),
+                'required' => (bool) ($definition['required'] ?? false),
+                'overridden' => true,
+            ];
+        }
+
+        if (($configuration->builtin_field_policy ?? 'system_default') === 'all_required') {
+            return ['active' => true, 'required' => true, 'overridden' => false];
+        }
+
+        return ['active' => null, 'required' => null, 'overridden' => false];
     }
 
     public function apply(array $components, ?UnitConfiguration $configuration): array
@@ -47,10 +87,23 @@ class ConfiguredRegistrationForm
             return $components;
         }
         $definitions = collect($configuration->fields)->keyBy('key');
-        $walk = function (array $items) use (&$walk, $definitions): array {
+        $walk = function (array $items) use (&$walk, $definitions, $configuration): array {
             foreach ($items as $item) {
-                if ($item instanceof Field && in_array($item->getName(), self::BUILTIN_FIELDS, true) && ($definition = $definitions->get($item->getName()))) {
-                    $item->label($definition['label'])->helperText($definition['help'] ?? null)->visible((bool) $definition['active'])->required((bool) $definition['required']);
+                if ($item instanceof Field && in_array($item->getName(), self::BUILTIN_FIELDS, true)) {
+                    $definition = $definitions->get($item->getName());
+                    $state = $this->builtinFieldState($configuration, $item->getName());
+
+                    if ($definition) {
+                        $item->label($definition['label'])->helperText($definition['help'] ?? null);
+                    }
+
+                    if ($state['active'] !== null) {
+                        $item->visible($state['active']);
+                    }
+
+                    if ($state['required'] !== null) {
+                        $item->required($state['required']);
+                    }
                 }
                 if (! $item instanceof Field) {
                     $children = $item->getChildComponents();

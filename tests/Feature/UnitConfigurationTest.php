@@ -80,9 +80,70 @@ class UnitConfigurationTest extends TestCase
             ->assertSee('Pengaturan Pendaftaran Unit')
             ->assertSee('Metode Penetapan Hasil')
             ->assertSee('Proses Pasca-Pengumuman')
+            ->assertSee('Kebijakan Isian Bawaan')
+            ->assertSee('Wajibkan semua isian bawaan')
             ->call('showPreview')
             ->assertHasNoFormErrors()
             ->assertSee('Nama Lengkap');
+    }
+
+    public function test_all_required_builtin_policy_requires_defaults_without_expanding_every_field(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['builtin_field_policy'] = 'all_required';
+        $data['fields'] = [[
+            'key' => 'nickname',
+            'label' => 'Nama Panggilan',
+            'type' => 'text',
+            'active' => true,
+            'required' => false,
+            'group' => null,
+            'help' => 'Pengecualian: nama panggilan tidak wajib.',
+            'options' => [],
+        ]];
+
+        $saved = $service->save($draft, $staff, $data);
+        $configuredForm = app(ConfiguredRegistrationForm::class);
+
+        $this->assertSame('all_required', $saved->builtin_field_policy);
+        $this->assertCount(1, $saved->fields);
+        $this->assertSame(
+            ['active' => true, 'required' => true, 'overridden' => false],
+            $configuredForm->builtinFieldState($saved, 'phone'),
+        );
+        $this->assertSame(
+            ['active' => true, 'required' => false, 'overridden' => true],
+            $configuredForm->builtinFieldState($saved, 'nickname'),
+        );
+        $this->assertSame(
+            ['active' => true, 'required' => true, 'overridden' => false],
+            $configuredForm->builtinFieldState($saved, 'province_code'),
+        );
+        $this->assertTrue($configuredForm->hasActiveRegionFields($saved));
+    }
+
+    public function test_admin_can_save_all_required_builtin_policy_from_unit_settings(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm(['builtin_field_policy' => 'all_required'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $draft = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'draft')
+            ->firstOrFail();
+
+        $this->assertSame('all_required', $draft->builtin_field_policy);
+        $this->assertSame([], $draft->fields);
     }
 
     public function test_publish_saves_current_form_state_before_publishing(): void
