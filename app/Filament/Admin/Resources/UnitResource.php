@@ -81,7 +81,7 @@ class UnitResource extends Resource
                         ->columnSpanFull(),
                 ]),
             Forms\Components\Section::make('Informasi Publik & Helpdesk')
-                ->description('Informasi ini dapat ditampilkan pada portal penerimaan publik. Kosongkan field yang tidak ingin dipublikasikan.')
+                ->description('Informasi ini dapat ditampilkan pada portal penerimaan publik. Pada mode HIGHER_EDUCATION, portal hanya memakai kontak unit ini tanpa fallback ke kontak yayasan. Kosongkan field yang tidak ingin dipublikasikan.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\TextInput::make('public_contact_name')

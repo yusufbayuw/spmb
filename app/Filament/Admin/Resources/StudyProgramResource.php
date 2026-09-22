@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\StudyProgramResource\Pages;
 use App\Models\EducationLevel;
+use App\Models\Registration;
 use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Support\SpmbOperationalMode;
@@ -119,6 +120,39 @@ class StudyProgramResource extends Resource
                         ->label('Aktif')
                         ->default(true),
                 ]),
+            Forms\Components\Section::make('Alur Pendaftaran Program Studi')
+                ->description('Template progres calon mahasiswa disimpan per program studi. Ubah label, penjelasan, urutan tampilan, atau sembunyikan tahap tertentu tanpa mengubah kunci workflow sistem.')
+                ->schema([
+                    Forms\Components\Repeater::make('workflow_steps')
+                        ->label('Template Tahapan')
+                        ->default(StudyProgram::defaultWorkflowSteps())
+                        ->schema([
+                            Forms\Components\Select::make('stage')
+                                ->label('Tahap Sistem')
+                                ->options(Registration::STAGES)
+                                ->disabled()
+                                ->dehydrated()
+                                ->required(),
+                            Forms\Components\TextInput::make('label')
+                                ->label('Nama Tahap')
+                                ->required()
+                                ->maxLength(120),
+                            Forms\Components\Toggle::make('visible')
+                                ->label('Tampilkan')
+                                ->default(true),
+                            Forms\Components\Textarea::make('description')
+                                ->label('Keterangan')
+                                ->rows(2)
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(3)
+                        ->reorderable()
+                        ->addable(false)
+                        ->deletable(false)
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): string => $state['label'] ?? 'Tahap pendaftaran'),
+                ])
+                ->collapsible(),
         ]);
     }
 

@@ -12,6 +12,13 @@ class EditStudyProgram extends EditRecord
 
     protected static string $resource = StudyProgramResource::class;
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['workflow_steps'] = $this->record->configuredWorkflowSteps();
+
+        return $data;
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
         if (auth()->user()?->isTU()) {

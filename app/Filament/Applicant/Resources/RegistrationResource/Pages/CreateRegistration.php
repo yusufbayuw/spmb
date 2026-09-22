@@ -137,7 +137,7 @@ class CreateRegistration extends CreateRecord
             throw ValidationException::withMessages(['unit_configuration_uuid' => 'Konfigurasi berubah. Muat ulang formulir sebelum mengirim.']);
         }
         if (! $configuration->payment_enabled && (float) $opening->registration_fee > 0) {
-            throw ValidationException::withMessages(['registration_opening_uuid' => 'Biaya pembukaan harus nol untuk alur tanpa pembayaran.']);
+            throw ValidationException::withMessages(['registration_opening_uuid' => 'Biaya formulir harus nol untuk alur tanpa pembayaran.']);
         }
         if (($data['unit_uuid'] ?? null) !== $opening->unit->uuid) {
             throw ValidationException::withMessages(['unit_uuid' => 'Unit pendaftaran tidak sesuai pembukaan yang dipilih.']);

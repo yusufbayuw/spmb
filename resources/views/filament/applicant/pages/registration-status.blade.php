@@ -1,8 +1,8 @@
 <x-filament-panels::page>
     @php
         $registration = $this->registrationRecord;
-        $stages = array_keys($registration->enabledStages());
-        $stageLabels = $registration->enabledStages();
+        $stages = array_keys($registration->progressStages());
+        $stageLabels = $registration->progressStages();
         $stageIndex = $this->stageIndex();
         $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
         $requiredDocuments = \App\Services\RegistrationWorkflowService::requiredDocuments($registration);
@@ -23,6 +23,9 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">
                         Proses pendaftaran telah mencapai {{ $progress }}%. Ikuti aksi yang tersedia agar proses dapat berlanjut.
                     </p>
+                    @if ($registration->currentStageDescription())
+                        <p class="text-sm text-gray-600 dark:text-gray-300">{{ $registration->currentStageDescription() }}</p>
+                    @endif
                 </div>
 
                 <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\Dashboard::getUrl() }}" color="gray" outlined icon="heroicon-m-arrow-left">

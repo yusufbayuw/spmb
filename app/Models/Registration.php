@@ -134,6 +134,57 @@ class Registration extends Model
         return $stages;
     }
 
+    /**
+     * Tahapan yang ditampilkan kepada pendaftar. Workflow internal tetap
+     * menggunakan enabledStages(), sedangkan program studi boleh mengatur
+     * label, urutan tampilan, keterangan, dan visibilitasnya.
+     */
+    public function progressStages(): array
+    {
+        $enabledStages = $this->enabledStages();
+        $studyProgram = $this->opening?->studyProgram;
+
+        if (! $this->unit?->isHigherEducation() || ! $studyProgram) {
+            return $enabledStages;
+        }
+
+        $configuredStages = [];
+        $representedStages = [];
+
+        foreach ($studyProgram->configuredWorkflowSteps() as $step) {
+            $stage = $step['stage'];
+
+            if (! array_key_exists($stage, $enabledStages)) {
+                continue;
+            }
+
+            $representedStages[$stage] = true;
+
+            if (($step['visible'] ?? true) || $stage === $this->current_stage) {
+                $configuredStages[$stage] = $step['label'];
+            }
+        }
+
+        foreach ($enabledStages as $stage => $label) {
+            if (! isset($representedStages[$stage])) {
+                $configuredStages[$stage] = $label;
+            }
+        }
+
+        return $configuredStages ?: $enabledStages;
+    }
+
+    public function currentStageDescription(): ?string
+    {
+        if (! $this->unit?->isHigherEducation() || ! $this->opening?->studyProgram) {
+            return null;
+        }
+
+        $description = $this->opening->studyProgram->workflowStep((string) $this->current_stage)['description'] ?? null;
+
+        return filled($description) ? $description : null;
+    }
+
     public function configuredTests(): array
     {
         if (! $this->configuration) {
@@ -372,6 +423,14 @@ class Registration extends Model
 
     public function stageLabel(): string
     {
+        if ($this->unit?->isHigherEducation() && $this->opening?->studyProgram) {
+            $configuredLabel = $this->opening->studyProgram->workflowStep((string) $this->current_stage)['label'] ?? null;
+
+            if (filled($configuredLabel)) {
+                return $configuredLabel;
+            }
+        }
+
         return self::STAGES[$this->current_stage] ?? (string) $this->current_stage;
     }
 

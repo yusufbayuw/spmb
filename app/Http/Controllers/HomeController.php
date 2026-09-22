@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EducationLevel;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\Unit;
 use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -84,6 +85,24 @@ class HomeController extends Controller
 
         $headlineAcademicYear = $academicYears->count() === 1 ? $academicYears->first() : null;
         $operationalProfile = SpmbOperationalMode::profile();
+        $helpdeskUnits = collect();
+
+        if (SpmbOperationalMode::isHigherEducation()) {
+            $helpdeskUnits = $openOfferings
+                ->concat($upcomingOfferings)
+                ->pluck('unit')
+                ->filter()
+                ->unique('id')
+                ->values();
+
+            if ($helpdeskUnits->isEmpty()) {
+                $helpdeskUnits = Unit::query()
+                    ->forOperationalMode()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get();
+            }
+        }
 
         return view('welcome', compact(
             'educationLevels',
@@ -93,6 +112,7 @@ class HomeController extends Controller
             'headlineAcademicYear',
             'selectedLevelCode',
             'operationalProfile',
+            'helpdeskUnits',
         ));
     }
 

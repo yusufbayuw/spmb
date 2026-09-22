@@ -44,10 +44,11 @@
             <div class="grid xl:grid-cols-2" style="gap: 1.5rem;">
                 @foreach ($registrations as $registration)
                     @php
-                        $stages = array_keys(\App\Models\Registration::STAGES);
+                        $progressStages = $registration->progressStages();
+                        $stages = array_keys($progressStages);
                         $stageIndex = array_search($registration->current_stage, $stages, true);
                         $stageIndex = $stageIndex === false ? 0 : $stageIndex;
-                        $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
+                        $progress = (int) round((($stageIndex + 1) / max(count($stages), 1)) * 100);
                         $isHigherEducation = $registration->unit?->isHigherEducation() ?? false;
                     @endphp
 

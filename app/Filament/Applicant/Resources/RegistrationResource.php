@@ -40,7 +40,7 @@ class RegistrationResource extends Resource
     {
         return $form->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)->apply([
             Forms\Components\Section::make('Pilihan Pendaftaran')
-                ->description('Unit/institusi, program studi, periode, dan biaya mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
+                ->description('Unit/institusi, program studi, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
                 ->columns(2)
                 ->schema([
                     Forms\Components\Hidden::make('registration_opening_uuid')->required(),
@@ -55,7 +55,7 @@ class RegistrationResource extends Resource
                                 ->first();
 
                             return $opening
-                                ? $opening->label().' · Biaya '.$opening->formattedFee()
+                                ? $opening->label().' · Biaya Formulir '.$opening->formattedFee()
                                 : 'Pilih pembukaan pendaftaran terlebih dahulu.';
                         })
                         ->columnSpanFull(),
@@ -116,9 +116,8 @@ class RegistrationResource extends Resource
                 ]),
 
             Forms\Components\Section::make('Data Orang Tua')
-                ->description('Data dari pendaftaran sebelumnya pada akun ini akan diisikan kembali bila tersedia. Periksa dan ubah setiap data yang berbeda.')
+                ->description('Data orang tua tetap diperlukan sebagai bagian identitas pendaftaran, termasuk ketika calon mahasiswa melakukan pendaftaran sendiri. Data dari pendaftaran sebelumnya pada akun ini akan diisikan kembali bila tersedia.')
                 ->relationship('parentInfo')
-                ->visible(fn (Forms\Get $get): bool => ! static::isHigherEducationOpening($get('registration_opening_uuid')) || $get('registrant_type') === 'parent')
                 ->schema(ParentInfoFields::schema()),
         ], static::formConfiguration($form, $record)));
     }
@@ -162,7 +161,7 @@ class RegistrationResource extends Resource
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->description(fn (Registration $record): ?string => $record->pathway?->name),
-                Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya')->money('IDR', locale: 'id'),
+                Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id'),
                 Tables\Columns\TextColumn::make('current_stage')->label('Tahap Saat Ini')->badge()->formatStateUsing(fn (Registration $record): string => $record->stageLabel()),
                 Tables\Columns\TextColumn::make('lifecycle_status')
                     ->label('Status Pendaftaran')->badge()

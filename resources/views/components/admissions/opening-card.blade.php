@@ -49,7 +49,7 @@
             </dd>
         </div>
         <div>
-            <dt class="text-xs font-semibold text-slate-500">Biaya pendaftaran</dt>
+            <dt class="text-xs font-semibold text-slate-500">Biaya Formulir</dt>
             <dd class="mt-1 text-sm font-bold text-slate-900">{{ $fee }}</dd>
         </div>
     </dl>

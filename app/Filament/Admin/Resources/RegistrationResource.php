@@ -197,8 +197,8 @@ class RegistrationResource extends Resource
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
                 Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->badge()->placeholder('-'),
-                Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya')->money('IDR', locale: 'id')->placeholder('-'),
-                Tables\Columns\TextColumn::make('current_stage')->label('Tahap')->badge()->formatStateUsing(fn ($state) => Registration::STAGES[$state] ?? $state),
+                Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id')->placeholder('-'),
+                Tables\Columns\TextColumn::make('current_stage')->label('Tahap')->badge()->formatStateUsing(fn ($state, Registration $record): string => $record->stageLabel()),
                 Tables\Columns\TextColumn::make('lifecycle_status')
                     ->label('Lifecycle')->badge()
                     ->formatStateUsing(fn ($state) => Registration::LIFECYCLE_STATUSES[$state] ?? $state)

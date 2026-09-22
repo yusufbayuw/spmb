@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Filament\Applicant\Pages\Auth\Register as ApplicantRegister;
 use App\Filament\Applicant\Resources\RegistrationResource as ApplicantRegistrationResource;
+use App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration;
+use App\Models\EducationLevel;
 use App\Models\RegistrationOpening;
+use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\ApplicantVerifyEmail;
@@ -15,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Livewire\Livewire;
 use ReflectionMethod;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -33,7 +37,9 @@ class ApplicantPortalTest extends TestCase
     public function test_canonical_applicant_auth_pages_are_available(): void
     {
         $this->get('/pendaftar/login')->assertOk();
-        $this->get('/pendaftar/register')->assertOk();
+        $this->get('/pendaftar/register')
+            ->assertOk()
+            ->assertSee('Nama Lengkap');
         $this->get('/pendaftar/password-reset/request')->assertOk();
     }
 
@@ -57,6 +63,44 @@ class ApplicantPortalTest extends TestCase
         $this->assertTrue($user->is_active);
         $this->assertTrue($user->hasRole('pendaftar'));
         $this->assertFalse($user->hasVerifiedEmail());
+    }
+
+    public function test_higher_education_self_registration_still_shows_parent_data(): void
+    {
+        $level = EducationLevel::query()->where('code', 'S1')->firstOrFail();
+        $unit = Unit::create([
+            'name' => 'Taruna Bakti University',
+            'code' => 'TBU',
+            'institution_type' => 'university',
+            'is_active' => true,
+        ]);
+        $program = StudyProgram::create([
+            'unit_id' => $unit->id,
+            'education_level_id' => $level->id,
+            'code' => 'IF',
+            'name' => 'Informatika',
+            'degree_level' => 'S1',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'study_program_id' => $program->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 0,
+            'status' => 'open',
+        ]);
+
+        $applicant = $this->userWithRole('pendaftar');
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->fillForm(['registrant_type' => 'self'])
+            ->assertSee('Data Orang Tua')
+            ->assertSee('Nama Ayah')
+            ->assertSee('Nama Ibu');
     }
 
     public function test_registration_sends_queueable_filament_verification_email(): void

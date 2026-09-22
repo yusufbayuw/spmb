@@ -51,6 +51,7 @@ class PublicAdmissionsHomepageTest extends TestCase
         $response->assertSee('Pendaftaran Taruna Bakti');
         $response->assertSee('Pilih jenjang dan pembukaan pendaftaran');
         $response->assertSee('Gelombang Aktif');
+        $response->assertSee('Biaya Formulir');
         $response->assertSee('Rp 300.000');
         $response->assertSee('Gelombang Mendatang');
         $response->assertSee('Akan Dibuka');

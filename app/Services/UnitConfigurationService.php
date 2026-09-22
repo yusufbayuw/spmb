@@ -45,7 +45,7 @@ class UnitConfigurationService
             'documents_enabled' => true,
             'tests_enabled' => count($tests) > 0,
             'selection_mode' => 'flexible',
-            'post_announcement_enabled' => false,
+            'post_announcement_enabled' => $unit->isHigherEducation(),
             'academic_scores_enabled' => false,
             'academic_score_settings' => [
                 'required' => false,

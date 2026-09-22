@@ -28,12 +28,14 @@ class StudyProgram extends Model
         'max_age',
         'sort_order',
         'is_active',
+        'workflow_steps',
     ];
 
     protected $casts = [
         'max_age' => 'integer',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
+        'workflow_steps' => 'array',
     ];
 
     protected static function booted(): void
@@ -68,6 +70,10 @@ class StudyProgram extends Model
 
                 $program->education_level_id = $level->id;
                 $program->degree_level = $level->code;
+            }
+
+            if (Schema::hasColumn('study_programs', 'workflow_steps')) {
+                $program->workflow_steps = static::normalizeWorkflowSteps($program->workflow_steps);
             }
 
             $code = mb_strtoupper(trim((string) $program->code));
@@ -136,6 +142,78 @@ class StudyProgram extends Model
         $level = $this->educationLevel?->code ?? $this->degree_level;
 
         return trim($level.' '.$this->name);
+    }
+
+    /**
+     * @return list<array{stage:string,label:string,description:string,visible:bool}>
+     */
+    public static function defaultWorkflowSteps(): array
+    {
+        return [
+            ['stage' => 'data_validation', 'label' => 'Validasi Data', 'description' => 'Pemeriksaan data identitas calon mahasiswa.', 'visible' => true],
+            ['stage' => 'virtual_account', 'label' => 'Penerbitan Virtual Account', 'description' => 'Penerbitan nomor Virtual Account untuk pembayaran formulir.', 'visible' => true],
+            ['stage' => 'payment', 'label' => 'Pembayaran Formulir', 'description' => 'Pembayaran biaya formulir pendaftaran.', 'visible' => true],
+            ['stage' => 'payment_verification', 'label' => 'Verifikasi Pembayaran Formulir', 'description' => 'Pemeriksaan pembayaran formulir oleh petugas.', 'visible' => true],
+            ['stage' => 'applicant_card', 'label' => 'Kartu Pendaftar', 'description' => 'Kartu pendaftar diterbitkan setelah persyaratan awal terpenuhi.', 'visible' => true],
+            ['stage' => 'documents', 'label' => 'Melengkapi Berkas', 'description' => 'Calon mahasiswa melengkapi dokumen sesuai ketentuan program studi.', 'visible' => true],
+            ['stage' => 'document_verification', 'label' => 'Verifikasi Berkas', 'description' => 'Petugas memeriksa kelengkapan dan validitas berkas.', 'visible' => true],
+            ['stage' => 'tests', 'label' => 'Rangkaian Tes', 'description' => 'Calon mahasiswa mengikuti tes yang diwajibkan.', 'visible' => true],
+            ['stage' => 'selection', 'label' => 'Seleksi Calon Mahasiswa', 'description' => 'Hasil tes dan persyaratan diproses dalam tahap seleksi.', 'visible' => true],
+            ['stage' => 'announcement', 'label' => 'Pengumuman', 'description' => 'Hasil penerimaan diumumkan kepada calon mahasiswa.', 'visible' => true],
+            ['stage' => 'waiting_list', 'label' => 'Daftar Tunggu', 'description' => 'Tahap ini hanya tampil untuk calon mahasiswa yang berada pada daftar tunggu.', 'visible' => true],
+            ['stage' => 'admission_offer', 'label' => 'Pembayaran Registrasi', 'description' => 'Konfirmasi penerimaan dan kewajiban registrasi sesuai kebijakan program studi.', 'visible' => true],
+            ['stage' => 're_registration', 'label' => 'Daftar Ulang', 'description' => 'Pemenuhan persyaratan daftar ulang yang ditetapkan perguruan tinggi.', 'visible' => true],
+            ['stage' => 'enrollment', 'label' => 'Perwalian', 'description' => 'Tahap administrasi awal mahasiswa sebelum proses akademik dimulai.', 'visible' => true],
+            ['stage' => 'completed', 'label' => 'Selesai', 'description' => 'Seluruh rangkaian penerimaan pada program studi telah selesai.', 'visible' => true],
+        ];
+    }
+
+    /**
+     * @param  array<int, mixed>|null  $steps
+     * @return list<array{stage:string,label:string,description:string,visible:bool}>
+     */
+    public static function normalizeWorkflowSteps(?array $steps): array
+    {
+        $defaults = collect(static::defaultWorkflowSteps())->keyBy('stage');
+        $normalized = collect($steps ?? [])
+            ->filter(fn ($step): bool => is_array($step) && isset($step['stage']) && $defaults->has($step['stage']))
+            ->map(function (array $step) use ($defaults): array {
+                $default = $defaults->get($step['stage']);
+
+                return [
+                    'stage' => $step['stage'],
+                    'label' => filled($step['label'] ?? null) ? trim((string) $step['label']) : $default['label'],
+                    'description' => trim((string) ($step['description'] ?? $default['description'])),
+                    'visible' => (bool) ($step['visible'] ?? true),
+                ];
+            })
+            ->unique('stage')
+            ->values();
+
+        foreach ($defaults as $stage => $default) {
+            if (! $normalized->contains('stage', $stage)) {
+                $normalized->push($default);
+            }
+        }
+
+        return $normalized->values()->all();
+    }
+
+    /**
+     * @return list<array{stage:string,label:string,description:string,visible:bool}>
+     */
+    public function configuredWorkflowSteps(): array
+    {
+        return static::normalizeWorkflowSteps($this->workflow_steps);
+    }
+
+    /**
+     * @return array{stage:string,label:string,description:string,visible:bool}|null
+     */
+    public function workflowStep(string $stage): ?array
+    {
+        return collect($this->configuredWorkflowSteps())
+            ->first(fn (array $step): bool => $step['stage'] === $stage);
     }
 
     public function assertApplicantAge(string|\DateTimeInterface|null $birthDate): void

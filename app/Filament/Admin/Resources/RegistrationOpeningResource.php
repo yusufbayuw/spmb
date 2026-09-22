@@ -34,7 +34,7 @@ class RegistrationOpeningResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Periode, Program, Jadwal, dan Biaya')
+            Forms\Components\Section::make('Periode, Program, Jadwal, dan Biaya Formulir')
                 ->description('Sekolah cukup memilih unit. Perguruan tinggi wajib memilih program studi. Status buka dan tutup mengikuti jadwal secara otomatis.')
                 ->columns(2)
                 ->schema([
@@ -81,7 +81,7 @@ class RegistrationOpeningResource extends Resource
                         ->required()
                         ->maxLength(100),
                     Forms\Components\TextInput::make('registration_fee')
-                        ->label('Biaya Pendaftaran')
+                        ->label('Biaya Formulir')
                         ->prefix('Rp')
                         ->numeric()
                         ->minValue(0)
@@ -124,7 +124,7 @@ class RegistrationOpeningResource extends Resource
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('academic_year')->label('Tahun')->sortable(),
                 Tables\Columns\TextColumn::make('wave')->label('Gelombang')->searchable(),
-                Tables\Columns\TextColumn::make('registration_fee')->label('Biaya')->money('IDR', locale: 'id')->sortable(),
+                Tables\Columns\TextColumn::make('registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id')->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -147,6 +147,9 @@ class RegistrationOpeningResource extends Resource
                     ->options(fn (): array => RegistrationOpening::query()->orderByDesc('academic_year')->pluck('academic_year', 'academic_year')->all()),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->label('Detail')
+                    ->icon('heroicon-o-eye'),
                 Tables\Actions\Action::make('share')
                     ->label('Bagikan')
                     ->icon('heroicon-o-qr-code')
@@ -203,6 +206,7 @@ class RegistrationOpeningResource extends Resource
         return [
             'index' => Pages\ListRegistrationOpenings::route('/'),
             'create' => Pages\CreateRegistrationOpening::route('/create'),
+            'view' => Pages\ViewRegistrationOpening::route('/{record}'),
             'edit' => Pages\EditRegistrationOpening::route('/{record}/edit'),
         ];
     }

@@ -65,7 +65,7 @@ class RegistrationOpening extends Model
 
             $configuration = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
             if ($configuration && ! $configuration->payment_enabled && in_array($opening->status, ['open', 'scheduled'], true) && (float) $opening->registration_fee > 0) {
-                throw ValidationException::withMessages(['registration_fee' => 'Biaya harus nol karena pembayaran dinonaktifkan pada konfigurasi unit.']);
+                throw ValidationException::withMessages(['registration_fee' => 'Biaya formulir harus nol karena pembayaran dinonaktifkan pada konfigurasi unit.']);
             }
             $program = $opening->study_program_id
                 ? StudyProgram::query()->find($opening->study_program_id)

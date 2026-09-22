@@ -169,9 +169,25 @@
             <div>
                 <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Bantuan</p>
                 <h2 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Ada kendala saat mendaftar?</h2>
-                <p class="mt-4 text-sm leading-7 text-slate-600">Hubungi kanal resmi penerimaan. Pada detail pembukaan, kontak unit akan ditampilkan bila tersedia.</p>
+                <p class="mt-4 text-sm leading-7 text-slate-600">
+                    {{ \App\Support\SpmbOperationalMode::isHigherEducation()
+                        ? 'Hubungi kontak resmi perguruan tinggi yang menangani program studi tujuan Anda.'
+                        : 'Hubungi kanal resmi penerimaan. Pada detail pembukaan, kontak unit akan ditampilkan bila tersedia.' }}
+                </p>
             </div>
-            <x-admissions.helpdesk />
+            @if (\App\Support\SpmbOperationalMode::isHigherEducation())
+                <div class="grid gap-4">
+                    @forelse ($helpdeskUnits as $helpdeskUnit)
+                        <x-admissions.helpdesk :unit="$helpdeskUnit" />
+                    @empty
+                        <div class="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+                            Kontak penerimaan perguruan tinggi belum dikonfigurasi. Silakan periksa kembali halaman ini setelah admin unit melengkapi informasi helpdesk.
+                        </div>
+                    @endforelse
+                </div>
+            @else
+                <x-admissions.helpdesk />
+            @endif
         </div>
     </section>
 @endsection

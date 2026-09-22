@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Admin\Resources\RegistrationOpeningResource;
 use App\Filament\Applicant\Pages\RegistrationOpenings;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -18,6 +19,11 @@ use Tests\TestCase;
 class RegistrationOpeningTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_admin_resource_exposes_dedicated_opening_detail_page(): void
+    {
+        $this->assertArrayHasKey('view', RegistrationOpeningResource::getPages());
+    }
 
     public function test_applicant_listing_shows_open_and_closed_but_hides_draft_and_archived_openings(): void
     {

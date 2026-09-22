@@ -18,9 +18,16 @@ class Register extends BaseRegister
     public function form(Form $form): Form
     {
         $form = parent::form($form);
+        $components = $form->getComponents();
+
+        foreach ($components as $component) {
+            if (method_exists($component, 'getName') && $component->getName() === 'name') {
+                $component->label('Nama Lengkap');
+            }
+        }
 
         return $form->schema([
-            ...$form->getComponents(),
+            ...$components,
             SpmbCaptcha::make(),
         ]);
     }

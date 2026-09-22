@@ -144,7 +144,7 @@
                                         <dd class="text-sm font-semibold text-gray-950 dark:text-white">{{ $opening->wave }}</dd>
                                     </div>
                                     <div class="grid gap-1">
-                                        <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Biaya formulir</dt>
+                                        <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Biaya Formulir</dt>
                                         <dd class="text-sm font-semibold text-gray-950 dark:text-white">{{ (float) $opening->registration_fee === 0.0 ? 'Gratis' : $opening->formattedFee() }}</dd>
                                     </div>
                                     <div class="grid gap-1">

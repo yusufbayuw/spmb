@@ -124,7 +124,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan.')->schema([
+            Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan. Pada perguruan tinggi, label dan urutan progres ditentukan per Program Studi.')->schema([
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),
                 Forms\Components\Toggle::make('documents_enabled')->label('Dokumen'),
                 Forms\Components\Toggle::make('tests_enabled')
@@ -148,7 +148,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->required(),
                 Forms\Components\Toggle::make('post_announcement_enabled')
                     ->label('Proses Pasca-Pengumuman')
-                    ->helperText('Aktifkan Penawaran Penerimaan, Daftar Tunggu, Daftar Ulang, dan Enrollment. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
+                    ->helperText('Aktifkan workflow lanjutan setelah pengumuman. Untuk perguruan tinggi, nama dan urutan progres dapat diatur per Program Studi, misalnya Pembayaran Registrasi, Daftar Ulang, lalu Perwalian. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
             ])->columns(5),
             Forms\Components\Section::make('Formulir Unit')->description('Pilih isian bawaan yang ingin disesuaikan atau tambahkan pertanyaan khusus. Identitas inti tetap wajib.')->schema([
                 Forms\Components\Repeater::make('fields')->label('Pengaturan field')->default([])->schema([
