@@ -129,7 +129,13 @@ class OperationalModeTest extends TestCase
             'user_id' => \App\Models\User::factory()->create()->id,
             'unit_id' => $unit->id,
             'registration_opening_id' => $opening->id,
+            'nik' => '3273010101010001',
             'full_name' => 'Calon Mahasiswa',
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2008-01-01',
+            'home_address' => 'Bandung',
+            'status' => 'submitted',
             'current_stage' => 'data_validation',
         ]);
 
