@@ -60,9 +60,12 @@ class PublicInformationSettingsTest extends TestCase
             'public_contact_name' => 'Panitia SMA Konten',
         ]);
 
-        Livewire::test(PublicInformationSettings::class)
-            ->set('unitUuid', $otherUnit->uuid)
-            ->call('loadUnit')
-            ->assertNotFound();
+        $component = Livewire::test(PublicInformationSettings::class);
+
+        $this->assertSame(
+            [$unit->uuid => $unit->name],
+            $component->instance()->units(),
+        );
+        $this->assertArrayNotHasKey($otherUnit->uuid, $component->instance()->units());
     }
 }
