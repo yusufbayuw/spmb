@@ -491,6 +491,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $data = $this->configurationFormData($configuration);
 
         app(UnitConfigurationService::class)->save($configuration, auth()->user(), $data);
+        $this->loadUnit();
 
         Notification::make()
             ->title('Draft tersimpan')
