@@ -22,6 +22,13 @@ class EditRegistration extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('viewApplicantCard')
+                ->label('Lihat Kartu')
+                ->icon('heroicon-o-identification')
+                ->color('gray')
+                ->visible(fn (): bool => RegistrationResource::canViewApplicantCard($this->record))
+                ->url(fn (): string => route('registration.card', $this->record))
+                ->openUrlInNewTab(),
             Actions\DeleteAction::make(),
         ];
     }
