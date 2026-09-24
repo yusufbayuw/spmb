@@ -20,7 +20,7 @@ class RegistrationCardService
             return $registration->documents
                 ->filter(fn (Document $document): bool => $document->type === 'photo'
                     && $document->superseded_at === null
-                    && $document->malware_scan_status === 'clean')
+                    && in_array($document->malware_scan_status, ['clean', 'unavailable', 'scan_error'], true))
                 ->sortByDesc('id')
                 ->first();
         }
@@ -28,7 +28,7 @@ class RegistrationCardService
         return $registration->documents()
             ->where('type', 'photo')
             ->whereNull('superseded_at')
-            ->where('malware_scan_status', 'clean')
+            ->whereIn('malware_scan_status', ['clean', 'unavailable', 'scan_error'])
             ->latest('id')
             ->first();
     }
