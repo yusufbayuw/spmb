@@ -97,6 +97,56 @@ class RegistrationSupplementalDataTest extends TestCase
         ]));
     }
 
+    public function test_score_components_can_apply_only_to_selected_grades(): void
+    {
+        [$unit, $staff, , $pathway] = $this->fixture();
+        $configurationService = app(UnitConfigurationService::class);
+        $draft = $configurationService->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['academic_scores_enabled'] = true;
+        $data['academic_score_settings'] = [
+            'required' => true,
+            'min_score' => 0,
+            'max_score' => 100,
+            'pathway_uuids' => [$pathway->uuid],
+            'grades' => [
+                ['key' => 'vii', 'label' => 'Kelas VII'],
+                ['key' => 'viii', 'label' => 'Kelas VIII'],
+                ['key' => 'ix', 'label' => 'Kelas IX'],
+            ],
+            'subjects' => [
+                ['key' => 'matematika', 'label' => 'Matematika'],
+            ],
+            'assessments' => [
+                ['key' => 'semester_1', 'label' => 'Semester 1', 'grade_keys' => []],
+                ['key' => 'semester_2', 'label' => 'Semester 2', 'grade_keys' => ['vii', 'viii']],
+            ],
+        ];
+
+        $configuration = $configurationService->save($draft, $staff, $data, true);
+        $service = app(RegistrationSupplementalDataService::class);
+
+        $this->assertSame(
+            ['semester_1', 'semester_2'],
+            collect($service->assessmentsForGrade($configuration->academic_score_settings, 'vii'))->pluck('key')->all(),
+        );
+        $this->assertSame(
+            ['semester_1'],
+            collect($service->assessmentsForGrade($configuration->academic_score_settings, 'ix'))->pluck('key')->all(),
+        );
+
+        $rows = $service->validateAcademicScores($configuration, $pathway->uuid, [
+            'vii' => ['matematika' => ['semester_1' => 90, 'semester_2' => 91]],
+            'viii' => ['matematika' => ['semester_1' => 92, 'semester_2' => 93]],
+            'ix' => ['matematika' => ['semester_1' => 94]],
+        ]);
+
+        $this->assertCount(5, $rows);
+        $this->assertFalse(collect($rows)->contains(
+            fn (array $row): bool => $row['grade_key'] === 'ix' && $row['assessment_key'] === 'semester_2',
+        ));
+    }
+
     public function test_existing_registration_only_updates_configuration_during_data_validation(): void
     {
         [$unit, $staff, $registration] = $this->fixture();
