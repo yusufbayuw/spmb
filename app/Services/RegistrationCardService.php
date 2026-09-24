@@ -20,7 +20,8 @@ class RegistrationCardService
             return $registration->documents
                 ->filter(fn (Document $document): bool => $document->type === 'photo'
                     && $document->superseded_at === null
-                    && in_array($document->malware_scan_status, ['clean', 'unavailable', 'scan_error'], true))
+                    && (blank($document->malware_scan_status)
+                        || in_array($document->malware_scan_status, ['clean', 'unavailable', 'scan_error'], true)))
                 ->sortByDesc('id')
                 ->first();
         }
@@ -28,14 +29,20 @@ class RegistrationCardService
         return $registration->documents()
             ->where('type', 'photo')
             ->whereNull('superseded_at')
-            ->whereIn('malware_scan_status', ['clean', 'unavailable', 'scan_error'])
+            ->where(function ($query): void {
+                $query->whereNull('malware_scan_status')
+                    ->orWhereIn('malware_scan_status', ['clean', 'unavailable', 'scan_error']);
+            })
             ->latest('id')
             ->first();
     }
 
     public function hasIdentityPhoto(Registration $registration): bool
     {
-        return $this->identityPhoto($registration) !== null;
+        $photo = $this->identityPhoto($registration);
+
+        return $photo !== null
+            && Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->exists($photo->file_path);
     }
 
     /**
@@ -112,31 +119,29 @@ class RegistrationCardService
         $lines = [];
         $current = '';
 
-        foreach ($words as $word) {
+        foreach ($words as $index => $word) {
             $candidate = $current === '' ? $word : $current.' '.$word;
 
-            if ($current !== '' && mb_strlen($candidate) > $maxCharacters) {
-                $lines[] = $current;
-                $current = $word;
-
-                if (count($lines) === $maxLines - 1) {
-                    break;
-                }
+            if ($current === '' || mb_strlen($candidate) <= $maxCharacters) {
+                $current = $candidate;
 
                 continue;
             }
 
-            $current = $candidate;
-        }
-
-        if (count($lines) < $maxLines && $current !== '') {
             $lines[] = $current;
+
+            if (count($lines) === $maxLines - 1) {
+                $remaining = implode(' ', array_slice($words, $index));
+                $lines[] = Str::limit($remaining, $maxCharacters + 4);
+
+                return $lines;
+            }
+
+            $current = $word;
         }
 
-        $joined = implode(' ', $lines);
-        if (mb_strlen($joined) < mb_strlen($value) && $lines !== []) {
-            $last = array_key_last($lines);
-            $lines[$last] = Str::limit($lines[$last].' '.mb_substr($value, mb_strlen($joined)), $maxCharacters + 4);
+        if ($current !== '' && count($lines) < $maxLines) {
+            $lines[] = $current;
         }
 
         return array_slice($lines, 0, $maxLines);
