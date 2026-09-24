@@ -68,7 +68,8 @@ class RegistrationResource extends Resource
                         ->searchable()
                         ->preload()
                         ->live()
-                        ->disabled(fn (?Registration $record): bool => filled($record))
+                        ->disabled(fn (Forms\Get $get, ?Registration $record): bool => filled($record)
+                            || count(static::pathwayOptions($get('registration_opening_uuid'), $record)) === 1)
                         ->dehydrated()
                         ->required(),
                     Forms\Components\Select::make('registrant_type')
