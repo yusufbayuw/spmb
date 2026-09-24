@@ -536,6 +536,67 @@ class UnitConfigurationTest extends TestCase
         $this->get('/pendaftar/status/'.$created->uuid)->assertSeeText('Transportasi Peserta')->assertSeeText('Mobil');
     }
 
+    public function test_configured_parent_income_select_is_rendered_and_prefilled_for_another_participant(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+        $pathway = RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+
+        $registration->parentInfo()->create([
+            'father_name' => 'Ayah Lama',
+            'mother_name' => 'Ibu Lama',
+            'father_income' => '< 5 juta',
+        ]);
+
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [[
+            'key' => 'father_income',
+            'label' => 'Penghasilan Ayah',
+            'type' => 'select',
+            'active' => true,
+            'required' => true,
+            'group' => null,
+            'group_key' => null,
+            'help' => 'Pilih rentang penghasilan.',
+            'options' => ['< 5 juta', '5 - 10 juta', '10 - 20 juta', '20 juta'],
+        ]];
+        $configuration = $service->save($draft, $staff, $data, true);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertFormSet([
+                'unit_configuration_uuid' => $configuration->uuid,
+                'parentInfo.father_income' => '< 5 juta',
+            ])
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'parent',
+                'registrant_relationship' => 'father',
+                'full_name' => 'Peserta Kedua',
+                'nik' => '3273010101010099',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => [
+                    'father_name' => 'Ayah Lama',
+                    'mother_name' => 'Ibu Lama',
+                    'father_income' => '5 - 10 juta',
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $created = Registration::query()->where('nik', '3273010101010099')->firstOrFail();
+
+        $this->assertSame('5 - 10 juta', $created->parentInfo?->father_income);
+        $this->assertSame($configuration->id, $created->unit_configuration_id);
+    }
+
     public function test_a_newly_published_version_rejects_an_already_open_form(): void
     {
         [$unit, $staff, $registration, $parent] = $this->fixture();
