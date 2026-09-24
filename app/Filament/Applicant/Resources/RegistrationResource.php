@@ -128,15 +128,21 @@ class RegistrationResource extends Resource
             return $record->configuration;
         }
 
-        $configurationUuid = data_get($form->getLivewire(), $form->getStatePath().'.unit_configuration_uuid');
+        $livewire = $form->getLivewire();
+
+        $configurationUuid = data_get($livewire, 'configurationUuid')
+            ?: data_get($livewire, $form->getStatePath().'.unit_configuration_uuid');
+
         if (filled($configurationUuid)) {
             $configuration = UnitConfiguration::query()->where('uuid', $configurationUuid)->first();
+
             if ($configuration) {
                 return $configuration;
             }
         }
 
-        $openingUuid = request()->query('opening');
+        $openingUuid = data_get($livewire, 'openingUuid') ?: request()->query('opening');
+
         if (blank($openingUuid)) {
             return null;
         }
