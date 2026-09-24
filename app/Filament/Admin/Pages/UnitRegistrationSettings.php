@@ -134,11 +134,11 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 ->schema([
                     Forms\Components\FileUpload::make('unit_logo_path')
                         ->label('Logo Unit')
-                        ->helperText('Gunakan logo PNG/JPG/SVG yang bersih. Logo disimpan sebagai branding Unit, bukan sebagai data pendaftar.')
+                        ->helperText('Gunakan logo PNG/JPG yang bersih. Logo disimpan sebagai branding Unit, bukan sebagai data pendaftar.')
                         ->disk('public')
                         ->directory('units/logos')
                         ->visibility('public')
-                        ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/svg+xml'])
+                        ->acceptedFileTypes(['image/png', 'image/jpeg'])
                         ->maxSize(2048)
                         ->image()
                         ->imagePreviewHeight('140')
