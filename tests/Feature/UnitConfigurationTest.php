@@ -624,6 +624,82 @@ class UnitConfigurationTest extends TestCase
         $this->assertSame($configuration->id, $created->unit_configuration_id);
     }
 
+    public function test_parent_workplaces_are_configurable_prefilled_and_saved_for_additional_participant(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+
+        $pathway = RegistrationPathway::factory()->create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+        $registration->update(['registration_pathway_id' => $pathway->id]);
+
+        $registration->parentInfo()->create([
+            'father_name' => 'Ayah Lama',
+            'father_occupation' => 'Guru',
+            'father_workplace' => 'SMA Taruna Bakti',
+            'mother_name' => 'Ibu Lama',
+            'mother_occupation' => 'Dokter',
+            'mother_workplace' => 'RS Bandung',
+        ]);
+
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $configuration = $service->save($draft, $staff, $draft->toArray(), true);
+
+        $this->assertContains('father_workplace', ConfiguredRegistrationForm::BUILTIN_FIELDS);
+        $this->assertContains('mother_workplace', ConfiguredRegistrationForm::BUILTIN_FIELDS);
+        $this->assertSame(
+            'Instansi / Tempat Kerja Ayah',
+            ConfiguredRegistrationForm::fieldLabels()['father_workplace'],
+        );
+        $this->assertSame(
+            'Instansi / Tempat Kerja Ibu',
+            ConfiguredRegistrationForm::fieldLabels()['mother_workplace'],
+        );
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $registration->opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertFormSet([
+                'unit_configuration_uuid' => $configuration->uuid,
+                'registration_pathway_uuid' => $pathway->uuid,
+                'parentInfo.father_workplace' => 'SMA Taruna Bakti',
+                'parentInfo.mother_workplace' => 'RS Bandung',
+            ])
+            ->fillForm([
+                'registrant_type' => 'parent',
+                'registrant_relationship' => 'father',
+                'full_name' => 'Peserta Instansi',
+                'nik' => '3273010101010088',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => [
+                    'father_name' => 'Ayah Lama',
+                    'father_occupation' => 'Guru',
+                    'father_workplace' => 'SMP Taruna Bakti',
+                    'mother_name' => 'Ibu Lama',
+                    'mother_occupation' => 'Dokter',
+                    'mother_workplace' => 'RS Hasan Sadikin',
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $created = Registration::query()
+            ->where('nik', '3273010101010088')
+            ->with('parentInfo')
+            ->firstOrFail();
+
+        $this->assertSame('SMP Taruna Bakti', $created->parentInfo?->father_workplace);
+        $this->assertSame('RS Hasan Sadikin', $created->parentInfo?->mother_workplace);
+    }
+
     public function test_single_registration_pathway_is_selected_automatically_and_locked(): void
     {
         [$unit, , $registration, $parent] = $this->fixture();
