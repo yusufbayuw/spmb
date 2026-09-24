@@ -84,11 +84,12 @@ class ConfiguredRegistrationForm
     public function apply(array $components, ?UnitConfiguration $configuration): array
     {
         if (! $configuration) {
-            return $components;
+            return array_values($components);
         }
+
         $definitions = collect($configuration->fields)->keyBy('key');
         $walk = function (array $items) use (&$walk, $definitions, $configuration): array {
-            foreach ($items as $item) {
+            foreach ($items as $itemKey => $item) {
                 if ($item instanceof Field && in_array($item->getName(), self::BUILTIN_FIELDS, true)) {
                     $definition = $definitions->get($item->getName());
                     $state = $this->builtinFieldState($configuration, $item->getName());
@@ -105,42 +106,82 @@ class ConfiguredRegistrationForm
                         $item->required($state['required']);
                     }
                 }
+
                 if (! $item instanceof Field) {
                     $children = $item->getChildComponents();
                     if ($children) {
                         $item->schema($walk($children));
                     }
                 }
+
+                $items[$itemKey] = $item;
             }
 
             $groups = [];
             $ordered = [];
-            foreach ($items as $index => $item) {
+
+            foreach ($items as $itemKey => $item) {
                 $definition = $item instanceof Field ? $definitions->get($item->getName()) : null;
+
                 if ($definition && ! empty($definition['group'])) {
                     $groups[$definition['group']][] = $item;
                 } else {
-                    $ordered[] = $item;
+                    $ordered[$itemKey] = $item;
                 }
             }
-            $sort = fn (array $fields): array => collect($fields)->sortBy(fn ($field) => $field instanceof Field && $definitions->has($field->getName()) ? array_search($field->getName(), $definitions->keys()->all(), true) : -1)->values()->all();
-            $ordered = $sort($ordered);
+
+            $sort = fn (array $fields): array => collect($fields)
+                ->sortBy(fn ($field) => $field instanceof Field && $definitions->has($field->getName())
+                    ? array_search($field->getName(), $definitions->keys()->all(), true)
+                    : -1)
+                ->values()
+                ->all();
+
+            if (array_is_list($items)) {
+                $ordered = $sort(array_values($ordered));
+            }
+
             foreach ($groups as $label => $fields) {
                 $ordered[] = Fieldset::make($label)->schema($sort($fields));
             }
 
             return $ordered;
         };
+
         $components = $walk($components);
-        $groups = [];
+        $formGroups = $this->formGroups($configuration);
+        $customFieldsByGroup = [];
+
         foreach ($configuration->fields as $field) {
             if (! $field['active'] || in_array($field['key'], self::BUILTIN_FIELDS, true)) {
                 continue;
             }
-            $groups[($field['group'] ?? null) ?: 'Informasi Tambahan'][] = $this->field($field);
+
+            $groupKey = filled($field['group_key'] ?? null)
+                ? (string) $field['group_key']
+                : $this->legacyGroupKey(($field['group'] ?? null) ?: 'Informasi Tambahan');
+
+            $customFieldsByGroup[$groupKey][] = $this->field($field);
         }
-        foreach ($groups as $label => $fields) {
-            $components[] = Section::make($label)->schema($fields)->columns(2);
+
+        foreach ($formGroups as $group) {
+            $fields = $customFieldsByGroup[$group['key']] ?? [];
+
+            if ($fields === []) {
+                continue;
+            }
+
+            $components['group:'.$group['key']] = Section::make($group['label'])
+                ->schema($fields)
+                ->columns(2);
+
+            unset($customFieldsByGroup[$group['key']]);
+        }
+
+        foreach ($customFieldsByGroup as $groupKey => $fields) {
+            $components['group:'.$groupKey] = Section::make('Informasi Tambahan')
+                ->schema($fields)
+                ->columns(2);
         }
 
         if ($configuration->academic_scores_enabled) {
@@ -175,7 +216,7 @@ class ConfiguredRegistrationForm
                     ->collapsible();
             }
 
-            $components[] = Section::make('Data Nilai')
+            $components['academic_scores'] = Section::make('Data Nilai')
                 ->description('Isikan nilai sesuai komponen yang diminta unit tujuan.')
                 ->schema($scoreFields)
                 ->visible(fn ($get): bool => app(RegistrationSupplementalDataService::class)->featureApplies(
@@ -189,7 +230,7 @@ class ConfiguredRegistrationForm
             $settings = $configuration->achievement_settings ?? [];
             $levels = array_combine($settings['levels'] ?? [], $settings['levels'] ?? []);
 
-            $components[] = Section::make('Prestasi yang Pernah Diraih')
+            $components['achievements'] = Section::make('Prestasi yang Pernah Diraih')
                 ->description('Tambahkan prestasi yang relevan dengan jalur pendaftaran.')
                 ->schema([
                     Repeater::make('achievements')
@@ -214,7 +255,99 @@ class ConfiguredRegistrationForm
                 ));
         }
 
-        return $components;
+        $ordered = [];
+        foreach ($this->formLayout($configuration, $formGroups) as $key) {
+            if (array_key_exists($key, $components)) {
+                $ordered[] = $components[$key];
+                unset($components[$key]);
+            }
+        }
+
+        foreach ($components as $component) {
+            $ordered[] = $component;
+        }
+
+        return $ordered;
+    }
+
+    /** @return list<array{key:string,label:string}> */
+    private function formGroups(UnitConfiguration $configuration): array
+    {
+        $configured = collect(is_array($configuration->form_groups) ? $configuration->form_groups : [])
+            ->filter(fn (mixed $group): bool => is_array($group) && filled($group['key'] ?? null) && filled($group['label'] ?? null))
+            ->map(fn (array $group): array => [
+                'key' => (string) $group['key'],
+                'label' => trim((string) $group['label']),
+            ])
+            ->values()
+            ->all();
+
+        if ($configured !== []) {
+            return $configured;
+        }
+
+        $groups = [];
+        foreach ($configuration->fields as $field) {
+            if (! ($field['active'] ?? false) || in_array($field['key'] ?? null, self::BUILTIN_FIELDS, true)) {
+                continue;
+            }
+
+            $label = filled($field['group'] ?? null) ? trim((string) $field['group']) : 'Informasi Tambahan';
+            $key = $this->legacyGroupKey($label);
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = ['key' => $key, 'label' => $label];
+            }
+        }
+
+        return array_values($groups ?: [
+            'group_additional' => ['key' => 'group_additional', 'label' => 'Informasi Tambahan'],
+        ]);
+    }
+
+    /**
+     * @param list<array{key:string,label:string}> $formGroups
+     * @return list<string>
+     */
+    private function formLayout(UnitConfiguration $configuration, array $formGroups): array
+    {
+        $available = [
+            'registration_choice',
+            'identity',
+            'parents',
+            ...array_map(fn (array $group): string => 'group:'.$group['key'], $formGroups),
+            'academic_scores',
+            'achievements',
+        ];
+
+        $configured = collect(is_array($configuration->form_layout) ? $configuration->form_layout : [])
+            ->map(fn (mixed $item): ?string => is_array($item) ? ($item['key'] ?? null) : (is_string($item) ? $item : null))
+            ->filter(fn (?string $key): bool => $key !== null && in_array($key, $available, true))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($configured === []) {
+            return $available;
+        }
+
+        $configured = array_values(array_filter($configured, fn (string $key): bool => $key !== 'registration_choice'));
+        array_unshift($configured, 'registration_choice');
+
+        foreach ($available as $key) {
+            if (! in_array($key, $configured, true)) {
+                $configured[] = $key;
+            }
+        }
+
+        return $configured;
+    }
+
+    private function legacyGroupKey(string $label): string
+    {
+        return $label === 'Informasi Tambahan'
+            ? 'group_additional'
+            : 'group_'.substr(sha1(mb_strtolower(trim($label))), 0, 10);
     }
 
     public function field(array $definition): Field
