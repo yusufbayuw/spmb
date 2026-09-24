@@ -38,6 +38,7 @@ class Unit extends Model
         'public_service_hours',
         'public_website_url',
         'public_address',
+        'logo_path',
         'is_active',
     ];
 
