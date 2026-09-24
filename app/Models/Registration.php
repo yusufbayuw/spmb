@@ -38,6 +38,13 @@ class Registration extends Model
         'completed' => 'Selesai',
     ];
 
+    public const WORKFLOW_BLOCK_LABELS = [
+        'applicant_card' => 'Kartu Pendaftar',
+        'documents' => 'Melengkapi & Verifikasi Berkas',
+    ];
+
+    public const DEFAULT_WORKFLOW_BLOCKS = ['applicant_card', 'documents'];
+
     public const LIFECYCLE_STATUSES = [
         'active' => 'Aktif',
         'withdrawn' => 'Mengundurkan Diri',
@@ -109,9 +116,11 @@ class Registration extends Model
             || in_array($this->current_stage, ['admission_offer', 're_registration', 'enrollment'], true)
             || in_array($this->status, ['confirmed', 'enrolled'], true);
         $isWaitingListFlow = $decision === 'waiting_list' || $this->current_stage === 'waiting_list';
+
         if (! $isWaitingListFlow) {
             unset($stages['waiting_list']);
         }
+
         if (! $isAcceptedFlow) {
             unset($stages['admission_offer'], $stages['re_registration'], $stages['enrollment']);
         }
@@ -121,12 +130,15 @@ class Registration extends Model
         }
 
         $configuration = $this->configuration;
+
         if ($configuration && ! $configuration->payment_enabled) {
             unset($stages['virtual_account'], $stages['payment'], $stages['payment_verification']);
         }
+
         if ($configuration && ! $configuration->documents_enabled) {
             unset($stages['documents'], $stages['document_verification']);
         }
+
         if ($configuration && (! $configuration->tests_enabled || ! collect($this->configuredTests())->contains('is_required', true))) {
             unset($stages['tests']);
         }
@@ -141,13 +153,85 @@ class Registration extends Model
             }
         }
 
-        return $stages;
+        $orderedKeys = ['data_validation'];
+
+        foreach (['virtual_account', 'payment', 'payment_verification'] as $stage) {
+            if (array_key_exists($stage, $stages)) {
+                $orderedKeys[] = $stage;
+            }
+        }
+
+        foreach ($this->workflowBlocks() as $block) {
+            if ($block === 'applicant_card' && array_key_exists('applicant_card', $stages)) {
+                $orderedKeys[] = 'applicant_card';
+            }
+
+            if ($block === 'documents') {
+                foreach (['documents', 'document_verification'] as $stage) {
+                    if (array_key_exists($stage, $stages)) {
+                        $orderedKeys[] = $stage;
+                    }
+                }
+            }
+        }
+
+        foreach (['tests', 'selection', 'announcement', 'waiting_list', 'admission_offer', 're_registration', 'enrollment', 'completed'] as $stage) {
+            if (array_key_exists($stage, $stages)) {
+                $orderedKeys[] = $stage;
+            }
+        }
+
+        $ordered = [];
+        foreach (array_unique($orderedKeys) as $stage) {
+            if (array_key_exists($stage, $stages)) {
+                $ordered[$stage] = $stages[$stage];
+            }
+        }
+
+        foreach ($stages as $stage => $label) {
+            if (! array_key_exists($stage, $ordered)) {
+                $ordered[$stage] = $label;
+            }
+        }
+
+        return $ordered;
+    }
+
+    /** @return list<string> */
+    public function workflowBlocks(): array
+    {
+        $configured = is_array($this->configuration?->workflow_blocks)
+            ? $this->configuration->workflow_blocks
+            : [];
+
+        $blocks = collect($configured)
+            ->map(fn (mixed $block): ?string => is_array($block) ? ($block['key'] ?? null) : (is_string($block) ? $block : null))
+            ->filter(fn (?string $block): bool => $block !== null && array_key_exists($block, self::WORKFLOW_BLOCK_LABELS))
+            ->unique()
+            ->values()
+            ->all();
+
+        foreach (self::DEFAULT_WORKFLOW_BLOCKS as $block) {
+            if (! in_array($block, $blocks, true)) {
+                $blocks[] = $block;
+            }
+        }
+
+        return $blocks;
+    }
+
+    public function nextEnabledStage(string $stage): ?string
+    {
+        $stages = array_keys($this->enabledStages());
+        $index = array_search($stage, $stages, true);
+
+        return $index === false ? null : ($stages[$index + 1] ?? null);
     }
 
     /**
      * Tahapan yang ditampilkan kepada pendaftar. Workflow internal tetap
      * menggunakan enabledStages(), sedangkan program studi boleh mengatur
-     * label, urutan tampilan, keterangan, dan visibilitasnya.
+     * label, keterangan, dan visibilitas tanpa mengubah urutan runtime.
      */
     public function progressStages(): array
     {
@@ -159,25 +243,21 @@ class Registration extends Model
         }
 
         $configuredStages = [];
-        $representedStages = [];
+        $steps = collect($studyProgram->configuredWorkflowSteps())->keyBy('stage');
 
-        foreach ($studyProgram->configuredWorkflowSteps() as $step) {
-            $stage = $step['stage'];
+        foreach ($enabledStages as $stage => $label) {
+            $step = $steps->get($stage);
 
-            if (! array_key_exists($stage, $enabledStages)) {
+            if (! $step) {
+                $configuredStages[$stage] = $label;
+
                 continue;
             }
 
-            $representedStages[$stage] = true;
-
             if (($step['visible'] ?? true) || $stage === $this->current_stage) {
-                $configuredStages[$stage] = $step['label'];
-            }
-        }
-
-        foreach ($enabledStages as $stage => $label) {
-            if (! isset($representedStages[$stage])) {
-                $configuredStages[$stage] = $label;
+                $configuredStages[$stage] = filled($step['label'] ?? null)
+                    ? trim((string) $step['label'])
+                    : $label;
             }
         }
 
