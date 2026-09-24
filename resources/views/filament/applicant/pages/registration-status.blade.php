@@ -8,6 +8,7 @@
         $requiredDocuments = \App\Services\RegistrationWorkflowService::requiredDocuments($registration);
         $isHigherEducation = $registration->unit?->isHigherEducation() ?? false;
         $participantLabel = $isHigherEducation ? 'calon mahasiswa' : 'calon siswa';
+        $identityPhoto = app(\App\Services\RegistrationCardService::class)->identityPhoto($registration);
     @endphp
 
     <div class="space-y-6">
@@ -114,10 +115,35 @@
                             <x-filament::badge color="success" icon="heroicon-m-check-circle">Proses pendaftaran selesai</x-filament::badge>
                         @endif
 
-                        @if ($registration->isOperational() && $registration->applicant_card_number)
-                            <x-filament::button tag="a" href="{{ route('registration.card', $registration) }}" target="_blank" color="gray" outlined icon="heroicon-m-printer">
-                                Cetak Kartu Pendaftar
+                        @if ($registration->isOperational() && filled($registration->registration_number) && ! $identityPhoto)
+                            <x-filament::button
+                                tag="a"
+                                href="{{ \App\Filament\Applicant\Pages\IdentityPhotoUpload::getUrl(['registration' => $registration->uuid]) }}"
+                                color="warning"
+                                icon="heroicon-m-photo"
+                            >
+                                Upload Foto Identitas
                             </x-filament::button>
+                        @elseif ($registration->isOperational() && $identityPhoto && ! $identityPhoto->is_verified)
+                            <x-filament::button
+                                tag="a"
+                                href="{{ \App\Filament\Applicant\Pages\IdentityPhotoUpload::getUrl(['registration' => $registration->uuid]) }}"
+                                color="gray"
+                                outlined
+                                icon="heroicon-m-photo"
+                            >
+                                Lihat / Ganti Foto
+                            </x-filament::button>
+                        @endif
+
+                        @if ($registration->isOperational() && $registration->applicant_card_number && $identityPhoto)
+                            <x-filament::button tag="a" href="{{ route('registration.card', $registration) }}" target="_blank" color="gray" outlined icon="heroicon-m-identification">
+                                Kartu Pendaftaran
+                            </x-filament::button>
+                        @elseif ($registration->isOperational() && $registration->applicant_card_number && ! $identityPhoto)
+                            <x-filament::badge color="warning" icon="heroicon-m-photo">
+                                Upload foto identitas untuk membuka kartu pendaftaran
+                            </x-filament::badge>
                         @endif
                     </div>
                 </x-filament::section>
