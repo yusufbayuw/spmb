@@ -39,7 +39,7 @@ class RegistrationResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)->apply([
-            Forms\Components\Section::make('Pilihan Pendaftaran')
+            'registration_choice' => Forms\Components\Section::make('Pilihan Pendaftaran')
                 ->description('Unit/institusi, program studi, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
                 ->columns(2)
                 ->schema([
@@ -85,7 +85,7 @@ class RegistrationResource extends Resource
                         ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
                 ]),
 
-            Forms\Components\Section::make('Identitas Calon Siswa / Mahasiswa')
+            'identity' => Forms\Components\Section::make('Identitas Calon Siswa / Mahasiswa')
                 ->description('Gunakan identitas yang sama dengan dokumen resmi calon peserta didik atau calon mahasiswa.')
                 ->columns(3)
                 ->schema([
@@ -115,7 +115,7 @@ class RegistrationResource extends Resource
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric()->minValue(2000)->maxValue(now()->year + 2),
                 ]),
 
-            Forms\Components\Section::make('Data Orang Tua')
+            'parents' => Forms\Components\Section::make('Data Orang Tua')
                 ->description('Data orang tua tetap diperlukan sebagai bagian identitas pendaftaran, termasuk ketika calon mahasiswa melakukan pendaftaran sendiri. Data dari pendaftaran sebelumnya pada akun ini akan diisikan kembali bila tersedia.')
                 ->relationship('parentInfo')
                 ->schema(ParentInfoFields::schema()),
