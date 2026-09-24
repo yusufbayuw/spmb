@@ -197,7 +197,10 @@ class ConfiguredRegistrationForm
                 foreach ($settings['subjects'] ?? [] as $subject) {
                     $subjectFields = [];
 
-                    foreach ($settings['assessments'] ?? [] as $assessment) {
+                    foreach (app(RegistrationSupplementalDataService::class)->assessmentsForGrade(
+                        $settings,
+                        (string) ($grade['key'] ?? ''),
+                    ) as $assessment) {
                         $subjectFields[] = TextInput::make(
                             'academic_scores.'.($grade['key'] ?? '').'.'.($subject['key'] ?? '').'.'.($assessment['key'] ?? '')
                         )
