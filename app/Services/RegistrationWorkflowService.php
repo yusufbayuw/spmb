@@ -82,8 +82,13 @@ class RegistrationWorkflowService
         $registration = Registration::query()->findOrFail($registration->id);
         $registration->assertCurrentStage('data_validation');
 
+        $paymentEnabled = (bool) ($registration->configuration?->payment_enabled ?? true);
+        $targetStage = $approved
+            ? ($paymentEnabled ? 'virtual_account' : ($registration->nextEnabledStage('data_validation') ?? 'selection'))
+            : 'data_validation';
+
         $registration->transitionTo(
-            $approved ? ($registration->configuration && ! $registration->configuration->payment_enabled ? 'applicant_card' : 'virtual_account') : 'data_validation',
+            $targetStage,
             [
                 'data_validation_status' => $approved ? 'valid' : 'revision',
                 'data_validation_notes' => $notes,
@@ -96,13 +101,22 @@ class RegistrationWorkflowService
 
         $this->notifications->dataValidationResult($registration, $approved, $notes);
 
-        if ($approved && $registration->current_stage === 'virtual_account') {
+        if (! $approved) {
+            return;
+        }
+
+        if ($registration->current_stage === 'virtual_account') {
             $this->assignAvailableVirtualAccount($registration, $staff);
-        } elseif ($approved && $registration->current_stage === 'applicant_card') {
-            // Unit without a payment stage has no VA verification event, so card
-            // issuance and the official registration number happen immediately
-            // after data validation instead of requiring a manual TU action.
+
+            return;
+        }
+
+        app(RegistrationNumberService::class)->assign($registration);
+
+        if ($registration->current_stage === 'applicant_card') {
             $this->issueApplicantCard($registration, $staff);
+        } elseif (in_array($registration->current_stage, ['tests', 'selection'], true)) {
+            $this->prepareTestsAndSelection($registration);
         }
     }
 
@@ -340,7 +354,9 @@ class RegistrationWorkflowService
 
                 $lockedPayment->virtualAccount?->update(['status' => 'paid']);
 
-                $registration->transitionTo('applicant_card', [
+                $targetStage = $registration->nextEnabledStage('payment_verification') ?? 'selection';
+
+                $registration->transitionTo($targetStage, [
                     'status' => 'payment_verified',
                     'payment_verified_at' => now(),
                 ]);
@@ -351,8 +367,12 @@ class RegistrationWorkflowService
                 // Receipt snapshots must already contain the official registration number.
                 app(ReceiptService::class)->issue($lockedPayment);
 
-                $this->advanceFromApplicantCard($registration, $staff);
-                $cardIssued = true;
+                if ($targetStage === 'applicant_card') {
+                    $this->advanceFromApplicantCard($registration, $staff);
+                    $cardIssued = true;
+                } elseif (in_array($targetStage, ['tests', 'selection'], true)) {
+                    $this->prepareTestsAndSelection($registration);
+                }
 
                 return;
             }
@@ -404,9 +424,7 @@ class RegistrationWorkflowService
     {
         $registration->assertCurrentStage('applicant_card');
 
-        $target = $registration->configuration && ! $registration->configuration->documents_enabled
-            ? (collect($registration->configuredTests())->contains('is_required', true) ? 'tests' : 'selection')
-            : 'documents';
+        $target = $registration->nextEnabledStage('applicant_card') ?? 'selection';
 
         $registration->transitionTo($target, [
             'applicant_card_number' => $registration->applicant_card_number ?: $registration->generateApplicantCardNumber(),
@@ -445,10 +463,14 @@ class RegistrationWorkflowService
                 $lockedRegistration->transitionTo('document_verification');
             }
 
-            $hasTests = $this->prepareTestsAndSelection($lockedRegistration);
+            $targetStage = $lockedRegistration->nextEnabledStage('document_verification') ?? 'selection';
+
+            if (in_array($targetStage, ['tests', 'selection'], true)) {
+                $hasTests = $this->prepareTestsAndSelection($lockedRegistration);
+            }
 
             $lockedRegistration->transitionTo(
-                $hasTests ? 'tests' : 'selection',
+                $targetStage,
                 [
                     'documents_completed_at' => $lockedRegistration->documents_completed_at ?: now(),
                     'documents_verified_at' => now(),
@@ -459,7 +481,8 @@ class RegistrationWorkflowService
         });
 
         if ($complete) {
-            $this->notifications->documentsVerified($registration->fresh(), $hasTests);
+            $fresh = $registration->fresh();
+            $this->notifications->documentsVerified($fresh, $hasTests, $fresh->current_stage);
         }
 
         return $complete;
