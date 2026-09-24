@@ -61,6 +61,13 @@ class PublicAdmissionsHomepageTest extends TestCase
         $response->assertSee(route('admissions.apply', $open), false);
     }
 
+    public function test_guest_header_daftar_goes_to_applicant_registration_page(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('href="'.url('/pendaftar/register').'"', false);
+    }
+
     public function test_homepage_has_useful_empty_state_when_only_upcoming_opening_exists(): void
     {
         $unit = $this->schoolUnit();
