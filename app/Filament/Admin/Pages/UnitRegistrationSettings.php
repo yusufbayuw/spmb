@@ -77,7 +77,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $draft = app(UnitConfigurationService::class)->draft($unit, auth()->user());
         $this->configurationUuid = $draft->uuid;
         $this->preview = false;
-        $data = $draft->toArray();
+        $data = app(UnitConfigurationService::class)->normalizeEditorData($draft->toArray());
         $data['workflow_stage_labels'] = array_replace(
             Registration::STAGES,
             is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [],
@@ -154,6 +154,25 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->label('Proses Pasca-Pengumuman')
                     ->helperText('Aktifkan workflow lanjutan setelah pengumuman. Untuk perguruan tinggi, nama dan urutan progres dapat diatur per Program Studi, misalnya Pembayaran Registrasi, Daftar Ulang, lalu Perwalian. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
             ])->columns(5),
+            Forms\Components\Section::make('Urutan Proses Pra-Seleksi')
+                ->description('Atur urutan operasional Kartu Pendaftar dan Berkas. Pembayaran tetap menjadi gate sebelum keduanya, sedangkan Tes dan Seleksi tetap mengikuti seluruh prasyarat. Perubahan hanya berlaku pada versi konfigurasi baru.')
+                ->schema([
+                    Forms\Components\Repeater::make('workflow_blocks')
+                        ->label('Urutan proses')
+                        ->schema([
+                            Forms\Components\Select::make('key')
+                                ->label('Tahap')
+                                ->options(Registration::WORKFLOW_BLOCK_LABELS)
+                                ->disabled()
+                                ->dehydrated()
+                                ->required(),
+                        ])
+                        ->reorderable()
+                        ->addable(false)
+                        ->deletable(false)
+                        ->itemLabel(fn (array $state): string => Registration::WORKFLOW_BLOCK_LABELS[$state['key'] ?? ''] ?? 'Tahap'),
+                ])
+                ->collapsible(),
             Forms\Components\Section::make('Nama Tahapan di Portal Pendaftar')
                 ->description('Ubah nama tampilan setiap tahapan template tanpa mengubah kunci maupun logika workflow. Pada perguruan tinggi, pengaturan per Program Studi tetap menjadi override yang lebih spesifik.')
                 ->schema(
@@ -170,6 +189,39 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             Forms\Components\Section::make('Formulir Unit')
                 ->description('Tentukan kebijakan umum untuk isian bawaan. Repeater di bawah cukup digunakan untuk field yang perlu menjadi pengecualian atau dikustomisasi. Identitas inti tetap wajib.')
                 ->schema([
+                Forms\Components\Repeater::make('form_groups')
+                    ->label('Kelompok Pertanyaan Tambahan')
+                    ->helperText('Kelompok memiliki identitas tetap sehingga namanya dapat diubah tanpa memutus relasi field. Urutkan dengan drag & drop. Setelah menambah kelompok baru, simpan draft agar kelompok muncul pada Struktur Formulir.')
+                    ->default([
+                        ['key' => 'group_additional', 'label' => 'Informasi Tambahan'],
+                    ])
+                    ->schema([
+                        Forms\Components\Hidden::make('key')
+                            ->default(fn (): string => 'group_'.strtolower(Str::random(10)))
+                            ->required(),
+                        Forms\Components\TextInput::make('label')
+                            ->label('Nama Kelompok')
+                            ->required()
+                            ->maxLength(100),
+                    ])
+                    ->reorderable()
+                    ->live()
+                    ->itemLabel(fn (array $state): string => $state['label'] ?? 'Kelompok baru'),
+                Forms\Components\Repeater::make('form_layout')
+                    ->label('Struktur Formulir')
+                    ->helperText('Pilihan Pendaftaran selalu dikunci sebagai bagian pertama. Drag & drop bagian lain. Kelompok baru akan ditambahkan otomatis setelah draft disimpan.')
+                    ->schema([
+                        Forms\Components\Select::make('key')
+                            ->label('Bagian')
+                            ->options(fn (): array => $this->formLayoutOptions())
+                            ->disabled()
+                            ->dehydrated()
+                            ->required(),
+                    ])
+                    ->reorderable()
+                    ->addable(false)
+                    ->deletable(false)
+                    ->itemLabel(fn (array $state): string => $this->formLayoutOptions()[$state['key'] ?? ''] ?? 'Bagian formulir'),
                 Forms\Components\Select::make('builtin_field_policy')
                     ->label('Kebijakan Isian Bawaan')
                     ->options(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES)
@@ -206,7 +258,14 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->disabled(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true))
                         ->dehydrated()
                         ->required(),
-                    Forms\Components\TextInput::make('group')->label('Kelompok')->default('Informasi Tambahan'),
+                    Forms\Components\Hidden::make('group'),
+                    Forms\Components\Select::make('group_key')
+                        ->label('Kelompok')
+                        ->options(fn (): array => collect($this->data['form_groups'] ?? [])->pluck('label', 'key')->all())
+                        ->searchable()
+                        ->native(false)
+                        ->visible(fn (Forms\Get $get): bool => ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true))
+                        ->required(fn (Forms\Get $get): bool => ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true)),
                     Forms\Components\Textarea::make('help')->label('Petunjuk'),
                     Forms\Components\TagsInput::make('options')
                         ->label('Opsi pilihan')
@@ -735,6 +794,26 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         return Carbon::parse($value)
             ->timezone(config('app.timezone'))
             ->format('Y-m-d H:i:s');
+    }
+
+    private function formLayoutOptions(): array
+    {
+        $options = [
+            'registration_choice' => 'Pilihan Pendaftaran (tetap pertama)',
+            'identity' => 'Identitas Calon Siswa / Mahasiswa',
+            'parents' => 'Data Orang Tua',
+        ];
+
+        foreach ($this->data['form_groups'] ?? [] as $group) {
+            if (filled($group['key'] ?? null) && filled($group['label'] ?? null)) {
+                $options['group:'.$group['key']] = $group['label'];
+            }
+        }
+
+        $options['academic_scores'] = 'Data Nilai';
+        $options['achievements'] = 'Prestasi';
+
+        return $options;
     }
 
     private function pathwayOptions(): array
