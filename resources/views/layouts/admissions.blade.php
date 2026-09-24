@@ -60,7 +60,7 @@
                     </a>
                 @else
                     <a href="{{ url('/pendaftar/login') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2">Masuk</a>
-                    <a href="{{ route('home') }}#pendaftaran" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2">Daftar</a>
+                    <a href="{{ url('/pendaftar/register') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2">Daftar</a>
                 @endauth
             </div>
 
@@ -77,7 +77,7 @@
                         <a href="{{ $dashboardUrl }}" class="block rounded-xl bg-blue-700 px-4 py-3 text-center text-sm font-bold text-white">{{ $isStaff ? 'Buka Panel Admin' : 'Buka Dashboard' }}</a>
                     @else
                         <a href="{{ url('/pendaftar/login') }}" class="block rounded-xl px-4 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-50">Masuk</a>
-                        <a href="{{ route('home') }}#pendaftaran" class="mt-1 block rounded-xl bg-blue-700 px-4 py-3 text-center text-sm font-bold text-white">Daftar</a>
+                        <a href="{{ url('/pendaftar/register') }}" class="mt-1 block rounded-xl bg-blue-700 px-4 py-3 text-center text-sm font-bold text-white">Daftar</a>
                     @endauth
                 </div>
             </details>
