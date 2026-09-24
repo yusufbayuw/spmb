@@ -91,10 +91,13 @@ class ConfiguredRegistrationForm
         $walk = function (array $items) use (&$walk, $definitions, $configuration): array {
             foreach ($items as $itemKey => $item) {
                 if ($item instanceof Field && in_array($item->getName(), self::BUILTIN_FIELDS, true)) {
-                    $definition = $definitions->get($item->getName());
-                    $state = $this->builtinFieldState($configuration, $item->getName());
+                    $fieldName = $item->getName();
+                    $definition = $definitions->get($fieldName);
+                    $state = $this->builtinFieldState($configuration, $fieldName);
 
-                    if ($definition) {
+                    if ($definition && in_array($fieldName, ['father_income', 'mother_income'], true)) {
+                        $item = $this->configuredBuiltinField($fieldName, $definition);
+                    } elseif ($definition) {
                         $item->label($definition['label'])->helperText($definition['help'] ?? null);
                     }
 
@@ -348,6 +351,27 @@ class ConfiguredRegistrationForm
         return $label === 'Informasi Tambahan'
             ? 'group_additional'
             : 'group_'.substr(sha1(mb_strtolower(trim($label))), 0, 10);
+    }
+
+    private function configuredBuiltinField(string $name, array $definition): Field
+    {
+        $options = array_combine($definition['options'] ?? [], $definition['options'] ?? []);
+
+        $field = match ($definition['type']) {
+            'textarea' => Textarea::make($name)->maxLength(100),
+            'number' => TextInput::make($name)->numeric()->minValue(0),
+            'date' => DatePicker::make($name)->native(false),
+            'select', 'multiselect' => Select::make($name)
+                ->options($options)
+                ->multiple($definition['type'] === 'multiselect')
+                ->searchable(),
+            'boolean' => Select::make($name)->options(['1' => 'Ya', '0' => 'Tidak']),
+            default => TextInput::make($name)->maxLength(100),
+        };
+
+        return $field
+            ->label($definition['label'])
+            ->helperText($definition['help'] ?? null);
     }
 
     public function field(array $definition): Field
