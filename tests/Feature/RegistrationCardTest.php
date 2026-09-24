@@ -67,13 +67,14 @@ class RegistrationCardTest extends TestCase
         $this->assertFalse(AdminRegistrationResource::canViewApplicantCard($registration->fresh()));
     }
 
-    public function test_card_requires_identity_photo_before_it_can_be_rendered(): void
+    public function test_legacy_card_without_identity_photo_renders_with_placeholder(): void
     {
         [$registration, $user] = $this->fixture();
 
         $this->actingAs($user)
             ->get(route('registration.card', $registration))
-            ->assertStatus(409);
+            ->assertOk()
+            ->assertSee('Foto belum tersedia');
     }
 
     public function test_card_renders_ktp_template_and_public_verification_without_sensitive_identity_data(): void
