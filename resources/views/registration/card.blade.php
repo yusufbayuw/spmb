@@ -181,7 +181,14 @@
         </g>
 
         <rect x="772" y="215" width="194" height="260" rx="14" fill="#fff" stroke="#b7d3ed" stroke-width="3"/>
-        <image href="{{ $card['photoDataUri'] }}" x="780" y="223" width="178" height="244" preserveAspectRatio="xMidYMid slice"/>
+        @if($card['hasPhoto'] && $card['photoDataUri'])
+            <image href="{{ $card['photoDataUri'] }}" x="780" y="223" width="178" height="244" preserveAspectRatio="xMidYMid slice"/>
+        @else
+            <rect x="780" y="223" width="178" height="244" rx="8" fill="#eef4fa"/>
+            <circle cx="869" cy="300" r="42" fill="#bdd0e2"/>
+            <path d="M804 430 C816 365 922 365 934 430Z" fill="#bdd0e2"/>
+            <text x="869" y="453" text-anchor="middle" fill="#56728f" font-size="14" font-weight="700">Foto belum tersedia</text>
+        @endif
 
         <rect x="42" y="534" width="90" height="90" rx="10" fill="#fff"/>
         <image href="{{ $card['verificationQrDataUri'] }}" x="47" y="539" width="80" height="80"/>
