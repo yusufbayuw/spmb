@@ -18,6 +18,7 @@ use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -86,6 +87,32 @@ class UnitConfigurationTest extends TestCase
             ->call('showPreview')
             ->assertHasNoFormErrors()
             ->assertSee('Nama Lengkap');
+    }
+
+    public function test_admin_unit_can_save_unit_logo_without_putting_it_in_versioned_configuration(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        Storage::fake('public');
+        Storage::disk('public')->put('units/logos/sd-test.png', 'logo-bytes');
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm(['unit_logo_path' => 'units/logos/sd-test.png'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('units/logos/sd-test.png', $unit->fresh()->logo_path);
+
+        $draft = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'draft')
+            ->firstOrFail()
+            ->toArray();
+
+        $this->assertArrayNotHasKey('unit_logo_path', $draft);
     }
 
     public function test_admin_unit_can_customize_template_stage_labels(): void
