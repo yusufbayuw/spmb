@@ -208,7 +208,8 @@ class RegistrationResource extends Resource
                     }),
                 Tables\Actions\Action::make('card')
                     ->label('Cetak Kartu')->icon('heroicon-o-printer')->color('gray')
-                    ->visible(fn (Registration $record): bool => filled($record->applicant_card_number))
+                    ->visible(fn (Registration $record): bool => filled($record->applicant_card_number)
+                        && app(\App\Services\RegistrationCardService::class)->hasIdentityPhoto($record))
                     ->url(fn (Registration $record): string => route('registration.card', $record))
                     ->openUrlInNewTab(),
             ])
