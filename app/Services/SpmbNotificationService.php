@@ -195,18 +195,25 @@ class SpmbNotificationService
         );
     }
 
-    public function documentsVerified(Registration $registration, bool $hasTests): void
+    public function documentsVerified(Registration $registration, bool $hasTests, ?string $nextStage = null): void
     {
         $registration->loadMissing('user');
+
+        $body = match ($nextStage) {
+            'applicant_card' => 'Berkas dinyatakan lengkap dan valid. Pendaftaran masuk ke tahap penerbitan kartu pendaftar.',
+            'tests' => 'Berkas dinyatakan lengkap dan valid. Pendaftaran masuk ke rangkaian tes.',
+            'selection' => 'Berkas dinyatakan lengkap dan valid. Pendaftaran masuk ke tahap seleksi.',
+            default => $hasTests
+                ? 'Berkas dinyatakan lengkap dan valid. Pendaftaran masuk ke rangkaian tes.'
+                : 'Berkas dinyatakan lengkap dan valid. Pendaftaran masuk ke tahap seleksi.',
+        };
 
         $this->notify(
             collect([$registration->user]),
             'documents.completed',
             'documents',
             'Seluruh berkas telah diverifikasi',
-            $hasTests
-                ? 'Berkas dinyatakan lengkap dan valid. Pendaftaran masuk ke rangkaian tes.'
-                : 'Berkas dinyatakan lengkap dan valid. Pendaftaran masuk ke tahap seleksi.',
+            $body,
             'success',
             'heroicon-o-document-check',
             'Lihat progres',
