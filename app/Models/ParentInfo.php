@@ -40,8 +40,6 @@ class ParentInfo extends Model
     protected $casts = [
         'father_birth_date' => 'date',
         'mother_birth_date' => 'date',
-        'father_income' => 'decimal:2',
-        'mother_income' => 'decimal:2',
     ];
 
     public function registration()
