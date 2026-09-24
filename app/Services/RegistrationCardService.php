@@ -81,6 +81,8 @@ class RegistrationCardService
             'photoDataUri' => $photo
                 ? $this->fileDataUri(ApplicantFileStorage::PRIVATE_DISK, $photo->file_path, $photo->mime_type)
                 : null,
+            'hasPhoto' => $photo !== null
+                && Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->exists($photo->file_path),
             'verificationQrDataUri' => $this->verificationQrDataUri($registration),
             'verificationUrl' => route('registration.card.verify', $registration),
             'cardNumber' => $registration->applicant_card_number,
