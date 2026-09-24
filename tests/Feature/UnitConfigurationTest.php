@@ -597,6 +597,27 @@ class UnitConfigurationTest extends TestCase
         $this->assertSame($configuration->id, $created->unit_configuration_id);
     }
 
+    public function test_single_registration_pathway_is_selected_automatically_and_locked(): void
+    {
+        [$unit, , $registration, $parent] = $this->fixture();
+
+        $pathway = RegistrationPathway::factory()->create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $registration->opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertFormSet([
+                'registration_pathway_uuid' => $pathway->uuid,
+            ])
+            ->assertFormFieldIsDisabled('registration_pathway_uuid');
+    }
+
     public function test_additional_participant_form_keeps_custom_fields_and_academic_scores(): void
     {
         [$unit, $staff, $registration, $parent] = $this->fixture();
