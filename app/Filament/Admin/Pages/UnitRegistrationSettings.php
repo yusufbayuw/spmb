@@ -78,7 +78,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $this->configurationUuid = $draft->uuid;
         $this->preview = false;
         $data = app(UnitConfigurationService::class)->normalizeEditorData($draft->toArray());
-        $data['unit_logo_path'] = $unit->logo_path;
+        $data['unit_logo_path'] = filled($unit->logo_path) ? [$unit->logo_path] : [];
         $data['workflow_stage_labels'] = array_replace(
             Registration::STAGES,
             is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [],
@@ -570,7 +570,13 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
         $unit = Unit::query()->findOrFail($configuration->unit_id);
         app(UnitConfigurationService::class)->authorize(auth()->user(), $unit->id);
-        $unit->update(['logo_path' => $data['unit_logo_path'] ?? null]);
+
+        $logoState = $data['unit_logo_path'] ?? [];
+        $logoPath = is_array($logoState)
+            ? (array_values($logoState)[0] ?? null)
+            : (is_string($logoState) ? $logoState : null);
+
+        $unit->update(['logo_path' => $logoPath]);
         unset($data['unit_logo_path']);
 
         $data['test_definitions'] = collect($data['test_definitions'] ?? [])
