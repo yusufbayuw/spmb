@@ -363,6 +363,17 @@ class ConfiguredRegistrationForm
             'date' => DatePicker::make($name)->native(false),
             'select', 'multiselect' => Select::make($name)
                 ->options($options)
+                ->afterStateHydrated(function (Select $component, mixed $state) use ($options): void {
+                    if (blank($state) || array_key_exists((string) $state, $options)) {
+                        return;
+                    }
+
+                    $legacyLabel = is_numeric($state)
+                        ? 'Rp '.number_format((float) $state, 0, ',', '.').' (nilai sebelumnya)'
+                        : (string) $state.' (nilai sebelumnya)';
+
+                    $component->options([(string) $state => $legacyLabel] + $options);
+                })
                 ->multiple($definition['type'] === 'multiselect')
                 ->searchable(),
             'boolean' => Select::make($name)->options(['1' => 'Ya', '0' => 'Tidak']),
