@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Applicant\Pages\IdentityPhotoUpload;
 use App\Models\Document;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -9,13 +10,27 @@ use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class RegistrationCardTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_applicant_can_open_identity_photo_upload_after_registration_number_exists(): void
+    {
+        [$registration, $user] = $this->fixture();
+
+        $this->actingAs($user);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(IdentityPhotoUpload::class, ['registration' => $registration->uuid])
+            ->assertSee('Foto Peserta')
+            ->assertSee('Foto Identitas');
+    }
 
     public function test_card_requires_identity_photo_before_it_can_be_rendered(): void
     {
