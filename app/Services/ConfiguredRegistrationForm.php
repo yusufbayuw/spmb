@@ -20,7 +20,7 @@ class ConfiguredRegistrationForm
 
     public const REGION_FIELDS = ['province_code', 'city_code', 'district_code', 'village_code'];
 
-    public const BUILTIN_FIELDS = ['nickname', 'religion', 'phone', 'email', 'province_code', 'city_code', 'district_code', 'village_code', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_phone', 'mother_email', 'mother_income'];
+    public const BUILTIN_FIELDS = ['nickname', 'religion', 'phone', 'email', 'province_code', 'city_code', 'district_code', 'village_code', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_workplace', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_workplace', 'mother_phone', 'mother_email', 'mother_income'];
 
     public const BUILTIN_FIELD_POLICIES = [
         'system_default' => 'Gunakan bawaan sistem',
@@ -31,7 +31,7 @@ class ConfiguredRegistrationForm
     {
         $labels = ['nickname' => 'Nama panggilan', 'religion' => 'Agama', 'phone' => 'Telepon peserta', 'email' => 'Email peserta', 'province_code' => 'Provinsi', 'city_code' => 'Kabupaten/Kota', 'district_code' => 'Kecamatan', 'village_code' => 'Desa/Kelurahan', 'previous_school' => 'Sekolah asal', 'graduation_year' => 'Tahun lulus'];
         foreach (['father' => 'Ayah', 'mother' => 'Ibu'] as $prefix => $parent) {
-            foreach (['name' => 'Nama', 'nik' => 'NIK', 'birth_place' => 'Tempat lahir', 'birth_date' => 'Tanggal lahir', 'education' => 'Pendidikan', 'occupation' => 'Pekerjaan', 'phone' => 'Telepon', 'email' => 'Email', 'income' => 'Penghasilan'] as $key => $label) {
+            foreach (['name' => 'Nama', 'nik' => 'NIK', 'birth_place' => 'Tempat lahir', 'birth_date' => 'Tanggal lahir', 'education' => 'Pendidikan', 'occupation' => 'Pekerjaan', 'workplace' => 'Instansi / Tempat Kerja', 'phone' => 'Telepon', 'email' => 'Email', 'income' => 'Penghasilan'] as $key => $label) {
                 $labels[$prefix.'_'.$key] = $label.' '.$parent;
             }
         }
