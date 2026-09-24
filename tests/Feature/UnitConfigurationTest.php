@@ -100,7 +100,7 @@ class UnitConfigurationTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
         Livewire::test(UnitRegistrationSettings::class)
-            ->fillForm(['unit_logo_path' => 'units/logos/sd-test.png'])
+            ->fillForm(['unit_logo_path' => ['units/logos/sd-test.png']])
             ->call('save')
             ->assertHasNoFormErrors();
 
