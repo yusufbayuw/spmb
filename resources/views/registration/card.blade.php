@@ -207,7 +207,7 @@
 async function downloadCard(format) {
     const svg = document.getElementById('registration-card-svg');
     const serializer = new XMLSerializer();
-    const source = '<?xml version="1.0" encoding="UTF-8"?>' + serializer.serializeToString(svg);
+    const source = serializer.serializeToString(svg);
     const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
     const blobUrl = URL.createObjectURL(blob);
     const image = new Image();
