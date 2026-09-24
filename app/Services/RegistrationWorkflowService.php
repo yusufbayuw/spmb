@@ -111,7 +111,15 @@ class RegistrationWorkflowService
             return;
         }
 
-        app(RegistrationNumberService::class)->assign($registration);
+        DB::transaction(function () use ($registration): void {
+            $lockedRegistration = Registration::query()
+                ->lockForUpdate()
+                ->findOrFail($registration->id);
+
+            app(RegistrationNumberService::class)->assign($lockedRegistration);
+        });
+
+        $registration->refresh();
 
         if ($registration->current_stage === 'applicant_card') {
             $this->issueApplicantCard($registration, $staff);
