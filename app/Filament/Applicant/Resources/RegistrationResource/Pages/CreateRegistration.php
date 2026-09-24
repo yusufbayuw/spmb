@@ -49,8 +49,18 @@ class CreateRegistration extends CreateRecord
 
         parent::mount();
 
+        $prefill = $this->previousRegistrationPrefill($opening);
+        $availablePathways = RegistrationPathway::query()
+            ->availableForUnit((int) $opening->unit_id)
+            ->orderBy('name')
+            ->pluck('uuid');
+
+        if ($availablePathways->count() === 1) {
+            $prefill['registration_pathway_uuid'] = $availablePathways->first();
+        }
+
         $this->form->fill([
-            ...$this->previousRegistrationPrefill($opening),
+            ...$prefill,
             'unit_configuration_uuid' => $configuration->uuid,
             'registration_opening_uuid' => $opening->uuid,
             'unit_uuid' => $opening->unit->uuid,
