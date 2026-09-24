@@ -19,6 +19,9 @@ Route::get('/penerimaan/unit/{unit:code}', PublicUnitAdmissionsController::class
 Route::get('/penerimaan/{registrationOpening}/qr.svg', [AdmissionQrCodeController::class, 'opening'])->whereUuid('registrationOpening')->name('admissions.qr');
 Route::get('/penerimaan/{registrationOpening}', PublicRegistrationOpeningController::class)->whereUuid('registrationOpening')->name('admissions.show');
 Route::get('/penerimaan/{registrationOpening}/daftar', StartRegistrationController::class)->whereUuid('registrationOpening')->name('admissions.apply');
+Route::get('/verifikasi/kartu/{registration}', [RegistrationPrintController::class, 'verifyCard'])
+    ->whereUuid('registration')
+    ->name('registration.card.verify');
 
 Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantEmailVerificationController::class)
     ->middleware(['auth', 'signed', 'throttle:6,1'])
