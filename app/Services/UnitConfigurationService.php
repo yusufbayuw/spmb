@@ -488,6 +488,8 @@ class UnitConfigurationService
                 'academic_score_settings.assessments' => ['present', 'array', 'max:20'],
                 'academic_score_settings.assessments.*.key' => ['required', 'regex:/^[a-z0-9_]+$/', 'distinct', 'max:60'],
                 'academic_score_settings.assessments.*.label' => ['required', 'string', 'max:150'],
+                'academic_score_settings.assessments.*.grade_keys' => ['nullable', 'array', 'max:12'],
+                'academic_score_settings.assessments.*.grade_keys.*' => ['string', 'distinct', 'max:60'],
                 'achievements_enabled' => ['required', 'boolean'],
                 'achievement_settings' => ['present', 'array'],
                 'achievement_settings.required' => ['required', 'boolean'],
@@ -560,6 +562,18 @@ class UnitConfigurationService
                 throw ValidationException::withMessages([
                     'form_layout' => 'Struktur formulir tidak valid. Pilihan Pendaftaran harus tetap pertama dan seluruh bagian harus tercantum satu kali.',
                 ]);
+            }
+
+            $academicGradeKeys = collect($validated['academic_score_settings']['grades'] ?? [])->pluck('key');
+            foreach ($validated['academic_score_settings']['assessments'] ?? [] as $assessmentIndex => $assessment) {
+                $unknownGradeKeys = collect($assessment['grade_keys'] ?? [])->diff($academicGradeKeys);
+
+                if ($unknownGradeKeys->isNotEmpty()) {
+                    throw ValidationException::withMessages([
+                        'academic_score_settings.assessments.'.$assessmentIndex.'.grade_keys'
+                            => 'Komponen nilai hanya boleh diterapkan pada kelas/tingkat yang tersedia.',
+                    ]);
+                }
             }
 
             $pathwayUuids = collect($validated['academic_score_settings']['pathway_uuids'] ?? [])
