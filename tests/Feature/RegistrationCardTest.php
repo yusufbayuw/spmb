@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Admin\Resources\RegistrationResource as AdminRegistrationResource;
 use App\Filament\Applicant\Pages\IdentityPhotoUpload;
 use App\Models\Document;
 use App\Models\Registration;
@@ -30,6 +31,40 @@ class RegistrationCardTest extends TestCase
         Livewire::test(IdentityPhotoUpload::class, ['registration' => $registration->uuid])
             ->assertSee('Foto Peserta')
             ->assertSee('Foto Identitas');
+    }
+
+    public function test_admin_card_action_is_available_only_when_the_card_is_ready(): void
+    {
+        [$registration] = $this->fixture();
+
+        Storage::fake(ApplicantFileStorage::PRIVATE_DISK);
+
+        $this->assertFalse(AdminRegistrationResource::canViewApplicantCard($registration));
+
+        $path = 'documents/'.$registration->id.'/admin-card-photo.png';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($path, 'photo-bytes');
+
+        Document::create([
+            'registration_id' => $registration->id,
+            'requirement_key' => 'photo',
+            'attachment_index' => 0,
+            'type' => 'photo',
+            'file_path' => $path,
+            'original_name' => 'admin-card-photo.png',
+            'file_type' => 'png',
+            'mime_type' => 'image/png',
+            'file_size' => 11,
+            'sha256' => hash('sha256', 'photo-bytes'),
+            'malware_scan_status' => 'clean',
+            'security_scanned_at' => now(),
+            'is_verified' => false,
+        ]);
+
+        $this->assertTrue(AdminRegistrationResource::canViewApplicantCard($registration->fresh()));
+
+        $registration->update(['lifecycle_status' => 'cancelled']);
+
+        $this->assertFalse(AdminRegistrationResource::canViewApplicantCard($registration->fresh()));
     }
 
     public function test_card_requires_identity_photo_before_it_can_be_rendered(): void
