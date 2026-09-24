@@ -84,7 +84,11 @@ class RegistrationWorkflowService
 
         $paymentEnabled = (bool) ($registration->configuration?->payment_enabled ?? true);
         $targetStage = $approved
-            ? ($paymentEnabled ? 'virtual_account' : ($registration->nextEnabledStage('data_validation') ?? 'selection'))
+            ? ($paymentEnabled
+                ? 'virtual_account'
+                : ($registration->usesConfigurableWorkflow()
+                    ? ($registration->nextEnabledStage('data_validation') ?? 'selection')
+                    : 'applicant_card'))
             : 'data_validation';
 
         $registration->transitionTo(
@@ -362,7 +366,9 @@ class RegistrationWorkflowService
 
                 $lockedPayment->virtualAccount?->update(['status' => 'paid']);
 
-                $targetStage = $registration->nextEnabledStage('payment_verification') ?? 'selection';
+                $targetStage = $registration->usesConfigurableWorkflow()
+                    ? ($registration->nextEnabledStage('payment_verification') ?? 'selection')
+                    : 'applicant_card';
 
                 $registration->transitionTo($targetStage, [
                     'status' => 'payment_verified',
@@ -432,7 +438,11 @@ class RegistrationWorkflowService
     {
         $registration->assertCurrentStage('applicant_card');
 
-        $target = $registration->nextEnabledStage('applicant_card') ?? 'selection';
+        $target = $registration->usesConfigurableWorkflow()
+            ? ($registration->nextEnabledStage('applicant_card') ?? 'selection')
+            : ($registration->configuration && ! $registration->configuration->documents_enabled
+                ? (collect($registration->configuredTests())->contains('is_required', true) ? 'tests' : 'selection')
+                : 'documents');
 
         $registration->transitionTo($target, [
             'applicant_card_number' => $registration->applicant_card_number ?: $registration->generateApplicantCardNumber(),
@@ -471,10 +481,15 @@ class RegistrationWorkflowService
                 $lockedRegistration->transitionTo('document_verification');
             }
 
-            $targetStage = $lockedRegistration->nextEnabledStage('document_verification') ?? 'selection';
+            if ($lockedRegistration->usesConfigurableWorkflow()) {
+                $targetStage = $lockedRegistration->nextEnabledStage('document_verification') ?? 'selection';
 
-            if (in_array($targetStage, ['tests', 'selection'], true)) {
+                if (in_array($targetStage, ['tests', 'selection'], true)) {
+                    $hasTests = $this->prepareTestsAndSelection($lockedRegistration);
+                }
+            } else {
                 $hasTests = $this->prepareTestsAndSelection($lockedRegistration);
+                $targetStage = $hasTests ? 'tests' : 'selection';
             }
 
             $lockedRegistration->transitionTo(
