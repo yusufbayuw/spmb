@@ -54,7 +54,7 @@ class RegistrationSupplementalDataService
 
         foreach ($settings['grades'] ?? [] as $grade) {
             foreach ($settings['subjects'] ?? [] as $subject) {
-                foreach ($settings['assessments'] ?? [] as $assessment) {
+                foreach ($this->assessmentsForGrade($settings, (string) ($grade['key'] ?? '')) as $assessment) {
                     $path = ($grade['key'] ?? '').'.'.($subject['key'] ?? '').'.'.($assessment['key'] ?? '');
                     $value = data_get($input, $path);
 
@@ -133,6 +133,25 @@ class RegistrationSupplementalDataService
                 $registration->achievements()->createMany($achievements);
             }
         });
+    }
+
+    /**
+     * Return only score components that apply to a grade.
+     *
+     * Legacy assessments without grade_keys still apply to every grade.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function assessmentsForGrade(array $settings, string $gradeKey): array
+    {
+        return collect($settings['assessments'] ?? [])
+            ->filter(function (array $assessment) use ($gradeKey): bool {
+                $gradeKeys = array_values(array_filter($assessment['grade_keys'] ?? []));
+
+                return $gradeKeys === [] || in_array($gradeKey, $gradeKeys, true);
+            })
+            ->values()
+            ->all();
     }
 
     public function featureApplies(bool $enabled, ?array $settings, ?string $pathwayUuid): bool
