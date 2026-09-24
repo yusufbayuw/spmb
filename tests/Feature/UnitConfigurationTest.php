@@ -219,6 +219,76 @@ class UnitConfigurationTest extends TestCase
         }
     }
 
+    public function test_unit_configuration_can_put_documents_before_applicant_card_and_order_form_groups(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['payment_enabled'] = false;
+        $data['workflow_blocks'] = [
+            ['key' => 'documents'],
+            ['key' => 'applicant_card'],
+        ];
+        $data['form_groups'] = [
+            ['key' => 'group_health', 'label' => 'Informasi Kesehatan'],
+            ['key' => 'group_additional', 'label' => 'Informasi Tambahan'],
+        ];
+        $data['form_layout'] = [
+            ['key' => 'registration_choice'],
+            ['key' => 'identity'],
+            ['key' => 'group:group_health'],
+            ['key' => 'parents'],
+            ['key' => 'group:group_additional'],
+            ['key' => 'academic_scores'],
+            ['key' => 'achievements'],
+        ];
+        $data['fields'] = [[
+            'key' => 'custom_allergy',
+            'label' => 'Apakah memiliki alergi?',
+            'type' => 'boolean',
+            'active' => true,
+            'required' => false,
+            'group_key' => 'group_health',
+            'group' => 'Informasi Kesehatan',
+            'help' => null,
+            'options' => [],
+        ]];
+
+        $published = $service->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $published->id]);
+
+        app(RegistrationWorkflowService::class)->validateData($registration, $staff, true);
+        $registration->refresh();
+
+        $this->assertSame('documents', $registration->current_stage);
+        $this->assertNotNull($registration->registration_number);
+        $this->assertNull($registration->applicant_card_number);
+
+        $stages = array_keys($registration->enabledStages());
+        $this->assertLessThan(
+            array_search('applicant_card', $stages, true),
+            array_search('documents', $stages, true),
+        );
+        $this->assertSame('group_health', $published->fields[0]['group_key']);
+        $this->assertSame('group:group_health', $published->form_layout[2]['key']);
+    }
+
+    public function test_workflow_block_configuration_rejects_duplicate_blocks(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['workflow_blocks'] = [
+            ['key' => 'applicant_card'],
+            ['key' => 'applicant_card'],
+        ];
+
+        $this->expectException(ValidationException::class);
+        $service->save($draft, $staff, $data);
+    }
+
     public function test_applying_test_configuration_before_test_stage_does_not_create_test_results(): void
     {
         [$unit, $staff, $registration] = $this->fixture();
