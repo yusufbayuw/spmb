@@ -11,9 +11,9 @@ class UnitConfiguration extends Model
 {
     use HasPublicUuid;
 
-    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
+    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
 
-    protected $casts = ['payment_enabled' => 'boolean', 'documents_enabled' => 'boolean', 'tests_enabled' => 'boolean', 'post_announcement_enabled' => 'boolean', 'workflow_stage_labels' => 'array', 'academic_scores_enabled' => 'boolean', 'academic_score_settings' => 'array', 'achievements_enabled' => 'boolean', 'achievement_settings' => 'array', 'fields' => 'array', 'document_requirements' => 'array', 'test_definitions' => 'array', 're_registration_requirements' => 'array', 'published_at' => 'datetime', 'legacy' => 'boolean'];
+    protected $casts = ['payment_enabled' => 'boolean', 'documents_enabled' => 'boolean', 'tests_enabled' => 'boolean', 'post_announcement_enabled' => 'boolean', 'workflow_stage_labels' => 'array', 'workflow_blocks' => 'array', 'academic_scores_enabled' => 'boolean', 'academic_score_settings' => 'array', 'achievements_enabled' => 'boolean', 'achievement_settings' => 'array', 'fields' => 'array', 'form_groups' => 'array', 'form_layout' => 'array', 'document_requirements' => 'array', 'test_definitions' => 'array', 're_registration_requirements' => 'array', 'published_at' => 'datetime', 'legacy' => 'boolean'];
 
     protected static function booted(): void
     {
