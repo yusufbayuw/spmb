@@ -310,6 +310,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Repeater::make('academic_score_settings.grades')
                         ->label('Kelas / Tingkat')
                         ->default([])
+                        ->live()
                         ->schema([
                             Forms\Components\Hidden::make('key')
                                 ->default(fn (): string => 'grade_'.strtolower(Str::random(10)))
@@ -347,6 +348,15 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                                 ->label('Label')
                                 ->placeholder('Nilai Rapor S-1')
                                 ->required(),
+                            Forms\Components\Select::make('grade_keys')
+                                ->label('Berlaku untuk Kelas / Tingkat')
+                                ->helperText('Kosongkan untuk menampilkan komponen ini pada semua kelas/tingkat. Pilih kelas tertentu bila, misalnya, Semester 2 hanya berlaku untuk Kelas VII dan VIII.')
+                                ->multiple()
+                                ->searchable()
+                                ->native(false)
+                                ->options(fn (): array => collect($this->data['academic_score_settings']['grades'] ?? [])
+                                    ->pluck('label', 'key')
+                                    ->all()),
                         ])
                         ->columns(1)
                         ->itemLabel(fn (array $state): string => $state['label'] ?? 'Komponen nilai')
