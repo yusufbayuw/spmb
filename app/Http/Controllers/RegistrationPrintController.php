@@ -6,6 +6,7 @@ use App\Models\PaymentReceipt;
 use App\Models\Registration;
 use App\Models\TestBooking;
 use App\Services\ApplicantFileStorage;
+use App\Services\RegistrationCardService;
 use App\Services\TestCardEligibilityService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -20,12 +21,33 @@ class RegistrationPrintController extends Controller
         abort_unless($user?->is_active && ($user->id === $registration->user_id || $user->isAdmin() || ($user->isTU() && (int) $user->unit_id === (int) $registration->unit_id)), 404);
     }
 
-    public function applicantCard(Request $request, Registration $registration): View
-    {
+    public function applicantCard(
+        Request $request,
+        Registration $registration,
+        RegistrationCardService $cards,
+    ): View {
         $this->authorizeRegistration($request, $registration);
         abort_unless($registration->isOperational() && $registration->applicant_card_number, 404);
+        abort_unless(
+            $cards->hasIdentityPhoto($registration),
+            409,
+            'Foto identitas harus diunggah sebelum kartu pendaftaran dapat dicetak.',
+        );
 
-        return view('registration.card', compact('registration'));
+        $card = $cards->cardData($registration);
+
+        return view('registration.card', compact('registration', 'card'));
+    }
+
+    public function verifyCard(Registration $registration, RegistrationCardService $cards): View
+    {
+        abort_unless(filled($registration->applicant_card_number), 404);
+
+        $registration->loadMissing(['unit', 'opening.studyProgram', 'pathway']);
+        $hasPhoto = $cards->hasIdentityPhoto($registration);
+        $isValid = $registration->isOperational() && $hasPhoto;
+
+        return view('registration.card-verification', compact('registration', 'hasPhoto', 'isValid'));
     }
 
     public function testCard(Request $request, Registration $registration, TestCardEligibilityService $eligibility): View
