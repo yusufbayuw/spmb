@@ -28,20 +28,29 @@ class CreateRegistration extends CreateRecord
 
     private array $validatedAchievements = [];
 
+    public ?string $openingUuid = null;
+
+    public ?string $configurationUuid = null;
+
     public function mount(): void
     {
-        parent::mount();
+        $this->openingUuid = (string) request()->query('opening');
 
         $opening = RegistrationOpening::query()
             ->forOperationalMode()
             ->with(['unit', 'studyProgram'])
-            ->where('uuid', request()->query('opening'))->first();
+            ->where('uuid', $this->openingUuid)
+            ->first();
 
         abort_unless($opening?->isOpen(), 403, 'Pendaftaran ini sedang tidak dibuka.');
 
         $configuration = app(UnitConfigurationService::class)->initialize($opening->unit);
+        $this->configurationUuid = $configuration->uuid;
+
+        parent::mount();
+
         $this->form->fill([
-            ...$this->previousRegistrationPrefill(),
+            ...$this->previousRegistrationPrefill($opening),
             'unit_configuration_uuid' => $configuration->uuid,
             'registration_opening_uuid' => $opening->uuid,
             'unit_uuid' => $opening->unit->uuid,
@@ -52,13 +61,19 @@ class CreateRegistration extends CreateRecord
     /**
      * @return array<string, mixed>
      */
-    private function previousRegistrationPrefill(): array
+    private function previousRegistrationPrefill(RegistrationOpening $opening): array
     {
         $registration = Registration::query()
             ->where('user_id', auth()->id())
-            ->with('parentInfo')
+            ->where('registration_opening_id', $opening->id)
+            ->with(['parentInfo', 'pathway'])
             ->latest()
-            ->first();
+            ->first()
+            ?? Registration::query()
+                ->where('user_id', auth()->id())
+                ->with('parentInfo')
+                ->latest()
+                ->first();
 
         if (! $registration) {
             return [];
@@ -78,6 +93,10 @@ class CreateRegistration extends CreateRecord
             'village_code',
             'postal_code',
         ]);
+
+        if ((int) $registration->registration_opening_id === (int) $opening->id && $registration->pathway) {
+            $prefill['registration_pathway_uuid'] = $registration->pathway->uuid;
+        }
 
         if ($registration->parentInfo) {
             $prefill['parentInfo'] = Arr::only($registration->parentInfo->attributesToArray(), [
