@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\RegistrationNumberService;
 use App\Services\RegistrationWorkflowService;
+use App\Services\UnitConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -141,6 +142,82 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertNotNull($announcement->published_at);
         $this->assertNull($announcement->fresh()->email_sent_at);
         Queue::assertPushed(SendAnnouncementPublishedMail::class, fn ($job) => $job->announcementId === $announcement->id);
+    }
+
+    public function test_documents_first_workflow_waits_to_issue_card_until_documents_are_verified(): void
+    {
+        Queue::fake();
+
+        [$registration, $staff, $unit] = $this->registrationFixture();
+        $configurationService = app(UnitConfigurationService::class);
+        $draft = $configurationService->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['workflow_blocks'] = [
+            ['key' => 'documents'],
+            ['key' => 'applicant_card'],
+        ];
+        $configuration = $configurationService->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        VirtualAccount::create([
+            'unit_id' => $unit->id,
+            'bank' => 'MANDIRI',
+            'va_number' => '8432572999',
+            'status' => 'available',
+        ]);
+
+        $workflow = app(RegistrationWorkflowService::class);
+        $workflow->validateData($registration, $staff, true);
+
+        $payment = $registration->payments()->firstOrFail();
+        $payment->update([
+            'proof_path' => 'payments/'.$registration->id.'/proof.pdf',
+            'proof_original_name' => 'proof.pdf',
+            'proof_mime_type' => 'application/pdf',
+            'proof_sha256' => str_repeat('b', 64),
+            'proof_malware_scan_status' => 'clean',
+            'proof_security_scanned_at' => now(),
+        ]);
+
+        $workflow->markPaymentUploaded($payment);
+        $workflow->verifyPayment($payment, $staff, true);
+        $registration->refresh();
+
+        $this->assertSame('documents', $registration->current_stage);
+        $this->assertNotNull($registration->registration_number);
+        $this->assertNull($registration->applicant_card_number);
+
+        foreach (RegistrationWorkflowService::REQUIRED_DOCUMENTS as $type) {
+            Document::create([
+                'registration_id' => $registration->id,
+                'type' => $type,
+                'file_path' => 'documents/'.$registration->id.'/'.$type.'.pdf',
+                'original_name' => $type.'.pdf',
+                'file_type' => 'pdf',
+                'mime_type' => 'application/pdf',
+                'file_size' => 1024,
+                'sha256' => hash('sha256', $type.'documents-first'),
+                'malware_scan_status' => 'clean',
+                'security_scanned_at' => now(),
+                'is_verified' => true,
+                'verified_at' => now(),
+                'verified_by' => $staff->id,
+            ]);
+        }
+
+        $registration->transitionTo('document_verification', ['documents_completed_at' => now()]);
+        $this->assertTrue($workflow->refreshDocumentStage($registration));
+        $registration->refresh();
+
+        $this->assertSame('applicant_card', $registration->current_stage);
+        $this->assertNull($registration->applicant_card_number);
+
+        $workflow->issueApplicantCard($registration, $staff);
+        $registration->refresh();
+
+        $this->assertSame('selection', $registration->current_stage);
+        $this->assertNotNull($registration->applicant_card_number);
+        $this->assertNotNull($registration->applicant_card_issued_at);
     }
 
     public function test_registration_number_sequence_is_independent_per_unit(): void
