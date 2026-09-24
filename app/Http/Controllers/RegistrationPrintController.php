@@ -28,11 +28,6 @@ class RegistrationPrintController extends Controller
     ): View {
         $this->authorizeRegistration($request, $registration);
         abort_unless($registration->isOperational() && $registration->applicant_card_number, 404);
-        abort_unless(
-            $cards->hasIdentityPhoto($registration),
-            409,
-            'Foto identitas harus diunggah sebelum kartu pendaftaran dapat dicetak.',
-        );
 
         $card = $cards->cardData($registration);
 
