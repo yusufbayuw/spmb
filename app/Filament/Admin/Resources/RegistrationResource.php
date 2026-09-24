@@ -8,6 +8,7 @@ use App\Filament\Forms\RegionFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Services\RegistrationCardService;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -224,6 +225,13 @@ class RegistrationResource extends Resource
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
             ])
             ->actions([
+                Tables\Actions\Action::make('viewApplicantCard')
+                    ->label('Lihat Kartu')
+                    ->icon('heroicon-o-identification')
+                    ->color('gray')
+                    ->visible(fn (Registration $record): bool => static::canViewApplicantCard($record))
+                    ->url(fn (Registration $record): string => route('registration.card', $record))
+                    ->openUrlInNewTab(),
                 Tables\Actions\Action::make('validateData')
                     ->label('Validasi Data')->icon('heroicon-o-check-badge')->color('info')
                     ->visible(fn (Registration $record) => $record->isOperational() && auth()->user()?->can('validate_data_registration') && $record->current_stage === 'data_validation')
@@ -295,6 +303,13 @@ class RegistrationResource extends Resource
         }
 
         return $query;
+    }
+
+    public static function canViewApplicantCard(Registration $record): bool
+    {
+        return $record->isOperational()
+            && filled($record->applicant_card_number)
+            && app(RegistrationCardService::class)->hasIdentityPhoto($record);
     }
 
     public static function getNavigationBadge(): ?string
