@@ -220,6 +220,11 @@ class Registration extends Model
         return $blocks;
     }
 
+    public function usesConfigurableWorkflow(): bool
+    {
+        return (bool) $this->configuration && ! $this->configuration->legacy;
+    }
+
     public function nextEnabledStage(string $stage): ?string
     {
         $stages = array_keys($this->enabledStages());
