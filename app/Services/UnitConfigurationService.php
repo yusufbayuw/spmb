@@ -47,6 +47,7 @@ class UnitConfigurationService
             'selection_mode' => 'flexible',
             'post_announcement_enabled' => $unit->isHigherEducation(),
             'workflow_stage_labels' => Registration::STAGES,
+            'workflow_blocks' => collect(Registration::DEFAULT_WORKFLOW_BLOCKS)->map(fn (string $key): array => ['key' => $key])->all(),
             'builtin_field_policy' => 'system_default',
             'academic_scores_enabled' => false,
             'academic_score_settings' => [
@@ -69,6 +70,17 @@ class UnitConfigurationService
                 'show_description' => false,
             ],
             'fields' => [],
+            'form_groups' => [
+                ['key' => 'group_additional', 'label' => 'Informasi Tambahan'],
+            ],
+            'form_layout' => [
+                ['key' => 'registration_choice'],
+                ['key' => 'identity'],
+                ['key' => 'parents'],
+                ['key' => 'group:group_additional'],
+                ['key' => 'academic_scores'],
+                ['key' => 'achievements'],
+            ],
             'document_requirements' => $documents,
             'test_definitions' => $tests,
             're_registration_requirements' => [],
@@ -101,7 +113,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -153,6 +165,12 @@ class UnitConfigurationService
             $skipped = 0;
 
             foreach ($registrations as $registration) {
+                if ($this->workflowConfigurationChanged($registration->configuration, $configuration)) {
+                    $skipped++;
+
+                    continue;
+                }
+
                 if ($registration->current_stage !== 'data_validation'
                     && $this->supplementalConfigurationChanged($registration->configuration, $configuration)) {
                     $skipped++;
@@ -254,6 +272,137 @@ class UnitConfigurationService
         });
     }
 
+    /**
+     * Normalize legacy configuration data for the current editor/runtime shape.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    public function normalizeEditorData(array $data): array
+    {
+        $workflowBlocks = $data['workflow_blocks'] ?? null;
+
+        if (! is_array($workflowBlocks) || $workflowBlocks === []) {
+            $workflowBlocks = collect(Registration::DEFAULT_WORKFLOW_BLOCKS)
+                ->map(fn (string $key): array => ['key' => $key])
+                ->all();
+        } else {
+            $workflowBlocks = collect($workflowBlocks)
+                ->map(fn (mixed $block): array => ['key' => is_array($block) ? ($block['key'] ?? null) : $block])
+                ->values()
+                ->all();
+        }
+
+        $data['workflow_blocks'] = $workflowBlocks;
+
+        $formGroups = collect(is_array($data['form_groups'] ?? null) ? $data['form_groups'] : [])
+            ->filter(fn (mixed $group): bool => is_array($group) && filled($group['key'] ?? null) && filled($group['label'] ?? null))
+            ->map(fn (array $group): array => [
+                'key' => (string) $group['key'],
+                'label' => trim((string) $group['label']),
+            ])
+            ->values()
+            ->all();
+
+        if ($formGroups === []) {
+            $formGroups = [
+                ['key' => 'group_additional', 'label' => 'Informasi Tambahan'],
+            ];
+        }
+
+        $fields = is_array($data['fields'] ?? null) ? $data['fields'] : [];
+
+        foreach ($fields as $index => $field) {
+            if (! is_array($field) || in_array($field['key'] ?? null, ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                continue;
+            }
+
+            if (filled($field['group_key'] ?? null)) {
+                continue;
+            }
+
+            $groupLabel = filled($field['group'] ?? null)
+                ? trim((string) $field['group'])
+                : 'Informasi Tambahan';
+
+            $groupKey = null;
+            foreach ($formGroups as $group) {
+                if (mb_strtolower($group['label']) === mb_strtolower($groupLabel)) {
+                    $groupKey = $group['key'];
+                    break;
+                }
+            }
+
+            if (! $groupKey) {
+                $groupKey = 'group_'.substr(sha1(mb_strtolower($groupLabel)), 0, 10);
+                $existingKeys = array_column($formGroups, 'key');
+                $suffix = 2;
+
+                while (in_array($groupKey, $existingKeys, true)) {
+                    $groupKey = 'group_'.substr(sha1(mb_strtolower($groupLabel)), 0, 8).'_'.$suffix;
+                    $suffix++;
+                }
+
+                $formGroups[] = ['key' => $groupKey, 'label' => $groupLabel];
+            }
+
+            $fields[$index]['group_key'] = $groupKey;
+            $fields[$index]['group'] = $groupLabel;
+        }
+
+        $data['fields'] = $fields;
+        $data['form_groups'] = $formGroups;
+
+        $availableLayoutKeys = [
+            'registration_choice',
+            'identity',
+            'parents',
+            ...array_map(fn (array $group): string => 'group:'.$group['key'], $formGroups),
+            'academic_scores',
+            'achievements',
+        ];
+
+        $configuredLayout = collect(is_array($data['form_layout'] ?? null) ? $data['form_layout'] : [])
+            ->map(fn (mixed $item): ?string => is_array($item) ? ($item['key'] ?? null) : (is_string($item) ? $item : null))
+            ->filter(fn (?string $key): bool => $key !== null && in_array($key, $availableLayoutKeys, true))
+            ->unique()
+            ->values()
+            ->all();
+
+        $configuredLayout = array_values(array_filter(
+            $configuredLayout,
+            fn (string $key): bool => $key !== 'registration_choice',
+        ));
+        array_unshift($configuredLayout, 'registration_choice');
+
+        foreach ($availableLayoutKeys as $key) {
+            if (! in_array($key, $configuredLayout, true)) {
+                $configuredLayout[] = $key;
+            }
+        }
+
+        $data['form_layout'] = array_map(fn (string $key): array => ['key' => $key], $configuredLayout);
+
+        return $data;
+    }
+
+    private function workflowConfigurationChanged(?UnitConfiguration $from, UnitConfiguration $to): bool
+    {
+        $keys = function (?UnitConfiguration $configuration): array {
+            $blocks = is_array($configuration?->workflow_blocks) && $configuration->workflow_blocks !== []
+                ? $configuration->workflow_blocks
+                : collect(Registration::DEFAULT_WORKFLOW_BLOCKS)->map(fn (string $key): array => ['key' => $key])->all();
+
+            return collect($blocks)
+                ->map(fn (mixed $block): ?string => is_array($block) ? ($block['key'] ?? null) : (is_string($block) ? $block : null))
+                ->filter()
+                ->values()
+                ->all();
+        };
+
+        return $keys($from) !== $keys($to);
+    }
+
     private function supplementalConfigurationChanged(?UnitConfiguration $from, UnitConfiguration $to): bool
     {
         $fromScoresEnabled = (bool) ($from?->academic_scores_enabled ?? false);
@@ -287,6 +436,7 @@ class UnitConfigurationService
             $locked = UnitConfiguration::query()->lockForUpdate()->findOrFail($configuration->id);
 
             $data['builtin_field_policy'] ??= 'system_default';
+            $data = $this->normalizeEditorData($data);
             $stageLabels = is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [];
             $data['workflow_stage_labels'] = collect(Registration::STAGES)
                 ->mapWithKeys(fn (string $defaultLabel, string $stage): array => [
@@ -319,6 +469,8 @@ class UnitConfigurationService
             $validated = Validator::make($data, [
                 'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
                 'workflow_stage_labels' => ['present', 'array'], 'workflow_stage_labels.*' => ['required', 'string', 'max:120'],
+                'workflow_blocks' => ['present', 'array', 'size:2'],
+                'workflow_blocks.*.key' => ['required', Rule::in(array_keys(Registration::WORKFLOW_BLOCK_LABELS)), 'distinct'],
                 'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
                 'academic_scores_enabled' => ['required', 'boolean'],
                 'academic_score_settings' => ['present', 'array'],
@@ -350,7 +502,13 @@ class UnitConfigurationService
                 'fields' => ['present', 'array', 'max:100'], 'fields.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
                 'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean'])],
                 'fields.*.active' => ['required', 'boolean'], 'fields.*.required' => ['required', 'boolean'], 'fields.*.group' => ['nullable', 'string', 'max:100'],
+                'fields.*.group_key' => ['nullable', 'regex:/^[a-z][a-z0-9_]*$/', 'max:60'],
                 'fields.*.help' => ['nullable', 'string', 'max:1000'], 'fields.*.options' => ['nullable', 'array'], 'fields.*.options.*' => ['string', 'max:150'],
+                'form_groups' => ['present', 'array', 'max:30'],
+                'form_groups.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
+                'form_groups.*.label' => ['required', 'string', 'distinct', 'max:100'],
+                'form_layout' => ['present', 'array', 'max:40'],
+                'form_layout.*.key' => ['required', 'string', 'distinct', 'max:100'],
                 'document_requirements' => ['present', 'array', 'max:100'], 'document_requirements.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'max:60', 'distinct'],
                 'document_requirements.*.label' => ['required', 'string', 'max:150'], 'document_requirements.*.active' => ['required', 'boolean'], 'document_requirements.*.required' => ['required', 'boolean'],
                 'document_requirements.*.max_files' => ['required', 'integer', 'min:1', 'max:20'], 'document_requirements.*.formats' => ['required', 'array', 'min:1'],
@@ -365,6 +523,45 @@ class UnitConfigurationService
                 're_registration_requirements.*.required' => ['required', 'boolean'],
                 're_registration_requirements.*.instructions' => ['nullable', 'string', 'max:2000'],
             ])->validate();
+            $workflowKeys = collect($validated['workflow_blocks'])->pluck('key')->values()->all();
+            if (array_diff(Registration::DEFAULT_WORKFLOW_BLOCKS, $workflowKeys) !== []
+                || array_diff($workflowKeys, Registration::DEFAULT_WORKFLOW_BLOCKS) !== []) {
+                throw ValidationException::withMessages([
+                    'workflow_blocks' => 'Urutan pra-seleksi hanya boleh terdiri dari Kartu Pendaftar dan Berkas.',
+                ]);
+            }
+
+            $groupKeys = collect($validated['form_groups'])->pluck('key');
+            foreach ($validated['fields'] as $field) {
+                if (in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                    continue;
+                }
+
+                if (blank($field['group_key'] ?? null) || ! $groupKeys->contains($field['group_key'])) {
+                    throw ValidationException::withMessages([
+                        'fields' => 'Setiap pertanyaan tambahan harus berada pada kelompok formulir yang valid.',
+                    ]);
+                }
+            }
+
+            $availableLayoutKeys = collect([
+                'registration_choice',
+                'identity',
+                'parents',
+                ...$groupKeys->map(fn (string $key): string => 'group:'.$key)->all(),
+                'academic_scores',
+                'achievements',
+            ]);
+            $layoutKeys = collect($validated['form_layout'])->pluck('key');
+
+            if ($layoutKeys->first() !== 'registration_choice'
+                || $availableLayoutKeys->diff($layoutKeys)->isNotEmpty()
+                || $layoutKeys->diff($availableLayoutKeys)->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'form_layout' => 'Struktur formulir tidak valid. Pilihan Pendaftaran harus tetap pertama dan seluruh bagian harus tercantum satu kali.',
+                ]);
+            }
+
             $pathwayUuids = collect($validated['academic_score_settings']['pathway_uuids'] ?? [])
                 ->merge($validated['achievement_settings']['pathway_uuids'] ?? [])
                 ->filter()
