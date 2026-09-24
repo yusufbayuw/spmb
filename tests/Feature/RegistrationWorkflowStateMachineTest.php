@@ -9,6 +9,7 @@ use App\Models\Document;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
+use App\Models\UnitConfiguration;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\RegistrationNumberService;
@@ -150,13 +151,19 @@ class RegistrationWorkflowStateMachineTest extends TestCase
 
         [$registration, $staff, $unit] = $this->registrationFixture();
         $configurationService = app(UnitConfigurationService::class);
-        $draft = $configurationService->draft($unit, $staff);
-        $data = $draft->toArray();
+        $configurationService->initialize($unit);
+        $data = $configurationService->defaults($unit);
         $data['workflow_blocks'] = [
             ['key' => 'documents'],
             ['key' => 'applicant_card'],
         ];
-        $configuration = $configurationService->save($draft, $staff, $data, true);
+        $configuration = UnitConfiguration::create($data + [
+            'unit_id' => $unit->id,
+            'version' => 2,
+            'status' => 'published',
+            'legacy' => false,
+            'published_at' => now(),
+        ]);
         $registration->update(['unit_configuration_id' => $configuration->id]);
 
         VirtualAccount::create([
