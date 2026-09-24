@@ -185,7 +185,7 @@ class StudyProgramResource extends Resource
                 ])
                 ->collapsible(),
             Forms\Components\Section::make('Alur Pendaftaran Program Studi')
-                ->description('Template progres calon mahasiswa disimpan per program studi. Ubah label, penjelasan, urutan tampilan, atau sembunyikan tahap tertentu tanpa mengubah kunci workflow sistem.')
+                ->description('Template progres calon mahasiswa disimpan per program studi. Ubah label, penjelasan, atau visibilitas tahap tanpa mengubah urutan workflow runtime yang ditetapkan pada konfigurasi unit.')
                 ->schema([
                     Forms\Components\Repeater::make('workflow_steps')
                         ->label('Template Tahapan')
@@ -210,7 +210,7 @@ class StudyProgramResource extends Resource
                                 ->columnSpanFull(),
                         ])
                         ->columns(3)
-                        ->reorderable()
+                        ->reorderable(false)
                         ->addable(false)
                         ->deletable(false)
                         ->collapsible()
