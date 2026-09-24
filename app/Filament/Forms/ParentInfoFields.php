@@ -35,6 +35,9 @@ final class ParentInfoFields
                     Forms\Components\TextInput::make('father_occupation')
                         ->label('Pekerjaan Ayah')
                         ->maxLength(100),
+                    Forms\Components\TextInput::make('father_workplace')
+                        ->label('Instansi / Tempat Kerja Ayah')
+                        ->maxLength(150),
                     Forms\Components\TextInput::make('father_phone')
                         ->label('Telepon Ayah')
                         ->tel()
@@ -76,6 +79,9 @@ final class ParentInfoFields
                     Forms\Components\TextInput::make('mother_occupation')
                         ->label('Pekerjaan Ibu')
                         ->maxLength(100),
+                    Forms\Components\TextInput::make('mother_workplace')
+                        ->label('Instansi / Tempat Kerja Ibu')
+                        ->maxLength(150),
                     Forms\Components\TextInput::make('mother_phone')
                         ->label('Telepon Ibu')
                         ->tel()
