@@ -78,6 +78,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $this->configurationUuid = $draft->uuid;
         $this->preview = false;
         $data = app(UnitConfigurationService::class)->normalizeEditorData($draft->toArray());
+        $data['unit_logo_path'] = $unit->logo_path;
         $data['workflow_stage_labels'] = array_replace(
             Registration::STAGES,
             is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [],
@@ -128,6 +129,24 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\Section::make('Branding Kartu Pendaftaran')
+                ->description('Logo merupakan identitas Unit dan digunakan pada kartu pendaftaran. Nama unit dan alamat tetap mengambil data Unit yang sudah ada.')
+                ->schema([
+                    Forms\Components\FileUpload::make('unit_logo_path')
+                        ->label('Logo Unit')
+                        ->helperText('Gunakan logo PNG/JPG/SVG yang bersih. Logo disimpan sebagai branding Unit, bukan sebagai data pendaftar.')
+                        ->disk('public')
+                        ->directory('units/logos')
+                        ->visibility('public')
+                        ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/svg+xml'])
+                        ->maxSize(2048)
+                        ->image()
+                        ->imagePreviewHeight('140')
+                        ->downloadable()
+                        ->openable(),
+                ])
+                ->columns(1)
+                ->collapsible(),
             Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan. Pada perguruan tinggi, label dan urutan progres ditentukan per Program Studi.')->schema([
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),
                 Forms\Components\Toggle::make('documents_enabled')->label('Dokumen'),
@@ -548,6 +567,12 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     private function configurationFormData(UnitConfiguration $configuration): array
     {
         $data = $this->form->getState();
+
+        $unit = Unit::query()->findOrFail($configuration->unit_id);
+        app(UnitConfigurationService::class)->authorize(auth()->user(), $unit->id);
+        $unit->update(['logo_path' => $data['unit_logo_path'] ?? null]);
+        unset($data['unit_logo_path']);
+
         $data['test_definitions'] = collect($data['test_definitions'] ?? [])
             ->map(fn (array $definition): array => [
                 'id' => AdmissionTest::query()
