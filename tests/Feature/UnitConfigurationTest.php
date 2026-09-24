@@ -597,6 +597,60 @@ class UnitConfigurationTest extends TestCase
         $this->assertSame($configuration->id, $created->unit_configuration_id);
     }
 
+    public function test_additional_participant_form_keeps_custom_fields_and_academic_scores(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+        $pathway = RegistrationPathway::factory()->create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+        ]);
+        $registration->update(['registration_pathway_id' => $pathway->id]);
+
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [[
+            'key' => 'custom_note',
+            'label' => 'Catatan Tambahan',
+            'type' => 'text',
+            'active' => true,
+            'required' => false,
+            'group' => 'Informasi Tambahan',
+            'group_key' => 'group_additional',
+            'help' => null,
+            'options' => [],
+        ]];
+        $data['academic_scores_enabled'] = true;
+        $data['academic_score_settings'] = [
+            'required' => true,
+            'min_score' => 0,
+            'max_score' => 100,
+            'pathway_uuids' => [$pathway->uuid],
+            'grades' => [['key' => 'vii', 'label' => 'Kelas VII']],
+            'subjects' => [['key' => 'matematika', 'label' => 'Matematika']],
+            'assessments' => [[
+                'key' => 'rapor_s1',
+                'label' => 'Nilai Rapor Semester 1',
+                'grade_keys' => ['vii'],
+            ]],
+        ];
+
+        $configuration = $service->save($draft, $staff, $data, true);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $registration->opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertFormSet([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'unit_configuration_uuid' => $configuration->uuid,
+            ])
+            ->assertSee('Catatan Tambahan')
+            ->assertSee('Data Nilai')
+            ->assertSee('Nilai Rapor Semester 1');
+    }
+
     public function test_a_newly_published_version_rejects_an_already_open_form(): void
     {
         [$unit, $staff, $registration, $parent] = $this->fixture();
