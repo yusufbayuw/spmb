@@ -41,7 +41,7 @@ class RegistrationResource extends Resource
         return $form->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)->apply([
             'registration_choice' => Forms\Components\Section::make('Pilihan Pendaftaran')
                 ->description('Unit/institusi, program studi, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\Hidden::make('registration_opening_uuid')->required(),
                     Forms\Components\Hidden::make('unit_uuid')->required(),
@@ -88,7 +88,7 @@ class RegistrationResource extends Resource
 
             'identity' => Forms\Components\Section::make('Identitas Calon Siswa / Mahasiswa')
                 ->description('Gunakan identitas yang sama dengan dokumen resmi calon peserta didik atau calon mahasiswa.')
-                ->columns(3)
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     Forms\Components\TextInput::make('nik')
                         ->label('NIK')->validationAttribute('NIK')->required()->rule('digits:16')
@@ -97,7 +97,7 @@ class RegistrationResource extends Resource
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
                                 ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
                         ),
-                    Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
+                    Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
                     Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
                     Forms\Components\Select::make('religion')->label('Agama')->options(['Islam' => 'Islam', 'Kristen' => 'Kristen', 'Katolik' => 'Katolik', 'Hindu' => 'Hindu', 'Buddha' => 'Buddha', 'Konghucu' => 'Konghucu'])->default('Islam'),
@@ -122,7 +122,7 @@ class RegistrationResource extends Resource
                         ->rule('regex:/^\\d{1,3}$/')
                         ->validationMessages(['regex' => 'RW harus berupa 1–3 digit angka.']),
                     ...RegionFields::schema(),
-                    Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->maxLength(150)->columnSpan(2),
+                    Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->maxLength(150)->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric()->minValue(2000)->maxValue(now()->year + 2),
                 ]),
 
