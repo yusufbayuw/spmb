@@ -432,6 +432,54 @@ class ConfiguredDocumentsAndReceiptsTest extends TestCase
         $service->save($draft, $staff, $data, true);
     }
 
+    public function test_existing_registration_uses_latest_document_label_and_instructions_without_duplicate_summary_block(): void
+    {
+        Storage::fake('local');
+        Storage::fake('applicant-private');
+
+        [$registration, $parent, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+
+        $old = $service->initialize($registration->unit);
+        $registration->update(['unit_configuration_id' => $old->id]);
+
+        $draft = $service->draft($registration->unit, $staff);
+        $data = $draft->toArray();
+        $data['document_requirements'] = collect($data['document_requirements'])
+            ->map(function (array $requirement): array {
+                if (($requirement['key'] ?? null) === 'supporting_document') {
+                    $requirement['label'] = 'Surat Pernyataan';
+                    $requirement['instructions'] = 'Unduh template, isi, tanda tangani, lalu unggah kembali.';
+                }
+
+                return $requirement;
+            })
+            ->all();
+
+        $service->save($draft, $staff, $data, true);
+
+        $requirement = collect($registration->fresh()->documentRequirements())
+            ->firstWhere('key', 'supporting_document');
+
+        $this->assertSame('Surat Pernyataan', $requirement['label']);
+        $this->assertSame(
+            'Unduh template, isi, tanda tangani, lalu unggah kembali.',
+            $requirement['instructions'],
+        );
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $page = Livewire::test(DocumentsUpload::class, ['registration' => $registration->uuid])
+            ->assertSee('Surat Pernyataan')
+            ->assertSee('Unduh template, isi, tanda tangani, lalu unggah kembali.')
+            ->assertSee('Belum diunggah')
+            ->assertDontSee('Maksimum 1 lampiran');
+
+        $this->assertStringContainsString('Dokumen Pendaftaran', $page->html());
+        $this->assertStringNotContainsString('Wajib · Maksimum', $page->html());
+    }
+
     private function fixture(): array
     {
         $this->seed(ShieldSeeder::class);
