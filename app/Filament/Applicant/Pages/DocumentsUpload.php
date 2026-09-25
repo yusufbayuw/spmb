@@ -13,6 +13,7 @@ use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\ViewField;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -71,14 +72,21 @@ class DocumentsUpload extends Page implements HasForms
             $remainingSlots = max(0, (int) $requirement['max_files'] - $verifiedCount);
             $locked = $remainingSlots === 0;
 
-            $helper = trim((string) ($requirement['instructions'] ?? ''));
-            $helper .= ($helper !== '' ? ' · ' : '').strtoupper(implode('/', $requirement['formats'])).' · maksimal 5 MB/file';
+            $helper = strtoupper(implode('/', $requirement['formats'])).' · maksimal 5 MB/file';
             if ($verifiedCount > 0) {
                 $helper .= " · {$verifiedCount} lampiran telah diverifikasi TU dan tidak dapat diganti";
             }
 
+            $status = ViewField::make('document_status_'.$requirement['key'])
+                ->view('filament.applicant.forms.document-upload-status')
+                ->viewData([
+                    'documents' => $existing,
+                    'requirement' => $requirement,
+                ])
+                ->dehydrated(false);
+
             $field = FileUpload::make($requirement['key'])
-                ->label($requirement['label'].($requirement['required'] ? ' (wajib)' : ' (opsional)'))
+                ->label('Unggah berkas')
                 ->helperText($helper)
                 ->disk(ApplicantFileStorage::PRIVATE_DISK)
                 ->directory('documents/'.$this->registrationRecord->id)
@@ -92,7 +100,7 @@ class DocumentsUpload extends Page implements HasForms
                 ->maxFiles(max(1, $remainingSlots))
                 ->disabled($locked);
 
-            $components = [$field];
+            $components = [$status, $field];
 
             if (! empty($requirement['template_path'])) {
                 $components[] = Actions::make([
@@ -103,15 +111,20 @@ class DocumentsUpload extends Page implements HasForms
                 ]);
             }
 
-            $fields[] = Group::make($components);
+            $fields[] = Section::make($requirement['label'].($requirement['required'] ? ' (wajib)' : ' (opsional)'))
+                ->description(filled($requirement['instructions'] ?? null)
+                    ? (string) $requirement['instructions']
+                    : null)
+                ->schema($components)
+                ->compact();
         }
 
         return $form
             ->schema([
                 Section::make('Dokumen Pendaftaran')
-                    ->description('Unduh template pada dokumen yang menyediakannya, isi sesuai petunjuk, lalu unggah kembali pada field yang sama.')
+                    ->description('Setiap dokumen menampilkan status, petunjuk, template bila tersedia, dan area unggah dalam satu blok.')
                     ->schema($fields)
-                    ->columns(2),
+                    ->columns(1),
             ])
             ->statePath('data');
     }
