@@ -549,29 +549,33 @@ class RegistrationWorkflowService
             $pending = $requiredTestIds->diff($completedTestIds)->isNotEmpty();
 
             if (! $pending) {
-                $scoreTestIds = collect($registration->configuredTests())
-                    ->where('is_required', true)
-                    ->where('result_type', 'score')
-                    ->pluck('id');
+                $targetStage = $registration->nextEnabledStage('tests') ?? 'selection';
 
-                $scores = $registration->testResults()
-                    ->whereIn('admission_test_id', $scoreTestIds)
-                    ->whereNotNull('score')
-                    ->pluck('score')
-                    ->map(fn ($score): float => (float) $score);
+                if ($targetStage === 'selection') {
+                    $scoreTestIds = collect($registration->configuredTests())
+                        ->where('is_required', true)
+                        ->where('result_type', 'score')
+                        ->pluck('id');
 
-                $selection = Selection::firstOrCreate(
-                    ['registration_id' => $registration->id],
-                    ['decision' => 'pending'],
-                );
+                    $scores = $registration->testResults()
+                        ->whereIn('admission_test_id', $scoreTestIds)
+                        ->whereNotNull('score')
+                        ->pluck('score')
+                        ->map(fn ($score): float => (float) $score);
 
-                if ($scores->isNotEmpty()) {
-                    $selection->update([
-                        'final_score' => round((float) $scores->avg(), 2),
-                    ]);
+                    $selection = Selection::firstOrCreate(
+                        ['registration_id' => $registration->id],
+                        ['decision' => 'pending'],
+                    );
+
+                    if ($scores->isNotEmpty()) {
+                        $selection->update([
+                            'final_score' => round((float) $scores->avg(), 2),
+                        ]);
+                    }
                 }
 
-                $registration->transitionTo('selection');
+                $registration->transitionTo($targetStage);
                 $completedNow = true;
             }
         });
@@ -692,15 +696,19 @@ class RegistrationWorkflowService
                 ],
             );
 
-            Announcement::firstOrCreate(
-                ['registration_id' => $lockedRegistration->id],
-                [
-                    'status' => 'draft',
-                    'title' => 'Pengumuman Hasil SPMB',
-                ],
-            );
+            $targetStage = $lockedRegistration->nextEnabledStage('selection') ?? 'announcement';
 
-            $lockedRegistration->transitionTo('announcement');
+            if ($targetStage === 'announcement') {
+                Announcement::firstOrCreate(
+                    ['registration_id' => $lockedRegistration->id],
+                    [
+                        'status' => 'draft',
+                        'title' => 'Pengumuman Hasil SPMB',
+                    ],
+                );
+            }
+
+            $lockedRegistration->transitionTo($targetStage);
 
             return $selection;
         });
