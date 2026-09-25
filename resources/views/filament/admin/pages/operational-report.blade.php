@@ -23,7 +23,7 @@
             </div>
         </form>
 
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             @foreach ([
                 ['Total Pendaftaran', number_format($summary['total']), 'heroicon-o-users'],
                 ['Aktif', number_format($summary['active']), 'heroicon-o-play-circle'],
