@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Admin\Pages\UnitRegistrationSettings;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration;
 use App\Models\AdmissionTest;
+use App\Models\AdmissionTestResult;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
@@ -900,6 +901,79 @@ class UnitConfigurationTest extends TestCase
 
         $this->assertSame('001', $created->rt);
         $this->assertSame('007', $created->rw);
+    }
+
+    public function test_admin_can_end_workflow_after_tests_and_customize_applicant_progress_and_message(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+
+        $test = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akhir',
+            'code' => 'FINAL-TEST',
+            'sort_order' => 1,
+            'is_required' => true,
+            'is_active' => true,
+            'result_type' => 'score',
+        ]);
+
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['tests_enabled'] = true;
+        $data['test_definitions'] = [['id' => $test->id]];
+        $data['completion_after_stage'] = 'tests';
+        $data['applicant_visible_stages'] = ['data_validation', 'documents', 'tests', 'completed'];
+        $data['completion_title'] = 'Tahapan Pendaftaran Selesai';
+        $data['completion_message'] = 'Terima kasih. Informasi berikutnya akan disampaikan oleh sekolah.';
+
+        $configuration = $service->save($draft, $staff, $data, true);
+
+        $registration->update([
+            'unit_configuration_id' => $configuration->id,
+            'current_stage' => 'tests',
+        ]);
+
+        $result = AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $test->id,
+            'status' => 'unbooked',
+            'result' => 'pending',
+        ]);
+
+        app(RegistrationWorkflowService::class)->recordTestResult(
+            $result,
+            $staff,
+            [
+                'status' => 'completed',
+                'result' => 'passed',
+                'score' => 88,
+            ],
+        );
+
+        $registration->refresh();
+
+        $this->assertSame('completed', $registration->current_stage);
+        $this->assertDatabaseMissing('selections', ['registration_id' => $registration->id]);
+        $this->assertSame(
+            ['data_validation', 'documents', 'tests', 'completed'],
+            array_keys($registration->progressStages()),
+        );
+        $this->assertSame('Tahapan Pendaftaran Selesai', $registration->completionTitle());
+        $this->assertSame(
+            'Terima kasih. Informasi berikutnya akan disampaikan oleh sekolah.',
+            $registration->completionMessage(),
+        );
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $this->get('/pendaftar/status/'.$registration->uuid)
+            ->assertOk()
+            ->assertSeeText('Tahapan Pendaftaran Selesai')
+            ->assertSeeText('Terima kasih. Informasi berikutnya akan disampaikan oleh sekolah.')
+            ->assertDontSeeText('Seleksi Peserta')
+            ->assertDontSeeText('Pengumuman');
     }
 
     public function test_a_newly_published_version_rejects_an_already_open_form(): void
