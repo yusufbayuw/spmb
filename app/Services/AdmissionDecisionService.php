@@ -232,10 +232,15 @@ class AdmissionDecisionService
 
             $lockedOffer->update(['status' => 'accepted', 'accepted_at' => now()]);
             $registration->transitionTo('re_registration', ['status' => 'confirmed']);
-            app(ReRegistrationService::class)->initialize($registration);
-            if ($registration->reRegistrationComplete()) {
-                $registration->transitionTo('enrollment', ['re_registration_completed_at' => now()]);
+
+            if ($registration->current_stage !== 'completed') {
+                app(ReRegistrationService::class)->initialize($registration);
+
+                if ($registration->reRegistrationComplete()) {
+                    $registration->transitionTo('enrollment', ['re_registration_completed_at' => now()]);
+                }
             }
+
             app(AuditTrail::class)->record('admission.offer_accepted', $lockedOffer, actor: $applicant, unitId: $registration->unit_id, registrationId: $registration->id, description: 'Penawaran penerimaan diterima pendaftar');
             $wasAccepted = true;
 
