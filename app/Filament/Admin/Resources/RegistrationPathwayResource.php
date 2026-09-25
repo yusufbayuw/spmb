@@ -34,7 +34,7 @@ class RegistrationPathwayResource extends Resource
         return $form->schema([
             Forms\Components\Section::make('Jalur Pendaftaran per Unit')
                 ->description('Jalur aktif akan tersedia untuk dipilih pendaftar pada pembukaan milik unit ini.')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\Select::make('unit_id')
                         ->label('Unit / Institusi')
