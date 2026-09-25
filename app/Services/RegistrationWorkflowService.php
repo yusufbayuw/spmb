@@ -1287,7 +1287,8 @@ class RegistrationWorkflowService
                 ],
             );
 
-            if (! $lockedRegistration->postAnnouncementEnabled()) {
+            if ($lockedRegistration->shouldCompleteAfter('announcement')
+                || ! $lockedRegistration->postAnnouncementEnabled()) {
                 $attributes = ['status' => $selection->decision];
 
                 if ($selection->decision === 'accepted') {
@@ -1305,9 +1306,13 @@ class RegistrationWorkflowService
         $publishedRegistration = $announcement->registration->fresh(['configuration']);
         $decision = $publishedRegistration->selection()->value('decision');
 
-        if ($publishedRegistration->postAnnouncementEnabled() && $decision === 'accepted') {
+        if ($publishedRegistration->current_stage !== 'completed'
+            && $publishedRegistration->postAnnouncementEnabled()
+            && $decision === 'accepted') {
             app(AdmissionDecisionService::class)->publishAccepted($publishedRegistration);
-        } elseif ($publishedRegistration->postAnnouncementEnabled() && $decision === 'waiting_list') {
+        } elseif ($publishedRegistration->current_stage !== 'completed'
+            && $publishedRegistration->postAnnouncementEnabled()
+            && $decision === 'waiting_list') {
             app(AdmissionDecisionService::class)->publishWaitingList($publishedRegistration);
         }
 
