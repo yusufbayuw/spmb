@@ -18,6 +18,7 @@ use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -94,7 +95,10 @@ class UnitConfigurationTest extends TestCase
         [$unit, $staff] = $this->fixture();
 
         Storage::fake('public');
-        Storage::disk('public')->put('units/logos/sd-test.png', 'logo-bytes');
+        Storage::disk('public')->put(
+            'units/logos/sd-test.png',
+            UploadedFile::fake()->image('sd-test.png', 120, 120)->getContent(),
+        );
 
         $this->actingAs($staff);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
