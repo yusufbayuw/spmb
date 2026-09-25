@@ -6,7 +6,7 @@
 @endphp
 
 <div class="space-y-6">
-    <div class="grid gap-3 sm:grid-cols-2">
+    <div class="grid gap-3 md:grid-cols-2">
         <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
             <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Nomor Registrasi</div>
             <div class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $record->registration_number }}</div>
@@ -53,7 +53,7 @@
     @if ($record->latestPayment)
         <div class="rounded-xl border border-gray-200 p-4 dark:border-white/10">
             <div class="text-sm font-semibold text-gray-950 dark:text-white">Pembayaran</div>
-            <div class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+            <div class="mt-2 grid gap-2 text-sm md:grid-cols-2">
                 <div><span class="text-gray-500">VA:</span> {{ $record->latestPayment->va_number ?? '-' }}</div>
                 <div><span class="text-gray-500">Status:</span> {{ str($record->latestPayment->status)->replace('_', ' ')->title() }}</div>
             </div>
