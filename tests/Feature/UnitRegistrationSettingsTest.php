@@ -136,6 +136,53 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame(3, $published->registration_number_digits);
     }
 
+    public function test_admin_unit_can_configure_boolean_detail_per_answer(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm([
+                'fields' => [[
+                    'key' => 'custom_condition',
+                    'label' => 'Apakah ada kondisi khusus?',
+                    'type' => 'boolean',
+                    'active' => true,
+                    'required' => true,
+                    'group' => 'Informasi Tambahan',
+                    'group_key' => 'group_additional',
+                    'help' => null,
+                    'options' => [],
+                    'boolean_yes_detail_enabled' => true,
+                    'boolean_yes_detail_label' => 'Tuliskan kondisi',
+                    'boolean_yes_detail_required' => false,
+                    'boolean_no_detail_enabled' => false,
+                    'boolean_no_detail_label' => 'Keterangan',
+                    'boolean_no_detail_required' => false,
+                ]],
+            ])
+            ->assertSee('Keterangan saat jawaban Ya')
+            ->assertSee('Keterangan saat jawaban Tidak')
+            ->call('publish')
+            ->assertHasNoFormErrors();
+
+        $published = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'published')
+            ->latest('version')
+            ->firstOrFail();
+
+        $field = collect($published->fields)->firstWhere('key', 'custom_condition');
+
+        $this->assertTrue($field['boolean_yes_detail_enabled']);
+        $this->assertSame('Tuliskan kondisi', $field['boolean_yes_detail_label']);
+        $this->assertFalse($field['boolean_yes_detail_required']);
+        $this->assertFalse($field['boolean_no_detail_enabled']);
+        $this->assertFalse($field['boolean_no_detail_required']);
+    }
+
     public function test_tu_cannot_access_unit_registration_settings(): void
     {
         $this->seed(ShieldSeeder::class);
