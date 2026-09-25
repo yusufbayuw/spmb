@@ -47,7 +47,7 @@ class StudyProgramResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Identitas Program Studi')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\Select::make('unit_id')
                         ->label('Perguruan Tinggi')
@@ -123,7 +123,7 @@ class StudyProgramResource extends Resource
                 ]),
             Forms\Components\Section::make('Informasi Publik Program Studi')
                 ->description('Konten ini tampil pada halaman publik pembukaan program studi. Data biaya dan proses pendaftaran tetap berasal dari data bisnis, bukan dari editor konten.')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\TextInput::make('public_headline')
                         ->label('Judul Publik')
@@ -161,7 +161,7 @@ class StudyProgramResource extends Resource
                                 ->rows(2)
                                 ->maxLength(500),
                         ])
-                        ->columns(2)
+                        ->columns(['default' => 1, 'md' => 2])
                         ->columnSpanFull()
                         ->collapsible()
                         ->itemLabel(fn (array $state): string => $state['title'] ?? 'Highlight'),
@@ -178,7 +178,7 @@ class StudyProgramResource extends Resource
                                 ->rows(2)
                                 ->maxLength(500),
                         ])
-                        ->columns(2)
+                        ->columns(['default' => 1, 'md' => 2])
                         ->columnSpanFull()
                         ->collapsible()
                         ->itemLabel(fn (array $state): string => $state['title'] ?? 'Target calon mahasiswa'),
@@ -209,7 +209,7 @@ class StudyProgramResource extends Resource
                                 ->rows(2)
                                 ->columnSpanFull(),
                         ])
-                        ->columns(3)
+                        ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                         ->reorderable(false)
                         ->addable(false)
                         ->deletable(false)
