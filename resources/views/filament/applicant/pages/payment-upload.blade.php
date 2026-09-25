@@ -6,7 +6,7 @@
             <x-slot name="heading">Virtual Account</x-slot>
             <x-slot name="description">Gunakan nomor dan nominal berikut saat melakukan pembayaran.</x-slot>
 
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div class="grid gap-4 md:grid-cols-2">
                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
                     <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Nomor VA</div>
                     <div class="mt-1 font-mono text-xl font-semibold text-gray-950 dark:text-white">{{ $payment->va_number }}</div>
