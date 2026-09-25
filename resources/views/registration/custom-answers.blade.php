@@ -5,7 +5,21 @@
                 @php
 $answer = $registration->custom_answers[$field['key']];
 @endphp
-                <div><dt class="text-sm text-gray-500">{{ $field['label'] }}</dt><dd>{{ is_array($answer) ? implode(', ', $answer) : ($field['type'] === 'boolean' ? ($answer ? 'Ya' : 'Tidak') : $answer) }}</dd></div>
+                <div>
+                    <dt class="text-sm text-gray-500">{{ $field['label'] }}</dt>
+                    <dd>
+                        @if(($field['type'] ?? null) === 'file' && is_string($answer) && filled($answer))
+                            <a
+                                href="{{ route('files.applicant.registration-custom-field', ['registration' => $registration, 'key' => $field['key'], 'download' => 1]) }}"
+                                class="text-primary-600 hover:underline"
+                            >
+                                Unduh dokumen
+                            </a>
+                        @else
+                            {{ is_array($answer) ? implode(', ', $answer) : ($field['type'] === 'boolean' ? ($answer ? 'Ya' : 'Tidak') : $answer) }}
+                        @endif
+                    </dd>
+                </div>
             @endif
         @endforeach
     </dl>
