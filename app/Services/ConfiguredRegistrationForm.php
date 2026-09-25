@@ -290,7 +290,7 @@ class ConfiguredRegistrationForm
      *
      * @return list<array<string, mixed>>
      */
-    private function presentationFields(UnitConfiguration $configuration): array
+    public function presentationFields(UnitConfiguration $configuration): array
     {
         $fields = is_array($configuration->fields) ? $configuration->fields : [];
 
