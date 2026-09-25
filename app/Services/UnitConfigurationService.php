@@ -324,7 +324,9 @@ class UnitConfigurationService
         $data['registration_number_prefix'] = filled($data['registration_number_prefix'] ?? null)
             ? strtoupper(trim((string) $data['registration_number_prefix']))
             : null;
-        $data['registration_number_digits'] = max(3, (int) ($data['registration_number_digits'] ?? 4));
+        $data['registration_number_digits'] = filled($data['registration_number_digits'] ?? null)
+            ? (int) $data['registration_number_digits']
+            : 4;
 
         $formGroups = collect(is_array($data['form_groups'] ?? null) ? $data['form_groups'] : [])
             ->filter(fn (mixed $group): bool => is_array($group) && filled($group['key'] ?? null) && filled($group['label'] ?? null))
