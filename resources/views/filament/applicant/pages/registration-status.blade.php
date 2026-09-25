@@ -22,7 +22,11 @@
                         </x-filament::badge>
                     </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Proses pendaftaran telah mencapai {{ $progress }}%. Ikuti aksi yang tersedia agar proses dapat berlanjut.
+                        @if ($registration->current_stage === 'completed')
+                            Proses pendaftaran telah mencapai 100%.
+                        @else
+                            Proses pendaftaran telah mencapai {{ $progress }}%. Ikuti aksi yang tersedia agar proses dapat berlanjut.
+                        @endif
                     </p>
                     @if ($registration->currentStageDescription())
                         <p class="text-sm text-gray-600 dark:text-gray-300">{{ $registration->currentStageDescription() }}</p>
@@ -38,6 +42,13 @@
                 <div class="h-full rounded-full bg-primary-600 transition-all" style="width: {{ $progress }}%"></div>
             </div>
         </x-filament::section>
+
+        @if ($registration->current_stage === 'completed')
+            <x-filament::section icon="heroicon-o-check-circle" icon-color="success">
+                <x-slot name="heading">{{ $registration->completionTitle() }}</x-slot>
+                <p class="whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">{{ $registration->completionMessage() }}</p>
+            </x-filament::section>
+        @endif
 
         @if (! $registration->isOperational())
             <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning">
@@ -115,7 +126,7 @@
                             <x-filament::badge color="success" icon="heroicon-m-check-circle">Proses pendaftaran selesai</x-filament::badge>
                         @endif
 
-                        @if ($registration->isOperational() && filled($registration->registration_number) && ! $identityPhoto)
+                        @if ($registration->isOperational() && $registration->current_stage !== 'completed' && filled($registration->registration_number) && ! $identityPhoto)
                             <x-filament::button
                                 tag="a"
                                 href="{{ \App\Filament\Applicant\Pages\IdentityPhotoUpload::getUrl(['registration' => $registration->uuid]) }}"
@@ -124,7 +135,7 @@
                             >
                                 Upload Foto Identitas
                             </x-filament::button>
-                        @elseif ($registration->isOperational() && $identityPhoto && ! $identityPhoto->is_verified)
+                        @elseif ($registration->isOperational() && $registration->current_stage !== 'completed' && $identityPhoto && ! $identityPhoto->is_verified)
                             <x-filament::button
                                 tag="a"
                                 href="{{ \App\Filament\Applicant\Pages\IdentityPhotoUpload::getUrl(['registration' => $registration->uuid]) }}"
