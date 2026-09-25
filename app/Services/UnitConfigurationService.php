@@ -502,10 +502,12 @@ class UnitConfigurationService
                 'achievement_settings.show_organizer' => ['required', 'boolean'],
                 'achievement_settings.show_description' => ['required', 'boolean'],
                 'fields' => ['present', 'array', 'max:100'], 'fields.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
-                'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean'])],
+                'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean', 'file'])],
                 'fields.*.active' => ['required', 'boolean'], 'fields.*.required' => ['required', 'boolean'], 'fields.*.group' => ['nullable', 'string', 'max:100'],
                 'fields.*.group_key' => ['nullable', 'regex:/^[a-z][a-z0-9_]*$/', 'max:60'],
                 'fields.*.help' => ['nullable', 'string', 'max:1000'], 'fields.*.options' => ['nullable', 'array'], 'fields.*.options.*' => ['string', 'max:150'],
+                'fields.*.formats' => ['nullable', 'array', 'max:4'], 'fields.*.formats.*' => [Rule::in(['pdf', 'docx', 'jpg', 'png'])],
+                'fields.*.template_path' => ['nullable', 'string'],
                 'form_groups' => ['present', 'array', 'max:30'],
                 'form_groups.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
                 'form_groups.*.label' => ['required', 'string', 'distinct', 'max:100'],
@@ -683,6 +685,33 @@ class UnitConfigurationService
                             'fields' => 'Master wilayah Indonesia belum lengkap. Import master wilayah sebelum mempublikasikan field Provinsi/Kabupaten/Kecamatan/Desa.',
                         ]);
                     }
+                }
+            }
+
+            foreach ($validated['fields'] as $field) {
+                if (($field['type'] ?? null) !== 'file') {
+                    continue;
+                }
+
+                if (in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                    throw ValidationException::withMessages([
+                        'fields' => 'Jenis Unggah Dokumen hanya dapat digunakan untuk field tambahan.',
+                    ]);
+                }
+
+                $formats = array_values($field['formats'] ?? []);
+                if ($formats === []) {
+                    throw ValidationException::withMessages([
+                        'fields' => 'Field Unggah Dokumen harus memiliki minimal satu format file.',
+                    ]);
+                }
+
+                if (! empty($field['template_path'])) {
+                    if (! str_starts_with($field['template_path'], 'templates/'.$locked->unit_id.'/')) {
+                        throw ValidationException::withMessages(['fields' => 'Template field tidak sesuai unit.']);
+                    }
+
+                    app(ApplicantUploadSecurity::class)->inspect($field['template_path'], ['pdf', 'docx']);
                 }
             }
 
