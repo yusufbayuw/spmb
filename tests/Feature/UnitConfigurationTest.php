@@ -782,6 +782,126 @@ class UnitConfigurationTest extends TestCase
             ->assertSee('Nilai Rapor Semester 1');
     }
 
+    public function test_presentation_metadata_follows_latest_published_version_without_changing_pinned_rules(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+
+        $oldDraft = $service->draft($unit, $staff);
+        $oldData = $oldDraft->toArray();
+        $oldData['fields'] = [[
+            'key' => 'custom_note',
+            'label' => 'Catatan Lama',
+            'type' => 'text',
+            'active' => true,
+            'required' => false,
+            'group' => 'Informasi Tambahan',
+            'group_key' => 'group_additional',
+            'help' => 'Petunjuk lama.',
+            'options' => [],
+        ]];
+        $oldData['re_registration_requirements'] = [[
+            'key' => 'confirmation',
+            'label' => 'Konfirmasi Lama',
+            'type' => 'checklist',
+            'instructions' => 'Petunjuk daftar ulang lama.',
+            'active' => true,
+            'required' => true,
+        ]];
+
+        $old = $service->save($oldDraft, $staff, $oldData, true);
+        $registration->update(['unit_configuration_id' => $old->id]);
+
+        $newDraft = $service->draft($unit, $staff);
+        $newData = $newDraft->toArray();
+        $newData['fields'] = [[
+            'key' => 'custom_note',
+            'label' => 'Catatan Terbaru',
+            'type' => 'text',
+            'active' => true,
+            'required' => true,
+            'group' => 'Informasi Tambahan',
+            'group_key' => 'group_additional',
+            'help' => 'Petunjuk terbaru untuk pendaftar.',
+            'options' => [],
+        ]];
+        $newData['re_registration_requirements'] = [[
+            'key' => 'confirmation',
+            'label' => 'Konfirmasi Terbaru',
+            'type' => 'checklist',
+            'instructions' => 'Petunjuk daftar ulang terbaru.',
+            'active' => true,
+            'required' => false,
+        ]];
+
+        $service->save($newDraft, $staff, $newData, true);
+
+        $field = collect(app(ConfiguredRegistrationForm::class)->presentationFields($old))
+            ->firstWhere('key', 'custom_note');
+
+        $this->assertSame('Catatan Terbaru', $field['label']);
+        $this->assertSame('Petunjuk terbaru untuk pendaftar.', $field['help']);
+        $this->assertFalse($field['required']);
+
+        $reRegistration = collect($registration->fresh()->reRegistrationRequirements())
+            ->firstWhere('key', 'confirmation');
+
+        $this->assertSame('Konfirmasi Terbaru', $reRegistration['label']);
+        $this->assertSame('Petunjuk daftar ulang terbaru.', $reRegistration['instructions']);
+        $this->assertTrue($reRegistration['required']);
+    }
+
+    public function test_rt_and_rw_are_default_registration_fields_and_preserve_leading_zeroes(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+        $pathway = RegistrationPathway::factory()->create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $service->save($draft, $staff, $draft->toArray(), true);
+
+        $this->assertContains('rt', ConfiguredRegistrationForm::BUILTIN_FIELDS);
+        $this->assertContains('rw', ConfiguredRegistrationForm::BUILTIN_FIELDS);
+        $this->assertSame('RT', ConfiguredRegistrationForm::fieldLabels()['rt']);
+        $this->assertSame('RW', ConfiguredRegistrationForm::fieldLabels()['rw']);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $registration->opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertSee('Alamat Rumah')
+            ->assertSee('RT')
+            ->assertSee('RW')
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'self',
+                'full_name' => 'Peserta RT RW',
+                'nik' => '3273010101010077',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Jalan Contoh 1',
+                'rt' => '001',
+                'rw' => '007',
+                'parentInfo' => [
+                    'father_name' => 'Ayah',
+                    'mother_name' => 'Ibu',
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $created = Registration::query()->where('nik', '3273010101010077')->firstOrFail();
+
+        $this->assertSame('001', $created->rt);
+        $this->assertSame('007', $created->rw);
+    }
+
     public function test_a_newly_published_version_rejects_an_already_open_form(): void
     {
         [$unit, $staff, $registration, $parent] = $this->fixture();
