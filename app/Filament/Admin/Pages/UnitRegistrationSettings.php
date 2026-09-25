@@ -147,6 +147,45 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->columns(1)
                 ->collapsible(),
+            Forms\Components\Section::make('Nomor Pendaftaran')
+                ->description('Atur format nomor pendaftaran yang diterbitkan untuk unit ini. Urutan angka tetap berjalan per unit dan tidak mengubah nomor yang sudah terbit.')
+                ->schema([
+                    Forms\Components\TextInput::make('registration_number_prefix')
+                        ->label('Prefix')
+                        ->placeholder('Contoh: SMP')
+                        ->helperText('Huruf/angka, tanda hubung, dan underscore diperbolehkan. Prefix otomatis disimpan dalam huruf kapital.')
+                        ->maxLength(30)
+                        ->live(),
+                    Forms\Components\TextInput::make('registration_number_digits')
+                        ->label('Jumlah Digit Angka')
+                        ->numeric()
+                        ->integer()
+                        ->minValue(3)
+                        ->maxValue(12)
+                        ->default(4)
+                        ->required()
+                        ->live()
+                        ->helperText('Minimal 3 digit. Contoh: 3 menghasilkan 001, 002, 003, dan seterusnya.'),
+                    Forms\Components\Placeholder::make('registration_number_example')
+                        ->label('Contoh Nomor')
+                        ->content(function (Forms\Get $get): string {
+                            $digits = max(3, min(12, (int) ($get('registration_number_digits') ?: 4)));
+                            $prefix = filled($get('registration_number_prefix'))
+                                ? strtoupper(trim((string) $get('registration_number_prefix')))
+                                : null;
+
+                            if ($prefix) {
+                                return $prefix.'-'.str_pad('1', $digits, '0', STR_PAD_LEFT);
+                            }
+
+                            $unitCode = Unit::query()->where('uuid', $this->unitUuid)->value('code') ?: 'UNIT';
+
+                            return 'REG-'.$unitCode.'-TAHUN-'.str_pad('1', $digits, '0', STR_PAD_LEFT);
+                        })
+                        ->columnSpanFull(),
+                ])
+                ->columns(['default' => 1, 'md' => 2])
+                ->collapsible(),
             Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan. Pada perguruan tinggi, label dan urutan progres ditentukan per Program Studi.')->schema([
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),
                 Forms\Components\Toggle::make('documents_enabled')->label('Dokumen'),
