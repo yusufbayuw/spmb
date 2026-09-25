@@ -3,8 +3,22 @@
         $registration = $this->registrationRecord;
         $stages = array_keys($registration->progressStages());
         $stageLabels = $registration->progressStages();
-        $stageIndex = $this->stageIndex();
-        $progress = (int) round((($stageIndex + 1) / count($stages)) * 100);
+        $operationalStages = array_keys($registration->enabledStages());
+        $currentOperationalIndex = array_search($registration->current_stage, $operationalStages, true);
+        $reachedVisibleStages = collect($stages)->filter(function (string $stage) use ($operationalStages, $currentOperationalIndex, $registration): bool {
+            if ($registration->current_stage === 'completed') {
+                return true;
+            }
+
+            $stageOperationalIndex = array_search($stage, $operationalStages, true);
+
+            return $stageOperationalIndex !== false
+                && $currentOperationalIndex !== false
+                && $stageOperationalIndex <= $currentOperationalIndex;
+        })->count();
+        $progress = count($stages) > 0
+            ? (int) round(($reachedVisibleStages / count($stages)) * 100)
+            : 0;
         $requiredDocuments = \App\Services\RegistrationWorkflowService::requiredDocuments($registration);
         $isHigherEducation = $registration->unit?->isHigherEducation() ?? false;
         $participantLabel = $isHigherEducation ? 'calon mahasiswa' : 'calon siswa';
@@ -164,8 +178,12 @@
                     <div class="space-y-1">
                         @foreach ($stages as $index => $stage)
                             @php
-                                $isDone = $index < $stageIndex || $registration->current_stage === 'completed';
-                                $isCurrent = $index === $stageIndex && $registration->current_stage !== 'completed';
+                                $stageOperationalIndex = array_search($stage, $operationalStages, true);
+                                $isDone = $registration->current_stage === 'completed'
+                                    || ($stageOperationalIndex !== false
+                                        && $currentOperationalIndex !== false
+                                        && $stageOperationalIndex < $currentOperationalIndex);
+                                $isCurrent = $stage === $registration->current_stage;
                                 $stageLabel = $stage === 'selection'
                                     ? ($isHigherEducation ? 'Seleksi Calon Mahasiswa' : 'Seleksi Calon Siswa')
                                     : ($stageLabels[$stage] ?? str($stage)->replace('_', ' ')->title());
