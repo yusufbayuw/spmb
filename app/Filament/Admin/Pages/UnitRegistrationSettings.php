@@ -355,6 +355,46 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->visible(fn (Forms\Get $get): bool => ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true))
                         ->required(fn (Forms\Get $get): bool => ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true)),
                     Forms\Components\Textarea::make('help')->label('Petunjuk'),
+                    Forms\Components\Fieldset::make('Keterangan saat jawaban Ya')
+                        ->schema([
+                            Forms\Components\Toggle::make('boolean_yes_detail_enabled')
+                                ->label('Tampilkan field keterangan')
+                                ->default(false)
+                                ->live(),
+                            Forms\Components\TextInput::make('boolean_yes_detail_label')
+                                ->label('Label keterangan')
+                                ->default('Keterangan')
+                                ->maxLength(150)
+                                ->required(fn (Forms\Get $get): bool => (bool) $get('boolean_yes_detail_enabled'))
+                                ->visible(fn (Forms\Get $get): bool => (bool) $get('boolean_yes_detail_enabled')),
+                            Forms\Components\Toggle::make('boolean_yes_detail_required')
+                                ->label('Wajib diisi')
+                                ->default(false)
+                                ->visible(fn (Forms\Get $get): bool => (bool) $get('boolean_yes_detail_enabled')),
+                        ])
+                        ->columns(['default' => 1, 'md' => 2])
+                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'boolean'
+                            && ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true)),
+                    Forms\Components\Fieldset::make('Keterangan saat jawaban Tidak')
+                        ->schema([
+                            Forms\Components\Toggle::make('boolean_no_detail_enabled')
+                                ->label('Tampilkan field keterangan')
+                                ->default(false)
+                                ->live(),
+                            Forms\Components\TextInput::make('boolean_no_detail_label')
+                                ->label('Label keterangan')
+                                ->default('Keterangan')
+                                ->maxLength(150)
+                                ->required(fn (Forms\Get $get): bool => (bool) $get('boolean_no_detail_enabled'))
+                                ->visible(fn (Forms\Get $get): bool => (bool) $get('boolean_no_detail_enabled')),
+                            Forms\Components\Toggle::make('boolean_no_detail_required')
+                                ->label('Wajib diisi')
+                                ->default(false)
+                                ->visible(fn (Forms\Get $get): bool => (bool) $get('boolean_no_detail_enabled')),
+                        ])
+                        ->columns(['default' => 1, 'md' => 2])
+                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'boolean'
+                            && ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true)),
                     Forms\Components\TagsInput::make('options')
                         ->label('Opsi pilihan')
                         ->helperText(fn (Forms\Get $get): ?string => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true) ? 'Opsi wilayah diambil otomatis dari master wilayah Indonesia.' : null)
