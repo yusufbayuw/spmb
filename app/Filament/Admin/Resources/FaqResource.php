@@ -102,7 +102,7 @@ class FaqResource extends Resource
                         ->searchable()
                         ->preload(),
                 ])
-                ->columns(3),
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3]),
             Forms\Components\Section::make('Isi FAQ')
                 ->schema([
                     Forms\Components\TextInput::make('question')
@@ -135,7 +135,7 @@ class FaqResource extends Resource
                         ->label('Tampilkan')
                         ->default(true),
                 ])
-                ->columns(2),
+                ->columns(['default' => 1, 'md' => 2]),
         ]);
     }
 
