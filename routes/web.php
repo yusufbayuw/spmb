@@ -36,6 +36,9 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
     Route::get('/files/applicant/documents/{document}', [PrivateApplicantFileController::class, 'document'])
         ->whereUuid('document')
         ->name('files.applicant.documents.show');
+    Route::get('/files/applicant/registrations/{registration}/custom-fields/{key}', [PrivateApplicantFileController::class, 'registrationCustomField'])
+        ->whereUuid('registration')
+        ->name('files.applicant.registration-custom-field');
 
     Route::get('/files/applicant/payments/{payment}/proof', [PrivateApplicantFileController::class, 'paymentProof'])
         ->whereUuid('payment')
