@@ -74,6 +74,40 @@ class UnitRegistrationSettingsTest extends TestCase
             ->value('version'));
     }
 
+    public function test_incomplete_live_repeater_labels_do_not_crash_select_rendering(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->set('data.fields', [[
+                'key' => 'custom_note',
+                'label' => 'Catatan',
+                'type' => 'text',
+                'active' => true,
+                'required' => false,
+                'group' => null,
+                'group_key' => 'group_additional',
+                'help' => null,
+                'options' => [],
+            ]])
+            ->set('data.form_groups', [
+                ['key' => 'group_additional', 'label' => 'Informasi Tambahan'],
+                ['key' => 'group_new', 'label' => null],
+            ])
+            ->set('data.academic_scores_enabled', true)
+            ->set('data.academic_score_settings.grades', [
+                ['key' => 'grade_7', 'label' => 'Kelas VII'],
+                ['key' => 'grade_new', 'label' => null],
+            ])
+            ->assertSet('data.form_groups.1.key', 'group_new')
+            ->assertSet('data.form_groups.1.label', null)
+            ->assertSet('data.academic_score_settings.grades.1.key', 'grade_new')
+            ->assertSet('data.academic_score_settings.grades.1.label', null);
+    }
+
     public function test_tu_cannot_access_unit_registration_settings(): void
     {
         $this->seed(ShieldSeeder::class);
