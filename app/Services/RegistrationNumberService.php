@@ -51,11 +51,20 @@ class RegistrationNumberService
                 'updated_at' => now(),
             ]);
 
-        $year = $registration->opening?->academic_year
-            ? str_replace(['/', '-'], '', $registration->opening->academic_year)
-            : ($registration->created_at?->format('Y') ?? now()->format('Y'));
+        $digits = max(3, min(12, (int) ($registration->configuration?->registration_number_digits ?? 4)));
+        $prefix = filled($registration->configuration?->registration_number_prefix)
+            ? strtoupper(trim((string) $registration->configuration->registration_number_prefix))
+            : null;
 
-        $number = 'REG-'.$registration->unit->code.'-'.$year.'-'.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        if ($prefix) {
+            $number = $prefix.'-'.str_pad((string) $next, $digits, '0', STR_PAD_LEFT);
+        } else {
+            $year = $registration->opening?->academic_year
+                ? str_replace(['/', '-'], '', $registration->opening->academic_year)
+                : ($registration->created_at?->format('Y') ?? now()->format('Y'));
+
+            $number = 'REG-'.$registration->unit->code.'-'.$year.'-'.str_pad((string) $next, $digits, '0', STR_PAD_LEFT);
+        }
 
         $registration->forceFill([
             'registration_number' => $number,
