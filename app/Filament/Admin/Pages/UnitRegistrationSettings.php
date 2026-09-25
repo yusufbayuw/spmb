@@ -172,7 +172,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 Forms\Components\Toggle::make('post_announcement_enabled')
                     ->label('Proses Pasca-Pengumuman')
                     ->helperText('Aktifkan workflow lanjutan setelah pengumuman. Untuk perguruan tinggi, nama dan urutan progres dapat diatur per Program Studi, misalnya Pembayaran Registrasi, Daftar Ulang, lalu Perwalian. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
-            ])->columns(5),
+            ])->columns(['default' => 1, 'md' => 2, 'lg' => 3, 'xl' => 5]),
             Forms\Components\Section::make('Urutan Proses Pra-Seleksi')
                 ->description('Atur urutan operasional Kartu Pendaftar dan Berkas. Pembayaran tetap menjadi gate sebelum keduanya, sedangkan Tes dan Seleksi tetap mengikuti seluruh prasyarat. Perubahan hanya berlaku pada versi konfigurasi baru.')
                 ->schema([
@@ -198,7 +198,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\CheckboxList::make('applicant_visible_stages')
                         ->label('Tahapan yang tampil pada progres pendaftar')
                         ->options(Registration::STAGES)
-                        ->columns(2)
+                        ->columns(['default' => 1, 'md' => 2])
                         ->bulkToggleable()
                         ->helperText('Sembunyikan tahap internal yang tidak perlu dilihat pendaftar. Tahap Selesai akan selalu ditampilkan oleh sistem.'),
                     Forms\Components\Select::make('completion_after_stage')
@@ -219,7 +219,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->maxLength(3000)
                         ->columnSpanFull(),
                 ])
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->collapsible(),
             Forms\Components\Section::make('Nama Tahapan di Portal Pendaftar')
                 ->description('Ubah nama tampilan setiap tahapan template tanpa mengubah kunci maupun logika workflow. Pada perguruan tinggi, pengaturan per Program Studi tetap menjadi override yang lebih spesifik.')
@@ -232,7 +232,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->values()
                         ->all(),
                 )
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->collapsible(),
             Forms\Components\Section::make('Formulir Unit')
                 ->description('Tentukan kebijakan umum untuk isian bawaan. Repeater di bawah cukup digunakan untuk field yang perlu menjadi pengecualian atau dikustomisasi. Identitas inti tetap wajib.')
@@ -340,7 +340,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->visible(fn (Forms\Get $get): bool => $get('type') === 'file'),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
-                ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Field baru'),
+                ])->columns(['default' => 1, 'md' => 2])->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Field baru'),
             ])->collapsible(),
             Forms\Components\Section::make('Data Nilai')
                 ->description('Default nonaktif. Jika diaktifkan, pendaftar mengisi nilai sesuai kelas, mata pelajaran, dan komponen yang ditentukan unit. Dapat dibatasi hanya untuk jalur tertentu.')
@@ -428,7 +428,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->itemLabel(fn (array $state): string => $state['label'] ?? 'Komponen nilai')
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('academic_scores_enabled')),
                 ])
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->collapsible(),
 
             Forms\Components\Section::make('Prestasi')
@@ -476,7 +476,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->default(false)
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
                 ])
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->collapsible(),
 
             Forms\Components\Section::make('Persyaratan Dokumen')->schema([
@@ -489,7 +489,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\FileUpload::make('template_path')->label('Template PDF/DOCX')->disk('applicant-private')->directory(fn (): string => 'templates/'.$this->unitId())->visibility('private')->previewable(false)->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
-                ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Dokumen baru'),
+                ])->columns(['default' => 1, 'md' => 2])->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Dokumen baru'),
             ])->collapsible(),
             Forms\Components\Section::make('Tes pada Versi Ini')
                 ->description('Pilih master tes yang berlaku pada versi ini. Sesi tetap merupakan data operasional: dapat ditambah atau diubah tanpa membuat versi konfigurasi baru.')
@@ -556,7 +556,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Textarea::make('instructions')->label('Petunjuk'),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(true),
-                ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Persyaratan baru'),
+                ])->columns(['default' => 1, 'md' => 2])->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Persyaratan baru'),
             ])->collapsible(),
         ])->statePath('data');
     }
@@ -801,7 +801,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->label('Petunjuk Peserta')
                         ->columnSpanFull(),
                 ])
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->addActionLabel('Tambah Sesi')
                 ->deletable(false)
                 ->reorderable(false)
