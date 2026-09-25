@@ -272,7 +272,7 @@ class Registration extends Model
     /** @return list<string> */
     public function applicantVisibleStageKeys(): array
     {
-        $configuration = $this->presentationConfiguration();
+        $configuration = $this->configuration;
         $visible = is_array($configuration?->applicant_visible_stages)
             ? $configuration->applicant_visible_stages
             : array_keys(self::STAGES);
