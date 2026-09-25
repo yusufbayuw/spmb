@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\ApplicantFileStorage;
 use App\Services\AuditTrail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
@@ -88,6 +89,48 @@ class PrivateApplicantFileController extends Controller
         );
     }
 
+    public function registrationCustomField(
+        Request $request,
+        Registration $registration,
+        string $key,
+        ApplicantFileStorage $storage,
+        AuditTrail $audit,
+    ): BinaryFileResponse {
+        $this->authorizeRegistration(
+            $request->user(),
+            $registration,
+            'view_registration',
+        );
+
+        $field = collect($registration->configuration?->fields ?? [])->first(
+            fn (array $field): bool => ($field['key'] ?? null) === $key
+                && ($field['type'] ?? null) === 'file'
+                && (bool) ($field['active'] ?? false),
+        );
+
+        $path = data_get($registration->custom_answers, $key);
+        abort_unless(
+            $field
+            && is_string($path)
+            && str_starts_with($path, 'pre-registration/'.$registration->user_id.'/'),
+            404,
+        );
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $fileName = Str::slug((string) ($field['label'] ?? $key))
+            .($extension !== '' ? '.'.$extension : '');
+
+        return $this->serve(
+            $request,
+            $storage,
+            $audit,
+            $registration,
+            'registration_custom_field',
+            $path,
+            $fileName,
+        );
+    }
+
     private function authorizeRegistration(
         ?User $user,
         ?Registration $registration,
@@ -121,7 +164,7 @@ class PrivateApplicantFileController extends Controller
         Request $request,
         ApplicantFileStorage $storage,
         AuditTrail $audit,
-        Document|Payment|ReRegistrationItem $subject,
+        Document|Payment|ReRegistrationItem|Registration $subject,
         string $eventPrefix,
         string $path,
         string $fileName,
