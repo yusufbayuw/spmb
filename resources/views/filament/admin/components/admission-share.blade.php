@@ -21,7 +21,7 @@
         </div>
     </div>
 
-    <div class="grid gap-2 sm:grid-cols-3">
+    <div class="grid gap-2 md:grid-cols-3">
         <a href="{{ $publicUrl }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5">Buka Halaman</a>
         <a href="{{ $qrUrl }}?download=1" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5">Unduh QR</a>
         <a href="https://wa.me/?text={{ urlencode($shareText.' '.$publicUrl) }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/5">WhatsApp</a>
