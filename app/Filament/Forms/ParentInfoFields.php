@@ -10,13 +10,13 @@ final class ParentInfoFields
     {
         return [
             Forms\Components\Fieldset::make('Data Ayah')
-                ->columns(3)
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     Forms\Components\TextInput::make('father_name')
                         ->label('Nama Ayah')
                         ->required()
                         ->maxLength(150)
-                        ->columnSpan(2),
+                        ->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('father_nik')
                         ->label('NIK Ayah')
                         ->validationAttribute('NIK Ayah')
@@ -54,13 +54,13 @@ final class ParentInfoFields
                 ]),
 
             Forms\Components\Fieldset::make('Data Ibu')
-                ->columns(3)
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     Forms\Components\TextInput::make('mother_name')
                         ->label('Nama Ibu')
                         ->required()
                         ->maxLength(150)
-                        ->columnSpan(2),
+                        ->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('mother_nik')
                         ->label('NIK Ibu')
                         ->validationAttribute('NIK Ibu')
