@@ -26,7 +26,7 @@ class ConfiguredRegistrationForm
 
     public const REGION_FIELDS = ['province_code', 'city_code', 'district_code', 'village_code'];
 
-    public const BUILTIN_FIELDS = ['nickname', 'religion', 'phone', 'email', 'province_code', 'city_code', 'district_code', 'village_code', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_workplace', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_workplace', 'mother_phone', 'mother_email', 'mother_income'];
+    public const BUILTIN_FIELDS = ['nickname', 'religion', 'phone', 'email', 'rt', 'rw', 'province_code', 'city_code', 'district_code', 'village_code', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_workplace', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_workplace', 'mother_phone', 'mother_email', 'mother_income'];
 
     public const BUILTIN_FIELD_POLICIES = [
         'system_default' => 'Gunakan bawaan sistem',
@@ -35,7 +35,7 @@ class ConfiguredRegistrationForm
 
     public static function fieldLabels(): array
     {
-        $labels = ['nickname' => 'Nama panggilan', 'religion' => 'Agama', 'phone' => 'Telepon peserta', 'email' => 'Email peserta', 'province_code' => 'Provinsi', 'city_code' => 'Kabupaten/Kota', 'district_code' => 'Kecamatan', 'village_code' => 'Desa/Kelurahan', 'previous_school' => 'Sekolah asal', 'graduation_year' => 'Tahun lulus'];
+        $labels = ['nickname' => 'Nama panggilan', 'religion' => 'Agama', 'phone' => 'Telepon peserta', 'email' => 'Email peserta', 'rt' => 'RT', 'rw' => 'RW', 'province_code' => 'Provinsi', 'city_code' => 'Kabupaten/Kota', 'district_code' => 'Kecamatan', 'village_code' => 'Desa/Kelurahan', 'previous_school' => 'Sekolah asal', 'graduation_year' => 'Tahun lulus'];
         foreach (['father' => 'Ayah', 'mother' => 'Ibu'] as $prefix => $parent) {
             foreach (['name' => 'Nama', 'nik' => 'NIK', 'birth_place' => 'Tempat lahir', 'birth_date' => 'Tanggal lahir', 'education' => 'Pendidikan', 'occupation' => 'Pekerjaan', 'workplace' => 'Instansi / Tempat Kerja', 'phone' => 'Telepon', 'email' => 'Email', 'income' => 'Penghasilan'] as $key => $label) {
                 $labels[$prefix.'_'.$key] = $label.' '.$parent;
@@ -93,7 +93,8 @@ class ConfiguredRegistrationForm
             return array_values($components);
         }
 
-        $definitions = collect($configuration->fields)->keyBy('key');
+        $effectiveFields = $this->presentationFields($configuration);
+        $definitions = collect($effectiveFields)->keyBy('key');
         $walk = function (array $items) use (&$walk, $definitions, $configuration): array {
             foreach ($items as $itemKey => $item) {
                 if ($item instanceof Field && in_array($item->getName(), self::BUILTIN_FIELDS, true)) {
@@ -161,7 +162,7 @@ class ConfiguredRegistrationForm
         $formGroups = $this->formGroups($configuration);
         $customFieldsByGroup = [];
 
-        foreach ($configuration->fields as $field) {
+        foreach ($effectiveFields as $field) {
             if (! $field['active'] || in_array($field['key'], self::BUILTIN_FIELDS, true)) {
                 continue;
             }
@@ -280,6 +281,49 @@ class ConfiguredRegistrationForm
         }
 
         return $ordered;
+    }
+
+    /**
+     * Keep workflow/validation pinned to the registration configuration while
+     * allowing safe applicant-facing metadata to follow the latest published
+     * version for the same stable field key.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function presentationFields(UnitConfiguration $configuration): array
+    {
+        $fields = is_array($configuration->fields) ? $configuration->fields : [];
+
+        if ($configuration->status !== 'published') {
+            return $fields;
+        }
+
+        $current = app(UnitConfigurationService::class)->current((int) $configuration->unit_id);
+
+        if (! $current || $current->id === $configuration->id) {
+            return $fields;
+        }
+
+        $latestByKey = collect($current->fields ?? [])->keyBy('key');
+
+        return collect($fields)
+            ->map(function (array $field) use ($latestByKey): array {
+                $latest = $latestByKey->get($field['key'] ?? null);
+
+                if (! is_array($latest) || ($latest['type'] ?? null) !== ($field['type'] ?? null)) {
+                    return $field;
+                }
+
+                foreach (['label', 'help', 'template_path'] as $key) {
+                    if (array_key_exists($key, $latest)) {
+                        $field[$key] = $latest[$key];
+                    }
+                }
+
+                return $field;
+            })
+            ->values()
+            ->all();
     }
 
     /** @return list<array{key:string,label:string}> */
@@ -424,10 +468,23 @@ class ConfiguredRegistrationForm
             $actions = [];
 
             if (! empty($definition['template_path'])) {
+                $templateConfiguration = $configuration;
+
+                if ($configuration->status === 'published') {
+                    $current = app(UnitConfigurationService::class)->current((int) $configuration->unit_id);
+                    $latestField = collect($current?->fields ?? [])->firstWhere('key', $definition['key']);
+
+                    if ($current
+                        && is_array($latestField)
+                        && ($latestField['template_path'] ?? null) === ($definition['template_path'] ?? null)) {
+                        $templateConfiguration = $current;
+                    }
+                }
+
                 $actions[] = Action::make('download_template_'.$definition['key'])
                     ->label('Unduh Template '.$definition['label'])
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->url(route('registration.form-field-template', [$configuration, $definition['key']]));
+                    ->url(route('registration.form-field-template', [$templateConfiguration, $definition['key']]));
             }
 
             $actions[] = Action::make('download_existing_'.$definition['key'])
