@@ -194,6 +194,28 @@ class Registration extends Model
             }
         }
 
+        $completionStage = $this->completionAfterStage();
+
+        if ($completionStage && array_key_exists($completionStage, $ordered)) {
+            $truncated = [];
+
+            foreach ($ordered as $stage => $label) {
+                if ($stage === 'completed') {
+                    continue;
+                }
+
+                $truncated[$stage] = $label;
+
+                if ($stage === $completionStage) {
+                    break;
+                }
+            }
+
+            $truncated['completed'] = $ordered['completed'] ?? self::STAGES['completed'];
+
+            return $truncated;
+        }
+
         return $ordered;
     }
 
@@ -233,6 +255,63 @@ class Registration extends Model
         return $index === false ? null : ($stages[$index + 1] ?? null);
     }
 
+    public function completionAfterStage(): ?string
+    {
+        $stage = $this->configuration?->completion_after_stage;
+
+        return is_string($stage) && array_key_exists($stage, self::STAGES) && $stage !== 'completed'
+            ? $stage
+            : null;
+    }
+
+    public function shouldCompleteAfter(string $stage): bool
+    {
+        return $this->completionAfterStage() === $stage;
+    }
+
+    /** @return list<string> */
+    public function applicantVisibleStageKeys(): array
+    {
+        $configuration = $this->presentationConfiguration();
+        $visible = is_array($configuration?->applicant_visible_stages)
+            ? $configuration->applicant_visible_stages
+            : array_keys(self::STAGES);
+
+        $visible = collect($visible)
+            ->filter(fn (mixed $stage): bool => is_string($stage) && array_key_exists($stage, self::STAGES))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array('completed', $visible, true)) {
+            $visible[] = 'completed';
+        }
+
+        return $visible;
+    }
+
+    public function completionTitle(): string
+    {
+        return trim((string) ($this->presentationConfiguration()?->completion_title ?: 'Pendaftaran Telah Selesai'));
+    }
+
+    public function completionMessage(): string
+    {
+        return trim((string) ($this->presentationConfiguration()?->completion_message
+            ?: 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.'));
+    }
+
+    private function presentationConfiguration(): ?UnitConfiguration
+    {
+        $configuration = $this->configuration;
+
+        if (! $configuration || $configuration->status !== 'published') {
+            return $configuration;
+        }
+
+        return app(UnitConfigurationService::class)->current((int) $this->unit_id) ?: $configuration;
+    }
+
     /**
      * Tahapan yang ditampilkan kepada pendaftar. Workflow internal tetap
      * menggunakan enabledStages(), sedangkan program studi boleh mengatur
@@ -266,7 +345,14 @@ class Registration extends Model
             }
         }
 
-        return $configuredStages ?: $enabledStages;
+        $stages = $configuredStages ?: $enabledStages;
+        $visible = $this->applicantVisibleStageKeys();
+
+        $filtered = collect($stages)
+            ->filter(fn (string $label, string $stage): bool => in_array($stage, $visible, true))
+            ->all();
+
+        return $filtered ?: ['completed' => $stages['completed'] ?? self::STAGES['completed']];
     }
 
     public function currentStageDescription(): ?string
@@ -671,6 +757,10 @@ class Registration extends Model
             return true;
         }
 
+        if ($this->shouldCompleteAfter((string) $this->current_stage)) {
+            return $targetStage === 'completed';
+        }
+
         if (! $this->postAnnouncementEnabled()
             && in_array($this->current_stage, ['announcement', 'waiting_list', 'admission_offer', 're_registration', 'enrollment'], true)) {
             return $targetStage === 'completed';
@@ -716,6 +806,12 @@ class Registration extends Model
     {
         $this->assertOperational();
         $sourceStage = (string) $this->current_stage;
+
+        if ($targetStage !== $sourceStage
+            && $targetStage !== 'completed'
+            && $this->shouldCompleteAfter($sourceStage)) {
+            $targetStage = 'completed';
+        }
 
         if (! $this->canTransitionTo($targetStage)) {
             $sourceLabel = self::STAGES[$sourceStage] ?? $sourceStage;
