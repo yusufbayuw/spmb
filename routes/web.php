@@ -65,6 +65,9 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
     Route::get('/registration/{registration}/test-card', [RegistrationPrintController::class, 'testCard'])->whereUuid('registration')->name('registration.test-card');
     Route::get('/registration/{registration}/receipts/{receipt}', [RegistrationPrintController::class, 'receipt'])->whereUuid(['registration', 'receipt'])->name('registration.receipt');
     Route::get('/registration/{registration}/templates/{key}', [RegistrationPrintController::class, 'template'])->whereUuid('registration')->name('registration.template');
+    Route::get('/registration/configurations/{configuration}/field-templates/{key}', [RegistrationPrintController::class, 'formFieldTemplate'])
+        ->whereUuid('configuration')
+        ->name('registration.form-field-template');
 
     Route::get('/registration/{registration}/card', [RegistrationPrintController::class, 'applicantCard'])
         ->whereUuid('registration')
