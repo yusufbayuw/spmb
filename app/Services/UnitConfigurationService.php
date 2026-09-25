@@ -51,6 +51,8 @@ class UnitConfigurationService
             'completion_after_stage' => null,
             'completion_title' => 'Pendaftaran Telah Selesai',
             'completion_message' => 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.',
+            'registration_number_prefix' => $unit->code,
+            'registration_number_digits' => 4,
             'workflow_blocks' => collect(Registration::DEFAULT_WORKFLOW_BLOCKS)->map(fn (string $key): array => ['key' => $key])->all(),
             'builtin_field_policy' => 'system_default',
             'academic_scores_enabled' => false,
@@ -117,7 +119,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -319,6 +321,11 @@ class UnitConfigurationService
             ? trim((string) $data['completion_message'])
             : 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.';
 
+        $data['registration_number_prefix'] = filled($data['registration_number_prefix'] ?? null)
+            ? strtoupper(trim((string) $data['registration_number_prefix']))
+            : null;
+        $data['registration_number_digits'] = max(3, (int) ($data['registration_number_digits'] ?? 4));
+
         $formGroups = collect(is_array($data['form_groups'] ?? null) ? $data['form_groups'] : [])
             ->filter(fn (mixed $group): bool => is_array($group) && filled($group['key'] ?? null) && filled($group['label'] ?? null))
             ->map(fn (array $group): array => [
@@ -499,6 +506,8 @@ class UnitConfigurationService
                 'completion_after_stage' => ['nullable', Rule::in(array_keys(array_diff_key(Registration::STAGES, ['completed' => true])))],
                 'completion_title' => ['required', 'string', 'max:180'],
                 'completion_message' => ['required', 'string', 'max:3000'],
+                'registration_number_prefix' => ['nullable', 'string', 'max:30', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/'],
+                'registration_number_digits' => ['required', 'integer', 'min:3', 'max:12'],
                 'workflow_blocks' => ['present', 'array', 'size:2'],
                 'workflow_blocks.*.key' => ['required', Rule::in(array_keys(Registration::WORKFLOW_BLOCK_LABELS)), 'distinct'],
                 'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
