@@ -3,6 +3,7 @@
 namespace App\Filament\Applicant\Resources\RegistrationResource\Pages;
 
 use App\Filament\Applicant\Resources\RegistrationResource;
+use App\Services\ApplicantFileStorage;
 use App\Services\ConfiguredRegistrationForm;
 use App\Services\RegistrationRegionService;
 use App\Services\RegistrationSupplementalDataService;
@@ -17,10 +18,20 @@ class EditRegistration extends EditRecord
 
     private array $validatedAchievements = [];
 
+    private array $replacedCustomFilePaths = [];
+
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $supplemental = app(RegistrationSupplementalDataService::class);
-        $this->record->loadMissing(['academicScores', 'achievements']);
+        $this->record->loadMissing(['academicScores', 'achievements', 'configuration']);
+
+        $answers = is_array($data['custom_answers'] ?? null) ? $data['custom_answers'] : [];
+        foreach ($this->record->configuration?->fields ?? [] as $field) {
+            if (($field['type'] ?? null) === 'file') {
+                unset($answers[$field['key']]);
+            }
+        }
+        $data['custom_answers'] = $answers;
 
         return array_merge($data, [
             'academic_scores' => $supplemental->academicScoresFormState($this->record),
@@ -44,7 +55,26 @@ class EditRegistration extends EditRecord
             $data = $regionService->normalize($data);
         }
 
-        $data['custom_answers'] = $configuredForm->validateAnswers($this->record->configuration, $data['custom_answers'] ?? []);
+        $answers = is_array($data['custom_answers'] ?? null) ? $data['custom_answers'] : [];
+        $currentAnswers = is_array($this->record->custom_answers) ? $this->record->custom_answers : [];
+
+        foreach ($this->record->configuration?->fields ?? [] as $field) {
+            if (($field['type'] ?? null) !== 'file') {
+                continue;
+            }
+
+            $key = (string) $field['key'];
+            $newPath = $answers[$key] ?? null;
+            $oldPath = $currentAnswers[$key] ?? null;
+
+            if (blank($newPath) && filled($oldPath)) {
+                $answers[$key] = $oldPath;
+            } elseif (is_string($newPath) && is_string($oldPath) && $newPath !== $oldPath) {
+                $this->replacedCustomFilePaths[] = $oldPath;
+            }
+        }
+
+        $data['custom_answers'] = $configuredForm->validateAnswers($this->record->configuration, $answers);
 
         $pathway = $this->record->pathway()->firstOrFail();
 
@@ -81,6 +111,11 @@ class EditRegistration extends EditRecord
             $this->validatedAcademicScores,
             $this->validatedAchievements,
         );
+
+        foreach (array_unique($this->replacedCustomFilePaths) as $path) {
+            app(ApplicantFileStorage::class)->delete($path);
+        }
+        $this->replacedCustomFilePaths = [];
 
         app(SpmbNotificationService::class)->workflowEvent($this->record, 'registration.revised', 'Revisi pendaftaran dikirim', 'Data pendaftaran diperbarui dan menunggu pemeriksaan.', false, true);
     }
