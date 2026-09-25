@@ -584,17 +584,12 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     private function configurationFormData(UnitConfiguration $configuration): array
     {
-        $rawLogoState = $this->data['unit_logo_path'] ?? [];
         $data = $this->form->getState();
 
         $unit = Unit::query()->findOrFail($configuration->unit_id);
         app(UnitConfigurationService::class)->authorize(auth()->user(), $unit->id);
 
         $logoState = $data['unit_logo_path'] ?? [];
-        if (blank($logoState) && filled($rawLogoState)) {
-            $logoState = $rawLogoState;
-        }
-
         $logoPath = is_array($logoState)
             ? (array_values($logoState)[0] ?? null)
             : (is_string($logoState) ? $logoState : null);
