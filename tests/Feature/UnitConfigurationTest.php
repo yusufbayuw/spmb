@@ -95,20 +95,23 @@ class UnitConfigurationTest extends TestCase
         [$unit, $staff] = $this->fixture();
 
         Storage::fake('public');
-        Storage::disk('public')->put(
-            'units/logos/sd-test.png',
-            UploadedFile::fake()->image('sd-test.png', 120, 120)->getContent(),
-        );
 
         $this->actingAs($staff);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
         Livewire::test(UnitRegistrationSettings::class)
-            ->fillForm(['unit_logo_path' => ['units/logos/sd-test.png']])
+            ->fillForm([
+                'unit_logo_path' => [
+                    UploadedFile::fake()->image('sd-test.png', 120, 120),
+                ],
+            ])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame('units/logos/sd-test.png', $unit->fresh()->logo_path);
+        $logoPath = $unit->fresh()->logo_path;
+        $this->assertNotNull($logoPath);
+        $this->assertStringStartsWith('units/logos/', $logoPath);
+        Storage::disk('public')->assertExists($logoPath);
 
         $draft = UnitConfiguration::query()
             ->where('unit_id', $unit->id)
