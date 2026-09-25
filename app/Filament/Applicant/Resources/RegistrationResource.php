@@ -111,6 +111,16 @@ class RegistrationResource extends Resource
                     Forms\Components\TextInput::make('phone')->label('Nomor Telepon')->tel()->maxLength(20),
                     Forms\Components\TextInput::make('email')->label('Email Peserta')->email()->maxLength(100),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->rows(3)->columnSpanFull(),
+                    Forms\Components\TextInput::make('rt')
+                        ->label('RT')
+                        ->maxLength(3)
+                        ->rule('regex:/^\\d{1,3}$/')
+                        ->validationMessages(['regex' => 'RT harus berupa 1–3 digit angka.']),
+                    Forms\Components\TextInput::make('rw')
+                        ->label('RW')
+                        ->maxLength(3)
+                        ->rule('regex:/^\\d{1,3}$/')
+                        ->validationMessages(['regex' => 'RW harus berupa 1–3 digit angka.']),
                     ...RegionFields::schema(),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->maxLength(150)->columnSpan(2),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric()->minValue(2000)->maxValue(now()->year + 2),
