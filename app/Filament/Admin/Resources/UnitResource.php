@@ -33,7 +33,7 @@ class UnitResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Identitas Unit Pendidikan')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\TextInput::make('name')
                         ->label('Nama Unit / Institusi')
@@ -82,7 +82,7 @@ class UnitResource extends Resource
                 ]),
             Forms\Components\Section::make('Informasi Publik & Helpdesk')
                 ->description('Informasi ini dapat ditampilkan pada portal penerimaan publik. Pada mode HIGHER_EDUCATION, portal hanya memakai kontak unit ini tanpa fallback ke kontak yayasan. Kosongkan field yang tidak ingin dipublikasikan.')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\TextInput::make('public_contact_name')
                         ->label('Nama Helpdesk')
