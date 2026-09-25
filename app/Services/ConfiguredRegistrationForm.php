@@ -3,9 +3,13 @@
 namespace App\Services;
 
 use App\Models\UnitConfiguration;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -164,7 +168,7 @@ class ConfiguredRegistrationForm
                 ? (string) $field['group_key']
                 : $this->legacyGroupKey(($field['group'] ?? null) ?: 'Informasi Tambahan');
 
-            $customFieldsByGroup[$groupKey][] = $this->field($field);
+            $customFieldsByGroup[$groupKey][] = $this->field($field, $configuration);
         }
 
         foreach ($formGroups as $group) {
@@ -388,9 +392,45 @@ class ConfiguredRegistrationForm
             ->helperText($definition['help'] ?? null);
     }
 
-    public function field(array $definition): Field
+    public function field(array $definition, UnitConfiguration $configuration): Field|Group
     {
         $name = 'custom_answers.'.$definition['key'];
+
+        if (($definition['type'] ?? null) === 'file') {
+            $formats = array_values($definition['formats'] ?? ['pdf', 'jpg', 'png']);
+            $mimes = array_map(fn (string $format): string => match ($format) {
+                'pdf' => 'application/pdf',
+                'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'png' => 'image/png',
+                default => 'image/jpeg',
+            }, $formats);
+
+            $upload = FileUpload::make($name)
+                ->label($definition['label'])
+                ->helperText($definition['help'] ?? null)
+                ->disk(ApplicantFileStorage::PRIVATE_DISK)
+                ->directory(fn (): string => 'pre-registration/'.auth()->id())
+                ->visibility('private')
+                ->previewable(false)
+                ->fetchFileInformation(false)
+                ->acceptedFileTypes($mimes)
+                ->maxSize((int) config('spmb.uploads.max_kb', 5120))
+                ->required((bool) $definition['required']);
+
+            $components = [$upload];
+
+            if (! empty($definition['template_path'])) {
+                $components[] = Actions::make([
+                    Action::make('download_template_'.$definition['key'])
+                        ->label('Unduh Template '.$definition['label'])
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->url(route('registration.form-field-template', [$configuration, $definition['key']])),
+                ]);
+            }
+
+            return Group::make($components);
+        }
+
         $options = array_combine($definition['options'] ?? [], $definition['options'] ?? []);
         $field = match ($definition['type']) {
             'textarea' => Textarea::make($name)->maxLength(5000),
@@ -409,19 +449,62 @@ class ConfiguredRegistrationForm
         if (! $configuration) {
             return [];
         }
+
         $rules = [];
+        $fileAnswers = [];
+
         foreach ($configuration->fields as $field) {
             if (! $field['active'] || in_array($field['key'], self::BUILTIN_FIELDS, true)) {
                 continue;
             }
+
             $name = $field['key'];
+
+            if (($field['type'] ?? null) === 'file') {
+                $value = $answers[$name] ?? null;
+
+                if (blank($value)) {
+                    if ($field['required']) {
+                        throw ValidationException::withMessages([
+                            'custom_answers.'.$name => $field['label'].' wajib diunggah.',
+                        ]);
+                    }
+
+                    continue;
+                }
+
+                if (! is_string($value)
+                    || ! str_starts_with($value, 'pre-registration/'.auth()->id().'/')) {
+                    throw ValidationException::withMessages([
+                        'custom_answers.'.$name => 'Lokasi file unggahan tidak valid.',
+                    ]);
+                }
+
+                $formats = array_values($field['formats'] ?? ['pdf', 'jpg', 'png']);
+
+                try {
+                    app(ApplicantUploadSecurity::class)->inspect($value, $formats);
+                } catch (ValidationException $exception) {
+                    throw ValidationException::withMessages([
+                        'custom_answers.'.$name => collect($exception->errors())->flatten()->first()
+                            ?: 'File unggahan tidak lolos pemeriksaan keamanan.',
+                    ]);
+                }
+
+                $fileAnswers[$name] = $value;
+
+                continue;
+            }
+
             $rules[$name] = [$field['required'] ? 'required' : 'nullable'];
             $rules[$name][] = match ($field['type']) {
                 'number' => 'numeric', 'date' => 'date', 'boolean' => 'boolean', 'multiselect' => 'array', default => 'string',
             };
+
             if (in_array($field['type'], ['text', 'textarea'], true)) {
                 $rules[$name][] = 'max:5000';
             }
+
             if ($field['type'] === 'select') {
                 $rules[$name][] = Rule::in($field['options']);
             } elseif ($field['type'] === 'multiselect') {
@@ -429,6 +512,9 @@ class ConfiguredRegistrationForm
             }
         }
 
-        return Validator::make($answers, $rules)->validate();
+        return array_merge(
+            Validator::make($answers, $rules)->validate(),
+            $fileAnswers,
+        );
     }
 }
