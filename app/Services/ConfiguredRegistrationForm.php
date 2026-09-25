@@ -512,17 +512,71 @@ class ConfiguredRegistrationForm
             return Group::make($components);
         }
 
+        if (($definition['type'] ?? null) === 'boolean') {
+            $detailName = 'custom_answers._details.'.$definition['key'];
+
+            $choice = Select::make($name)
+                ->label($definition['label'])
+                ->helperText($definition['help'] ?? null)
+                ->options(['1' => 'Ya', '0' => 'Tidak'])
+                ->native(false)
+                ->live()
+                ->required((bool) $definition['required'])
+                ->afterStateUpdated(function (mixed $state, \Filament\Forms\Set $set) use ($detailName): void {
+                    $set($detailName, null);
+                });
+
+            $detail = Textarea::make($detailName)
+                ->label(function (\Filament\Forms\Get $get) use ($definition, $name): string {
+                    return $this->booleanDetailSettings($definition, $get($name))['label'] ?? 'Keterangan';
+                })
+                ->rows(3)
+                ->maxLength(5000)
+                ->visible(function (\Filament\Forms\Get $get) use ($definition, $name): bool {
+                    return $this->booleanDetailSettings($definition, $get($name)) !== null;
+                })
+                ->required(function (\Filament\Forms\Get $get) use ($definition, $name): bool {
+                    return (bool) ($this->booleanDetailSettings($definition, $get($name))['required'] ?? false);
+                })
+                ->dehydratedWhenHidden(false);
+
+            return Group::make([$choice, $detail])
+                ->columns(1);
+        }
+
         $options = array_combine($definition['options'] ?? [], $definition['options'] ?? []);
         $field = match ($definition['type']) {
             'textarea' => Textarea::make($name)->maxLength(5000),
             'number' => TextInput::make($name)->numeric(),
             'date' => DatePicker::make($name),
             'select', 'multiselect' => Select::make($name)->options($options)->multiple($definition['type'] === 'multiselect'),
-            'boolean' => Select::make($name)->options(['1' => 'Ya', '0' => 'Tidak']),
             default => TextInput::make($name)->maxLength(1000),
         };
 
         return $field->label($definition['label'])->helperText($definition['help'] ?? null)->required((bool) $definition['required']);
+    }
+
+    /**
+     * @return array{label:string,required:bool}|null
+     */
+    public function booleanDetailSettings(array $definition, mixed $answer): ?array
+    {
+        $branch = match (true) {
+            in_array($answer, [true, 1, '1'], true) => 'yes',
+            in_array($answer, [false, 0, '0'], true) => 'no',
+            default => null,
+        };
+
+        if (! $branch || ! (bool) ($definition['boolean_'.$branch.'_detail_enabled'] ?? false)) {
+            return null;
+        }
+
+        return [
+            'label' => filled($definition['boolean_'.$branch.'_detail_label'] ?? null)
+                ? trim((string) $definition['boolean_'.$branch.'_detail_label'])
+                : 'Keterangan',
+            'required' => (bool) ($definition['boolean_'.$branch.'_detail_required'] ?? false),
+        ];
     }
 
     public function validateAnswers(?UnitConfiguration $configuration, array $answers): array
@@ -532,6 +586,7 @@ class ConfiguredRegistrationForm
         }
 
         $rules = [];
+        $attributes = [];
         $fileAnswers = [];
 
         foreach ($configuration->fields as $field) {
@@ -591,10 +646,26 @@ class ConfiguredRegistrationForm
             } elseif ($field['type'] === 'multiselect') {
                 $rules[$name.'.*'] = [Rule::in($field['options'])];
             }
+
+            $attributes[$name] = (string) $field['label'];
+
+            if ($field['type'] === 'boolean') {
+                $settings = $this->booleanDetailSettings($field, $answers[$name] ?? null);
+
+                if ($settings) {
+                    $detailRule = '_details.'.$name;
+                    $rules[$detailRule] = [
+                        $settings['required'] ? 'required' : 'nullable',
+                        'string',
+                        'max:5000',
+                    ];
+                    $attributes[$detailRule] = $settings['label'];
+                }
+            }
         }
 
         return array_merge(
-            Validator::make($answers, $rules)->validate(),
+            Validator::make($answers, $rules, [], $attributes)->validate(),
             $fileAnswers,
         );
     }
