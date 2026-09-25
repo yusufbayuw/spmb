@@ -272,8 +272,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\TextInput::make('label')->label('Label')->required(),
                     Forms\Components\Select::make('type')
                         ->label('Jenis')
-                        ->options(['text' => 'Teks', 'textarea' => 'Teks panjang', 'number' => 'Angka', 'date' => 'Tanggal', 'select' => 'Pilihan tunggal', 'multiselect' => 'Pilihan jamak', 'boolean' => 'Ya/Tidak'])
+                        ->options(['text' => 'Teks', 'textarea' => 'Teks panjang', 'number' => 'Angka', 'date' => 'Tanggal', 'select' => 'Pilihan tunggal', 'multiselect' => 'Pilihan jamak', 'boolean' => 'Ya/Tidak', 'file' => 'Unggah Dokumen'])
                         ->default('text')
+                        ->live()
                         ->disabled(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true))
                         ->dehydrated()
                         ->required(),
@@ -289,8 +290,25 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\TagsInput::make('options')
                         ->label('Opsi pilihan')
                         ->helperText(fn (Forms\Get $get): ?string => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true) ? 'Opsi wilayah diambil otomatis dari master wilayah Indonesia.' : null)
-                        ->hidden(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true))
+                        ->hidden(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true) || $get('type') === 'file')
                         ->default([]),
+                    Forms\Components\Select::make('formats')
+                        ->label('Format dokumen')
+                        ->multiple()
+                        ->options(['pdf' => 'PDF', 'docx' => 'DOCX', 'jpg' => 'JPG', 'png' => 'PNG'])
+                        ->default(['pdf', 'jpg', 'png'])
+                        ->required(fn (Forms\Get $get): bool => $get('type') === 'file')
+                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'file'),
+                    Forms\Components\FileUpload::make('template_path')
+                        ->label('Template PDF/DOCX')
+                        ->helperText('Opsional. Jika diunggah, pendaftar akan melihat tombol Unduh Template pada field ini sebelum mengunggah dokumen.')
+                        ->disk('applicant-private')
+                        ->directory(fn (): string => 'templates/'.$this->unitId())
+                        ->visibility('private')
+                        ->previewable(false)
+                        ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                        ->maxSize(5120)
+                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'file'),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
                 ])->columns(2)->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Field baru'),
