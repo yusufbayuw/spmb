@@ -320,32 +320,32 @@ class Registration extends Model
     public function progressStages(): array
     {
         $enabledStages = $this->enabledStages();
+        $stages = $enabledStages;
         $studyProgram = $this->opening?->studyProgram;
 
-        if (! $this->unit?->isHigherEducation() || ! $studyProgram) {
-            return $enabledStages;
-        }
+        if ($this->unit?->isHigherEducation() && $studyProgram) {
+            $configuredStages = [];
+            $steps = collect($studyProgram->configuredWorkflowSteps())->keyBy('stage');
 
-        $configuredStages = [];
-        $steps = collect($studyProgram->configuredWorkflowSteps())->keyBy('stage');
+            foreach ($enabledStages as $stage => $label) {
+                $step = $steps->get($stage);
 
-        foreach ($enabledStages as $stage => $label) {
-            $step = $steps->get($stage);
+                if (! $step) {
+                    $configuredStages[$stage] = $label;
 
-            if (! $step) {
-                $configuredStages[$stage] = $label;
+                    continue;
+                }
 
-                continue;
+                if (($step['visible'] ?? true) || $stage === $this->current_stage) {
+                    $configuredStages[$stage] = filled($step['label'] ?? null)
+                        ? trim((string) $step['label'])
+                        : $label;
+                }
             }
 
-            if (($step['visible'] ?? true) || $stage === $this->current_stage) {
-                $configuredStages[$stage] = filled($step['label'] ?? null)
-                    ? trim((string) $step['label'])
-                    : $label;
-            }
+            $stages = $configuredStages ?: $enabledStages;
         }
 
-        $stages = $configuredStages ?: $enabledStages;
         $visible = $this->applicantVisibleStageKeys();
 
         $filtered = collect($stages)
