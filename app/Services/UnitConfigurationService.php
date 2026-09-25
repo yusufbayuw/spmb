@@ -557,6 +557,35 @@ class UnitConfigurationService
                 're_registration_requirements.*.required' => ['required', 'boolean'],
                 're_registration_requirements.*.instructions' => ['nullable', 'string', 'max:2000'],
             ])->validate();
+            $completionStage = $validated['completion_after_stage'] ?? null;
+
+            if ($completionStage && in_array($completionStage, ['virtual_account', 'payment', 'payment_verification'], true)
+                && ! $validated['payment_enabled']) {
+                throw ValidationException::withMessages([
+                    'completion_after_stage' => 'Tahap akhir pembayaran hanya dapat dipilih ketika Pembayaran aktif.',
+                ]);
+            }
+
+            if ($completionStage && in_array($completionStage, ['documents', 'document_verification'], true)
+                && ! $validated['documents_enabled']) {
+                throw ValidationException::withMessages([
+                    'completion_after_stage' => 'Tahap akhir dokumen hanya dapat dipilih ketika Dokumen aktif.',
+                ]);
+            }
+
+            if ($completionStage === 'tests' && ! $validated['tests_enabled']) {
+                throw ValidationException::withMessages([
+                    'completion_after_stage' => 'Rangkaian Tes hanya dapat menjadi tahap akhir ketika Tes aktif.',
+                ]);
+            }
+
+            if ($completionStage && in_array($completionStage, ['waiting_list', 'admission_offer', 're_registration', 'enrollment'], true)
+                && ! $validated['post_announcement_enabled']) {
+                throw ValidationException::withMessages([
+                    'completion_after_stage' => 'Tahap pasca-pengumuman hanya dapat dipilih ketika Proses Pasca-Pengumuman aktif.',
+                ]);
+            }
+
             $workflowKeys = collect($validated['workflow_blocks'])->pluck('key')->values()->all();
             if (array_diff(Registration::DEFAULT_WORKFLOW_BLOCKS, $workflowKeys) !== []
                 || array_diff($workflowKeys, Registration::DEFAULT_WORKFLOW_BLOCKS) !== []) {
