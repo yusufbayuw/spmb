@@ -138,7 +138,7 @@
                                     @endif
                                 </div>
 
-                                <dl class="grid gap-3 sm:grid-cols-3">
+                                <dl class="grid gap-3 md:grid-cols-3">
                                     <div class="grid gap-1">
                                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Gelombang</dt>
                                         <dd class="text-sm font-semibold text-gray-950 dark:text-white">{{ $opening->wave }}</dd>
