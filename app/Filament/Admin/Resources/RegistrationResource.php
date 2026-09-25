@@ -62,7 +62,7 @@ class RegistrationResource extends Resource
                 ->visible(fn (?Registration $record): bool => (bool) ($record && ($record->academicScores->isNotEmpty() || $record->achievements->isNotEmpty())))
                 ->columnSpanFull(),
             Forms\Components\Section::make('Kepemilikan Pendaftaran')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\Select::make('user_id')
                         ->label('Akun Pendaftar')
@@ -131,7 +131,7 @@ class RegistrationResource extends Resource
                 ]),
 
             Forms\Components\Section::make('Identitas Calon Siswa')
-                ->columns(3)
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     Forms\Components\TextInput::make('nik')
                         ->label('NIK')->validationAttribute('NIK')->required()->length(16)
@@ -140,7 +140,7 @@ class RegistrationResource extends Resource
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
                                 ->where('registration_opening_id', $get('registration_opening_id')),
                         ),
-                    Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(2),
+                    Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
                     Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
                     Forms\Components\Select::make('religion')->label('Agama')->options(['Islam' => 'Islam', 'Kristen' => 'Kristen', 'Katolik' => 'Katolik', 'Hindu' => 'Hindu', 'Buddha' => 'Buddha', 'Konghucu' => 'Konghucu'])->default('Islam'),
@@ -150,7 +150,7 @@ class RegistrationResource extends Resource
                     Forms\Components\TextInput::make('email')->label('Email')->email(),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->columnSpanFull(),
                     ...RegionFields::schema(true),
-                    Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->columnSpan(2),
+                    Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric(),
                 ]),
 
@@ -161,7 +161,7 @@ class RegistrationResource extends Resource
 
             Forms\Components\Section::make('Validasi')
                 ->description('TU dapat memvalidasi atau meminta revisi langsung dari halaman Edit Pendaftaran.')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\Select::make('data_validation_status')
                         ->label('Status Validasi')
