@@ -192,6 +192,35 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->itemLabel(fn (array $state): string => Registration::WORKFLOW_BLOCK_LABELS[$state['key'] ?? ''] ?? 'Tahap'),
                 ])
                 ->collapsible(),
+            Forms\Components\Section::make('Tampilan & Akhir Proses di Portal Pendaftar')
+                ->description('Atur milestone yang terlihat oleh pendaftar dan tentukan kapan workflow benar-benar selesai. Tahap setelah titik akhir tidak dijalankan.')
+                ->schema([
+                    Forms\Components\CheckboxList::make('applicant_visible_stages')
+                        ->label('Tahapan yang tampil pada progres pendaftar')
+                        ->options(Registration::STAGES)
+                        ->columns(2)
+                        ->bulkToggleable()
+                        ->helperText('Sembunyikan tahap internal yang tidak perlu dilihat pendaftar. Tahap Selesai akan selalu ditampilkan oleh sistem.'),
+                    Forms\Components\Select::make('completion_after_stage')
+                        ->label('Akhiri proses setelah tahap')
+                        ->options(array_diff_key(Registration::STAGES, ['completed' => true]))
+                        ->placeholder('Ikuti alur penuh')
+                        ->searchable()
+                        ->native(false)
+                        ->helperText('Contoh: pilih Rangkaian Tes agar setelah seluruh tes wajib selesai, pendaftaran langsung masuk Selesai tanpa menjalankan Seleksi/Pengumuman.'),
+                    Forms\Components\TextInput::make('completion_title')
+                        ->label('Judul saat selesai')
+                        ->required()
+                        ->maxLength(180),
+                    Forms\Components\Textarea::make('completion_message')
+                        ->label('Pesan saat selesai')
+                        ->required()
+                        ->rows(4)
+                        ->maxLength(3000)
+                        ->columnSpanFull(),
+                ])
+                ->columns(2)
+                ->collapsible(),
             Forms\Components\Section::make('Nama Tahapan di Portal Pendaftar')
                 ->description('Ubah nama tampilan setiap tahapan template tanpa mengubah kunci maupun logika workflow. Pada perguruan tinggi, pengaturan per Program Studi tetap menjadi override yang lebih spesifik.')
                 ->schema(
