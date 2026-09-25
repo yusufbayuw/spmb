@@ -36,7 +36,7 @@ class RegistrationOpeningResource extends Resource
         return $form->schema([
             Forms\Components\Section::make('Periode, Program, Jadwal, dan Biaya Formulir')
                 ->description('Sekolah cukup memilih unit. Perguruan tinggi wajib memilih program studi. Status buka dan tutup mengikuti jadwal secara otomatis.')
-                ->columns(2)
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\Select::make('unit_id')
                         ->label('Unit / Institusi')
