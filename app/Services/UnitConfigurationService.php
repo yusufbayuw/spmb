@@ -47,6 +47,10 @@ class UnitConfigurationService
             'selection_mode' => 'flexible',
             'post_announcement_enabled' => $unit->isHigherEducation(),
             'workflow_stage_labels' => Registration::STAGES,
+            'applicant_visible_stages' => array_keys(Registration::STAGES),
+            'completion_after_stage' => null,
+            'completion_title' => 'Pendaftaran Telah Selesai',
+            'completion_message' => 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.',
             'workflow_blocks' => collect(Registration::DEFAULT_WORKFLOW_BLOCKS)->map(fn (string $key): array => ['key' => $key])->all(),
             'builtin_field_policy' => 'system_default',
             'academic_scores_enabled' => false,
@@ -113,7 +117,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -295,6 +299,26 @@ class UnitConfigurationService
 
         $data['workflow_blocks'] = $workflowBlocks;
 
+        $visibleStages = collect(is_array($data['applicant_visible_stages'] ?? null)
+            ? $data['applicant_visible_stages']
+            : array_keys(Registration::STAGES))
+            ->filter(fn (mixed $stage): bool => is_string($stage) && array_key_exists($stage, Registration::STAGES))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array('completed', $visibleStages, true)) {
+            $visibleStages[] = 'completed';
+        }
+
+        $data['applicant_visible_stages'] = $visibleStages;
+        $data['completion_title'] = filled($data['completion_title'] ?? null)
+            ? trim((string) $data['completion_title'])
+            : 'Pendaftaran Telah Selesai';
+        $data['completion_message'] = filled($data['completion_message'] ?? null)
+            ? trim((string) $data['completion_message'])
+            : 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.';
+
         $formGroups = collect(is_array($data['form_groups'] ?? null) ? $data['form_groups'] : [])
             ->filter(fn (mixed $group): bool => is_array($group) && filled($group['key'] ?? null) && filled($group['label'] ?? null))
             ->map(fn (array $group): array => [
@@ -400,7 +424,8 @@ class UnitConfigurationService
                 ->all();
         };
 
-        return $keys($from) !== $keys($to);
+        return $keys($from) !== $keys($to)
+            || ($from?->completion_after_stage ?? null) !== ($to->completion_after_stage ?? null);
     }
 
     private function supplementalConfigurationChanged(?UnitConfiguration $from, UnitConfiguration $to): bool
@@ -469,6 +494,11 @@ class UnitConfigurationService
             $validated = Validator::make($data, [
                 'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
                 'workflow_stage_labels' => ['present', 'array'], 'workflow_stage_labels.*' => ['required', 'string', 'max:120'],
+                'applicant_visible_stages' => ['present', 'array', 'min:1'],
+                'applicant_visible_stages.*' => ['required', Rule::in(array_keys(Registration::STAGES)), 'distinct'],
+                'completion_after_stage' => ['nullable', Rule::in(array_keys(array_diff_key(Registration::STAGES, ['completed' => true])))],
+                'completion_title' => ['required', 'string', 'max:180'],
+                'completion_message' => ['required', 'string', 'max:3000'],
                 'workflow_blocks' => ['present', 'array', 'size:2'],
                 'workflow_blocks.*.key' => ['required', Rule::in(array_keys(Registration::WORKFLOW_BLOCK_LABELS)), 'distinct'],
                 'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
