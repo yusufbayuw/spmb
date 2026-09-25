@@ -89,7 +89,7 @@ class ReRegistration extends Page implements HasForms
             Forms\Components\Section::make('Persyaratan Daftar Ulang')
                 ->description('Kirim persyaratan yang diminta. Berkas dan informasi akan diperiksa petugas.')
                 ->schema($fields)
-                ->columns(2),
+                ->columns(['default' => 1, 'md' => 2]),
         ])->statePath('data');
     }
 
