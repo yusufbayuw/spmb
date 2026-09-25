@@ -108,11 +108,16 @@ class AdmissionDecisionService
                 if ($decision === 'accepted') {
                     $usedSeats++;
                 }
-                $registration->announcement()->firstOrCreate(
-                    ['registration_id' => $registration->id],
-                    ['status' => 'draft', 'title' => 'Pengumuman Hasil SPMB'],
-                );
-                $registration->transitionTo('announcement');
+                $targetStage = $registration->nextEnabledStage('selection') ?? 'announcement';
+
+                if ($targetStage === 'announcement') {
+                    $registration->announcement()->firstOrCreate(
+                        ['registration_id' => $registration->id],
+                        ['status' => 'draft', 'title' => 'Pengumuman Hasil SPMB'],
+                    );
+                }
+
+                $registration->transitionTo($targetStage);
             }
 
             $lockedBatch->update(['status' => 'finalized', 'finalized_by' => $actor->id, 'finalized_at' => now()]);
