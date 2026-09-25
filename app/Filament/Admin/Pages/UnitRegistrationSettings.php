@@ -310,7 +310,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Hidden::make('group'),
                     Forms\Components\Select::make('group_key')
                         ->label('Kelompok')
-                        ->options(fn (): array => collect($this->data['form_groups'] ?? [])->pluck('label', 'key')->all())
+                        ->options(fn (): array => $this->formGroupOptions())
                         ->searchable()
                         ->native(false)
                         ->visible(fn (Forms\Get $get): bool => ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true))
@@ -420,9 +420,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                                 ->multiple()
                                 ->searchable()
                                 ->native(false)
-                                ->options(fn (): array => collect($this->data['academic_score_settings']['grades'] ?? [])
-                                    ->pluck('label', 'key')
-                                    ->all()),
+                                ->options(fn (): array => $this->academicGradeOptions()),
                         ])
                         ->columns(1)
                         ->itemLabel(fn (array $state): string => $state['label'] ?? 'Komponen nilai')
@@ -883,6 +881,35 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         return Carbon::parse($value)
             ->timezone(config('app.timezone'))
             ->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Live repeaters briefly contain rows whose label is still null while the
+     * user is adding a new item. Filament Select requires every option label to
+     * be a string, so only expose complete rows as selectable options.
+     */
+    private function formGroupOptions(): array
+    {
+        return collect($this->data['form_groups'] ?? [])
+            ->filter(fn (mixed $group): bool => is_array($group)
+                && filled($group['key'] ?? null)
+                && filled($group['label'] ?? null))
+            ->mapWithKeys(fn (array $group): array => [
+                (string) $group['key'] => trim((string) $group['label']),
+            ])
+            ->all();
+    }
+
+    private function academicGradeOptions(): array
+    {
+        return collect($this->data['academic_score_settings']['grades'] ?? [])
+            ->filter(fn (mixed $grade): bool => is_array($grade)
+                && filled($grade['key'] ?? null)
+                && filled($grade['label'] ?? null))
+            ->mapWithKeys(fn (array $grade): array => [
+                (string) $grade['key'] => trim((string) $grade['label']),
+            ])
+            ->all();
     }
 
     private function formLayoutOptions(): array
