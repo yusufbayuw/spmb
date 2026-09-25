@@ -44,7 +44,7 @@ class OperationalReport extends Page implements HasForms
         return $form
             ->schema([
                 Forms\Components\Section::make('Filter Laporan')
-                    ->columns(4)
+                    ->columns(['default' => 1, 'md' => 2, 'xl' => 4])
                     ->schema([
                         Forms\Components\Select::make('unit_id')
                             ->label('Unit / Institusi')
