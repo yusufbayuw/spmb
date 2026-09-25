@@ -297,7 +297,15 @@ class Registration extends Model
         if ($this->configuration && ! $this->configuration->documents_enabled) {
             return [];
         }
-        $definitions = $this->configuration?->document_requirements ?? app(UnitConfigurationService::class)->defaults($this->unit)['document_requirements'];
+
+        $definitions = $this->configuration?->document_requirements
+            ?? app(UnitConfigurationService::class)->defaults($this->unit)['document_requirements'];
+
+        $definitions = $this->withLatestPresentationMetadata(
+            $definitions,
+            'document_requirements',
+            ['label', 'instructions', 'template_path'],
+        );
 
         return array_values(array_filter($definitions, fn (array $definition): bool => (bool) $definition['active']));
     }
@@ -343,10 +351,60 @@ class Registration extends Model
     /** @return list<array<string, mixed>> */
     public function reRegistrationRequirements(): array
     {
+        $requirements = $this->configuration?->re_registration_requirements ?? [];
+        $requirements = $this->withLatestPresentationMetadata(
+            $requirements,
+            're_registration_requirements',
+            ['label', 'instructions'],
+        );
+
         return array_values(array_filter(
-            $this->configuration?->re_registration_requirements ?? [],
+            $requirements,
             fn (array $requirement): bool => (bool) ($requirement['active'] ?? true),
         ));
+    }
+
+    /**
+     * Existing registrations stay pinned to their workflow/configuration version.
+     * Presentation-only metadata may safely follow the latest published version
+     * when the same stable key still exists.
+     *
+     * @param  list<array<string, mixed>>  $definitions
+     * @param  list<string>  $displayKeys
+     * @return list<array<string, mixed>>
+     */
+    private function withLatestPresentationMetadata(array $definitions, string $attribute, array $displayKeys): array
+    {
+        if (! $this->configuration || $this->configuration->status !== 'published') {
+            return $definitions;
+        }
+
+        $current = app(UnitConfigurationService::class)->current((int) $this->unit_id);
+
+        if (! $current || $current->id === $this->configuration->id) {
+            return $definitions;
+        }
+
+        $latestByKey = collect($current->{$attribute} ?? [])->keyBy('key');
+
+        return collect($definitions)
+            ->map(function (array $definition) use ($latestByKey, $displayKeys): array {
+                $latest = $latestByKey->get($definition['key'] ?? null);
+
+                if (! is_array($latest)) {
+                    return $definition;
+                }
+
+                foreach ($displayKeys as $key) {
+                    if (array_key_exists($key, $latest)) {
+                        $definition[$key] = $latest[$key];
+                    }
+                }
+
+                return $definition;
+            })
+            ->values()
+            ->all();
     }
 
     public function reRegistrationComplete(): bool
