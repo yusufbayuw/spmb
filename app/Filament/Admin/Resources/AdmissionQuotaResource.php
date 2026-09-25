@@ -60,7 +60,7 @@ class AdmissionQuotaResource extends Resource
             Forms\Components\TextInput::make('offer_expires_in_hours')->label('Batas konfirmasi (jam)')->integer()->minValue(1)->required(),
             Forms\Components\TextInput::make('re_registration_due_in_days')->label('Target daftar ulang (hari)')->integer()->minValue(1)->required(),
             Forms\Components\Toggle::make('is_active')->label('Aktif')->default(true),
-        ])->columns(2);
+        ])->columns(['default' => 1, 'md' => 2]);
     }
 
     public static function table(Table $table): Table
