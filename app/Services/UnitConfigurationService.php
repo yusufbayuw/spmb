@@ -346,7 +346,38 @@ class UnitConfigurationService
         $fields = is_array($data['fields'] ?? null) ? $data['fields'] : [];
 
         foreach ($fields as $index => $field) {
-            if (! is_array($field) || in_array($field['key'] ?? null, ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+            if (! is_array($field)) {
+                continue;
+            }
+
+            $isBuiltin = in_array($field['key'] ?? null, ConfiguredRegistrationForm::BUILTIN_FIELDS, true);
+            $isCustomBoolean = ! $isBuiltin && ($field['type'] ?? null) === 'boolean';
+
+            if ($isCustomBoolean) {
+                foreach (['yes', 'no'] as $answer) {
+                    $enabledKey = 'boolean_'.$answer.'_detail_enabled';
+                    $labelKey = 'boolean_'.$answer.'_detail_label';
+                    $requiredKey = 'boolean_'.$answer.'_detail_required';
+
+                    $fields[$index][$enabledKey] = (bool) ($field[$enabledKey] ?? false);
+                    $fields[$index][$labelKey] = filled($field[$labelKey] ?? null)
+                        ? trim((string) $field[$labelKey])
+                        : 'Keterangan';
+                    $fields[$index][$requiredKey] = $fields[$index][$enabledKey]
+                        ? (bool) ($field[$requiredKey] ?? false)
+                        : false;
+                }
+            } else {
+                foreach (['yes', 'no'] as $answer) {
+                    unset(
+                        $fields[$index]['boolean_'.$answer.'_detail_enabled'],
+                        $fields[$index]['boolean_'.$answer.'_detail_label'],
+                        $fields[$index]['boolean_'.$answer.'_detail_required'],
+                    );
+                }
+            }
+
+            if ($isBuiltin) {
                 continue;
             }
 
@@ -549,6 +580,12 @@ class UnitConfigurationService
                 'fields.*.help' => ['nullable', 'string', 'max:1000'], 'fields.*.options' => ['nullable', 'array'], 'fields.*.options.*' => ['string', 'max:150'],
                 'fields.*.formats' => ['nullable', 'array', 'max:4'], 'fields.*.formats.*' => [Rule::in(['pdf', 'docx', 'jpg', 'png'])],
                 'fields.*.template_path' => ['nullable', 'string'],
+                'fields.*.boolean_yes_detail_enabled' => ['nullable', 'boolean'],
+                'fields.*.boolean_yes_detail_label' => ['nullable', 'string', 'max:150'],
+                'fields.*.boolean_yes_detail_required' => ['nullable', 'boolean'],
+                'fields.*.boolean_no_detail_enabled' => ['nullable', 'boolean'],
+                'fields.*.boolean_no_detail_label' => ['nullable', 'string', 'max:150'],
+                'fields.*.boolean_no_detail_required' => ['nullable', 'boolean'],
                 'form_groups' => ['present', 'array', 'max:30'],
                 'form_groups.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
                 'form_groups.*.label' => ['required', 'string', 'distinct', 'max:100'],
@@ -682,7 +719,7 @@ class UnitConfigurationService
                 ]);
             }
 
-            foreach ($validated['fields'] as $field) {
+            foreach ($validated['fields'] as $fieldIndex => $field) {
                 if (in_array($field['key'], ConfiguredRegistrationForm::CORE_FIELDS, true)) {
                     throw ValidationException::withMessages(['fields' => 'Identitas inti tidak boleh diubah.']);
                 }
@@ -690,6 +727,21 @@ class UnitConfigurationService
                     && empty($field['options'])
                     && ! in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
                     throw ValidationException::withMessages(['fields' => 'Field pilihan harus memiliki opsi.']);
+                }
+
+                if (($field['type'] ?? null) === 'boolean'
+                    && ! in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                    foreach (['yes' => 'Ya', 'no' => 'Tidak'] as $answer => $answerLabel) {
+                        $enabled = (bool) ($field['boolean_'.$answer.'_detail_enabled'] ?? false);
+                        $label = trim((string) ($field['boolean_'.$answer.'_detail_label'] ?? ''));
+
+                        if ($enabled && $label === '') {
+                            throw ValidationException::withMessages([
+                                'fields.'.$fieldIndex.'.boolean_'.$answer.'_detail_label'
+                                    => 'Label keterangan untuk jawaban '.$answerLabel.' wajib diisi saat field keterangan diaktifkan.',
+                            ]);
+                        }
+                    }
                 }
             }
             $fieldsByKey = collect($validated['fields'])->keyBy('key');
