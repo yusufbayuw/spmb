@@ -105,7 +105,7 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
                             ])
                             ->columnSpanFull(),
                     ])
-                    ->columns(2),
+                    ->columns(['default' => 1, 'md' => 2]),
                 Forms\Components\Section::make('Kontak & Helpdesk')
                     ->description('Kontak resmi yang dapat dilihat calon pendaftar.')
                     ->schema([
@@ -137,7 +137,7 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
-                    ->columns(2),
+                    ->columns(['default' => 1, 'md' => 2]),
             ])
             ->statePath('data');
     }
