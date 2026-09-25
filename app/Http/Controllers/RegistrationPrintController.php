@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\PaymentReceipt;
 use App\Models\Registration;
 use App\Models\TestBooking;
+use App\Models\UnitConfiguration;
 use App\Services\ApplicantFileStorage;
 use App\Services\RegistrationCardService;
 use App\Services\TestCardEligibilityService;
+use App\Services\UnitConfigurationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -72,6 +74,53 @@ class RegistrationPrintController extends Controller
 
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $downloadName = Str::slug((string) ($requirement['label'] ?? $key))
+            .($extension !== '' ? '.'.$extension : '');
+
+        return response()->download(
+            $storage->privateDisk()->path($path),
+            $downloadName,
+            ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff'],
+        );
+    }
+
+    public function formFieldTemplate(
+        Request $request,
+        UnitConfiguration $configuration,
+        string $key,
+        ApplicantFileStorage $storage,
+        UnitConfigurationService $configurations,
+    ): BinaryFileResponse {
+        $user = $request->user();
+        abort_unless($user?->is_active, 404);
+
+        if ($user->isUser()) {
+            abort_unless(
+                $configuration->status === 'published'
+                && $configurations->current((int) $configuration->unit_id)?->id === $configuration->id,
+                404,
+            );
+        } elseif ($user->isTU()) {
+            abort_unless((int) $user->unit_id === (int) $configuration->unit_id, 404);
+        } else {
+            abort_unless($user->isAdmin(), 404);
+        }
+
+        $field = collect($configuration->fields ?? [])->first(
+            fn (array $field): bool => ($field['key'] ?? null) === $key
+                && ($field['type'] ?? null) === 'file'
+                && (bool) ($field['active'] ?? false),
+        );
+
+        $path = $field['template_path'] ?? null;
+        abort_unless(
+            is_string($path)
+            && str_starts_with($path, 'templates/'.$configuration->unit_id.'/')
+            && $storage->privateDisk()->exists($path),
+            404,
+        );
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $downloadName = Str::slug((string) ($field['label'] ?? $key))
             .($extension !== '' ? '.'.$extension : '');
 
         return response()->download(
