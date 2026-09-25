@@ -108,6 +108,34 @@ class UnitRegistrationSettingsTest extends TestCase
             ->assertSet('data.academic_score_settings.grades.1.label', null);
     }
 
+    public function test_admin_unit_can_configure_registration_number_prefix_and_digits(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSee('Nomor Pendaftaran')
+            ->assertSee('Prefix')
+            ->assertSee('Jumlah Digit Angka')
+            ->fillForm([
+                'registration_number_prefix' => 'smp',
+                'registration_number_digits' => 3,
+            ])
+            ->call('publish')
+            ->assertHasNoFormErrors();
+
+        $published = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'published')
+            ->latest('version')
+            ->firstOrFail();
+
+        $this->assertSame('SMP', $published->registration_number_prefix);
+        $this->assertSame(3, $published->registration_number_digits);
+    }
+
     public function test_tu_cannot_access_unit_registration_settings(): void
     {
         $this->seed(ShieldSeeder::class);
