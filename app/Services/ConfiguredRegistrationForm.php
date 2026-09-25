@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Registration;
 use App\Models\UnitConfiguration;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
@@ -415,18 +416,33 @@ class ConfiguredRegistrationForm
                 ->fetchFileInformation(false)
                 ->acceptedFileTypes($mimes)
                 ->maxSize((int) config('spmb.uploads.max_kb', 5120))
-                ->required((bool) $definition['required']);
+                ->required(fn (?Registration $record): bool => (bool) $definition['required']
+                    && blank(data_get($record?->custom_answers, $definition['key'])));
 
             $components = [$upload];
+            $actions = [];
 
             if (! empty($definition['template_path'])) {
-                $components[] = Actions::make([
-                    Action::make('download_template_'.$definition['key'])
-                        ->label('Unduh Template '.$definition['label'])
-                        ->icon('heroicon-o-arrow-down-tray')
-                        ->url(route('registration.form-field-template', [$configuration, $definition['key']])),
-                ]);
+                $actions[] = Action::make('download_template_'.$definition['key'])
+                    ->label('Unduh Template '.$definition['label'])
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(route('registration.form-field-template', [$configuration, $definition['key']]));
             }
+
+            $actions[] = Action::make('download_existing_'.$definition['key'])
+                ->label('Unduh Dokumen Tersimpan')
+                ->icon('heroicon-o-document-arrow-down')
+                ->url(fn (?Registration $record): ?string => $record
+                    ? route('files.applicant.registration-custom-field', [
+                        'registration' => $record,
+                        'key' => $definition['key'],
+                        'download' => 1,
+                    ])
+                    : null)
+                ->visible(fn (?Registration $record): bool => (bool) ($record
+                    && filled(data_get($record->custom_answers, $definition['key']))));
+
+            $components[] = Actions::make($actions);
 
             return Group::make($components);
         }
