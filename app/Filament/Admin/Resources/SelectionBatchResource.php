@@ -95,7 +95,7 @@ class SelectionBatchResource extends Resource
                 ->required(),
             Forms\Components\TextInput::make('name')->label('Nama batch')->required()->maxLength(150),
             Forms\Components\TextInput::make('waitlist_limit')->label('Maksimum rekomendasi daftar tunggu')->integer()->minValue(0)->required(),
-        ])->columns(2);
+        ])->columns(['default' => 1, 'md' => 2]);
     }
 
     public static function pathwayOptions(?int $registrationOpeningId): array
