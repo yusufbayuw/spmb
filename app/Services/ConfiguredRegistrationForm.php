@@ -183,7 +183,7 @@ class ConfiguredRegistrationForm
 
             $components['group:'.$group['key']] = Section::make($group['label'])
                 ->schema($fields)
-                ->columns(2);
+                ->columns(['default' => 1, 'md' => 2]);
 
             unset($customFieldsByGroup[$group['key']]);
         }
@@ -191,7 +191,7 @@ class ConfiguredRegistrationForm
         foreach ($customFieldsByGroup as $groupKey => $fields) {
             $components['group:'.$groupKey] = Section::make('Informasi Tambahan')
                 ->schema($fields)
-                ->columns(2);
+                ->columns(['default' => 1, 'md' => 2]);
         }
 
         if ($configuration->academic_scores_enabled) {
@@ -218,9 +218,16 @@ class ConfiguredRegistrationForm
                             ->required((bool) ($settings['required'] ?? false));
                     }
 
+                    $desktopColumns = min(4, max(1, count($subjectFields)));
+                    $tabletColumns = min(2, $desktopColumns);
+
                     $gradeFields[] = Fieldset::make($subject['label'] ?? $subject['key'] ?? 'Mata Pelajaran')
                         ->schema($subjectFields)
-                        ->columns(min(4, max(1, count($subjectFields))));
+                        ->columns([
+                            'default' => 1,
+                            'md' => $tabletColumns,
+                            'xl' => $desktopColumns,
+                        ]);
                 }
 
                 $scoreFields[] = Section::make($grade['label'] ?? $grade['key'] ?? 'Kelas')
@@ -252,13 +259,13 @@ class ConfiguredRegistrationForm
                         ->maxItems((int) ($settings['max_entries'] ?? 3))
                         ->minItems((bool) ($settings['required'] ?? false) ? 1 : 0)
                         ->schema([
-                            TextInput::make('title')->label('Nama Prestasi')->required()->maxLength(200)->columnSpan(2),
+                            TextInput::make('title')->label('Nama Prestasi')->required()->maxLength(200)->columnSpan(['default' => 1, 'md' => 2]),
                             Select::make('level')->label('Tingkat')->options($levels)->required(),
                             TextInput::make('year')->label('Tahun')->numeric()->minValue(1900)->maxValue(now()->year + 1)->visible((bool) ($settings['show_year'] ?? false)),
                             TextInput::make('organizer')->label('Penyelenggara')->maxLength(200)->visible((bool) ($settings['show_organizer'] ?? false)),
                             Textarea::make('description')->label('Keterangan')->rows(2)->maxLength(2000)->columnSpanFull()->visible((bool) ($settings['show_description'] ?? false)),
                         ])
-                        ->columns(2)
+                        ->columns(['default' => 1, 'md' => 2])
                         ->itemLabel(fn (array $state): string => $state['title'] ?? 'Prestasi'),
                 ])
                 ->visible(fn ($get): bool => app(RegistrationSupplementalDataService::class)->featureApplies(
