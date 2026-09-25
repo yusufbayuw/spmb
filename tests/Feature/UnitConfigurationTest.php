@@ -539,6 +539,153 @@ class UnitConfigurationTest extends TestCase
         $form->validateAnswers($configuration, ['transport' => 'Pesawat']);
     }
 
+    public function test_boolean_custom_field_validates_branch_specific_detail_and_drops_hidden_stale_detail(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [[
+            'key' => 'has_condition',
+            'label' => 'Apakah memiliki kondisi khusus?',
+            'type' => 'boolean',
+            'active' => true,
+            'required' => true,
+            'group_key' => 'group_additional',
+            'group' => 'Informasi Tambahan',
+            'help' => null,
+            'options' => [],
+            'boolean_yes_detail_enabled' => true,
+            'boolean_yes_detail_label' => 'Jelaskan kondisi khusus',
+            'boolean_yes_detail_required' => true,
+            'boolean_no_detail_enabled' => false,
+            'boolean_no_detail_label' => 'Keterangan',
+            'boolean_no_detail_required' => false,
+        ]];
+
+        $configuration = $service->save($draft, $staff, $data, true);
+        $field = $configuration->fields[0];
+
+        $this->assertTrue($field['boolean_yes_detail_enabled']);
+        $this->assertSame('Jelaskan kondisi khusus', $field['boolean_yes_detail_label']);
+        $this->assertTrue($field['boolean_yes_detail_required']);
+        $this->assertFalse($field['boolean_no_detail_enabled']);
+        $this->assertFalse($field['boolean_no_detail_required']);
+
+        $form = app(ConfiguredRegistrationForm::class);
+
+        try {
+            $form->validateAnswers($configuration, ['has_condition' => '1']);
+            $this->fail('Keterangan wajib untuk jawaban Ya seharusnya ditolak ketika kosong.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('_details.has_condition', $exception->errors());
+        }
+
+        $this->assertSame(
+            [
+                'has_condition' => '1',
+                '_details' => ['has_condition' => 'Memerlukan pendampingan khusus.'],
+            ],
+            $form->validateAnswers($configuration, [
+                'has_condition' => '1',
+                '_details' => ['has_condition' => 'Memerlukan pendampingan khusus.'],
+            ]),
+        );
+
+        $this->assertSame(
+            ['has_condition' => '0'],
+            $form->validateAnswers($configuration, [
+                'has_condition' => '0',
+                '_details' => ['has_condition' => 'Nilai lama yang harus dibuang.'],
+            ]),
+        );
+    }
+
+    public function test_applicant_boolean_detail_is_hidden_until_matching_answer_then_saved_and_shown_in_summary(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+        $pathway = RegistrationPathway::factory()->create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [[
+            'key' => 'has_condition',
+            'label' => 'Apakah memiliki kondisi khusus?',
+            'type' => 'boolean',
+            'active' => true,
+            'required' => true,
+            'group_key' => 'group_additional',
+            'group' => 'Informasi Tambahan',
+            'help' => 'Pilih Ya atau Tidak.',
+            'options' => [],
+            'boolean_yes_detail_enabled' => true,
+            'boolean_yes_detail_label' => 'Jelaskan kondisi khusus',
+            'boolean_yes_detail_required' => true,
+            'boolean_no_detail_enabled' => false,
+            'boolean_no_detail_label' => 'Keterangan',
+            'boolean_no_detail_required' => false,
+        ]];
+
+        $configuration = $service->save($draft, $staff, $data, true);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertSee('Apakah memiliki kondisi khusus?')
+            ->assertDontSee('Jelaskan kondisi khusus')
+            ->fillForm(['custom_answers.has_condition' => '0'])
+            ->assertDontSee('Jelaskan kondisi khusus')
+            ->fillForm(['custom_answers.has_condition' => '1'])
+            ->assertSee('Jelaskan kondisi khusus')
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'self',
+                'full_name' => 'Peserta Kondisional',
+                'nik' => '3273010101010066',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => [
+                    'father_name' => 'Ayah',
+                    'mother_name' => 'Ibu',
+                ],
+                'custom_answers.has_condition' => '1',
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['custom_answers._details.has_condition' => 'required']);
+
+        $page->fillForm([
+            'custom_answers._details.has_condition' => 'Memerlukan pendampingan khusus.',
+        ])->call('create')->assertHasNoFormErrors();
+
+        $created = Registration::query()
+            ->where('nik', '3273010101010066')
+            ->firstOrFail();
+
+        $this->assertSame('1', $created->custom_answers['has_condition']);
+        $this->assertSame(
+            'Memerlukan pendampingan khusus.',
+            data_get($created->custom_answers, '_details.has_condition'),
+        );
+
+        $this->get('/pendaftar/status/'.$created->uuid)
+            ->assertOk()
+            ->assertSeeText('Apakah memiliki kondisi khusus?')
+            ->assertSeeText('Ya')
+            ->assertSeeText('Jelaskan kondisi khusus')
+            ->assertSeeText('Memerlukan pendampingan khusus.');
+
+        $this->assertSame($configuration->id, $created->unit_configuration_id);
+    }
+
     public function test_disabled_payment_rejects_nonzero_opening_fee(): void
     {
         [$unit, $staff, $registration] = $this->fixture();
