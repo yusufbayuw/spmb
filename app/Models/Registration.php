@@ -649,8 +649,11 @@ class Registration extends Model
     public function generateApplicantCardNumber(): string
     {
         if (filled($this->registration_number)) {
-            return preg_replace('/^REG-/', 'KARTU-', (string) $this->registration_number)
-                ?: 'KARTU-'.$this->registration_number;
+            $registrationNumber = (string) $this->registration_number;
+
+            return str_starts_with($registrationNumber, 'REG-')
+                ? (preg_replace('/^REG-/', 'KARTU-', $registrationNumber) ?: 'KARTU-'.$registrationNumber)
+                : 'KARTU-'.$registrationNumber;
         }
 
         $year = $this->opening?->academic_year
