@@ -121,7 +121,7 @@ class RegistrationExcelExportService
     ): void {
         $sheet = $writer->getCurrentSheet();
         $sheet->setName('Data Pendaftaran');
-        $sheet->setSheetView(new SheetView(freezeRow: 2));
+        $sheet->setSheetView((new SheetView())->setFreezeRow(2));
 
         $headers = [
             'No.',
@@ -300,7 +300,7 @@ class RegistrationExcelExportService
     ): void {
         $sheet = $writer->addNewSheetAndMakeItCurrent();
         $sheet->setName('Nilai Akademik');
-        $sheet->setSheetView(new SheetView(freezeRow: 2));
+        $sheet->setSheetView((new SheetView())->setFreezeRow(2));
 
         $headers = ['No. Pendaftaran', 'NIK', 'Nama Lengkap', 'Kelas / Tingkat', 'Mata Pelajaran', 'Komponen Nilai', 'Nilai'];
         $writer->addRow(Row::fromValues($headers, $headerStyle));
@@ -341,7 +341,7 @@ class RegistrationExcelExportService
     {
         $sheet = $writer->addNewSheetAndMakeItCurrent();
         $sheet->setName('Prestasi');
-        $sheet->setSheetView(new SheetView(freezeRow: 2));
+        $sheet->setSheetView((new SheetView())->setFreezeRow(2));
 
         $headers = ['No. Pendaftaran', 'NIK', 'Nama Lengkap', 'Nama Prestasi', 'Tingkat', 'Tahun', 'Penyelenggara', 'Keterangan'];
         $writer->addRow(Row::fromValues($headers, $headerStyle));
