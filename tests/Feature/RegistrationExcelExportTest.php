@@ -183,8 +183,11 @@ class RegistrationExcelExportTest extends TestCase
         $this->assertContains('Juara Olimpiade', $sheets['Prestasi'][1]);
         $this->assertContains('Panitia Test', $sheets['Prestasi'][1]);
 
-        $this->assertContains('Jumlah pendaftaran', $sheets['Info Export'][5] ?? []);
-        $this->assertContains(1, $sheets['Info Export'][5] ?? []);
+        $countRow = collect($sheets['Info Export'])
+            ->first(fn (array $row): bool => ($row[0] ?? null) === 'Jumlah pendaftaran');
+
+        $this->assertIsArray($countRow);
+        $this->assertContains(1, $countRow);
 
         @unlink($result['path']);
     }
