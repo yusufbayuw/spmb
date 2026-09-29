@@ -33,7 +33,7 @@ class UnifiedLoginTest extends TestCase
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Masuk ke SPMB Taruna Bakti')
+            ->assertSee('Masuk ke SPMB')
             ->assertSee('Email atau Username')
             ->assertSee('Kode Keamanan')
             ->assertSee('fi-simple-page', false)
