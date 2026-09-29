@@ -11,6 +11,7 @@ use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -66,6 +67,11 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function registrations()
     {
         return $this->hasMany(Registration::class);
+    }
+
+    public function consents(): HasMany
+    {
+        return $this->hasMany(UserConsent::class);
     }
 
     public function isAdmin(): bool
