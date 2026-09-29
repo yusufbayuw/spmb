@@ -7,7 +7,6 @@ use App\Filament\Applicant\Pages\Auth\Login as ApplicantLogin;
 use App\Filament\Applicant\Pages\Auth\Register as ApplicantRegister;
 use App\Filament\Applicant\Pages\Auth\RequestPasswordReset;
 use App\Filament\Applicant\Pages\Auth\ResetPassword;
-use App\Filament\Auth\Pages\Login as UnifiedLogin;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,10 +26,9 @@ class AuthCaptchaTest extends TestCase
         $this->assertSame(ApplicantRegister::class, $applicant->getRegistrationRouteAction());
         $this->assertSame(RequestPasswordReset::class, $applicant->getRequestPasswordResetRouteAction());
         $this->assertSame(ResetPassword::class, $applicant->getResetPasswordRouteAction());
-        $this->assertTrue(is_subclass_of(UnifiedLogin::class, ApplicantLogin::class));
     }
 
-    public function test_panel_login_urls_redirect_to_native_unified_filament_login(): void
+    public function test_panel_login_urls_redirect_to_standard_post_unified_login_with_filament_ui(): void
     {
         $this->get('/admin/login')->assertRedirect('/login');
         $this->get('/pendaftar/login')->assertRedirect('/login');
@@ -38,8 +36,19 @@ class AuthCaptchaTest extends TestCase
         $this->get('/login')
             ->assertOk()
             ->assertSee('Kode Keamanan')
-            ->assertSee('fi-fo-shield-captcha', false)
-            ->assertSee('wire:submit="authenticate"', false);
+            ->assertSee('unified-login-captcha-image', false)
+            ->assertSee('action="'.route('login.store').'"', false)
+            ->assertDontSee('wire:submit', false);
+    }
+
+    public function test_unified_login_captcha_can_be_refreshed(): void
+    {
+        $this->get('/login')->assertOk();
+
+        $this->getJson('/login/captcha')
+            ->assertOk()
+            ->assertJsonStructure(['light', 'dark'])
+            ->assertJsonPath('light', fn ($value) => is_string($value) && str_starts_with($value, 'data:image/'));
     }
 
     public function test_applicant_registration_and_reset_request_keep_local_captcha(): void
