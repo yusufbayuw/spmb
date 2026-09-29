@@ -90,7 +90,7 @@ class AppBrandingSettings extends Page implements Forms\Contracts\HasForms
                             ->label('Warna Tema PWA')
                             ->required()
                             ->default('#2563eb')
-                            ->regex('/^#[0-9A-Fa-f]{6}$/'),
+                            ->rules(['regex:/^#[0-9A-Fa-f]{6}$/']),
                     ])
                     ->columns(['default' => 1, 'md' => 2]),
                 Forms\Components\Section::make('Kontak & Informasi Organisasi')
