@@ -39,7 +39,7 @@ class ApplicantPanelProvider extends PanelProvider
             ->passwordReset(RequestPasswordReset::class, ResetPassword::class)
             ->emailVerification(EmailVerificationPrompt::class)
             ->profile(isSimple: false)
-            ->brandName('SPMB Taruna Bakti')
+            ->brandName(config('spmb.portal.name', 'SPMB'))
             ->colors(['primary' => Color::Blue])
             ->databaseNotifications()
             ->databaseNotificationsPolling(config('spmb.notifications.polling', '15s'))
