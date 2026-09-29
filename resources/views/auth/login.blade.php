@@ -1,47 +1,146 @@
 <x-guest-layout>
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
-
-    <form method="POST" action="{{ route('login') }}">
-        @csrf
-
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+    <div class="space-y-6">
+        <div class="text-center">
+            <h1 class="text-2xl font-semibold text-gray-900">Masuk ke SPMB Taruna Bakti</h1>
+            <p class="mt-2 text-sm leading-6 text-gray-600">
+                Satu halaman masuk untuk pendaftar, TU, Admin Unit, dan Super Admin.
+                Portal akan dipilih otomatis berdasarkan hak akses akun.
+            </p>
         </div>
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
+        <x-auth-session-status class="mb-4" :status="session('status')" />
 
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
+        <form method="POST" action="{{ route('login') }}" class="space-y-5">
+            @csrf
 
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
+            <div>
+                <x-input-label for="email" value="Email atau Username" />
+                <x-text-input
+                    id="email"
+                    class="mt-1 block w-full"
+                    type="text"
+                    name="email"
+                    :value="old('email')"
+                    required
+                    autofocus
+                    autocomplete="username"
+                />
+                <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            </div>
 
-        <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
-            </label>
-        </div>
+            <div>
+                <x-input-label for="password" value="Password" />
+                <x-text-input
+                    id="password"
+                    class="mt-1 block w-full"
+                    type="password"
+                    name="password"
+                    required
+                    autocomplete="current-password"
+                />
+                <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            </div>
 
-        <div class="flex items-center justify-end mt-4">
-            @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
+            <div>
+                <div class="mb-2 flex items-center justify-between gap-3">
+                    <x-input-label for="captcha" value="Kode Keamanan" />
+                    <button
+                        type="button"
+                        id="refresh-login-captcha"
+                        class="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                        Muat kode baru
+                    </button>
+                </div>
+
+                <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                    <img
+                        id="login-captcha-image"
+                        src="{{ $captchaImages['light'] }}"
+                        alt="Kode keamanan"
+                        class="block h-auto max-w-full"
+                    >
+                </div>
+
+                <x-text-input
+                    id="captcha"
+                    class="mt-3 block w-full"
+                    type="text"
+                    name="captcha"
+                    required
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    placeholder="Ketik 5 karakter"
+                />
+                <p class="mt-1 text-xs text-gray-500">Huruf besar/kecil tidak dibedakan.</p>
+                <x-input-error :messages="$errors->get('captcha')" class="mt-2" />
+            </div>
+
+            <div class="flex items-center justify-between gap-4">
+                <label for="remember_me" class="inline-flex items-center">
+                    <input
+                        id="remember_me"
+                        type="checkbox"
+                        class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500"
+                        name="remember"
+                        value="1"
+                    >
+                    <span class="ms-2 text-sm text-gray-600">Ingat saya</span>
+                </label>
+
+                <a
+                    class="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                    href="{{ route('password.request') }}"
+                >
+                    Lupa password?
                 </a>
-            @endif
+            </div>
 
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
+            <x-primary-button class="w-full justify-center">
+                Masuk
             </x-primary-button>
+        </form>
+
+        <div class="border-t border-gray-200 pt-5 text-center text-sm text-gray-600">
+            Belum memiliki akun pendaftar?
+            <a href="{{ route('register') }}" class="font-medium text-blue-600 hover:text-blue-700 hover:underline">
+                Buat akun
+            </a>
         </div>
-    </form>
+    </div>
+
+    <script>
+        (() => {
+            const button = document.getElementById('refresh-login-captcha');
+            const image = document.getElementById('login-captcha-image');
+            const input = document.getElementById('captcha');
+
+            if (! button || ! image || ! input) {
+                return;
+            }
+
+            button.addEventListener('click', async () => {
+                button.disabled = true;
+
+                try {
+                    const response = await fetch(@js(route('login.captcha')), {
+                        credentials: 'same-origin',
+                        headers: { Accept: 'application/json' },
+                    });
+
+                    if (! response.ok) {
+                        throw new Error('Captcha refresh failed.');
+                    }
+
+                    const payload = await response.json();
+                    image.src = payload.light;
+                    input.value = '';
+                    input.focus();
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        })();
+    </script>
 </x-guest-layout>
