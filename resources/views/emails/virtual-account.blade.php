@@ -1,7 +1,7 @@
 <x-mail::layout>
 <x-slot:header>
 <x-mail::header :url="config('app.url')">
-{{ config('app.name', 'SPMB Taruna Bakti') }}
+{{ config('spmb.portal.name', config('app.name', 'SPMB')) }}
 </x-mail::header>
 </x-slot>
 
@@ -28,11 +28,11 @@ Buka Dashboard SPMB
 </x-mail::button>
 
 Hormat kami,<br>
-{{ config('app.name', 'SPMB Taruna Bakti') }}
+{{ config('spmb.portal.name', config('app.name', 'SPMB')) }}
 
 <x-slot:footer>
 <x-mail::footer>
-© {{ date('Y') }} {{ config('app.name', 'SPMB Taruna Bakti') }}. Seluruh hak cipta dilindungi.
+© {{ date('Y') }} {{ config('spmb.portal.name', config('app.name', 'SPMB')) }}. Seluruh hak cipta dilindungi.
 </x-mail::footer>
 </x-slot>
 </x-mail::layout>
