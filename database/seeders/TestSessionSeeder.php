@@ -5,12 +5,19 @@ namespace Database\Seeders;
 use App\Models\AdmissionTest;
 use App\Models\TestSession;
 use Illuminate\Database\Eloquent\Builder;
+use Database\Seeders\Support\GuardsDemoEnvironment;
 use Illuminate\Database\Seeder;
 
 class TestSessionSeeder extends Seeder
 {
+    use GuardsDemoEnvironment;
+
     public function run(): void
     {
+        if ($this->shouldSkipDemoData()) {
+            return;
+        }
+
         AdmissionTest::query()
             ->where('is_active', true)
             ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->forOperationalMode())
