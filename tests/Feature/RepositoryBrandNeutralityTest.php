@@ -18,12 +18,21 @@ class RepositoryBrandNeutralityTest extends TestCase
             base_path('resources'),
             base_path('routes'),
             base_path('tests'),
+            base_path('.agents'),
+            base_path('.ai'),
+            base_path('.claude'),
         ];
 
         $files = [
             base_path('README.md'),
             base_path('.env.example'),
             base_path('public/manifest.webmanifest'),
+            base_path('public/sw.js'),
+            base_path('public/js/pwa.js'),
+            base_path('AGENTS.md'),
+            base_path('CLAUDE.md'),
+            base_path('.mcp.json'),
+            base_path('boost.json'),
         ];
 
         foreach ($roots as $root) {
@@ -41,7 +50,7 @@ class RepositoryBrandNeutralityTest extends TestCase
         $forbidden = [
             '/taruna\s+bakti/i',
             '/tarunabakti/i',
-            '/\bTBU\b/',
+            '/\btbu\b/i',
             '/tbu\.ac\.id/i',
             '/martadinata\s+no\.\s*52/i',
         ];
