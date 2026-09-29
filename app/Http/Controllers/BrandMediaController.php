@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Services\BrandMediaService;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BrandMediaController extends Controller
 {
-    public function __invoke(string $path, BrandMediaService $media): Response
+    public function __invoke(string $path, BrandMediaService $media): StreamedResponse
     {
         return $media->response($path);
     }
