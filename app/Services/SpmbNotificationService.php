@@ -642,9 +642,9 @@ class SpmbNotificationService
             ->where('is_active', true)
             ->where(function ($query) use ($unitId): void {
                 $query->whereHas('roles', fn ($roles) => $roles->where('name', 'super_admin'))
-                    ->orWhere(function ($tu) use ($unitId): void {
-                        $tu->where('unit_id', $unitId)
-                            ->whereHas('roles', fn ($roles) => $roles->where('name', 'tu'));
+                    ->orWhere(function ($staff) use ($unitId): void {
+                        $staff->where('unit_id', $unitId)
+                            ->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['admin_unit', 'tu']));
                     });
             })
             ->get();
