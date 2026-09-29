@@ -38,6 +38,15 @@ class UserResource extends Resource
             Forms\Components\Select::make('unit_id')->relationship('unit', 'name')->label('Unit')->preload(),
             Forms\Components\TextInput::make('password')->password()->revealable()->dehydrated(fn ($state) => filled($state))->required(fn (string $context) => $context === 'create'),
             Forms\Components\Toggle::make('is_active')->label('Aktif')->default(true),
+            Forms\Components\Section::make('Persetujuan Akun')
+                ->description('Riwayat persetujuan platform yang disimpan sebagai snapshot per versi kebijakan.')
+                ->schema([
+                    Forms\Components\Placeholder::make('account_consents_audit')
+                        ->label('')
+                        ->content(fn (?User $record) => view('user.consent-summary', ['user' => $record]))
+                        ->columnSpanFull(),
+                ])
+                ->hiddenOn('create'),
         ]);
     }
 
