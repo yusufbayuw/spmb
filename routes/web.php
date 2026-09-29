@@ -7,6 +7,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LegalPolicyController;
 use App\Http\Controllers\OperationalReportController;
 use App\Http\Controllers\PrivateApplicantFileController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\PublicRegistrationOpeningController;
 use App\Http\Controllers\PublicUnitAdmissionsController;
 use App\Http\Controllers\RegistrationPrintController;
@@ -34,6 +35,18 @@ Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantE
 Route::get('/pendaftar/email-verification/verify/{id}/{hash}', fn () => abort(404))
     ->whereNumber('id')
     ->name('applicant.email-verification.legacy');
+
+Route::middleware(['auth', 'throttle:30,1'])
+    ->prefix('push')
+    ->name('push.')
+    ->group(function (): void {
+        Route::get('/vapid-public-key', [PushSubscriptionController::class, 'publicKey'])
+            ->name('vapid-public-key');
+        Route::post('/subscriptions', [PushSubscriptionController::class, 'store'])
+            ->name('subscriptions.store');
+        Route::delete('/subscriptions', [PushSubscriptionController::class, 'destroy'])
+            ->name('subscriptions.destroy');
+    });
 
 Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(function () {
     Route::get('/files/applicant/documents/{document}', [PrivateApplicantFileController::class, 'document'])
