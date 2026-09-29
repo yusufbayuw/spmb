@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Str;
 use MortezaAshrafi\FilamentShieldCaptcha\CaptchaManager;
 use MortezaAshrafi\FilamentShieldCaptcha\Enums\Theme;
 use MortezaAshrafi\FilamentShieldCaptcha\Rules\CaptchaRule;
 
 class UnifiedLoginCaptcha
 {
-    private const COMPONENT_KEY = 'unified-login-captcha';
+    private const SESSION_KEY = '_unified_login_captcha_context';
 
     public function __construct(private readonly CaptchaManager $manager)
     {
@@ -16,7 +17,14 @@ class UnifiedLoginCaptcha
 
     public function contextKey(): string
     {
-        return $this->manager->contextKey(self::COMPONENT_KEY);
+        $nonce = session()->get(self::SESSION_KEY);
+
+        if (! is_string($nonce) || $nonce === '') {
+            $nonce = Str::random(40);
+            session()->put(self::SESSION_KEY, $nonce);
+        }
+
+        return 'unified-login:'.$nonce;
     }
 
     /** @return array{light:string,dark:string} */
