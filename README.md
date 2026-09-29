@@ -230,6 +230,12 @@ Aplikasi memakai satu session untuk:
 
 Karena itu cookie session selalu menggunakan path root `/`. Jangan mempersempit cookie hanya ke salah satu panel.
 
+## White-label dari Panel Admin
+
+Super Admin dapat mengatur identitas global melalui **Sistem & Akses → White-label Aplikasi** tanpa akses server. Nama portal, nama organisasi, logo, kontak, alamat, jam layanan, dan warna tema PWA disimpan di database.
+
+Nilai `.env` tetap menjadi fallback untuk instalasi yang belum pernah menyimpan pengaturan white-label melalui panel. Penyimpanan pengaturan ini tidak mengubah data unit, pendaftaran, user, maupun workflow existing.
+
 ## Branding dan White-label
 
 Source repository harus tetap netral.
