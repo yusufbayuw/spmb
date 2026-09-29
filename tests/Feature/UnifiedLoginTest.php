@@ -166,7 +166,12 @@ class UnifiedLoginTest extends TestCase
 
     private function captchaAnswer(UnifiedLogin $page): string
     {
-        $field = $page->form->getComponent('captcha');
+        $field = collect($page->form->getFlatComponents())
+            ->first(fn ($component): bool => method_exists($component, 'getName')
+                && $component->getName() === 'captcha');
+
+        $this->assertNotNull($field, 'Native Filament login captcha field was not found.');
+
         $manager = app(CaptchaManager::class);
         $options = $manager->optionsFromConfig([]);
 
