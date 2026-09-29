@@ -9,6 +9,7 @@ use App\Filament\Applicant\Pages\Auth\Login;
 use App\Filament\Applicant\Pages\Auth\Register;
 use App\Filament\Applicant\Pages\Dashboard;
 use App\Http\Middleware\RedirectLegacyPanelLogin;
+use App\Services\AppBrandingService;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -39,7 +40,9 @@ class ApplicantPanelProvider extends PanelProvider
             ->passwordReset(RequestPasswordReset::class, ResetPassword::class)
             ->emailVerification(EmailVerificationPrompt::class)
             ->profile(isSimple: false)
-            ->brandName(config('spmb.portal.name', 'SPMB'))
+            ->brandName(fn (): string => app(AppBrandingService::class)->portalName())
+            ->brandLogo(fn (): ?string => app(AppBrandingService::class)->logoUrl())
+            ->brandLogoHeight('2.5rem')
             ->colors(['primary' => Color::Blue])
             ->databaseNotifications()
             ->databaseNotificationsPolling(config('spmb.notifications.polling', '15s'))
