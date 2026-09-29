@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="description" content="@yield('description', 'Portal resmi penerimaan Yayasan Taruna Bakti untuk pendidikan anak usia dini, sekolah, dan perguruan tinggi.')">
+    <meta name="description" content="@yield('description', 'Portal resmi penerimaan peserta didik dan mahasiswa.')">
     <meta name="theme-color" content="#1d4ed8">
     <meta name="robots" content="index,follow">
-    <title>@yield('title', config('spmb.portal.name', 'Portal Penerimaan Taruna Bakti'))</title>
+    <title>@yield('title', config('spmb.portal.name', 'SPMB'))</title>
 
     @stack('meta')
 
@@ -39,11 +39,11 @@
         <nav class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8" aria-label="Navigasi utama">
             <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-4">
                 @if ($hasOfficialLogo)
-                    <img src="{{ asset($logoPath) }}" alt="Logo {{ $portal['foundation_name'] ?? 'Yayasan Taruna Bakti' }}" class="h-11 w-auto shrink-0 object-contain">
+                    <img src="{{ asset($logoPath) }}" alt="Logo {{ $portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB') }}" class="h-11 w-auto shrink-0 object-contain">
                 @endif
                 <span class="min-w-0">
                     <span class="block truncate text-sm font-extrabold tracking-tight text-slate-950 sm:text-base">Portal Penerimaan</span>
-                    <span class="block truncate text-xs font-medium text-slate-500">{{ $portal['foundation_name'] ?? 'Yayasan Taruna Bakti' }}</span>
+                    <span class="block truncate text-xs font-medium text-slate-500">{{ $portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB') }}</span>
                 </span>
             </a>
 
@@ -91,7 +91,7 @@
     <footer class="border-t border-slate-200 bg-white py-8">
         <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
             <div>
-                <p class="font-extrabold text-slate-950">{{ $portal['foundation_name'] ?? 'Yayasan Taruna Bakti' }}</p>
+                <p class="font-extrabold text-slate-950">{{ $portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB') }}</p>
                 <p class="mt-1 text-sm text-slate-500">Portal resmi penerimaan · Daycare · KB · TK · SD · SMP · SMA · Universitas</p>
                 @if (filled($portal['foundation_address'] ?? null))
                     <p class="mt-3 text-xs leading-5 text-slate-500">{{ $portal['foundation_address'] }}</p>
@@ -107,7 +107,7 @@
             </div>
         </div>
         <div class="mx-auto mt-6 max-w-7xl border-t border-slate-200 px-4 pt-6 text-xs text-slate-500 sm:px-6 lg:px-8">
-            © {{ now()->year }} {{ $portal['foundation_name'] ?? 'Yayasan Taruna Bakti' }} · Sistem Penerimaan Terpadu
+            © {{ now()->year }} {{ $portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB') }} · Sistem Penerimaan Terpadu
         </div>
     </footer>
 </body>
