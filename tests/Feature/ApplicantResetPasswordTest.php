@@ -37,7 +37,7 @@ class ApplicantResetPasswordTest extends TestCase
 
         $this->assertInstanceOf(ShouldQueue::class, $notification);
         $this->assertSame('emails', $notification->queue);
-        $this->assertSame('Atur Ulang Kata Sandi | SPMB Taruna Bakti', $message->subject);
+        $this->assertSame('Atur Ulang Kata Sandi | '.config('spmb.portal.name', 'SPMB'), $message->subject);
         $this->assertSame('mail.applicant-reset-password', $message->markdown);
         $this->assertStringContainsString('Yth. Bapak/Ibu Pendaftar', $html);
         $this->assertStringContainsString('Atur Ulang Kata Sandi', $html);
@@ -95,7 +95,7 @@ class ApplicantResetPasswordTest extends TestCase
         $message = (new ApplicantPasswordChanged)->toMail($user);
         $html = (string) $message->render();
 
-        $this->assertSame('Kata Sandi Berhasil Diubah | SPMB Taruna Bakti', $message->subject);
+        $this->assertSame('Kata Sandi Berhasil Diubah | '.config('spmb.portal.name', 'SPMB'), $message->subject);
         $this->assertStringContainsString('Kata sandi akun Anda', $html);
         $this->assertStringContainsString('segera hubungi administrator', $html);
         $this->assertStringNotContainsString('Hello!', $html);
@@ -115,7 +115,7 @@ class ApplicantResetPasswordTest extends TestCase
             'amount' => 250000,
         ]);
         $payment->setRelation('registration', $registration);
-        $payment->setRelation('virtualAccount', new VirtualAccount(['bank' => 'Bank Taruna']));
+        $payment->setRelation('virtualAccount', new VirtualAccount(['bank' => 'Bank Contoh']));
 
         $announcement = new Announcement([
             'title' => 'Pengumuman Hasil SPMB',
