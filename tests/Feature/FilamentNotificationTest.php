@@ -17,6 +17,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -83,7 +85,46 @@ class FilamentNotificationTest extends TestCase
         $this->assertNull($stored->fresh()->read_at);
     }
 
-    public function test_new_registration_notifies_owner_same_unit_tu_and_super_admin_only(): void
+
+    public function test_subscribed_user_receives_web_push_channel_from_same_spmb_notification(): void
+    {
+        config()->set('webpush.vapid.public_key', 'test-public-key');
+        config()->set('webpush.vapid.private_key', 'test-private-key');
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->updatePushSubscription(
+            'https://push.example.test/subscriptions/user',
+            'public-key',
+            'auth-token',
+            'aes128gcm',
+        );
+
+        $notification = new SpmbDatabaseNotification(
+            event: 'registration.data_validated',
+            category: 'workflow',
+            title: 'Data pendaftaran dinyatakan valid',
+            body: 'Proses pendaftaran dilanjutkan.',
+            status: 'success',
+            actionLabel: 'Lihat progres',
+            actionUrl: url('/pendaftar/status/test'),
+            registrationUuid: '11111111-1111-4111-8111-111111111111',
+        );
+
+        $this->assertSame(
+            ['database', WebPushChannel::class],
+            $notification->via($user),
+        );
+        $this->assertSame(
+            'notifications',
+            $notification->viaQueues()[WebPushChannel::class],
+        );
+
+        $message = $notification->toWebPush($user, $notification);
+
+        $this->assertInstanceOf(WebPushMessage::class, $message);
+    }
+
+    public function test_new_registration_notifies_owner_same_unit_staff_and_super_admin_only(): void
     {
         NotificationFacade::fake();
 
@@ -91,7 +132,9 @@ class FilamentNotificationTest extends TestCase
         $unitB = $this->unit('SMP');
         $applicant = $this->userWithRole('pendaftar');
         $tuA = $this->userWithRole('tu', ['unit_id' => $unitA->id, 'role' => 'tu']);
+        $adminUnitA = $this->userWithRole('admin_unit', ['unit_id' => $unitA->id, 'role' => 'admin_unit']);
         $tuB = $this->userWithRole('tu', ['unit_id' => $unitB->id, 'role' => 'tu']);
+        $adminUnitB = $this->userWithRole('admin_unit', ['unit_id' => $unitB->id, 'role' => 'admin_unit']);
         $admin = $this->userWithRole('super_admin', ['role' => 'super_admin']);
         $opening = $this->opening($unitA);
 
@@ -104,7 +147,7 @@ class FilamentNotificationTest extends TestCase
                 && $notification->registrationUuid === $registration->uuid,
         );
 
-        foreach ([$tuA, $admin] as $staff) {
+        foreach ([$tuA, $adminUnitA, $admin] as $staff) {
             NotificationFacade::assertSentTo(
                 $staff,
                 SpmbDatabaseNotification::class,
@@ -114,6 +157,7 @@ class FilamentNotificationTest extends TestCase
         }
 
         NotificationFacade::assertNotSentTo($tuB, SpmbDatabaseNotification::class);
+        NotificationFacade::assertNotSentTo($adminUnitB, SpmbDatabaseNotification::class);
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'notification.queued',
