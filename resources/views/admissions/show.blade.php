@@ -18,7 +18,7 @@
         'scheduled' => 'bg-blue-100 text-blue-800',
         default => 'bg-slate-200 text-slate-700',
     };
-    $metaTitle = $title.' · '.$opening->academic_year.' · '.$opening->wave.' | Penerimaan Taruna Bakti';
+    $metaTitle = $title.' · '.$opening->academic_year.' · '.$opening->wave.' | '.config('spmb.portal.name', 'SPMB');
     $metaDescription = 'Informasi '.$title.' '.$periodLabel.' '.$opening->academic_year.', '.$opening->wave.', biaya, jadwal, jalur pendaftaran, dan bantuan penerimaan.';
     $shareUrl = route('admissions.show', $opening);
     $qrUrl = route('admissions.qr', $opening);
