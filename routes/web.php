@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdmissionOfferController;
 use App\Http\Controllers\AdmissionQrCodeController;
+use App\Http\Controllers\BrandMediaController;
 use App\Http\Controllers\Auth\ApplicantEmailVerificationController;
 use App\Http\Controllers\HomeController;
 use App\Filament\Legal\Pages\Privacy as PrivacyPolicyPage;
@@ -9,6 +10,7 @@ use App\Filament\Legal\Pages\Terms as TermsPolicyPage;
 use App\Http\Controllers\OperationalReportController;
 use App\Http\Controllers\PrivateApplicantFileController;
 use App\Http\Controllers\PushSubscriptionController;
+use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\PublicRegistrationOpeningController;
 use App\Http\Controllers\PublicUnitAdmissionsController;
 use App\Http\Controllers\RegistrationPrintController;
@@ -19,6 +21,10 @@ use Filament\Http\Middleware\SetUpPanel;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
+Route::get('/manifest.webmanifest', PwaManifestController::class)->name('pwa.manifest');
+Route::get('/media/branding/{path}', BrandMediaController::class)
+    ->where('path', '.*')
+    ->name('branding.media');
 Route::get('/legal/terms', TermsPolicyPage::class)
     ->middleware(SetUpPanel::class.':pendaftar')
     ->name('legal.terms');
