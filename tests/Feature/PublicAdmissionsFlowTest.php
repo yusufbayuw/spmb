@@ -26,7 +26,7 @@ class PublicAdmissionsFlowTest extends TestCase
 
         $this->get(route('admissions.show', $open))
             ->assertOk()
-            ->assertSee('SMA Taruna Bakti')
+            ->assertSee('SMA Contoh')
             ->assertSee('Daftar Sekarang')
             ->assertSee('Panitia SPMB SMA')
             ->assertSee('Salin Link')
@@ -60,7 +60,7 @@ class PublicAdmissionsFlowTest extends TestCase
     public function test_unit_admissions_page_is_evergreen_and_surfaces_open_and_upcoming_openings(): void
     {
         $unit = $this->schoolUnit([
-            'description' => 'Penerimaan resmi SMA Taruna Bakti.',
+            'description' => 'Penerimaan resmi SMA Contoh.',
             'public_contact_name' => 'Panitia SMA',
         ]);
         $open = $this->opening($unit);
@@ -78,16 +78,16 @@ class PublicAdmissionsFlowTest extends TestCase
         ]);
 
         $unit->update([
-            'public_headline' => 'Gabung Bersama SMA Taruna Bakti',
+            'public_headline' => 'Gabung Bersama SMA Contoh',
             'public_body' => '<p>Kenali proses penerimaan dan siapkan dokumen sejak awal.</p>',
         ]);
 
         $this->get(route('admissions.unit', ['unit' => $unit->code]))
             ->assertOk()
-            ->assertSee('Gabung Bersama SMA Taruna Bakti')
+            ->assertSee('Gabung Bersama SMA Contoh')
             ->assertSee('Kenali proses penerimaan dan siapkan dokumen sejak awal.')
             ->assertSee('Kapan pendaftaran ditutup?')
-            ->assertSee('Penerimaan resmi SMA Taruna Bakti.')
+            ->assertSee('Penerimaan resmi SMA Contoh.')
             ->assertSee($open->wave)
             ->assertSee($upcoming->wave)
             ->assertSee('Bagikan halaman unit')
@@ -183,7 +183,7 @@ class PublicAdmissionsFlowTest extends TestCase
     private function schoolUnit(array $attributes = []): Unit
     {
         return Unit::create($attributes + [
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'institution_type' => 'school',
             'is_active' => true,
