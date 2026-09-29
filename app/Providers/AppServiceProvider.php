@@ -26,6 +26,7 @@ use App\Notifications\ApplicantPasswordChanged;
 use App\Notifications\ApplicantResetPassword;
 use App\Observers\RegistrationNotificationObserver;
 use App\Observers\SensitiveModelObserver;
+use App\Services\AppBrandingService;
 use App\Services\AuditTrail;
 use App\Services\IdempotentDatabaseChannel;
 use App\Services\SpmbNotificationService;
@@ -54,6 +55,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        app(AppBrandingService::class)->applyToConfig();
+
         DateTimePicker::configureUsing(function (DateTimePicker $component): void {
             if (! $component->hasTime()) {
                 return;
