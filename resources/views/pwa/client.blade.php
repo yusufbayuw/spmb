@@ -26,7 +26,7 @@
         'subscribeUrl' => route('push.subscriptions.store'),
         'unsubscribeUrl' => route('push.subscriptions.destroy'),
         'serviceWorkerUrl' => asset('sw.js'),
-        'appName' => 'SPMB Taruna Bakti',
+        'appName' => config('spmb.portal.name', 'SPMB'),
     ];
 @endphp
 
