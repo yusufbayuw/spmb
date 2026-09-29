@@ -2,24 +2,41 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Services\PortalDestinationService;
 use Illuminate\Support\Facades\Route;
 
-$authenticatedPortal = static function (): string {
-    return auth()->user()?->hasAnyRole(['super_admin', 'tu']) ? '/admin' : '/pendaftar';
+$authenticatedPortal = static function (): ?string {
+    $user = auth()->user();
+
+    return $user
+        ? app(PortalDestinationService::class)->pathFor($user)
+        : null;
 };
 
-// Compatibility aliases for the old Breeze URLs. The canonical applicant auth
-// UI lives under /pendaftar and is provided by Filament.
-Route::get('login', function () use ($authenticatedPortal) {
-    return redirect(auth()->check() ? $authenticatedPortal() : '/pendaftar/login');
-})->name('login');
+Route::get('login', [AuthenticatedSessionController::class, 'create'])
+    ->name('login');
+
+Route::post('login', [AuthenticatedSessionController::class, 'store'])
+    ->middleware('guest');
+
+Route::get('login/captcha', [AuthenticatedSessionController::class, 'captcha'])
+    ->middleware(['guest', 'throttle:30,1'])
+    ->name('login.captcha');
 
 Route::get('register', function () use ($authenticatedPortal) {
-    return redirect(auth()->check() ? $authenticatedPortal() : '/pendaftar/register');
+    if ($destination = $authenticatedPortal()) {
+        return redirect($destination);
+    }
+
+    return redirect('/pendaftar/register');
 })->name('register');
 
 Route::get('forgot-password', function () use ($authenticatedPortal) {
-    return redirect(auth()->check() ? $authenticatedPortal() : '/pendaftar/password-reset/request');
+    if ($destination = $authenticatedPortal()) {
+        return redirect($destination);
+    }
+
+    return redirect('/pendaftar/password-reset/request');
 })->name('password.request');
 
 // Keep old reset links valid for emails that may already have been sent before
