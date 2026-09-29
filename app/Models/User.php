@@ -15,11 +15,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, HasPushSubscriptions, HasRoles, Notifiable;
     use HasPublicUuid;
 
     protected $fillable = ['name', 'username', 'email', 'password', 'phone', 'role', 'unit_id', 'is_active'];
