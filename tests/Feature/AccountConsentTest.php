@@ -30,16 +30,27 @@ class AccountConsentTest extends TestCase
             ->assertSee('Ketentuan Penggunaan')
             ->assertSee('Kebijakan Privasi')
             ->assertSee($policy->marketing_text)
-            ->assertSee('Persetujuan informasi/promosi bersifat opsional.');
+            ->assertDontSee('Persetujuan ini berlaku untuk akun platform.')
+            ->assertDontSee('Persetujuan khusus data SPMB akan diminta lagi ketika Anda mulai mengisi formulir pendaftaran unit.')
+            ->assertDontSee('Kebijakan akun versi '.$policy->version.'.')
+            ->assertDontSee('Persetujuan informasi/promosi bersifat opsional.');
 
         $this->get('/legal/terms')
             ->assertOk()
             ->assertSee($policy->terms_title)
+            ->assertSee('Versi '.$policy->version)
+            ->assertSee('fi-simple-page', false)
+            ->assertSee('fi-section', false)
+            ->assertSee('legal-policy-content', false)
             ->assertSee('Pembuatan akun tidak dengan sendirinya berarti pendaftaran');
 
         $this->get('/legal/privacy')
             ->assertOk()
             ->assertSee($policy->privacy_title)
+            ->assertSee('Versi '.$policy->version)
+            ->assertSee('fi-simple-page', false)
+            ->assertSee('fi-section', false)
+            ->assertSee('legal-policy-content', false)
             ->assertSee('Undang-Undang Nomor 27 Tahun 2022');
     }
 
