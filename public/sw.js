@@ -20,7 +20,7 @@ self.addEventListener('push', (event) => {
 
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
 
-    event.waitUntil(self.registration.showNotification(payload.title || 'SPMB Taruna Bakti', {
+    event.waitUntil(self.registration.showNotification(payload.title || 'SPMB', {
         body: payload.body || 'Ada pembaruan pada proses SPMB.',
         icon: payload.icon || '/images/pwa/icon-192.png',
         badge: payload.badge || '/images/pwa/badge-96.png',
