@@ -143,7 +143,9 @@ return [
     |
     */
 
-    'path' => env('SESSION_PATH', '/'),
+    // SPMB shares one authenticated session across /login, /admin,
+    // /pendaftar, /livewire, and push endpoints. This must remain root-scoped.
+    'path' => '/',
 
     /*
     |--------------------------------------------------------------------------
