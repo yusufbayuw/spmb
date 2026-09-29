@@ -4,60 +4,67 @@ namespace Database\Seeders;
 
 use App\Models\Unit;
 use App\Support\SpmbOperationalMode;
+use Database\Seeders\Support\GuardsDemoEnvironment;
 use Illuminate\Database\Seeder;
 
 class UnitSeeder extends Seeder
 {
+    use GuardsDemoEnvironment;
+
     public function run(): void
     {
+        if ($this->shouldSkipDemoData()) {
+            return;
+        }
+
         $units = [
             [
                 'name' => 'Daycare',
                 'code' => 'DC',
                 'institution_type' => 'early_childhood',
-                'description' => 'Daycare Taruna Bakti untuk layanan pendidikan dan pengasuhan anak usia dini.',
+                'description' => 'Layanan pendidikan dan pengasuhan anak usia dini.',
                 'is_active' => true,
             ],
             [
                 'name' => 'Kelompok Bermain',
                 'code' => 'KB',
                 'institution_type' => 'early_childhood',
-                'description' => 'Kelompok Bermain Taruna Bakti untuk pendidikan anak usia dini.',
+                'description' => 'Layanan kelompok bermain untuk pendidikan anak usia dini.',
                 'is_active' => true,
             ],
             [
                 'name' => 'Taman Kanak-Kanak',
                 'code' => 'TK',
                 'institution_type' => 'early_childhood',
-                'description' => 'Taman Kanak-Kanak Taruna Bakti.',
+                'description' => 'Layanan pendidikan taman kanak-kanak.',
                 'is_active' => true,
             ],
             [
                 'name' => 'Sekolah Dasar',
                 'code' => 'SD',
                 'institution_type' => 'school',
-                'description' => 'Sekolah Dasar Taruna Bakti.',
+                'description' => 'Layanan pendidikan sekolah dasar.',
                 'is_active' => true,
             ],
             [
                 'name' => 'Sekolah Menengah Pertama',
                 'code' => 'SMP',
                 'institution_type' => 'school',
-                'description' => 'Sekolah Menengah Pertama Taruna Bakti.',
+                'description' => 'Layanan pendidikan sekolah menengah pertama.',
                 'is_active' => true,
             ],
             [
                 'name' => 'Sekolah Menengah Atas',
                 'code' => 'SMA',
                 'institution_type' => 'school',
-                'description' => 'Sekolah Menengah Atas Taruna Bakti.',
+                'description' => 'Layanan pendidikan sekolah menengah atas.',
                 'is_active' => true,
             ],
             [
-                'name' => 'Taruna Bakti University',
-                'code' => 'TBU',
+                'name' => 'Perguruan Tinggi',
+                'code' => 'PT',
                 'institution_type' => 'university',
-                'description' => 'Taruna Bakti University untuk penerimaan mahasiswa program Diploma dan Sarjana.',
+                'description' => 'Layanan penerimaan mahasiswa program diploma dan sarjana.',
                 'is_active' => true,
             ],
         ];
