@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\UnifiedLoginCaptcha;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -12,37 +14,55 @@ use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
+            'captcha' => ['required', app(UnifiedLoginCaptcha::class)->rule()],
         ];
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
-     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'email' => 'email atau username',
+            'captcha' => 'kode keamanan',
+        ];
+    }
+
+    /**
      * @throws ValidationException
      */
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $login = trim((string) $this->input('email'));
+        $attribute = str_contains($login, '@') ? 'email' : 'username';
+
+        if ($attribute === 'username') {
+            $login = mb_strtolower($login);
+        }
+
+        $credentials = [
+            $attribute => $login,
+            'password' => (string) $this->input('password'),
+            'is_active' => true,
+        ];
+
+        if (! Auth::attempt($credentials, $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -54,8 +74,6 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Ensure the login request is not rate limited.
-     *
      * @throws ValidationException
      */
     public function ensureIsNotRateLimited(): void
@@ -76,11 +94,17 @@ class LoginRequest extends FormRequest
         ]);
     }
 
-    /**
-     * Get the rate limiting throttle key for the request.
-     */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(
+            Str::lower(trim((string) $this->input('email'))).'|'.$this->ip(),
+        );
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        app(UnifiedLoginCaptcha::class)->images(refresh: true);
+
+        parent::failedValidation($validator);
     }
 }
