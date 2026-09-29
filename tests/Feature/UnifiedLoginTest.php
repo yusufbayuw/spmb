@@ -33,7 +33,7 @@ class UnifiedLoginTest extends TestCase
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Masuk ke SPMB')
+            ->assertSee('Masuk ke '.config('spmb.portal.name', 'SPMB'))
             ->assertSee('Email atau Username')
             ->assertSee('Kode Keamanan')
             ->assertSee('fi-simple-page', false)
