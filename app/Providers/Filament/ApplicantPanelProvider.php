@@ -8,6 +8,7 @@ use App\Filament\Applicant\Pages\Auth\RequestPasswordReset;
 use App\Filament\Applicant\Pages\Auth\Login;
 use App\Filament\Applicant\Pages\Auth\Register;
 use App\Filament\Applicant\Pages\Dashboard;
+use App\Http\Middleware\RedirectLegacyPanelLogin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -70,6 +71,7 @@ class ApplicantPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                RedirectLegacyPanelLogin::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
