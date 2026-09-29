@@ -65,6 +65,8 @@ class UnifiedLoginTest extends TestCase
 
     public function test_standard_post_login_accepts_username_and_redirects_staff_to_admin(): void
     {
+        $this->withoutExceptionHandling();
+
         $user = $this->userWithRole('tu', [
             'username' => 'staff.tu',
             'password' => Hash::make('secret-password'),
