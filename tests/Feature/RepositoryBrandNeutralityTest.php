@@ -49,6 +49,10 @@ class RepositoryBrandNeutralityTest extends TestCase
         $violations = [];
 
         foreach (array_unique($files) as $file) {
+            if ($file === __FILE__) {
+                continue;
+            }
+
             $content = @file_get_contents($file);
 
             if ($content === false || str_contains($content, "\0")) {
