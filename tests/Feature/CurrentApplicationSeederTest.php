@@ -34,7 +34,7 @@ class CurrentApplicationSeederTest extends TestCase
         $sd = Unit::where('code', 'SD')->firstOrFail();
         $configuration = app(UnitConfigurationService::class)->current($sd->id);
         $this->assertFalse(collect($configuration->document_requirements)->firstWhere('key', 'report_card')['active']);
-        $admin = User::where('email', 'admin@tarunabakti.sch.id')->firstOrFail();
+        $admin = User::where('email', 'admin@example.test')->firstOrFail();
         $admin->update(['password' => Hash::make('changed-secret'), 'is_active' => false]);
         $opening = RegistrationOpening::where('unit_id', $sd->id)->firstOrFail();
         $opening->update(['status' => 'closed', 'registration_fee' => 123000, 'opened_at' => now()->subDays(10), 'closed_at' => now()->subDay()]);
@@ -57,17 +57,17 @@ class CurrentApplicationSeederTest extends TestCase
     public function test_new_openings_follow_published_payment_configuration_without_changing_its_version(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $tbu = Unit::where('code', 'TBU')->firstOrFail();
-        $staff = User::where('email', 'tu.tbu@tbu.ac.id')->firstOrFail();
-        RegistrationOpening::where('unit_id', $tbu->id)->update(['registration_fee' => 0]);
+        $university = Unit::where('institution_type', 'university')->firstOrFail();
+        $staff = User::where('email', 'tu.pt@example.test')->firstOrFail();
+        RegistrationOpening::where('unit_id', $university->id)->update(['registration_fee' => 0]);
         $service = app(UnitConfigurationService::class);
-        $draft = $service->draft($tbu, $staff);
+        $draft = $service->draft($university, $staff);
         $published = $service->save($draft, $staff, array_replace($draft->toArray(), ['payment_enabled' => false]), true);
-        $program = $tbu->studyPrograms()->create(['code' => 'S1-NEW', 'name' => 'Program Baru', 'degree_level' => 'S1', 'is_active' => true]);
+        $program = $university->studyPrograms()->create(['code' => 'S1-NEW', 'name' => 'Program Baru', 'degree_level' => 'S1', 'is_active' => true]);
         $this->seed([UnitRegistrationConfigurationSeeder::class, RegistrationOpeningSeeder::class]);
         $opening = RegistrationOpening::where('study_program_id', $program->id)->firstOrFail();
         $this->assertSame('0.00', $opening->registration_fee);
-        $this->assertSame($published->id, $service->current($tbu->id)->id);
+        $this->assertSame($published->id, $service->current($university->id)->id);
     }
 
     public function test_existing_test_gets_a_closed_session_without_rescheduling_it_on_repeat(): void
