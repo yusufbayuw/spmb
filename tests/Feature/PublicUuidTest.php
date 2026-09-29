@@ -40,11 +40,11 @@ class PublicUuidTest extends TestCase
     public function test_admin_record_resolution_uses_uuid_and_keeps_unit_scope(): void
     {
         [$registration] = $this->fixture();
-        $staff = User::where('email', 'tu.sd@tarunabakti.sch.id')->firstOrFail();
+        $staff = User::where('email', 'tu.sd@example.test')->firstOrFail();
         $this->actingAs($staff);
         $this->assertSame($registration->id, RegistrationResource::resolveRecordRouteBinding($registration->uuid)?->id);
         $this->assertNull(RegistrationResource::resolveRecordRouteBinding($registration->id));
-        $otherStaff = User::where('email', 'tu.smp@tarunabakti.sch.id')->firstOrFail();
+        $otherStaff = User::where('email', 'tu.smp@example.test')->firstOrFail();
         $this->actingAs($otherStaff);
         $this->assertNull(RegistrationResource::resolveRecordRouteBinding($registration->uuid));
     }
