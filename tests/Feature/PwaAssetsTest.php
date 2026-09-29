@@ -17,7 +17,7 @@ class PwaAssetsTest extends TestCase
         );
 
         $this->assertSame('SPMB Taruna Bakti', $manifest['name']);
-        $this->assertSame('/', $manifest['start_url']);
+        $this->assertSame('/dashboard', $manifest['start_url']);
         $this->assertSame('/', $manifest['scope']);
         $this->assertSame('standalone', $manifest['display']);
 
@@ -38,14 +38,17 @@ class PwaAssetsTest extends TestCase
         $this->assertStringNotContainsString('caches.open', $serviceWorker);
     }
 
-    public function test_filament_auth_pages_load_pwa_manifest_and_client(): void
+    public function test_unified_login_and_applicant_registration_load_pwa_manifest_and_client(): void
     {
-        foreach (['/admin/login', '/pendaftar/login', '/pendaftar/register'] as $url) {
+        foreach (['/login', '/pendaftar/register'] as $url) {
             $this->get($url)
                 ->assertOk()
                 ->assertSee('manifest.webmanifest', false)
                 ->assertSee('js/pwa.js', false)
                 ->assertSee('spmb-pwa-config', false);
         }
+
+        $this->get('/admin/login')->assertRedirect('/login');
+        $this->get('/pendaftar/login')->assertRedirect('/login');
     }
 }
