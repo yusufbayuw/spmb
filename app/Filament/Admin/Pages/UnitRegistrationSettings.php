@@ -9,6 +9,7 @@ use App\Models\StudyProgram;
 use App\Models\TestSession;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
+use App\Services\BrandMediaService;
 use App\Services\ConfiguredRegistrationForm;
 use App\Services\TestBookingService;
 use App\Services\UnitConfigurationService;
@@ -78,7 +79,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $this->configurationUuid = $draft->uuid;
         $this->preview = false;
         $data = app(UnitConfigurationService::class)->normalizeEditorData($draft->toArray(), $unit);
-        $data['unit_logo_path'] = filled($unit->logo_path) ? [$unit->logo_path] : [];
+        $data['unit_logo_path'] = filled($unit->logo_path) ? $unit->logo_path : null;
         $data['workflow_stage_labels'] = array_replace(
             Registration::STAGES,
             is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [],
@@ -142,7 +143,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->maxSize(2048)
                         ->image()
                         ->imagePreviewHeight('140')
-                        ->downloadable()
+                        ->getUploadedFileUsing(
+                            fn (string $file): ?array => app(BrandMediaService::class)->fileMetadata($file),
+                        )
                         ->openable(),
                 ])
                 ->columns(1)
