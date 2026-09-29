@@ -28,7 +28,7 @@
 </head>
 <body>
 <main class="sheet">
-    <header class="heading"><div><div class="brand">SPMB TARUNA BAKTI</div><h1>@yield('title')</h1><div>{{ isset($receipt) ? $receipt->details['unit'] : $registration->unit->name }}</div><div class="muted">{{ isset($receipt) ? $receipt->details['period'] : $registration->opening?->academic_year }} · {{ isset($receipt) ? ($receipt->details['wave'] ?? '') : $registration->opening?->wave }}</div></div>@yield('header-extra')</header>
+    <header class="heading"><div><div class="brand">{{ mb_strtoupper(config('spmb.portal.name', 'SPMB')) }}</div><h1>@yield('title')</h1><div>{{ isset($receipt) ? $receipt->details['unit'] : $registration->unit->name }}</div><div class="muted">{{ isset($receipt) ? $receipt->details['period'] : $registration->opening?->academic_year }} · {{ isset($receipt) ? ($receipt->details['wave'] ?? '') : $registration->opening?->wave }}</div></div>@yield('header-extra')</header>
     @yield('content')
     <footer class="note muted">Dokumen diterbitkan melalui sistem SPMB. Simpan dokumen ini untuk keperluan pendaftaran.</footer>
 </main>
