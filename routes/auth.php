@@ -1,8 +1,10 @@
 <?php
 
+use App\Filament\Auth\Pages\Login as UnifiedLogin;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Services\PortalDestinationService;
+use Filament\Http\Middleware\SetUpPanel;
 use Illuminate\Support\Facades\Route;
 
 $authenticatedPortal = static function (): ?string {
@@ -13,15 +15,9 @@ $authenticatedPortal = static function (): ?string {
         : null;
 };
 
-Route::get('login', [AuthenticatedSessionController::class, 'create'])
+Route::get('login', UnifiedLogin::class)
+    ->middleware(SetUpPanel::class.':pendaftar')
     ->name('login');
-
-Route::post('login', [AuthenticatedSessionController::class, 'store'])
-    ->middleware('guest');
-
-Route::get('login/captcha', [AuthenticatedSessionController::class, 'captcha'])
-    ->middleware(['guest', 'throttle:30,1'])
-    ->name('login.captcha');
 
 Route::get('register', function () use ($authenticatedPortal) {
     if ($destination = $authenticatedPortal()) {
