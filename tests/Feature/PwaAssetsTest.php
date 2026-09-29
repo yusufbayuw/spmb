@@ -16,7 +16,7 @@ class PwaAssetsTest extends TestCase
             flags: JSON_THROW_ON_ERROR,
         );
 
-        $this->assertSame('SPMB Taruna Bakti', $manifest['name']);
+        $this->assertSame('SPMB', $manifest['name']);
         $this->assertSame('/dashboard', $manifest['start_url']);
         $this->assertSame('/', $manifest['scope']);
         $this->assertSame('standalone', $manifest['display']);
