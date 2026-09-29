@@ -802,7 +802,7 @@ class UnitConfigurationTest extends TestCase
         $registration->parentInfo()->create([
             'father_name' => 'Ayah Lama',
             'father_occupation' => 'Guru',
-            'father_workplace' => 'SMA Taruna Bakti',
+            'father_workplace' => 'Sekolah Contoh A',
             'mother_name' => 'Ibu Lama',
             'mother_occupation' => 'Dokter',
             'mother_workplace' => 'RS Bandung',
@@ -834,7 +834,7 @@ class UnitConfigurationTest extends TestCase
             ->assertFormSet([
                 'unit_configuration_uuid' => $configuration->uuid,
                 'registration_pathway_uuid' => $pathway->uuid,
-                'parentInfo.father_workplace' => 'SMA Taruna Bakti',
+                'parentInfo.father_workplace' => 'Sekolah Contoh A',
                 'parentInfo.mother_workplace' => 'RS Bandung',
             ])
             ->fillForm([
@@ -849,7 +849,7 @@ class UnitConfigurationTest extends TestCase
                 'parentInfo' => [
                     'father_name' => 'Ayah Lama',
                     'father_occupation' => 'Guru',
-                    'father_workplace' => 'SMP Taruna Bakti',
+                    'father_workplace' => 'Sekolah Contoh B',
                     'mother_name' => 'Ibu Lama',
                     'mother_occupation' => 'Dokter',
                     'mother_workplace' => 'RS Hasan Sadikin',
@@ -863,7 +863,7 @@ class UnitConfigurationTest extends TestCase
             ->with('parentInfo')
             ->firstOrFail();
 
-        $this->assertSame('SMP Taruna Bakti', $created->parentInfo?->father_workplace);
+        $this->assertSame('Sekolah Contoh B', $created->parentInfo?->father_workplace);
         $this->assertSame('RS Hasan Sadikin', $created->parentInfo?->mother_workplace);
     }
 
