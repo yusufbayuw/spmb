@@ -58,14 +58,14 @@ class PublicContentSeederTest extends TestCase
         $this->seed(RegistrationPathwaySeeder::class);
         $this->seed(PublicContentSeeder::class);
 
-        $tbu = Unit::query()->where('code', 'TBU')->firstOrFail();
+        $university = Unit::query()->where('institution_type', 'university')->firstOrFail();
 
-        $this->assertNotNull($tbu->public_headline);
-        $this->assertNotNull($tbu->public_body);
-        $this->assertSame(7, StudyProgram::query()->where('unit_id', $tbu->id)->count());
+        $this->assertNotNull($university->public_headline);
+        $this->assertNotNull($university->public_body);
+        $this->assertSame(7, StudyProgram::query()->where('unit_id', $university->id)->count());
         $this->assertFalse(
             StudyProgram::query()
-                ->where('unit_id', $tbu->id)
+                ->where('unit_id', $university->id)
                 ->where(function ($query): void {
                     $query->whereNull('public_headline')
                         ->orWhereNull('public_body')
@@ -77,10 +77,10 @@ class PublicContentSeederTest extends TestCase
         );
         $this->assertSame(
             7,
-            Faq::query()->where('unit_id', $tbu->id)->whereNotNull('study_program_id')->count(),
+            Faq::query()->where('unit_id', $university->id)->whereNotNull('study_program_id')->count(),
         );
         $this->assertTrue(
-            Faq::query()->where('unit_id', $tbu->id)->whereNotNull('registration_pathway_id')->exists(),
+            Faq::query()->where('unit_id', $university->id)->whereNotNull('registration_pathway_id')->exists(),
         );
     }
 }
