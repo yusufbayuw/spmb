@@ -86,7 +86,7 @@ class UnitResource extends Resource
                 ->schema([
                     Forms\Components\TextInput::make('public_contact_name')
                         ->label('Nama Helpdesk')
-                        ->placeholder('Panitia SPMB SMA Taruna Bakti')
+                        ->placeholder('Panitia SPMB SMA')
                         ->maxLength(120),
                     Forms\Components\TextInput::make('public_email')
                         ->label('Email Publik')
