@@ -23,6 +23,15 @@ class PortalDestinationService
         return null;
     }
 
+    public function profilePathFor(User $user): ?string
+    {
+        return match ($this->pathFor($user)) {
+            '/admin' => '/admin',
+            '/pendaftar' => '/pendaftar/profile',
+            default => null,
+        };
+    }
+
     public function intendedUrlIsAllowed(User $user, ?string $url): bool
     {
         if (blank($url)) {
