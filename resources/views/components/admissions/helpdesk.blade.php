@@ -3,7 +3,7 @@
 @php
     $portal = config('spmb.portal', []);
     $unitOnly = \App\Support\SpmbOperationalMode::isHigherEducation() && $unit?->isHigherEducation();
-    $contactName = $unit?->public_contact_name ?: ($unit?->name ? 'Panitia Penerimaan '.$unit->name : ($portal['foundation_name'] ?? 'Yayasan Taruna Bakti'));
+    $contactName = $unit?->public_contact_name ?: ($unit?->name ? 'Panitia Penerimaan '.$unit->name : ($portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB')));
     $email = $unit?->public_email ?: ($unitOnly ? null : ($portal['foundation_email'] ?? null));
     $phone = $unit?->public_phone ?: ($unitOnly ? null : ($portal['foundation_phone'] ?? null));
     $whatsapp = $unit?->public_whatsapp ?: ($unitOnly ? null : ($portal['foundation_whatsapp'] ?? null));
@@ -11,7 +11,7 @@
     $address = $unit?->public_address ?: ($unitOnly ? null : ($portal['foundation_address'] ?? null));
     $website = $unit?->public_website_url ?: ($unitOnly ? null : ($portal['foundation_website'] ?? null));
     $whatsappDigits = filled($whatsapp) ? preg_replace('/\D+/', '', (string) $whatsapp) : null;
-    $whatsappMessage = 'Halo, saya ingin bertanya mengenai '.($unit?->name ? 'penerimaan '.$unit->name : 'penerimaan Taruna Bakti').'.';
+    $whatsappMessage = 'Halo, saya ingin bertanya mengenai '.($unit?->name ? 'penerimaan '.$unit->name : 'proses penerimaan').'.';
     $hasContact = filled($email) || filled($phone) || filled($whatsappDigits) || filled($serviceHours) || filled($address) || filled($website);
 @endphp
 
