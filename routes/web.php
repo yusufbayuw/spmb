@@ -13,6 +13,7 @@ use App\Http\Controllers\PublicUnitAdmissionsController;
 use App\Http\Controllers\RegistrationPrintController;
 use App\Http\Controllers\StartRegistrationController;
 use App\Http\Middleware\EnsureApplicantEmailIsVerified;
+use App\Services\PortalDestinationService;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -67,7 +68,11 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
         ->name('reports.operational.xlsx');
 
     Route::get('/dashboard', function () {
-        return redirect(auth()->user()->hasAnyRole(['super_admin', 'admin_unit', 'tu']) ? '/admin' : '/pendaftar');
+        $destination = app(PortalDestinationService::class)->pathFor(auth()->user());
+
+        abort_unless($destination, 403);
+
+        return redirect($destination);
     })->name('dashboard');
 
     Route::get('/registration/create', fn () => redirect('/pendaftar/pendaftaran'))
@@ -100,7 +105,11 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
         ->name('admission-offers.decline');
 
     Route::get('/profile', function () {
-        return redirect(auth()->user()->hasAnyRole(['super_admin', 'admin_unit', 'tu']) ? '/admin' : '/pendaftar/profile');
+        $destination = app(PortalDestinationService::class)->profilePathFor(auth()->user());
+
+        abort_unless($destination, 403);
+
+        return redirect($destination);
     })->name('profile.edit');
 });
 
