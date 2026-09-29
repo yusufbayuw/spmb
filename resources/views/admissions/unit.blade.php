@@ -1,7 +1,7 @@
 @extends('layouts.admissions')
 
 @php
-    $pageTitle = 'Penerimaan '.$unit->name.' | Taruna Bakti';
+    $pageTitle = 'Penerimaan '.$unit->name.' | '.config('spmb.portal.name', 'SPMB');
     $pageDescription = 'Halaman resmi penerimaan '.$unit->name.'. Lihat pendaftaran yang sedang dibuka, jadwal berikutnya, biaya, dan bantuan pendaftaran.';
     $shareUrl = route('admissions.unit', ['unit' => $unit->code]);
     $qrUrl = route('admissions.unit.qr', ['unit' => $unit->code]);
@@ -33,7 +33,7 @@
                     @if ($unit->description)
                         <p class="mt-5 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">{{ $unit->description }}</p>
                     @else
-                        <p class="mt-5 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">Lihat pembukaan pendaftaran terbaru, jadwal, biaya, dan mulai pendaftaran melalui portal resmi Yayasan Taruna Bakti.</p>
+                        <p class="mt-5 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">Lihat pembukaan pendaftaran terbaru, jadwal, biaya, dan mulai pendaftaran melalui portal resmi ini.</p>
                     @endif
                 </div>
 
