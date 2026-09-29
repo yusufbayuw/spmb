@@ -520,7 +520,7 @@ class AdmissionDecisionManagementTest extends TestCase
 
     private function openingFixture(): array
     {
-        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
 
         UnitConfiguration::create([
             'unit_id' => $unit->id,
