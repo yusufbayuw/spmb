@@ -28,7 +28,7 @@ class UnifiedLoginTest extends TestCase
             ->assertSee('Kode Keamanan')
             ->assertSee('fi-simple-page', false)
             ->assertSee('fi-input-wrp', false)
-            ->assertSee('action="'.route('login.store').'"', false)
+            ->assertSee('action="/login"', false)
             ->assertDontSee('wire:submit', false)
             ->assertDontSee('Satu halaman masuk untuk pendaftar, TU, Admin Unit, dan Super Admin.')
             ->assertDontSee('Portal akan dipilih otomatis berdasarkan hak akses akun.');
@@ -159,13 +159,6 @@ class UnifiedLoginTest extends TestCase
         ])->assertSessionHasErrors(['email']);
 
         $this->assertGuest();
-    }
-
-    public function test_invalid_csrf_token_is_rejected_on_standard_login_post(): void
-    {
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
-
-        $this->assertTrue(true);
     }
 
     private function captchaAnswer(): string
