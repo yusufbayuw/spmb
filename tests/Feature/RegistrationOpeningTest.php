@@ -27,7 +27,7 @@ class RegistrationOpeningTest extends TestCase
 
     public function test_applicant_listing_shows_open_and_closed_but_hides_draft_and_archived_openings(): void
     {
-        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
 
         foreach (['draft', 'open', 'closed', 'archived'] as $status) {
             RegistrationOpening::create([
@@ -50,7 +50,7 @@ class RegistrationOpeningTest extends TestCase
 
     public function test_registration_uses_unit_from_selected_opening(): void
     {
-        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
         $opening = RegistrationOpening::create([
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
@@ -88,7 +88,7 @@ class RegistrationOpeningTest extends TestCase
     public function test_opening_automatically_changes_availability_from_its_schedule(): void
     {
         $this->travelTo('2026-09-04 08:00:00');
-        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
         $opening = RegistrationOpening::create([
             'unit_id' => $unit->id,
             'academic_year' => '2026/2027',
@@ -115,7 +115,7 @@ class RegistrationOpeningTest extends TestCase
 
     public function test_closed_opening_cannot_open_applicant_form_but_open_opening_can(): void
     {
-        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
         $applicant = $this->userWithRole('pendaftar');
 
         $open = RegistrationOpening::create([
@@ -144,8 +144,8 @@ class RegistrationOpeningTest extends TestCase
     public function test_applicant_can_search_filter_and_reset_registration_openings(): void
     {
         $this->travelTo('2026-09-04 08:00:00');
-        $school = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
-        $university = Unit::create(['name' => 'Taruna Bakti University', 'code' => 'TBU', 'institution_type' => 'university', 'is_active' => true]);
+        $school = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
+        $university = Unit::create(['name' => 'Perguruan Tinggi Contoh', 'code' => 'PT', 'institution_type' => 'university', 'is_active' => true]);
         $program = StudyProgram::create(['unit_id' => $university->id, 'code' => 'S1-IF', 'name' => 'Informatika', 'degree_level' => 'S1', 'is_active' => true]);
 
         RegistrationOpening::create([
