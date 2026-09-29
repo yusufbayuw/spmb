@@ -60,7 +60,7 @@ class OperationalModeTest extends TestCase
         $this->seed(StudyProgramSeeder::class);
         $this->seed(RegistrationOpeningSeeder::class);
 
-        $this->assertSame(['TBU'], Unit::query()->pluck('code')->all());
+        $this->assertSame(['PT'], Unit::query()->pluck('code')->all());
         $this->assertSame(7, StudyProgram::query()->count());
         $this->assertSame(7, RegistrationOpening::query()->count());
         $this->assertTrue(StudyProgramResource::shouldRegisterNavigation());
@@ -72,8 +72,8 @@ class OperationalModeTest extends TestCase
 
         $level = EducationLevel::query()->where('code', 'S1')->firstOrFail();
         $unit = Unit::create([
-            'name' => 'Taruna Bakti University',
-            'code' => 'TBU',
+            'name' => 'Perguruan Tinggi Contoh',
+            'code' => 'PT',
             'institution_type' => 'university',
             'is_active' => true,
         ]);
@@ -147,24 +147,24 @@ class OperationalModeTest extends TestCase
     public function test_higher_education_helpdesk_does_not_fall_back_to_foundation_contact(): void
     {
         config()->set('spmb.operations.mode', SpmbOperationalMode::HIGHER_EDUCATION);
-        config()->set('spmb.portal.foundation_email', 'yayasan@example.test');
-        config()->set('spmb.portal.foundation_address', 'Alamat Yayasan');
+        config()->set('spmb.portal.foundation_email', 'institusi@example.test');
+        config()->set('spmb.portal.foundation_address', 'Alamat Institusi');
 
         $unit = Unit::create([
-            'name' => 'Taruna Bakti University',
-            'code' => 'TBU',
+            'name' => 'Perguruan Tinggi Contoh',
+            'code' => 'PT',
             'institution_type' => 'university',
-            'public_contact_name' => 'PMB Taruna Bakti University',
+            'public_contact_name' => 'PMB Perguruan Tinggi Contoh',
             'public_email' => 'pmb@example.test',
             'is_active' => true,
         ]);
 
         $html = Blade::render('<x-admissions.helpdesk :unit="$unit" />', ['unit' => $unit]);
 
-        $this->assertStringContainsString('PMB Taruna Bakti University', $html);
+        $this->assertStringContainsString('PMB Perguruan Tinggi Contoh', $html);
         $this->assertStringContainsString('pmb@example.test', $html);
-        $this->assertStringNotContainsString('yayasan@example.test', $html);
-        $this->assertStringNotContainsString('Alamat Yayasan', $html);
+        $this->assertStringNotContainsString('institusi@example.test', $html);
+        $this->assertStringNotContainsString('Alamat Institusi', $html);
     }
 
     public function test_switching_mode_hides_existing_data_without_deleting_it(): void
@@ -175,7 +175,7 @@ class OperationalModeTest extends TestCase
         $this->seed(RegistrationOpeningSeeder::class);
 
         $school = Unit::query()->where('code', 'SMA')->firstOrFail();
-        $university = Unit::query()->where('code', 'TBU')->firstOrFail();
+        $university = Unit::query()->where('code', 'PT')->firstOrFail();
         $universityOpening = RegistrationOpening::query()
             ->where('unit_id', $university->id)
             ->firstOrFail();
