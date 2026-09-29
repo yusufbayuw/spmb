@@ -24,7 +24,7 @@ class ApplicantVerifyEmailTest extends TestCase
         $text = (string) app(Markdown::class)->renderText($message->markdown, $message->data());
 
         $this->assertInstanceOf(ShouldQueue::class, $notification);
-        $this->assertSame('Verifikasi Alamat Email | SPMB Taruna Bakti', $message->subject);
+        $this->assertSame('Verifikasi Alamat Email | '.config('spmb.portal.name', 'SPMB'), $message->subject);
         $this->assertSame('mail.applicant-email-verification', $message->markdown);
         $this->assertStringContainsString('Yth. Bapak/Ibu Pendaftar', $html);
         $this->assertStringContainsString('Verifikasi Alamat Email', $html);
