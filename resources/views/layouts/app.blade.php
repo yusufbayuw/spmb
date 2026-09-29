@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'SPMB Taruna Bakti')</title>
+    <title>@yield('title', config('spmb.portal.name', 'SPMB'))</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,7 +40,7 @@
                         <span class="text-blue-800 font-bold text-xl">TB</span>
                     </div>
                     <div>
-                        <div class="font-bold text-lg">SPMB Taruna Bakti</div>
+                        <div class="font-bold text-lg">{{ config('spmb.portal.name', 'SPMB') }}</div>
                         <div class="text-xs text-blue-200">Sistem Penerimaan Murid Baru</div>
                     </div>
                 </a>
@@ -80,7 +80,7 @@
 
     <footer class="bg-white border-t border-gray-200 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div class="text-center text-gray-500 text-sm">&copy; {{ date('Y') }} SPMB Taruna Bakti. All rights reserved.</div>
+            <div class="text-center text-gray-500 text-sm">&copy; {{ date('Y') }} {{ config('spmb.portal.name', 'SPMB') }}.</div>
         </div>
     </footer>
 </body>
