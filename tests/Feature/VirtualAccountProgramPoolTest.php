@@ -26,8 +26,8 @@ class VirtualAccountProgramPoolTest extends TestCase
 
     public function test_study_program_code_is_required_normalized_and_unique_per_unit(): void
     {
-        $unit = $this->university('TBU', 'Taruna Bakti University');
-        $otherUnit = $this->university('TBU2', 'Taruna Bakti University 2');
+        $unit = $this->university('UNI1', 'Perguruan Tinggi Contoh 1');
+        $otherUnit = $this->university('UNI2', 'Perguruan Tinggi Contoh 2');
 
         $program = StudyProgram::create([
             'unit_id' => $unit->id,
@@ -65,7 +65,7 @@ class VirtualAccountProgramPoolTest extends TestCase
     {
         Storage::fake('local');
 
-        $unit = $this->university('TBU', 'Taruna Bakti University');
+        $unit = $this->university('UNI1', 'Perguruan Tinggi Contoh 1');
         $program = $this->program($unit, 'S1-IF', 'Informatika');
         $staff = $this->staffFor($unit, 'admin_unit');
 
@@ -77,7 +77,7 @@ class VirtualAccountProgramPoolTest extends TestCase
         $this->assertContains([$program->code, $program->name], $sheets['Referensi Prodi']);
 
         $school = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'institution_type' => 'school',
             'is_active' => true,
@@ -93,7 +93,7 @@ class VirtualAccountProgramPoolTest extends TestCase
     {
         Storage::fake('local');
 
-        $unit = $this->university('TBU', 'Taruna Bakti University');
+        $unit = $this->university('UNI1', 'Perguruan Tinggi Contoh 1');
         $program = $this->program($unit, 'S1-IF', 'Informatika');
         $staff = $this->staffFor($unit, 'admin_unit');
         $path = 'imports/virtual-accounts/program-pool.csv';
@@ -123,7 +123,7 @@ class VirtualAccountProgramPoolTest extends TestCase
     {
         Storage::fake('local');
 
-        $unit = $this->university('TBU', 'Taruna Bakti University');
+        $unit = $this->university('UNI1', 'Perguruan Tinggi Contoh 1');
         $this->program($unit, 'S1-IF', 'Informatika');
         $staff = $this->staffFor($unit, 'admin_unit');
         $path = 'imports/virtual-accounts/invalid-program.csv';
@@ -147,7 +147,7 @@ class VirtualAccountProgramPoolTest extends TestCase
         Storage::fake('local');
 
         $unit = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'institution_type' => 'school',
             'is_active' => true,
@@ -172,7 +172,7 @@ class VirtualAccountProgramPoolTest extends TestCase
     {
         Queue::fake();
 
-        $unit = $this->university('TBU', 'Taruna Bakti University');
+        $unit = $this->university('UNI1', 'Perguruan Tinggi Contoh 1');
         $program = $this->program($unit, 'S1-IF', 'Informatika');
         $opening = $this->opening($unit, $program, 'Gelombang 1');
         $staff = User::factory()->create(['unit_id' => $unit->id, 'is_active' => true]);
@@ -207,7 +207,7 @@ class VirtualAccountProgramPoolTest extends TestCase
     {
         Queue::fake();
 
-        $unit = $this->university('TBU', 'Taruna Bakti University');
+        $unit = $this->university('UNI1', 'Perguruan Tinggi Contoh 1');
         $informatics = $this->program($unit, 'S1-IF', 'Informatika');
         $management = $this->program($unit, 'S1-MNJ', 'Manajemen');
         $informaticsOpening = $this->opening($unit, $informatics, 'Gelombang IF');
@@ -233,7 +233,7 @@ class VirtualAccountProgramPoolTest extends TestCase
     {
         Queue::fake();
 
-        $unit = $this->university('TBU', 'Taruna Bakti University');
+        $unit = $this->university('UNI1', 'Perguruan Tinggi Contoh 1');
         $informatics = $this->program($unit, 'S1-IF', 'Informatika');
         $management = $this->program($unit, 'S1-MNJ', 'Manajemen');
         $informaticsOpening = $this->opening($unit, $informatics, 'Gelombang IF');
