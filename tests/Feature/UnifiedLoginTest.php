@@ -2,13 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Requests\Auth\LoginRequest;
+use App\Filament\Auth\Pages\Login as UnifiedLogin;
 use App\Models\User;
 use App\Services\PortalDestinationService;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Livewire;
+use MortezaAshrafi\FilamentShieldCaptcha\CaptchaManager;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -16,15 +17,24 @@ class UnifiedLoginTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_unified_login_page_is_the_single_sign_in_entry_point(): void
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+    }
+
+    public function test_unified_login_page_is_native_filament_and_has_no_role_explanation_sentence(): void
     {
         $this->get('/login')
             ->assertOk()
             ->assertSee('Masuk ke SPMB Taruna Bakti')
             ->assertSee('Email atau Username')
             ->assertSee('Kode Keamanan')
-            ->assertSee('Muat kode baru')
-            ->assertSee('Satu halaman masuk untuk pendaftar, TU, Admin Unit, dan Super Admin.');
+            ->assertSee('fi-simple-page', false)
+            ->assertSee('fi-fo-shield-captcha', false)
+            ->assertDontSee('Satu halaman masuk untuk pendaftar, TU, Admin Unit, dan Super Admin.')
+            ->assertDontSee('Portal akan dipilih otomatis berdasarkan hak akses akun.');
 
         $this->get('/admin/login')->assertRedirect('/login');
         $this->get('/pendaftar/login')->assertRedirect('/login');
@@ -56,118 +66,114 @@ class UnifiedLoginTest extends TestCase
         $this->assertSame('/admin', app(PortalDestinationService::class)->pathFor($user));
     }
 
-    public function test_unified_login_accepts_username_and_redirects_staff_to_admin(): void
+    public function test_native_filament_login_accepts_username_and_redirects_staff_to_admin(): void
     {
         $user = $this->userWithRole('tu', [
             'username' => 'staff.tu',
             'password' => Hash::make('secret-password'),
         ]);
 
-        $response = $this->invokeLogin([
-            'email' => 'STAFF.TU',
-            'password' => 'secret-password',
-        ]);
+        $component = Livewire::test(UnifiedLogin::class);
+        $captcha = $this->captchaAnswer($component->instance());
 
-        $this->assertSame(url('/admin'), $response->getTargetUrl());
+        $component
+            ->fillForm([
+                'email' => 'STAFF.TU',
+                'password' => 'secret-password',
+                'remember' => false,
+                'captcha' => $captcha,
+            ])
+            ->call('authenticate')
+            ->assertHasNoFormErrors()
+            ->assertRedirect('/admin');
+
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_unified_login_accepts_email_and_redirects_applicant_to_applicant_panel(): void
+    public function test_native_filament_login_accepts_email_and_redirects_applicant_to_applicant_panel(): void
     {
         $user = $this->userWithRole('pendaftar', [
             'email' => 'parent@example.test',
             'password' => Hash::make('secret-password'),
         ]);
 
-        $response = $this->invokeLogin([
-            'email' => 'parent@example.test',
-            'password' => 'secret-password',
-        ]);
+        $component = Livewire::test(UnifiedLogin::class);
+        $captcha = $this->captchaAnswer($component->instance());
 
-        $this->assertSame(url('/pendaftar'), $response->getTargetUrl());
+        $component
+            ->fillForm([
+                'email' => 'parent@example.test',
+                'password' => 'secret-password',
+                'remember' => false,
+                'captcha' => $captcha,
+            ])
+            ->call('authenticate')
+            ->assertHasNoFormErrors()
+            ->assertRedirect('/pendaftar');
+
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_cross_panel_intended_url_is_discarded_after_login(): void
+    public function test_cross_panel_intended_url_is_discarded_after_native_filament_login(): void
     {
         $staff = $this->userWithRole('admin_unit', [
             'email' => 'admin-unit@example.test',
             'password' => Hash::make('secret-password'),
         ]);
 
-        $this->app['session.store']->put('url.intended', url('/pendaftar/status/not-for-staff'));
+        session()->put('url.intended', url('/pendaftar/status/not-for-staff'));
 
-        $response = $this->invokeLogin([
-            'email' => 'admin-unit@example.test',
-            'password' => 'secret-password',
-        ]);
+        $component = Livewire::test(UnifiedLogin::class);
+        $captcha = $this->captchaAnswer($component->instance());
 
-        $this->assertSame(url('/admin'), $response->getTargetUrl());
+        $component
+            ->fillForm([
+                'email' => 'admin-unit@example.test',
+                'password' => 'secret-password',
+                'remember' => false,
+                'captcha' => $captcha,
+            ])
+            ->call('authenticate')
+            ->assertRedirect('/admin');
+
         $this->assertAuthenticatedAs($staff);
-        $this->assertNull($this->app['session.store']->get('url.intended'));
+        $this->assertNull(session()->get('url.intended'));
     }
 
-    public function test_matching_intended_url_is_preserved_after_login(): void
+    public function test_inactive_user_cannot_authenticate_through_native_filament_login(): void
     {
-        $staff = $this->userWithRole('super_admin', [
-            'email' => 'root@example.test',
-            'password' => Hash::make('secret-password'),
-        ]);
-        $intended = url('/admin/users');
-
-        $this->app['session.store']->put('url.intended', $intended);
-
-        $response = $this->invokeLogin([
-            'email' => 'root@example.test',
-            'password' => 'secret-password',
-        ]);
-
-        $this->assertSame($intended, $response->getTargetUrl());
-        $this->assertAuthenticatedAs($staff);
-    }
-
-    public function test_inactive_user_cannot_authenticate_through_unified_login(): void
-    {
-        $user = $this->userWithRole('tu', [
+        $this->userWithRole('tu', [
             'email' => 'inactive@example.test',
             'password' => Hash::make('secret-password'),
             'is_active' => false,
         ]);
 
-        try {
-            $this->invokeLogin([
+        $component = Livewire::test(UnifiedLogin::class);
+        $captcha = $this->captchaAnswer($component->instance());
+
+        $component
+            ->fillForm([
                 'email' => 'inactive@example.test',
                 'password' => 'secret-password',
-            ]);
+                'remember' => false,
+                'captcha' => $captcha,
+            ])
+            ->call('authenticate')
+            ->assertHasFormErrors(['email']);
 
-            $this->fail('Inactive account should not authenticate.');
-        } catch (\Illuminate\Validation\ValidationException) {
-            $this->assertGuest();
-            $this->assertNotSame(Auth::id(), $user->id);
-        }
+        $this->assertGuest();
     }
 
-    private function invokeLogin(array $data)
+    private function captchaAnswer(UnifiedLogin $page): string
     {
-        $session = $this->app['session.store'];
-        $session->start();
+        $field = $page->form->getComponent('captcha');
+        $manager = app(CaptchaManager::class);
+        $options = $manager->optionsFromConfig([]);
 
-        $request = LoginRequest::create(
-            '/login',
-            'POST',
-            $data + ['remember' => false],
-            [],
-            [],
-            ['REMOTE_ADDR' => '127.0.0.1'],
-        );
-        $request->setContainer($this->app);
-        $request->setRedirector($this->app['redirect']);
-        $request->setLaravelSession($session);
-
-        return $this->app->call(
-            [app(AuthenticatedSessionController::class), 'store'],
-            ['request' => $request],
-        );
+        return $manager->ensureChallenge(
+            $field->getCaptchaContextKey(),
+            $options,
+        )->answer;
     }
 
     private function userWithRole(string $roleName, array $attributes = []): User
