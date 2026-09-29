@@ -39,7 +39,6 @@ class Register extends BaseRegister
                 ->default($policy->uuid)
                 ->required(),
             Forms\Components\Section::make('Persetujuan Akun')
-                ->description('Persetujuan ini berlaku untuk akun platform. Persetujuan khusus data SPMB akan diminta lagi ketika Anda mulai mengisi formulir pendaftaran unit.')
                 ->schema([
                     Forms\Components\Checkbox::make('account_consent_accepted')
                         ->label(new HtmlString(
@@ -58,10 +57,6 @@ class Register extends BaseRegister
                     Forms\Components\Checkbox::make('marketing_consent')
                         ->label((string) $policy->marketing_text)
                         ->visible((bool) $policy->marketing_enabled),
-                    Forms\Components\Placeholder::make('account_policy_version')
-                        ->label('')
-                        ->content('Kebijakan akun versi '.$policy->version.'. Persetujuan informasi/promosi bersifat opsional.')
-                        ->columnSpanFull(),
                 ])
                 ->compact(),
             SpmbCaptcha::make(),
