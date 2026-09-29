@@ -10,13 +10,13 @@ class PwaAssetsTest extends TestCase
     use RefreshDatabase;
     public function test_manifest_defines_installable_application_scope_and_icons(): void
     {
-        $manifest = json_decode(
-            file_get_contents(public_path('manifest.webmanifest')),
-            true,
-            flags: JSON_THROW_ON_ERROR,
-        );
+        $response = $this->get('/manifest.webmanifest')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/manifest+json; charset=utf-8');
 
-        $this->assertSame('SPMB', $manifest['name']);
+        $manifest = $response->json();
+
+        $this->assertSame(config('spmb.portal.name', 'SPMB'), $manifest['name']);
         $this->assertSame('/dashboard', $manifest['start_url']);
         $this->assertSame('/', $manifest['scope']);
         $this->assertSame('standalone', $manifest['display']);
