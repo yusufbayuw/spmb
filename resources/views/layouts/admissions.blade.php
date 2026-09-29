@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="@yield('description', 'Portal resmi penerimaan peserta didik dan mahasiswa.')">
-    <meta name="theme-color" content="#1d4ed8">
+    <meta name="theme-color" content="{{ app(\App\Services\AppBrandingService::class)->themeColor() }}">
     <meta name="robots" content="index,follow">
     <title>@yield('title', config('spmb.portal.name', 'SPMB'))</title>
 
@@ -29,8 +29,7 @@
 </head>
 @php
     $portal = config('spmb.portal', []);
-    $logoPath = filled($portal['logo_path'] ?? null) ? ltrim($portal['logo_path'], '/') : null;
-    $hasOfficialLogo = $logoPath && file_exists(public_path($logoPath));
+    $logoUrl = app(\App\Services\AppBrandingService::class)->logoUrl();
     $isStaff = auth()->check() && auth()->user()->hasAnyRole(['super_admin', 'admin_unit', 'tu']);
     $dashboardUrl = $isStaff ? url('/admin') : url('/pendaftar');
 @endphp
@@ -38,8 +37,8 @@
     <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
         <nav class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8" aria-label="Navigasi utama">
             <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-4">
-                @if ($hasOfficialLogo)
-                    <img src="{{ asset($logoPath) }}" alt="Logo {{ $portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB') }}" class="h-11 w-auto shrink-0 object-contain">
+                @if ($logoUrl)
+                    <img src="{{ $logoUrl }}" alt="Logo {{ $portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB') }}" class="h-11 w-auto shrink-0 object-contain">
                 @endif
                 <span class="min-w-0">
                     <span class="block truncate text-sm font-extrabold tracking-tight text-slate-950 sm:text-base">Portal Penerimaan</span>
