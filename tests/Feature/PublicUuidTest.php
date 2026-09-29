@@ -92,6 +92,9 @@ class PublicUuidTest extends TestCase
         $this->actingAs($owner);
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
         $page = Livewire::withQueryParams(['opening' => $opening->uuid])->test(CreateRegistration::class);
+        $page->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
         $page->fillForm(['registration_pathway_uuid' => (string) $pathway->id, 'registrant_type' => 'self', 'full_name' => 'Tidak Sah', 'nik' => '3273010101010002', 'gender' => 'L', 'birth_place' => 'Bandung', 'birth_date' => '2020-01-01', 'home_address' => 'Bandung', 'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu']])
             ->call('create')
             ->assertHasErrors();

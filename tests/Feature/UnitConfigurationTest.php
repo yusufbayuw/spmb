@@ -638,6 +638,9 @@ class UnitConfigurationTest extends TestCase
 
         $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])
             ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
             ->assertSee('Apakah memiliki kondisi khusus?')
             ->assertDontSee('Jelaskan kondisi khusus')
             ->fillForm(['custom_answers.has_condition' => '0'])
@@ -708,6 +711,9 @@ class UnitConfigurationTest extends TestCase
         $this->actingAs($parent);
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
         $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
             ->assertSee('Transportasi Peserta')
             ->fillForm(['registration_pathway_uuid' => $pathway->uuid, 'registrant_type' => 'self', 'full_name' => 'Peserta Baru', 'nik' => '3273010101010002', 'gender' => 'L', 'birth_place' => 'Bandung', 'birth_date' => '2020-01-01', 'home_address' => 'Bandung', 'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu']])
             ->call('create')->assertHasFormErrors(['custom_answers.transport' => 'required']);
@@ -750,6 +756,9 @@ class UnitConfigurationTest extends TestCase
 
         $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])
             ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
             ->assertFormSet([
                 'unit_configuration_uuid' => $configuration->uuid,
                 'parentInfo.father_income' => '< 5 juta',
@@ -819,6 +828,9 @@ class UnitConfigurationTest extends TestCase
 
         Livewire::withQueryParams(['opening' => $registration->opening->uuid])
             ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
             ->assertFormSet([
                 'unit_configuration_uuid' => $configuration->uuid,
                 'registration_pathway_uuid' => $pathway->uuid,
@@ -1022,6 +1034,9 @@ class UnitConfigurationTest extends TestCase
 
         Livewire::withQueryParams(['opening' => $registration->opening->uuid])
             ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
             ->assertSee('Alamat Rumah')
             ->assertSee('RT')
             ->assertSee('RW')

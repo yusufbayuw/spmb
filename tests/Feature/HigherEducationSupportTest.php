@@ -174,6 +174,9 @@ class HigherEducationSupportTest extends TestCase
 
         Livewire::withQueryParams(['opening' => $opening->uuid])
             ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
             ->assertFormSet(['registrant_type' => 'parent'])
             ->fillForm([
                 'registration_pathway_uuid' => $pathway->uuid,

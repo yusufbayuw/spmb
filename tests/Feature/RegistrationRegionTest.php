@@ -138,6 +138,9 @@ class RegistrationRegionTest extends TestCase
 
         $component = Livewire::withQueryParams(['opening' => $opening->uuid])
             ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
             ->assertSee('Provinsi')
             ->assertSee('Kabupaten/Kota')
             ->assertSee('Kecamatan')

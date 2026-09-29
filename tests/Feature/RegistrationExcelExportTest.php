@@ -8,6 +8,7 @@ use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
+use App\Services\RegistrationConsentService;
 use App\Services\RegistrationExcelExportService;
 use App\Services\UnitConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -148,6 +149,10 @@ class RegistrationExcelExportTest extends TestCase
             'description' => 'Juara 1',
         ]);
 
+        $consentService = app(RegistrationConsentService::class);
+        $consent = $consentService->accept($applicant, $opening, $configuration, '127.0.0.1', 'PHPUnit');
+        $consentService->attachToRegistration($consent->id, $registration);
+
         $result = app(RegistrationExcelExportService::class)->export(
             Registration::query()->whereKey($registration->id),
             $actor,
@@ -170,10 +175,18 @@ class RegistrationExcelExportTest extends TestCase
         $this->assertContains('No. Pendaftaran', $mainHeaders);
         $this->assertContains('Apakah memiliki kondisi khusus?', $mainHeaders);
         $this->assertContains('Keterangan — Apakah memiliki kondisi khusus?', $mainHeaders);
+        $this->assertContains('Persetujuan Data Pribadi', $mainHeaders);
+        $this->assertContains('Tanggal Persetujuan', $mainHeaders);
         $this->assertContains('SMP-001', $mainRow);
         $this->assertContains('Peserta Export', $mainRow);
         $this->assertContains('Ya', $mainRow);
         $this->assertContains('Memerlukan pendampingan khusus.', $mainRow);
+        $consentStatusColumn = array_search('Persetujuan Data Pribadi', $mainHeaders, true);
+        $consentDateColumn = array_search('Tanggal Persetujuan', $mainHeaders, true);
+        $this->assertIsInt($consentStatusColumn);
+        $this->assertIsInt($consentDateColumn);
+        $this->assertSame('Ya', $mainRow[$consentStatusColumn]);
+        $this->assertNotSame('-', $mainRow[$consentDateColumn]);
 
         $this->assertContains('Kelas VII', $sheets['Nilai Akademik'][1]);
         $this->assertContains('Matematika', $sheets['Nilai Akademik'][1]);

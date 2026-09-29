@@ -136,6 +136,40 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame(3, $published->registration_number_digits);
     }
 
+
+    public function test_admin_unit_can_configure_versioned_pre_form_consent(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSee('Persetujuan Sebelum Formulir')
+            ->fillForm([
+                'pre_form_consent.enabled' => true,
+                'pre_form_consent.title' => 'Persetujuan Khusus Unit',
+                'pre_form_consent.content' => '<p>Ketentuan <strong>khusus</strong> untuk {{ unit_name }}.</p>',
+                'pre_form_consent.confirmation_text' => 'Saya menyetujui ketentuan {{ unit_name }}.',
+            ])
+            ->call('publish')
+            ->assertHasNoFormErrors();
+
+        $published = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'published')
+            ->latest('version')
+            ->firstOrFail();
+
+        $this->assertTrue($published->pre_form_consent['enabled']);
+        $this->assertSame('Persetujuan Khusus Unit', $published->pre_form_consent['title']);
+        $this->assertStringContainsString('<strong>khusus</strong>', $published->pre_form_consent['content']);
+        $this->assertSame(
+            'Saya menyetujui ketentuan {{ unit_name }}.',
+            $published->pre_form_consent['confirmation_text'],
+        );
+    }
+
     public function test_admin_unit_can_configure_boolean_detail_per_answer(): void
     {
         [$unit, $staff] = $this->fixture();
