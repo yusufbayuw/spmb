@@ -39,7 +39,7 @@ class ErrorPagesTest extends TestCase
     {
         $this->get('/__test/route-that-does-not-exist')
             ->assertNotFound()
-            ->assertSeeText('SPMB Taruna Bakti')
+            ->assertSeeText(config('spmb.portal.name', 'SPMB'))
             ->assertSeeText('Halaman tidak ditemukan');
     }
 
@@ -55,7 +55,7 @@ class ErrorPagesTest extends TestCase
         foreach ($cases as $status => $message) {
             $this->get('/__test/error/'.$status)
                 ->assertStatus($status)
-                ->assertSeeText('SPMB Taruna Bakti')
+                ->assertSeeText(config('spmb.portal.name', 'SPMB'))
                 ->assertSeeText($message);
         }
     }
