@@ -4,15 +4,22 @@ namespace Database\Seeders;
 
 use App\Models\AdmissionQuota;
 use App\Models\RegistrationOpening;
+use Database\Seeders\Support\GuardsDemoEnvironment;
 use Illuminate\Database\Seeder;
 
 class AdmissionQuotaSeeder extends Seeder
 {
+    use GuardsDemoEnvironment;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
+        if ($this->shouldSkipDemoData()) {
+            return;
+        }
+
         RegistrationOpening::query()->forOperationalMode()->with('unit')->each(function (RegistrationOpening $opening): void {
             AdmissionQuota::firstOrCreate(
                 ['registration_opening_id' => $opening->id, 'registration_pathway_id' => null],
