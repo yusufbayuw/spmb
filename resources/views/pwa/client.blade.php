@@ -22,10 +22,10 @@
     $pwaConfig = [
         'authenticated' => auth()->check(),
         'pushConfigured' => $pushConfigured,
-        'vapidUrl' => route('push.vapid-public-key'),
-        'subscribeUrl' => route('push.subscriptions.store'),
-        'unsubscribeUrl' => route('push.subscriptions.destroy'),
-        'serviceWorkerUrl' => asset('sw.js'),
+        'vapidUrl' => route('push.vapid-public-key', absolute: false),
+        'subscribeUrl' => route('push.subscriptions.store', absolute: false),
+        'unsubscribeUrl' => route('push.subscriptions.destroy', absolute: false),
+        'serviceWorkerUrl' => '/sw.js',
         'appName' => config('spmb.portal.name', 'SPMB'),
     ];
 @endphp
