@@ -77,7 +77,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $draft = app(UnitConfigurationService::class)->draft($unit, auth()->user());
         $this->configurationUuid = $draft->uuid;
         $this->preview = false;
-        $data = app(UnitConfigurationService::class)->normalizeEditorData($draft->toArray());
+        $data = app(UnitConfigurationService::class)->normalizeEditorData($draft->toArray(), $unit);
         $data['unit_logo_path'] = filled($unit->logo_path) ? [$unit->logo_path] : [];
         $data['workflow_stage_labels'] = array_replace(
             Registration::STAGES,
@@ -185,6 +185,47 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->columnSpanFull(),
                 ])
                 ->columns(['default' => 1, 'md' => 2])
+                ->collapsible(),
+            Forms\Components\Section::make('Persetujuan Sebelum Formulir')
+                ->description('Tampilkan persetujuan wajib sebelum pendaftar mulai mengisi formulir. Isi mengikuti versi konfigurasi sehingga naskah yang disetujui tetap dapat diaudit.')
+                ->schema([
+                    Forms\Components\Toggle::make('pre_form_consent.enabled')
+                        ->label('Aktifkan persetujuan sebelum formulir')
+                        ->default(true)
+                        ->live(),
+                    Forms\Components\TextInput::make('pre_form_consent.title')
+                        ->label('Judul Persetujuan')
+                        ->maxLength(180)
+                        ->required()
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('pre_form_consent.enabled'))
+                        ->columnSpanFull(),
+                    Forms\Components\RichEditor::make('pre_form_consent.content')
+                        ->label('Isi Persetujuan')
+                        ->helperText('Gunakan placeholder {{ unit_name }}, {{ academic_year }}, {{ wave }}, dan {{ participant_label }} bila diperlukan.')
+                        ->toolbarButtons([
+                            'h2',
+                            'h3',
+                            'bold',
+                            'italic',
+                            'bulletList',
+                            'orderedList',
+                            'link',
+                            'undo',
+                            'redo',
+                        ])
+                        ->required()
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('pre_form_consent.enabled'))
+                        ->columnSpanFull(),
+                    Forms\Components\Textarea::make('pre_form_consent.confirmation_text')
+                        ->label('Kalimat Konfirmasi')
+                        ->helperText('Kalimat ini tampil di samping checkbox yang wajib dicentang pendaftar.')
+                        ->rows(3)
+                        ->maxLength(1000)
+                        ->required()
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('pre_form_consent.enabled'))
+                        ->columnSpanFull(),
+                ])
+                ->columns(1)
                 ->collapsible(),
             Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan. Pada perguruan tinggi, label dan urutan progres ditentukan per Program Studi.')->schema([
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),

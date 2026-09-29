@@ -53,6 +53,7 @@ class UnitConfigurationService
             'completion_message' => 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.',
             'registration_number_prefix' => $unit->code,
             'registration_number_digits' => 4,
+            'pre_form_consent' => app(RegistrationConsentService::class)->defaultConfiguration($unit),
             'workflow_blocks' => collect(Registration::DEFAULT_WORKFLOW_BLOCKS)->map(fn (string $key): array => ['key' => $key])->all(),
             'builtin_field_policy' => 'system_default',
             'academic_scores_enabled' => false,
@@ -119,7 +120,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -284,8 +285,13 @@ class UnitConfigurationService
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    public function normalizeEditorData(array $data): array
+    public function normalizeEditorData(array $data, ?Unit $unit = null): array
     {
+        $data['pre_form_consent'] = app(RegistrationConsentService::class)->normalizeConfiguration(
+            $data['pre_form_consent'] ?? null,
+            $unit,
+        );
+
         $workflowBlocks = $data['workflow_blocks'] ?? null;
 
         if (! is_array($workflowBlocks) || $workflowBlocks === []) {
@@ -497,11 +503,11 @@ class UnitConfigurationService
         $this->authorize($actor, (int) $configuration->unit_id);
 
         return DB::transaction(function () use ($configuration, $data, $publish): UnitConfiguration {
-            Unit::query()->lockForUpdate()->findOrFail($configuration->unit_id);
+            $unit = Unit::query()->lockForUpdate()->findOrFail($configuration->unit_id);
             $locked = UnitConfiguration::query()->lockForUpdate()->findOrFail($configuration->id);
 
             $data['builtin_field_policy'] ??= 'system_default';
-            $data = $this->normalizeEditorData($data);
+            $data = $this->normalizeEditorData($data, $unit);
             $stageLabels = is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [];
             $data['workflow_stage_labels'] = collect(Registration::STAGES)
                 ->mapWithKeys(fn (string $defaultLabel, string $stage): array => [
@@ -541,6 +547,11 @@ class UnitConfigurationService
                 'completion_message' => ['required', 'string', 'max:3000'],
                 'registration_number_prefix' => ['nullable', 'string', 'max:30', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/'],
                 'registration_number_digits' => ['required', 'integer', 'min:3', 'max:12'],
+                'pre_form_consent' => ['present', 'array'],
+                'pre_form_consent.enabled' => ['required', 'boolean'],
+                'pre_form_consent.title' => ['required', 'string', 'max:180'],
+                'pre_form_consent.content' => ['required', 'string', 'max:30000'],
+                'pre_form_consent.confirmation_text' => ['required', 'string', 'max:1000'],
                 'workflow_blocks' => ['present', 'array', 'size:2'],
                 'workflow_blocks.*.key' => ['required', Rule::in(array_keys(Registration::WORKFLOW_BLOCK_LABELS)), 'distinct'],
                 'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
