@@ -1,8 +1,8 @@
 {
     "id": "/",
-    "name": "SPMB Taruna Bakti",
+    "name": "SPMB",
     "short_name": "SPMB",
-    "description": "Portal penerimaan peserta didik dan mahasiswa Taruna Bakti.",
+    "description": "Portal penerimaan peserta didik dan mahasiswa.",
     "lang": "id-ID",
     "dir": "ltr",
     "start_url": "/dashboard",
