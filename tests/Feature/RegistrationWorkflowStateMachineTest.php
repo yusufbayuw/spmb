@@ -389,7 +389,7 @@ class RegistrationWorkflowStateMachineTest extends TestCase
 
     private function registrationFixture(): array
     {
-        $unit = Unit::create(['name' => 'SMA Taruna Bakti', 'code' => 'SMA', 'is_active' => true]);
+        $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
         $applicant = User::factory()->create(['role' => 'user', 'is_active' => true, 'email' => 'parent@example.test']);
         $staff = User::factory()->create(['role' => 'admin', 'is_active' => true, 'unit_id' => $unit->id]);
 
