@@ -68,7 +68,7 @@ class UnifiedLoginTest extends TestCase
             'password' => 'secret-password',
         ]);
 
-        $response->assertRedirect('/admin');
+        $this->assertSame(url('/admin'), $response->getTargetUrl());
         $this->assertAuthenticatedAs($user);
     }
 
@@ -84,7 +84,7 @@ class UnifiedLoginTest extends TestCase
             'password' => 'secret-password',
         ]);
 
-        $response->assertRedirect('/pendaftar');
+        $this->assertSame(url('/pendaftar'), $response->getTargetUrl());
         $this->assertAuthenticatedAs($user);
     }
 
@@ -102,7 +102,7 @@ class UnifiedLoginTest extends TestCase
             'password' => 'secret-password',
         ]);
 
-        $response->assertRedirect('/admin');
+        $this->assertSame(url('/admin'), $response->getTargetUrl());
         $this->assertAuthenticatedAs($staff);
         $this->assertNull($this->app['session.store']->get('url.intended'));
     }
@@ -122,7 +122,7 @@ class UnifiedLoginTest extends TestCase
             'password' => 'secret-password',
         ]);
 
-        $response->assertRedirect($intended);
+        $this->assertSame($intended, $response->getTargetUrl());
         $this->assertAuthenticatedAs($staff);
     }
 
