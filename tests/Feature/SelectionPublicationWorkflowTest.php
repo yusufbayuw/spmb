@@ -71,7 +71,7 @@ class SelectionPublicationWorkflowTest extends TestCase
     private function registrationAtSelectionStage(): array
     {
         $unit = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'is_active' => true,
         ]);
