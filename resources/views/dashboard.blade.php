@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard Pendaftar - SPMB Taruna Bakti')
+@section('title', 'Dashboard Pendaftar - {{ config('spmb.portal.name', 'SPMB') }}')
 
 @section('content')
 <div class="max-w-6xl mx-auto space-y-6">
