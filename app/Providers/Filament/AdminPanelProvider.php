@@ -45,9 +45,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationGroups(['Pendaftaran','Pasca-Pengumuman','Laporan','Informasi Publik','Konfigurasi SPMB','Sistem & Akses'])
             ->sidebarCollapsibleOnDesktop()
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('pwa.meta'))
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn () => view('components.file-preview-modal'),
+                fn () => view('components.panel-body-end'),
             )
             ->middleware([EncryptCookies::class,AddQueuedCookiesToResponse::class,StartSession::class,AuthenticateSession::class,ShareErrorsFromSession::class,VerifyCsrfToken::class,SubstituteBindings::class,DisableBladeIconComponents::class,DispatchServingFilamentEvent::class])
             ->authMiddleware([Authenticate::class]);
