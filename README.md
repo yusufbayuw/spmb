@@ -1,342 +1,288 @@
-# SPMB Taruna Bakti
+# SPMB
 
-Sistem Penerimaan Murid/Mahasiswa Baru (SPMB) Taruna Bakti untuk Daycare, KB, TK, SD, SMP, SMA, dan Taruna Bakti University (TBU).
+Platform penerimaan peserta didik dan mahasiswa berbasis Laravel dan Filament.
 
-Aplikasi dibangun dengan Laravel 12 dan Filament 3. Setiap unit memiliki pembukaan, jalur, kuota, konfigurasi formulir, persyaratan dokumen, tes, seleksi, pengumuman, serta alur daftar ulang yang dapat berbeda. Konfigurasi pendaftaran menggunakan versi yang dipublikasikan dan disimpan pada pendaftaran, sehingga perubahan konfigurasi berikutnya tidak mengubah aturan peserta yang sudah masuk.
+Repository ini bersifat **white-label**. Identitas institusi, nama portal, kontak, alamat, logo, unit pendidikan, program studi, dan data operasional tidak boleh di-hard-code ke source code. Setiap deployment mengatur identitasnya melalui environment/configuration dan data aplikasi.
 
-## Stack utama
+## Cakupan
+
+SPMB mendukung tiga profil operasional:
+
+- `K12` — pendidikan anak usia dini dan sekolah.
+- `HIGHER_EDUCATION` — perguruan tinggi.
+- `MIXED` — keduanya dalam satu instalasi.
+
+Role utama:
+
+- `super_admin`
+- `admin_unit`
+- `tu`
+- `pendaftar`
+
+Aplikasi menggunakan satu autentikasi utama pada `/login`, kemudian mengarahkan user berdasarkan role:
+
+- staf → `/admin`
+- pendaftar → `/pendaftar`
+
+## Fitur Utama
+
+### Pendaftaran
+
+- pembukaan pendaftaran per unit;
+- jalur pendaftaran;
+- dukungan program studi untuk perguruan tinggi;
+- formulir identitas dan data orang tua/wali;
+- custom field;
+- dokumen pendaftaran;
+- pembayaran dan Virtual Account;
+- nomor pendaftaran yang dapat dikonfigurasi;
+- tes dan penjadwalan;
+- seleksi dan publikasi hasil;
+- penawaran penerimaan;
+- daftar ulang;
+- workflow yang dapat dikonfigurasi per unit/program.
+
+### Operasional
+
+- pemisahan akses Super Admin, Admin Unit, TU, dan Pendaftar;
+- dashboard dan resource Filament;
+- database notification;
+- PWA dan Web Push;
+- audit log;
+- export Excel;
+- dokumen/printable;
+- pengaturan informasi publik dan helpdesk;
+- account consent serta consent proses pendaftaran;
+- mode K12, perguruan tinggi, dan mixed.
+
+## Teknologi
 
 - PHP 8.3+
 - Laravel 12
-- Filament 3.2
-- Filament Shield 3.x + Spatie Laravel Permission
-- `mortezaashrafi/filament-shield-captcha` untuk CAPTCHA lokal
-- OpenSpout untuk impor/ekspor XLSX hasil tes
-- Laravel database queue, notification, mail, dan private filesystem
-- Vite untuk build frontend
-
-## Portal dan peran
-
-| Peran | Portal | Ruang lingkup |
-| --- | --- | --- |
-| Pendaftar | `/pendaftar` | Registrasi akun, membuat pendaftaran, melengkapi data, pembayaran, dokumen, jadwal tes, pengumuman, dan daftar ulang. |
-| TU unit | `/admin` | Operasional harian SPMB pada unitnya: pendaftaran, verifikasi pembayaran/dokumen, hasil tes, seleksi, pengumuman, dan daftar ulang. Tidak memiliki akses ke group **Konfigurasi SPMB** dan **Sistem & Akses**. |
-| Admin Unit | `/admin` | Memiliki kewenangan unit yang sebelumnya dimiliki TU, termasuk operasional dan konfigurasi SPMB pada unitnya, tetap dengan scope satu unit. |
-| Super admin | `/admin` | Mengelola seluruh unit, master data, user, role/permission, konfigurasi, dan audit. |
-
-Akses admin menggunakan permission Filament Shield. TU dan Admin Unit sama-sama dibatasi ke unit yang terkait; perbedaannya berada pada permission. Admin Unit membawa baseline permission TU lama, sedangkan TU difokuskan ke workflow operasional. Super admin dapat bekerja lintas unit.
-
-## Alur utama
-
-```text
-Akun Pendaftar
-    -> Verifikasi Email
-    -> Pilih Pembukaan / Jalur
-    -> Isi Formulir Pendaftaran
-    -> Pembayaran Formulir (jika diaktifkan)
-    -> Verifikasi Pembayaran
-    -> Nomor Registrasi + Kartu Pendaftar
-    -> Dokumen Persyaratan (jika diaktifkan)
-    -> Penjadwalan Tes (jika diaktifkan)
-    -> Pelaksanaan & Hasil Tes
-    -> Seleksi / Penetapan Hasil
-    -> Pengumuman
-    -> Admission Offer
-    -> Daftar Ulang (jika diaktifkan)
-    -> Enrollment
-```
-
-Tahap yang dinonaktifkan oleh konfigurasi unit dilewati oleh workflow. Untuk pembukaan berbiaya nol, tahap pembayaran dapat dinonaktifkan.
-
-## Konfigurasi pendaftaran per unit
-
-Menu **Pengaturan Pendaftaran Unit** menjadi pusat konfigurasi operasional per unit dan hanya dapat diakses oleh Admin Unit pada unitnya atau Super Admin. Konfigurasi dapat disimpan sebagai draft, dipratinjau, lalu dipublikasikan sebagai versi baru.
-
-Konfigurasi mencakup:
-
-- aktivasi tahap pembayaran, dokumen, tes, dan daftar ulang;
-- field tambahan pada formulir pendaftar: label, petunjuk, kelompok, urutan, jenis input, wajib, dan status aktif;
-- persyaratan dokumen beserta instruksi, tipe jawaban, jumlah lampiran, template, status wajib, dan status aktif;
-- jenis tes yang berlaku pada unit beserta status wajib/opsional;
-- sesi tes terkait jenis tes, termasuk waktu mulai/selesai, lokasi, kuota, batas pemesanan, instruksi, dan status sesi;
-- pratinjau konfigurasi sebelum publikasi.
-
-Identitas inti pendaftar, pilihan pembukaan/jalur, aturan usia, dan constraint utama pendaftaran tetap dijaga oleh domain aplikasi.
-
-## Formulir dan data wilayah Indonesia
-
-Formulir pendaftar mendukung data alamat terstruktur melalui select berjenjang:
-
-```text
-Provinsi
-  -> Kabupaten/Kota
-      -> Kecamatan
-          -> Desa/Kelurahan
-```
-
-Dataset wilayah Indonesia lengkap dibundel di repository dan disimpan sebagai master lokal, sehingga form tidak bergantung pada API wilayah eksternal. Kode wilayah dan nama kanonik disimpan bersama data pendaftar. Field wilayah dibuat aman untuk data lama yang masih `null`.
-
-Antarmuka pendaftar menggunakan istilah Indonesia dan action utama pendaftaran ditampilkan sebagai **Daftar**.
-
-## Pembayaran, Virtual Account, dan nomor registrasi
-
-Aplikasi memiliki master Virtual Account dan proses verifikasi pembayaran formulir. Pada flow berbayar:
-
-- pendaftaran dapat berada pada tahap pembayaran tanpa nomor registrasi resmi;
-- nomor registrasi baru dialokasikan setelah pembayaran terverifikasi;
-- nomor registrasi memiliki sequence independen per unit (`0001`, `0002`, dan seterusnya sesuai unit);
-- alokasi nomor dibuat atomic untuk mencegah nomor ganda saat verifikasi bersamaan;
-- kartu pendaftar diterbitkan otomatis setelah pembayaran terverifikasi dan nomor resmi tersedia;
-- kuitansi bukti lunas menggunakan snapshot nomor registrasi dan data transaksi saat diterbitkan.
-
-Pembayaran yang belum menghasilkan nomor registrasi tetap dapat dikelola tanpa memaksa nomor sementara.
-
-## Dokumen pendaftar
-
-Persyaratan dokumen mengikuti versi konfigurasi yang terikat pada pendaftaran. Sistem mendukung satu atau beberapa lampiran sesuai konfigurasi.
-
-Status dokumen wajib dianggap selesai jika persyaratan lampiran terpenuhi dan seluruh lampiran yang diajukan sudah diverifikasi. Lampiran yang ditolak dapat diganti; unggahan pengganti membuka kembali proses verifikasi untuk TU.
-
-Template dan dokumen pendaftar disimpan pada private storage. Download hanya dilayani melalui route terotorisasi.
-
-## Tes dan penjadwalan
-
-Tes dikelola sebagai `AdmissionTest`, `TestSession`, `TestBooking`, dan `AdmissionTestResult`.
-
-- Satu unit dapat memiliki beberapa jenis tes wajib maupun opsional.
-- Setiap jenis tes dapat memiliki beberapa sesi dengan waktu, lokasi, kuota, batas pemesanan, instruksi, dan status.
-- Pendaftar dapat memilih atau memindahkan sesi selama sesi masih tersedia dan aturan booking terpenuhi.
-- TU dapat menetapkan sesi secara manual untuk kebutuhan operasional.
-- Admin Unit dapat mengelola master dan sesi tes pada konfigurasi unit.
-- Booking menggunakan transaksi/locking untuk menjaga kapasitas sesi.
-- Sistem mencegah jadwal tes yang berbenturan.
-- Jika sesi terpilih dibatalkan, pendaftar harus melakukan penjadwalan ulang.
-- **Kartu Tes hanya dapat dicetak setelah seluruh tes wajib memiliki sesi.** Tes opsional tidak menahan hak cetak kartu.
-- Seluruh waktu operasional ditampilkan dalam format 24 jam.
-
-## Hasil tes
-
-Pengisian hasil tes mendukung workflow batch berbasis XLSX. TU dapat mengunduh data hasil tes, mengedit nilai di spreadsheet, lalu mengimpor kembali hasil secara massal menggunakan OpenSpout.
-
-Resource hasil tes tetap menyediakan status dan hasil per kombinasi pendaftaran–jenis tes, dengan validasi agar peserta yang belum mencapai tahap tes tidak masuk ke proses hasil secara prematur.
-
-## Seleksi, pengumuman, dan koreksi human error
-
-Modul seleksi mencakup kuota penerimaan, batch seleksi, keputusan per pendaftar, dan pengumuman hasil.
-
-Aplikasi menyediakan:
-
-- penetapan keputusan seleksi;
-- bulk action untuk keputusan banyak pendaftar sekaligus;
-- koreksi keputusan secara terkontrol jika terjadi human error;
-- publikasi pengumuman secara bulk;
-- koreksi hasil yang sudah dipublikasikan melalui workflow yang tetap tercatat;
-- audit log untuk perubahan penting.
-
-Nilai/prestasi bukan bagian dari indikator progress tahapan pendaftar; progress berfokus pada langkah operasional yang memang harus diselesaikan.
-
-## Admission Offer dan daftar ulang
-
-Peserta yang diterima dapat memiliki `AdmissionOffer`. Bila daftar ulang diaktifkan pada konfigurasi unit, pendaftar mendapatkan workflow daftar ulang terpisah dengan item persyaratan yang dapat diverifikasi TU.
-
-Navigasi daftar ulang hanya ditampilkan ketika fitur tersebut memang aktif dan relevan untuk pendaftar. Hasil review daftar ulang dikirimkan melalui notifikasi, dan proses dapat berlanjut sampai enrollment.
-
-## Notifikasi
-
-Aplikasi menggunakan database notification dan antrean untuk event operasional utama, antara lain:
-
-- pendaftaran dibuat/diperbarui;
-- pembayaran diverifikasi;
-- dokumen diverifikasi atau perlu revisi;
-- perubahan jadwal tes;
-- kesiapan proses seleksi;
-- hasil/pengumuman;
-- admission offer dan daftar ulang.
-
-Notifikasi dibuat setelah transaksi domain berhasil dan mekanismenya dirancang idempoten agar retry queue tidak menghasilkan notifikasi ganda.
-
-## Keamanan
-
-### UUID publik
-
-Model SPMB utama menggunakan UUID untuk identifier yang diekspos ke URL, route binding, state panel, link cetak, download private, dan payload notifikasi. ID numerik tetap digunakan sebagai detail relasional internal database.
-
-### Role dan permission
-
-Authorization admin menggunakan Filament Shield dan Spatie Laravel Permission. Role tidak dijadikan satu-satunya sumber otorisasi; permission dan scope unit tetap menjadi pembatas operasi.
-
-Role `admin_unit` dan `tu` sama-sama unit-scoped. `admin_unit` mempertahankan baseline akses TU sebelum pemisahan role, sedangkan `tu` tidak memiliki permission resource pada group **Konfigurasi SPMB** dan **Sistem & Akses**. Halaman konfigurasi khusus juga memeriksa role Admin Unit/Super Admin secara eksplisit.
-
-Untuk database existing, perubahan role dapat diterapkan secara idempoten tanpa mengubah assignment user atau data bisnis:
-
-```bash
-php artisan db:seed --class=AdminUnitRoleSeeder
-```
-
-Seeder tersebut hanya menyinkronkan permission role `admin_unit` dan `tu`; user TU existing tetap menjadi TU sampai diubah secara eksplisit oleh administrator.
-
-### CAPTCHA lokal
-
-Login dan flow autentikasi menggunakan CAPTCHA lokal melalui `filament-shield-captcha`. Tidak dibutuhkan akun Cloudflare Turnstile, Google reCAPTCHA, atau provider CAPTCHA eksternal.
-
-Konfigurasi CAPTCHA tersedia di `.env` melalui variabel `FILAMENT_SHIELD_CAPTCHA_*`.
-
-### Private upload
-
-Upload pendaftar dan template disimpan secara private. Aplikasi memvalidasi tipe/ukuran file dan memiliki opsi pemindaian malware menggunakan ClamAV.
-
-## Lokalisasi UI
-
-Aplikasi menggunakan locale Indonesia (`id`) dan timezone `Asia/Jakarta`. Format tanggal, angka, nominal, validation message, label UI, dan notifikasi telah diselaraskan untuk penggunaan Indonesia. Komponen waktu Filament menggunakan format 24 jam.
-
-## Resource admin utama
-
-Panel admin saat ini mencakup resource untuk:
-
-- Unit dan User;
-- Pembukaan Pendaftaran dan Jalur Pendaftaran;
-- Program Studi TBU;
-- Pendaftaran;
-- Virtual Account dan Pembayaran;
-- Dokumen dan Data Orang Tua;
-- Tes Masuk dan Hasil Tes;
-- Kuota Penerimaan dan Batch Seleksi;
-- Seleksi dan Pengumuman;
-- Item Daftar Ulang;
-- Audit Log.
-
-Sebagian workflow operasional ditempatkan sebagai action/page khusus agar perubahan status tidak dilakukan melalui edit bebas.
-
-## Kebutuhan sistem
-
-- PHP 8.3 atau lebih baru
-- Composer
-- Node.js dan npm
-- Ekstensi PHP yang dibutuhkan Laravel/Filament
-- Database yang didukung Laravel
-- Queue worker untuk email/notifikasi pada staging dan production
-- ClamAV bila malware scan diwajibkan
-
-## Instalasi lokal
+- Filament 3
+- Livewire
+- Spatie Laravel Permission
+- Redis untuk cache/queue pada deployment yang mendukungnya
+- Laravel Queue
+- Web Push / VAPID
+- Vite
+
+## Instalasi Lokal
 
 ```bash
 git clone <repository-url>
 cd spmb
+
 composer install
+npm install
+
 cp .env.example .env
 php artisan key:generate
-npm install
 ```
 
-Atur database dan konfigurasi environment pada `.env`, kemudian:
+Konfigurasikan database pada `.env`, lalu:
 
 ```bash
-php artisan migrate --seed
+php artisan migrate
+php artisan db:seed
 npm run build
+php artisan serve
 ```
 
-Untuk development frontend:
+Pada environment `local` dan `testing`, `DatabaseSeeder` juga memanggil demo seeder sehingga aplikasi dapat langsung digunakan untuk pengembangan dan pengujian.
+
+## Konfigurasi Identitas Deployment
+
+Identitas deployment tidak disimpan sebagai nama institusi tertentu di repository.
+
+Contoh konfigurasi:
+
+```env
+APP_NAME="SPMB"
+
+SPMB_PORTAL_NAME="Portal Penerimaan"
+SPMB_FOUNDATION_NAME="Institusi Pendidikan"
+SPMB_FOUNDATION_WEBSITE=
+SPMB_FOUNDATION_EMAIL=
+SPMB_FOUNDATION_PHONE=
+SPMB_FOUNDATION_WHATSAPP=
+SPMB_FOUNDATION_ADDRESS=
+SPMB_FOUNDATION_SERVICE_HOURS=
+SPMB_PORTAL_LOGO_PATH=
+```
+
+Untuk deployment riil, isi nilai tersebut sesuai institusi masing-masing.
+
+Nama portal pada panel Filament, login, email, dan bagian UI yang relevan mengambil nilai dari konfigurasi, bukan nama institusi yang ditulis langsung di source code.
+
+## Mode Operasional
+
+```env
+SPMB_MODE_OPS=MIXED
+```
+
+Nilai yang didukung:
+
+```text
+K12
+HIGHER_EDUCATION
+MIXED
+```
+
+Mode hanya mengatur data mana yang aktif/terlihat. Perubahan mode tidak menghapus data existing.
+
+## Seeder
+
+Seeder dibagi menjadi dua kelompok.
+
+### Production Reference Seeder
+
+Aman untuk menyiapkan reference/authorization data:
 
 ```bash
-npm run dev
+php artisan db:seed --class=ProductionReferenceSeeder
 ```
 
-Repository juga menyediakan Composer setup script:
+Seeder ini menyiapkan data struktural seperti jenjang pendidikan serta role/permission. Seeder ini tidak membuat unit, program studi, akun demo, pembukaan pendaftaran, kuota, sesi tes, atau data transaksi.
+
+### Demo Seeder
+
+Demo seeder digunakan untuk development/testing:
 
 ```bash
-composer run setup
+php artisan db:seed --class=DemoSeeder
 ```
 
-Laravel Herd dapat digunakan untuk melayani aplikasi lokal tanpa `php artisan serve`.
+Demo seeder hanya berjalan pada environment `local` atau `testing`. Pada production, demo seeder berhenti tanpa membuat atau mengubah data operasional.
 
-## Data demo
+Fresh development:
 
-`DatabaseSeeder` saat ini menyiapkan unit, program studi, jalur, konfigurasi pendaftaran, pembukaan, kuota, role/permission, user admin/TU, sesi tes, dan kuitansi contoh.
-
-Akun demo lokal:
-
-| Peran | Email | Kata sandi |
-| --- | --- | --- |
-| Super admin | `admin@tarunabakti.sch.id` | `password123` |
-| TU Daycare | `tu.dc@tarunabakti.sch.id` | `password123` |
-| TU KB | `tu.kb@tarunabakti.sch.id` | `password123` |
-| TU TK | `tu.tk@tarunabakti.sch.id` | `password123` |
-| TU SD | `tu.sd@tarunabakti.sch.id` | `password123` |
-| TU SMP | `tu.smp@tarunabakti.sch.id` | `password123` |
-| TU SMA | `tu.sma@tarunabakti.sch.id` | `password123` |
-| TU TBU | `tu.tbu@tbu.ac.id` | `password123` |
-
-Akun tersebut hanya untuk local/development. Jangan gunakan credential demo pada production.
-
-## Konfigurasi environment SPMB
-
-Contoh konfigurasi operasional dari `.env.example`:
-
-```dotenv
-APP_TIMEZONE=Asia/Jakarta
-APP_LOCALE=id
-
-SPMB_UPLOAD_MAX_KB=5120
-SPMB_UPLOAD_REQUIRE_MALWARE_SCAN=false
-SPMB_CLAMAV_BINARY=clamscan
-SPMB_CLAMAV_TIMEOUT=30
-SPMB_MAIL_QUEUE=emails
-SPMB_NOTIFICATION_QUEUE=notifications
-SPMB_NOTIFICATION_POLLING=15s
-
-FILAMENT_SHIELD_CAPTCHA_TTL=300
-FILAMENT_SHIELD_CAPTCHA_MAX_ATTEMPTS=5
-FILAMENT_SHIELD_CAPTCHA_WIDTH=300
-FILAMENT_SHIELD_CAPTCHA_HEIGHT=64
-FILAMENT_SHIELD_CAPTCHA_LENGTH=5
-FILAMENT_SHIELD_CAPTCHA_MODE=custom
-FILAMENT_SHIELD_CAPTCHA_CHARSET=ABCDEFGHJKLMNPQRSTUVWXYZ23456789
-FILAMENT_SHIELD_CAPTCHA_CASE_SENSITIVE=false
+```bash
+php artisan migrate:fresh --seed
 ```
 
-Jika `SPMB_UPLOAD_REQUIRE_MALWARE_SCAN=true`, pastikan binary `clamscan` tersedia dan dapat dijalankan oleh user PHP/web server.
+Akun demo memakai domain `example.test` dan password demo hanya untuk local/testing.
+
+**Jangan menggunakan akun demo pada production.**
+
+## Production Deployment
+
+Deployment existing cukup melakukan upgrade schema/code tanpa menghapus data:
+
+```bash
+git pull origin main
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan optimize:clear
+php artisan config:cache
+```
+
+Jangan menjalankan:
+
+```bash
+php artisan migrate:fresh
+```
+
+pada database production.
+
+Menjalankan `php artisan db:seed --force` pada production hanya menjalankan reference seeder melalui `DatabaseSeeder`; demo data tidak dibuat.
 
 ## Queue
 
-Pada staging/production jalankan worker untuk antrean aplikasi, misalnya:
+Contoh worker:
 
 ```bash
-php artisan queue:work --queue=emails,notifications,default --tries=5
+php artisan queue:work --queue=emails,notifications,default --sleep=3 --tries=5 --timeout=120
 ```
 
-Gunakan Supervisor/systemd atau process manager lain agar worker selalu aktif.
+Pastikan queue worker dikelola oleh Supervisor/systemd atau process manager yang sesuai.
 
-## Pemeriksaan kualitas
+## PWA dan Web Push
 
-Sebelum rollout, minimal jalankan:
+PWA menggunakan service worker untuk installability dan push notification. Halaman authenticated tidak disimpan ke cache offline.
+
+Generate VAPID key satu kali pada deployment:
+
+```bash
+php artisan webpush:vapid
+```
+
+Kemudian simpan:
+
+```env
+VAPID_SUBJECT=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+```
+
+Jangan mengganti VAPID key pada setiap deployment karena subscription browser existing bergantung pada key tersebut.
+
+## Session
+
+Aplikasi memakai satu session untuk:
+
+```text
+/login
+/admin
+/pendaftar
+/livewire
+```
+
+Karena itu cookie session selalu menggunakan path root `/`. Jangan mempersempit cookie hanya ke salah satu panel.
+
+## Branding dan White-label
+
+Source repository harus tetap netral.
+
+Aturan:
+
+- jangan hard-code nama institusi;
+- jangan hard-code domain institusi;
+- jangan menjadikan kode unit milik satu deployment sebagai business rule;
+- gunakan `institution_type`, relasi database, dan configuration;
+- data demo memakai identitas fiktif;
+- branding production berasal dari environment/configuration dan data unit.
+
+CI memiliki regression test yang memeriksa agar deployment-specific branding tidak kembali masuk ke source repository.
+
+## Testing
+
+Jalankan:
 
 ```bash
 php artisan test
-vendor/bin/pint --test
-npm run build
 ```
 
-Suite pengujian mencakup antara lain isolasi unit, konfigurasi versi, custom field/document, pembayaran dan nomor registrasi, data wilayah Indonesia, penjadwalan tes, kapasitas sesi, kartu tes, hasil tes, seleksi, pengumuman, daftar ulang, private file, UUID publik, notifikasi, role Admin Unit/TU, dan authorization.
+CI juga menjalankan dependency resolution, frontend build, migration, seeding untuk testing, dan full test suite.
 
-## Catatan production
+## Keamanan
 
-Sebelum production, pastikan `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL` dan timezone benar, database sudah dibackup, mail/queue terkonfigurasi, storage persisten, worker aktif, permission storage sesuai, HTTPS aktif, dan credential demo tidak digunakan.
+Beberapa prinsip yang diterapkan:
 
-Deploy database menggunakan migrasi normal tanpa `migrate:fresh`:
+- CSRF tetap aktif;
+- cookie session berlaku lintas panel melalui path root;
+- file pendaftar tidak dibuat public secara langsung;
+- PWA tidak cache halaman authenticated;
+- role dan permission dipisahkan dengan Spatie Permission;
+- consent disimpan sebagai snapshot audit;
+- Web Push bersifat opt-in per perangkat.
 
-```bash
-php artisan migrate --force
-php artisan optimize
+## Struktur Portal
+
+```text
+Public
+├── /
+├── /penerimaan/...
+├── /legal/terms
+├── /legal/privacy
+└── /login
+        │
+        ├── staff      → /admin
+        └── pendaftar  → /pendaftar
 ```
 
-Jika upgrade dari versi sebelum pemisahan Admin Unit/TU, jalankan juga:
+Panel admin dan pendaftar tetap terpisah walaupun menggunakan satu gateway login.
 
-```bash
-php artisan db:seed --class=AdminUnitRoleSeeder
-```
+## Lisensi
 
-Jika frontend berubah, build asset production dengan `npm run build` sebelum switch release.
-
-## Status aplikasi
-
-Core flow SPMB dari konfigurasi unit, pendaftaran, pembayaran, nomor registrasi, dokumen, tes, hasil tes, seleksi, pengumuman, admission offer, hingga daftar ulang sudah tersedia dan dilindungi oleh test suite. Pengembangan berikutnya sebaiknya tetap mempertahankan versioned configuration, isolasi antarunit, private file access, permission berbasis Shield, dan perubahan state melalui service/action domain yang terkontrol.
+Tentukan lisensi repository sesuai kebijakan pemilik project sebelum distribusi publik.
