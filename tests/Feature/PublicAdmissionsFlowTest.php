@@ -62,6 +62,7 @@ class PublicAdmissionsFlowTest extends TestCase
         $unit = $this->schoolUnit([
             'description' => 'Penerimaan resmi SMA Contoh.',
             'public_contact_name' => 'Panitia SMA',
+            'public_email' => 'sma@example.test',
         ]);
         $open = $this->opening($unit);
         $upcoming = $this->opening($unit, [
