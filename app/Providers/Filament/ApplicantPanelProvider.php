@@ -61,9 +61,10 @@ class ApplicantPanelProvider extends PanelProvider
                     ->imageProvider(LocalLoginBackgrounds::make('images/login-pendaftar')),
             ])
             ->sidebarCollapsibleOnDesktop()
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('pwa.meta'))
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn () => view('components.file-preview-modal'),
+                fn () => view('components.panel-body-end'),
             )
             ->middleware([
                 EncryptCookies::class,
