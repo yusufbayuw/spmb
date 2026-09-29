@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PwaAssetsTest extends TestCase
 {
+    use RefreshDatabase;
     public function test_manifest_defines_installable_application_scope_and_icons(): void
     {
         $manifest = json_decode(
