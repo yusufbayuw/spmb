@@ -15,6 +15,7 @@ return [
         'foundation_address' => env('SPMB_FOUNDATION_ADDRESS'),
         'service_hours' => env('SPMB_FOUNDATION_SERVICE_HOURS'),
         'logo_path' => env('SPMB_PORTAL_LOGO_PATH'),
+        'theme_color' => env('SPMB_THEME_COLOR', '#2563eb'),
     ],
 
     'uploads' => [
