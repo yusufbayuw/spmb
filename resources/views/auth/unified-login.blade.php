@@ -7,7 +7,7 @@
                 :subheading="null"
             />
 
-            <form method="POST" action="{{ route('login.store') }}" class="grid gap-y-6">
+            <form method="POST" action="{{ route('login.store', absolute: false) }}" class="grid gap-y-6">
                 @csrf
 
                 <x-filament-forms::field-wrapper
@@ -47,7 +47,7 @@
 
                     <div class="mt-2 text-end">
                         <a
-                            href="{{ route('password.request') }}"
+                            href="{{ route('password.request', absolute: false) }}"
                             class="text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
                         >
                             Lupa kata sandi?
@@ -111,7 +111,7 @@
             <p class="text-center text-sm text-gray-500 dark:text-gray-400">
                 atau
                 <a
-                    href="{{ route('register') }}"
+                    href="{{ route('register', absolute: false) }}"
                     class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
                 >
                     buat akun baru
@@ -134,7 +134,7 @@
                 button.disabled = true;
 
                 try {
-                    const response = await fetch(@js(route('login.captcha')), {
+                    const response = await fetch(@js(route('login.captcha', absolute: false)), {
                         credentials: 'same-origin',
                         headers: { Accept: 'application/json' },
                     });
