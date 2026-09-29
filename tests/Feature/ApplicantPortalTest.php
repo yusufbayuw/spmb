@@ -28,16 +28,17 @@ class ApplicantPortalTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_legacy_auth_urls_redirect_to_canonical_applicant_portal(): void
+    public function test_unified_login_and_applicant_account_routes_are_available(): void
     {
-        $this->get('/login')->assertRedirect('/pendaftar/login');
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Masuk ke SPMB Taruna Bakti');
+
+        $this->get('/admin/login')->assertRedirect('/login');
+        $this->get('/pendaftar/login')->assertRedirect('/login');
         $this->get('/register')->assertRedirect('/pendaftar/register');
         $this->get('/forgot-password')->assertRedirect('/pendaftar/password-reset/request');
-    }
 
-    public function test_canonical_applicant_auth_pages_are_available(): void
-    {
-        $this->get('/pendaftar/login')->assertOk();
         $this->get('/pendaftar/register')
             ->assertOk()
             ->assertSee('Nama Lengkap');
