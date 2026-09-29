@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -554,6 +555,11 @@ class Registration extends Model
     public function parentInfo()
     {
         return $this->hasOne(ParentInfo::class);
+    }
+
+    public function consent(): HasOne
+    {
+        return $this->hasOne(RegistrationConsent::class);
     }
 
     public function documents()

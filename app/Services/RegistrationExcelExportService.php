@@ -178,6 +178,8 @@ class RegistrationExcelExportService
             'Telepon Ibu',
             'Email Ibu',
             'Penghasilan Ibu',
+            'Persetujuan Data Pribadi',
+            'Tanggal Persetujuan',
             'Catatan Validasi',
         ];
 
@@ -200,6 +202,7 @@ class RegistrationExcelExportService
             'pathway',
             'parentInfo',
             'configuration',
+            'consent',
         ]);
 
         foreach ($dataQuery->lazy(500) as $registration) {
@@ -265,6 +268,10 @@ class RegistrationExcelExportService
                 $parent?->mother_phone ?: '-',
                 $parent?->mother_email ?: '-',
                 $parent?->mother_income ?: '-',
+                $registration->consent
+                    ? 'Ya'
+                    : ((bool) data_get($configuration?->pre_form_consent, 'enabled', true) ? 'Belum tercatat' : 'Tidak diwajibkan'),
+                $registration->consent?->accepted_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?: '-',
                 $registration->data_validation_notes ?: '-',
             ];
 

@@ -7,12 +7,16 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\RegistrationConsentService;
 use App\Services\RegistrationRegionService;
 use App\Services\RegistrationSupplementalDataService;
 use App\Services\UnitConfigurationService;
 use Filament\Actions\Action;
+use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Enums\MaxWidth;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -28,9 +32,15 @@ class CreateRegistration extends CreateRecord
 
     private array $validatedAchievements = [];
 
+    private ?int $validatedPrivacyConsentId = null;
+
     public ?string $openingUuid = null;
 
     public ?string $configurationUuid = null;
+
+    public ?string $privacyConsentUuid = null;
+
+    public array $privacyConsentPresentation = [];
 
     public function mount(): void
     {
@@ -66,6 +76,82 @@ class CreateRegistration extends CreateRecord
             'unit_uuid' => $opening->unit->uuid,
             'registrant_type' => 'parent',
         ]);
+
+        $consentService = app(RegistrationConsentService::class);
+        if ($consentService->isEnabled($configuration, $opening->unit)) {
+            $this->privacyConsentPresentation = $consentService->render($configuration, $opening);
+            $this->mountAction('privacyConsent');
+        }
+    }
+
+    public function privacyConsentAction(): Action
+    {
+        return Action::make('privacyConsent')
+            ->modalHeading(fn (): string => (string) ($this->privacyConsentPresentation['title'] ?? 'Persetujuan Privasi & Data Pribadi'))
+            ->modalDescription('Baca seluruh isi persetujuan sebelum melanjutkan ke formulir pendaftaran.')
+            ->modalContent(fn (): View => view('filament.applicant.registration-consent', [
+                'content' => (string) ($this->privacyConsentPresentation['content'] ?? ''),
+            ]))
+            ->form([
+                Forms\Components\Checkbox::make('accepted')
+                    ->label(fn (): string => (string) ($this->privacyConsentPresentation['confirmation_text'] ?? 'Saya telah membaca dan menyetujui persetujuan di atas.'))
+                    ->accepted()
+                    ->required(),
+            ])
+            ->modalSubmitActionLabel('Saya Setuju & Lanjutkan')
+            ->modalCancelAction(false)
+            ->modalCloseButton(false)
+            ->closeModalByClickingAway(false)
+            ->closeModalByEscaping(false)
+            ->modalWidth(MaxWidth::FourExtraLarge)
+            ->action(function (array $data): void {
+                if (! (bool) ($data['accepted'] ?? false)) {
+                    throw ValidationException::withMessages([
+                        'accepted' => 'Anda harus menyetujui persetujuan sebelum melanjutkan.',
+                    ]);
+                }
+
+                [$opening, $configuration] = $this->currentConsentContext();
+                $consent = app(RegistrationConsentService::class)->accept(
+                    auth()->user(),
+                    $opening,
+                    $configuration,
+                    request()->ip(),
+                    request()->userAgent(),
+                );
+
+                $this->privacyConsentUuid = $consent->uuid;
+            });
+    }
+
+    /**
+     * @return array{RegistrationOpening, \App\Models\UnitConfiguration}
+     */
+    private function currentConsentContext(): array
+    {
+        $opening = RegistrationOpening::query()
+            ->forOperationalMode()
+            ->with('unit')
+            ->where('uuid', $this->openingUuid)
+            ->first();
+
+        abort_unless($opening?->isOpen(), 403, 'Pendaftaran ini sedang tidak dibuka.');
+
+        $configuration = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
+        if (! $configuration || $configuration->uuid !== $this->configurationUuid) {
+            Notification::make()
+                ->warning()
+                ->title('Konfigurasi pendaftaran berubah')
+                ->body('Muat ulang halaman untuk membaca dan menyetujui persetujuan terbaru.')
+                ->persistent()
+                ->send();
+
+            throw ValidationException::withMessages([
+                'accepted' => 'Konfigurasi berubah. Muat ulang halaman sebelum menyetujui.',
+            ]);
+        }
+
+        return [$opening, $configuration];
     }
 
     /**
@@ -173,6 +259,33 @@ class CreateRegistration extends CreateRecord
         if (($data['unit_uuid'] ?? null) !== $opening->unit->uuid) {
             throw ValidationException::withMessages(['unit_uuid' => 'Unit pendaftaran tidak sesuai pembukaan yang dipilih.']);
         }
+
+        $this->validatedPrivacyConsentId = null;
+        $consentService = app(RegistrationConsentService::class);
+        if ($consentService->isEnabled($configuration, $opening->unit)) {
+            $consent = $consentService->pendingFor(
+                $this->privacyConsentUuid,
+                auth()->user(),
+                $opening,
+                $configuration,
+            );
+
+            if (! $consent) {
+                Notification::make()
+                    ->warning()
+                    ->title('Persetujuan diperlukan')
+                    ->body('Baca dan setujui persetujuan data pribadi sebelum mengirim formulir.')
+                    ->persistent()
+                    ->send();
+
+                throw ValidationException::withMessages([
+                    'privacy_consent' => 'Persetujuan data pribadi belum tercatat untuk formulir ini.',
+                ]);
+            }
+
+            $this->validatedPrivacyConsentId = $consent->id;
+        }
+
         $configuredForm = app(ConfiguredRegistrationForm::class);
 
         if ($configuredForm->hasActiveRegionFields($configuration)) {
@@ -228,6 +341,13 @@ class CreateRegistration extends CreateRecord
                 $this->validatedAcademicScores,
                 $this->validatedAchievements,
             );
+
+            if ($this->validatedPrivacyConsentId !== null) {
+                app(RegistrationConsentService::class)->attachToRegistration(
+                    $this->validatedPrivacyConsentId,
+                    $record,
+                );
+            }
 
             return $record;
         }, 5);

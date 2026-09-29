@@ -9,6 +9,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Services\RegistrationCardService;
+use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -159,6 +160,25 @@ class RegistrationResource extends Resource
                 ->relationship('parentInfo')
                 ->schema(ParentInfoFields::schema()),
 
+            Forms\Components\Section::make('Persetujuan Data Pribadi')
+                ->description('Snapshot naskah yang benar-benar disetujui pendaftar. Riwayat ini tidak berubah ketika template pada konfigurasi berikutnya diperbarui.')
+                ->schema([
+                    Forms\Components\Placeholder::make('privacy_consent_audit')
+                        ->label('')
+                        ->content(function (?Registration $record) {
+                            $consent = $record?->loadMissing(['consent.configuration'])->consent;
+
+                            return view('registration.consent-summary', [
+                                'consent' => $consent,
+                                'content' => $consent
+                                    ? app(RegistrationConsentService::class)->sanitizeHtml((string) $consent->content_snapshot)
+                                    : '',
+                            ]);
+                        })
+                        ->columnSpanFull(),
+                ])
+                ->hiddenOn('create'),
+
             Forms\Components\Section::make('Validasi')
                 ->description('TU dapat memvalidasi atau meminta revisi langsung dari halaman Edit Pendaftaran.')
                 ->columns(['default' => 1, 'md' => 2])
@@ -297,7 +317,7 @@ class RegistrationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway', 'configuration', 'academicScores', 'achievements']);
+        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway', 'configuration', 'academicScores', 'achievements', 'consent.configuration']);
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
         }
