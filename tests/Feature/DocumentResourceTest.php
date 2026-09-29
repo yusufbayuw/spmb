@@ -19,7 +19,7 @@ class DocumentResourceTest extends TestCase
     {
         $this->seed(ShieldSeeder::class);
         $unit = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'institution_type' => 'school',
             'is_active' => true,
@@ -75,7 +75,7 @@ class DocumentResourceTest extends TestCase
     public function test_document_display_name_uses_requirement_and_registration_number(): void
     {
         $unit = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA-NAME',
             'institution_type' => 'school',
             'is_active' => true,
