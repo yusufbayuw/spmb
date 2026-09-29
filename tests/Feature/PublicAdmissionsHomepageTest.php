@@ -48,7 +48,7 @@ class PublicAdmissionsHomepageTest extends TestCase
         $response = $this->get('/?kategori=sekolah');
 
         $response->assertOk();
-        $response->assertSee('Pendaftaran Taruna Bakti');
+        $response->assertSee('SPMB');
         $response->assertSee('Pilih jenjang dan pembukaan pendaftaran');
         $response->assertSee('Gelombang Aktif');
         $response->assertSee('Biaya Formulir');
@@ -92,8 +92,8 @@ class PublicAdmissionsHomepageTest extends TestCase
     public function test_university_filter_shows_program_level_opening(): void
     {
         $university = Unit::create([
-            'name' => 'Taruna Bakti University',
-            'code' => 'TBU',
+            'name' => 'Perguruan Tinggi Contoh',
+            'code' => 'PT',
             'institution_type' => 'university',
             'is_active' => true,
         ]);
@@ -121,14 +121,14 @@ class PublicAdmissionsHomepageTest extends TestCase
         $this->get('/?kategori=universitas&jenjang=S1')
             ->assertOk()
             ->assertSee('S1 Teknik Informatika')
-            ->assertSee('Taruna Bakti University')
+            ->assertSee('Perguruan Tinggi Contoh')
             ->assertSee('Rp 250.000');
     }
 
     private function schoolUnit(): Unit
     {
         return Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'institution_type' => 'school',
             'is_active' => true,
