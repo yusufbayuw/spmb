@@ -32,7 +32,7 @@ class ApplicantPortalTest extends TestCase
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Masuk ke SPMB Taruna Bakti');
+            ->assertSee('Masuk ke '.config('spmb.portal.name', 'SPMB'));
 
         $this->get('/admin/login')->assertRedirect('/login');
         $this->get('/pendaftar/login')->assertRedirect('/login');
@@ -80,8 +80,8 @@ class ApplicantPortalTest extends TestCase
     {
         $level = EducationLevel::query()->where('code', 'S1')->firstOrFail();
         $unit = Unit::create([
-            'name' => 'Taruna Bakti University',
-            'code' => 'TBU',
+            'name' => 'Perguruan Tinggi Contoh',
+            'code' => 'PT',
             'institution_type' => 'university',
             'is_active' => true,
         ]);
@@ -185,7 +185,7 @@ class ApplicantPortalTest extends TestCase
     public function test_unverified_applicant_cannot_create_registration_even_if_opening_exists(): void
     {
         $unit = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'is_active' => true,
         ]);
