@@ -11,6 +11,7 @@ use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\ApplicantVerifyEmail;
+use App\Services\AccountConsentService;
 use App\Services\ApplicantEmailVerificationUrl;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -51,11 +52,16 @@ class ApplicantPortalTest extends TestCase
         $method = new ReflectionMethod($page, 'handleRegistration');
         $method->setAccessible(true);
 
+        $policy = app(AccountConsentService::class)->current();
+
         /** @var User $user */
         $user = $method->invoke($page, [
             'name' => 'Orang Tua',
             'email' => 'orangtua@example.com',
             'password' => Hash::make('password'),
+            'account_consent_policy_uuid' => $policy->uuid,
+            'account_consent_accepted' => true,
+            'marketing_consent' => false,
         ]);
 
         $this->assertInstanceOf(Model::class, $user);
@@ -63,6 +69,10 @@ class ApplicantPortalTest extends TestCase
         $this->assertTrue($user->is_active);
         $this->assertTrue($user->hasRole('pendaftar'));
         $this->assertFalse($user->hasVerifiedEmail());
+        $this->assertSame(
+            ['privacy_policy', 'terms_of_service'],
+            $user->consents()->orderBy('consent_type')->pluck('consent_type')->all(),
+        );
     }
 
     public function test_higher_education_self_registration_still_shows_parent_data(): void
