@@ -8,12 +8,19 @@ use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Eloquent\Model;
+use Database\Seeders\Support\GuardsDemoEnvironment;
 use Illuminate\Database\Seeder;
 
 class PublicContentSeeder extends Seeder
 {
+    use GuardsDemoEnvironment;
+
     public function run(): void
     {
+        if ($this->shouldSkipDemoData()) {
+            return;
+        }
+
         $this->seedUnitProfilesAndFaqs();
 
         if (SpmbOperationalMode::allowsHigherEducation()) {
