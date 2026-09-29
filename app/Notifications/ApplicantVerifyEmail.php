@@ -13,9 +13,9 @@ class ApplicantVerifyEmail extends FilamentVerifyEmail
     public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Verifikasi Alamat Email | SPMB Taruna Bakti')
+            ->subject('Verifikasi Alamat Email | '.config('spmb.portal.name', 'SPMB'))
             ->markdown('mail.applicant-email-verification', [
-                'applicationName' => config('app.name', 'SPMB Taruna Bakti'),
+                'applicationName' => config('spmb.portal.name', config('app.name', 'SPMB')),
                 'expiresInMinutes' => (int) config('auth.verification.expire', 60),
                 'url' => $this->verificationUrl($notifiable),
             ]);
