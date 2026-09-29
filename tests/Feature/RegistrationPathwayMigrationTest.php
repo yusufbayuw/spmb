@@ -19,7 +19,7 @@ class RegistrationPathwayMigrationTest extends TestCase
         $migration->down();
 
         $unit = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'institution_type' => 'school',
             'is_active' => true,
