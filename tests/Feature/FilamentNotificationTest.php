@@ -304,7 +304,7 @@ class FilamentNotificationTest extends TestCase
     private function unit(string $code): Unit
     {
         return Unit::create([
-            'name' => $code.' Taruna Bakti',
+            'name' => $code.' Contoh',
             'code' => $code,
             'is_active' => true,
         ]);
