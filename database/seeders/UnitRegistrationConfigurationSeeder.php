@@ -6,12 +6,19 @@ use App\Models\Registration;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Services\UnitConfigurationService;
+use Database\Seeders\Support\GuardsDemoEnvironment;
 use Illuminate\Database\Seeder;
 
 class UnitRegistrationConfigurationSeeder extends Seeder
 {
+    use GuardsDemoEnvironment;
+
     public function run(): void
     {
+        if ($this->shouldSkipDemoData()) {
+            return;
+        }
+
         $service = app(UnitConfigurationService::class);
         Unit::query()->forOperationalMode()->each(function (Unit $unit) use ($service): void {
             if ($service->current($unit->id) || Registration::where('unit_id', $unit->id)->exists()) {
