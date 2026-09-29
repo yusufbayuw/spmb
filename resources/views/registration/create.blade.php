@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Pendaftaran - {{ config('spmb.portal.name', 'SPMB') }}')
+@section('title', 'Pendaftaran - '.config('spmb.portal.name', 'SPMB'))
 @section('content')
 <div class="max-w-4xl mx-auto space-y-6">
     <div><h1 class="text-2xl font-bold">Pendaftaran Calon Siswa</h1><p class="text-gray-600">Akun orang tua dapat mengirim lebih dari satu pendaftaran anak.</p></div>
