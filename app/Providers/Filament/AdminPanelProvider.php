@@ -30,7 +30,7 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()->id('admin')->path('admin')->login(Login::class)
-            ->brandName('SPMB Taruna Bakti')
+            ->brandName(config('spmb.portal.name', 'SPMB'))
             ->colors(['primary' => Color::Blue])
             ->databaseNotifications()
             ->databaseNotificationsPolling(config('spmb.notifications.polling', '15s'))
