@@ -6,14 +6,14 @@ return [
     ],
 
     'portal' => [
-        'name' => env('SPMB_PORTAL_NAME', 'Portal Penerimaan Taruna Bakti'),
-        'foundation_name' => env('SPMB_FOUNDATION_NAME', 'Yayasan Taruna Bakti'),
+        'name' => env('SPMB_PORTAL_NAME', env('APP_NAME', 'SPMB')),
+        'foundation_name' => env('SPMB_FOUNDATION_NAME', env('APP_NAME', 'Institusi Pendidikan')),
         'foundation_website' => env('SPMB_FOUNDATION_WEBSITE'),
         'foundation_email' => env('SPMB_FOUNDATION_EMAIL'),
         'foundation_phone' => env('SPMB_FOUNDATION_PHONE'),
         'foundation_whatsapp' => env('SPMB_FOUNDATION_WHATSAPP'),
-        'foundation_address' => env('SPMB_FOUNDATION_ADDRESS', 'Jl. L.L.R.E. Martadinata No. 52, Bandung'),
-        'service_hours' => env('SPMB_FOUNDATION_SERVICE_HOURS', 'Hari kerja 08.00–14.00 WIB'),
+        'foundation_address' => env('SPMB_FOUNDATION_ADDRESS'),
+        'service_hours' => env('SPMB_FOUNDATION_SERVICE_HOURS'),
         'logo_path' => env('SPMB_PORTAL_LOGO_PATH'),
     ],
 
