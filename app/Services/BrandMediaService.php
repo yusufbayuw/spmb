@@ -3,8 +3,9 @@
 namespace App\Services;
 
 use Illuminate\Filesystem\FilesystemAdapter;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class BrandMediaService
 {
@@ -52,16 +53,20 @@ class BrandMediaService
 
         $disk = $this->disk();
 
-        if (! $disk->exists($path)) {
+        try {
+            if (! $disk->exists($path)) {
+                return null;
+            }
+
+            return [
+                'name' => basename($path),
+                'size' => (int) $disk->size($path),
+                'type' => $disk->mimeType($path) ?: null,
+                'url' => $this->url($path),
+            ];
+        } catch (Throwable) {
             return null;
         }
-
-        return [
-            'name' => basename($path),
-            'size' => (int) $disk->size($path),
-            'type' => $disk->mimeType($path) ?: null,
-            'url' => $this->url($path),
-        ];
     }
 
     public function response(string $path): StreamedResponse
