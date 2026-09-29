@@ -88,7 +88,7 @@ class Login extends ApplicantLogin
 
     public function getHeading(): string | Htmlable
     {
-        return 'Masuk ke SPMB Taruna Bakti';
+        return 'Masuk ke '.config('spmb.portal.name', 'SPMB');
     }
 
     public function getTitle(): string | Htmlable
