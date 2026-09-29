@@ -12,6 +12,7 @@ use App\Services\RegistrationRegionService;
 use App\Services\RegistrationSupplementalDataService;
 use App\Services\UnitConfigurationService;
 use Filament\Actions\Action;
+use Filament\Actions\StaticAction;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -99,7 +100,12 @@ class CreateRegistration extends CreateRecord
                     ->required(),
             ])
             ->modalSubmitActionLabel('Saya Setuju & Lanjutkan')
-            ->modalCancelAction(false)
+            ->modalCancelAction(fn (StaticAction $action): StaticAction => $action
+                ->label('Kembali')
+                ->color('gray')
+                ->url(fn (): string => route('admissions.show', [
+                    'registrationOpening' => $this->openingUuid,
+                ])))
             ->modalCloseButton(false)
             ->closeModalByClickingAway(false)
             ->closeModalByEscaping(false)
