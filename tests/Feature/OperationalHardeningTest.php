@@ -108,7 +108,7 @@ class OperationalHardeningTest extends TestCase
     private function registrationFixture(string $code, string $nik, string $role = 'staff'): array
     {
         $unit = Unit::create([
-            'name' => $code.' Taruna Bakti',
+            'name' => $code.' Contoh',
             'code' => $code,
             'is_active' => true,
         ]);
