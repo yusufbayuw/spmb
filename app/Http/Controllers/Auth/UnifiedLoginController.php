@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\UnifiedLoginRequest;
 use App\Models\User;
 use App\Services\PortalDestinationService;
 use App\Services\UnifiedLoginCaptcha;
+use Illuminate\Auth\Events\Lockout;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -42,19 +45,59 @@ class UnifiedLoginController extends Controller
     }
 
     public function store(
-        UnifiedLoginRequest $request,
+        Request $request,
         PortalDestinationService $destinations,
         UnifiedLoginCaptcha $captcha,
     ): RedirectResponse {
         try {
-            $request->authenticate();
+            $data = $request->validate([
+                'email' => ['required', 'string', 'max:255'],
+                'password' => ['required', 'string'],
+                'captcha' => ['required', $captcha->rule()],
+            ], attributes: [
+                'email' => 'email atau username',
+                'captcha' => 'kode keamanan',
+            ]);
         } catch (ValidationException $exception) {
-            $captcha->images(refresh: true);
-
             throw $exception;
         }
 
-        $request->session()->regenerate();
+        $throttleKey = $this->throttleKey($request);
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            event(new Lockout($request));
+
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'email' => trans('auth.throttle', [
+                    'seconds' => $seconds,
+                    'minutes' => ceil($seconds / 60),
+                ]),
+            ]);
+        }
+
+        $login = trim((string) $data['email']);
+        $attribute = str_contains($login, '@') ? 'email' : 'username';
+
+        if ($attribute === 'username') {
+            $login = mb_strtolower($login);
+        }
+
+        if (! Auth::attempt([
+            $attribute => $login,
+            'password' => (string) $data['password'],
+            'is_active' => true,
+        ], $request->boolean('remember'))) {
+            RateLimiter::hit($throttleKey);
+            $captcha->images(refresh: true);
+
+            throw ValidationException::withMessages([
+                'email' => trans('auth.failed'),
+            ]);
+        }
+
+        RateLimiter::clear($throttleKey);
 
         $user = Auth::user();
 
@@ -67,6 +110,8 @@ class UnifiedLoginController extends Controller
             ]);
         }
 
+        $request->session()->regenerate();
+
         $intended = $request->session()->get('url.intended');
 
         if (! $destinations->intendedUrlIsAllowed(
@@ -77,5 +122,12 @@ class UnifiedLoginController extends Controller
         }
 
         return redirect()->intended($destination);
+    }
+
+    private function throttleKey(Request $request): string
+    {
+        return Str::transliterate(
+            Str::lower(trim((string) $request->input('email'))).'|'.$request->ip(),
+        );
     }
 }
