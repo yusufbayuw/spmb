@@ -28,20 +28,21 @@ class AuthCaptchaTest extends TestCase
         $this->assertSame(ResetPassword::class, $applicant->getResetPasswordRouteAction());
     }
 
-    public function test_admin_login_renders_local_captcha(): void
+    public function test_panel_login_urls_redirect_to_unified_login_with_local_captcha(): void
     {
-        $this->get('/admin/login')
+        $this->get('/admin/login')->assertRedirect('/login');
+        $this->get('/pendaftar/login')->assertRedirect('/login');
+
+        $this->get('/login')
             ->assertOk()
             ->assertSee('Kode Keamanan')
-            ->assertSee('fi-fo-shield-captcha', false)
-            ->assertSee('wire:model="data.captcha"', false)
-            ->assertSee('fi-input block w-full', false);
+            ->assertSee('login-captcha-image', false)
+            ->assertSee('refresh-login-captcha', false);
     }
 
-    public function test_applicant_login_registration_and_reset_request_render_local_captcha(): void
+    public function test_applicant_registration_and_reset_request_keep_local_captcha(): void
     {
         foreach ([
-            '/pendaftar/login',
             '/pendaftar/register',
             '/pendaftar/password-reset/request',
         ] as $url) {
@@ -50,6 +51,14 @@ class AuthCaptchaTest extends TestCase
                 ->assertSee('Kode Keamanan')
                 ->assertSee('fi-fo-shield-captcha', false);
         }
+    }
+
+    public function test_unified_login_captcha_can_be_refreshed(): void
+    {
+        $this->get('/login/captcha')
+            ->assertOk()
+            ->assertJsonStructure(['light', 'dark'])
+            ->assertJsonPath('light', fn ($value) => is_string($value) && str_starts_with($value, 'data:image/'));
     }
 
     public function test_applicant_reset_password_page_renders_local_captcha(): void
