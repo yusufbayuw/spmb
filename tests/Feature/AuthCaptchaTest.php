@@ -37,7 +37,7 @@ class AuthCaptchaTest extends TestCase
             ->assertOk()
             ->assertSee('Kode Keamanan')
             ->assertSee('unified-login-captcha-image', false)
-            ->assertSee('action="'.route('login.store').'"', false)
+            ->assertSee('action="/login"', false)
             ->assertDontSee('wire:submit', false);
     }
 
