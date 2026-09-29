@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\Auth\Login;
 use App\Http\Middleware\RedirectLegacyPanelLogin;
+use App\Services\AppBrandingService;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -30,7 +31,9 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()->id('admin')->path('admin')->login(Login::class)
-            ->brandName(config('spmb.portal.name', 'SPMB'))
+            ->brandName(fn (): string => app(AppBrandingService::class)->portalName())
+            ->brandLogo(fn (): ?string => app(AppBrandingService::class)->logoUrl())
+            ->brandLogoHeight('2.5rem')
             ->colors(['primary' => Color::Blue])
             ->databaseNotifications()
             ->databaseNotificationsPolling(config('spmb.notifications.polling', '15s'))
