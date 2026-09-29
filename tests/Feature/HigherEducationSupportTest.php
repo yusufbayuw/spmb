@@ -28,31 +28,31 @@ class HigherEducationSupportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_seeders_create_tbu_with_seven_study_programs_and_openings(): void
+    public function test_seeders_create_university_with_seven_study_programs_and_openings(): void
     {
         $this->seed(UnitSeeder::class);
         $this->seed(StudyProgramSeeder::class);
         $this->seed(RegistrationOpeningSeeder::class);
 
-        $tbu = Unit::query()->where('code', 'TBU')->firstOrFail();
+        $university = Unit::query()->where('institution_type', 'university')->firstOrFail();
 
-        $this->assertTrue($tbu->isHigherEducation());
-        $this->assertSame(7, StudyProgram::query()->where('unit_id', $tbu->id)->count());
+        $this->assertTrue($university->isHigherEducation());
+        $this->assertSame(7, StudyProgram::query()->where('unit_id', $university->id)->count());
         $this->assertSame(7, RegistrationOpening::query()
-            ->where('unit_id', $tbu->id)
+            ->where('unit_id', $university->id)
             ->whereNotNull('study_program_id')
             ->where('status', 'open')
             ->count());
 
         $this->assertDatabaseHas('study_programs', [
-            'unit_id' => $tbu->id,
+            'unit_id' => $university->id,
             'code' => 'S1-IF',
             'name' => 'Informatika',
             'degree_level' => 'S1',
             'max_age' => 26,
         ]);
         $this->assertDatabaseHas('study_programs', [
-            'unit_id' => $tbu->id,
+            'unit_id' => $university->id,
             'code' => 'D3-PM',
             'name' => 'Penyaji Musik',
             'degree_level' => 'D3',
@@ -63,7 +63,7 @@ class HigherEducationSupportTest extends TestCase
     public function test_study_programs_and_university_openings_enforce_institution_boundaries(): void
     {
         $school = Unit::create([
-            'name' => 'SMA Taruna Bakti',
+            'name' => 'SMA Contoh',
             'code' => 'SMA',
             'institution_type' => 'school',
             'is_active' => true,
@@ -109,8 +109,8 @@ class HigherEducationSupportTest extends TestCase
 
         try {
             $unit = Unit::create([
-                'name' => 'Taruna Bakti University',
-                'code' => 'TBU',
+                'name' => 'Perguruan Tinggi Contoh',
+                'code' => 'PT',
                 'institution_type' => 'university',
                 'is_active' => true,
             ]);
@@ -141,8 +141,8 @@ class HigherEducationSupportTest extends TestCase
     public function test_parent_can_submit_a_university_registration(): void
     {
         $unit = Unit::create([
-            'name' => 'Taruna Bakti University',
-            'code' => 'TBU',
+            'name' => 'Perguruan Tinggi Contoh',
+            'code' => 'PT',
             'institution_type' => 'university',
             'is_active' => true,
         ]);
@@ -316,8 +316,8 @@ class HigherEducationSupportTest extends TestCase
     private function universityRegistrationFixture(): array
     {
         $unit = Unit::create([
-            'name' => 'Taruna Bakti University',
-            'code' => 'TBU',
+            'name' => 'Perguruan Tinggi Contoh',
+            'code' => 'PT',
             'institution_type' => 'university',
             'is_active' => true,
         ]);
