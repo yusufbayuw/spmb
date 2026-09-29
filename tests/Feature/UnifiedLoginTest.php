@@ -24,6 +24,11 @@ class UnifiedLoginTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
     }
 
+    public function test_session_cookie_is_root_scoped_for_unified_login_and_livewire(): void
+    {
+        $this->assertSame('/', config('session.path'));
+    }
+
     public function test_unified_login_page_is_native_filament_and_has_no_role_explanation_sentence(): void
     {
         $this->get('/login')
