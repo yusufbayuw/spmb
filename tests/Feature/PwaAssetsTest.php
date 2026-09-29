@@ -48,6 +48,10 @@ class PwaAssetsTest extends TestCase
                 ->assertSee('spmb-pwa-config', false);
         }
 
+        $this->get('/login')
+            ->assertSee('fi-simple-page', false)
+            ->assertDontSee('Satu halaman masuk untuk pendaftar, TU, Admin Unit, dan Super Admin.');
+
         $this->get('/admin/login')->assertRedirect('/login');
         $this->get('/pendaftar/login')->assertRedirect('/login');
     }
