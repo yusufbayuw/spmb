@@ -30,7 +30,7 @@ class UsernameAuthenticationTest extends TestCase
         Auth::logout();
 
         $this->assertTrue(Auth::attempt([
-            'email' => 'admin.sd@tarunabakti.sch.id',
+            'email' => 'admin.sd@example.test',
             'password' => 'password123',
         ]));
     }
