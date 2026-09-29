@@ -44,9 +44,9 @@ class ProductionSeederSafetyTest extends TestCase
         app()->detectEnvironment(fn (): string => 'production');
 
         try {
-            $this->seed(DatabaseSeeder::class);
-            $this->seed(DemoSeeder::class);
-            $this->seed(UnitSeeder::class);
+            $this->artisan('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true])->assertExitCode(0);
+            $this->artisan('db:seed', ['--class' => DemoSeeder::class, '--force' => true])->assertExitCode(0);
+            $this->artisan('db:seed', ['--class' => UnitSeeder::class, '--force' => true])->assertExitCode(0);
         } finally {
             app()->detectEnvironment(fn (): string => $originalEnvironment);
         }
