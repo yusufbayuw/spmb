@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#2563eb">
-    <title>{{ $status }} — {{ $title }} | SPMB Taruna Bakti</title>
+    <title>{{ $status }} — {{ $title }} | {{ config('spmb.portal.name', 'SPMB') }}</title>
     <style>
         :root {
             color-scheme: light dark;
@@ -201,9 +201,9 @@
 </head>
 <body>
     <main class="shell">
-        <div class="brand" aria-label="SPMB Taruna Bakti">
+        <div class="brand" aria-label="{{ config('spmb.portal.name', 'SPMB') }}">
             <span class="brand-mark" aria-hidden="true">TB</span>
-            <span>SPMB Taruna Bakti</span>
+            <span>{{ config('spmb.portal.name', 'SPMB') }}</span>
         </div>
 
         <section class="card" aria-labelledby="error-title">
@@ -231,7 +231,7 @@
             @endif
         </section>
 
-        <div class="footer">Sistem Penerimaan Murid Baru Taruna Bakti</div>
+        <div class="footer">Sistem Penerimaan Murid/Mahasiswa Baru</div>
     </main>
 </body>
 </html>
