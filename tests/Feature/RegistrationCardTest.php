@@ -132,10 +132,10 @@ class RegistrationCardTest extends TestCase
     private function fixture(): array
     {
         $unit = Unit::create([
-            'name' => 'SMP Taruna Bakti Dengan Nama Unit Panjang',
+            'name' => 'Sekolah Menengah Contoh Dengan Nama Unit Panjang',
             'code' => 'SMP',
             'institution_type' => 'school',
-            'public_address' => 'Jl. L.L.R.E. Martadinata No. 52 Bandung',
+            'public_address' => 'Jl. Pendidikan No. 10 Bandung',
             'is_active' => true,
         ]);
 
