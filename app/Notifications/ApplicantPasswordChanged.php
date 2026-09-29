@@ -32,9 +32,9 @@ class ApplicantPasswordChanged extends Notification implements ShouldQueue
     public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Kata Sandi Berhasil Diubah | SPMB Taruna Bakti')
+            ->subject('Kata Sandi Berhasil Diubah | '.config('spmb.portal.name', 'SPMB'))
             ->markdown('mail.applicant-password-changed', [
-                'applicationName' => config('app.name', 'SPMB Taruna Bakti'),
+                'applicationName' => config('spmb.portal.name', config('app.name', 'SPMB')),
             ]);
     }
 }
