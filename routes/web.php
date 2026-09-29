@@ -4,7 +4,8 @@ use App\Http\Controllers\AdmissionOfferController;
 use App\Http\Controllers\AdmissionQrCodeController;
 use App\Http\Controllers\Auth\ApplicantEmailVerificationController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\LegalPolicyController;
+use App\Filament\Legal\Pages\Privacy as PrivacyPolicyPage;
+use App\Filament\Legal\Pages\Terms as TermsPolicyPage;
 use App\Http\Controllers\OperationalReportController;
 use App\Http\Controllers\PrivateApplicantFileController;
 use App\Http\Controllers\PushSubscriptionController;
@@ -14,11 +15,16 @@ use App\Http\Controllers\RegistrationPrintController;
 use App\Http\Controllers\StartRegistrationController;
 use App\Http\Middleware\EnsureApplicantEmailIsVerified;
 use App\Services\PortalDestinationService;
+use Filament\Http\Middleware\SetUpPanel;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
-Route::get('/legal/terms', [LegalPolicyController::class, 'terms'])->name('legal.terms');
-Route::get('/legal/privacy', [LegalPolicyController::class, 'privacy'])->name('legal.privacy');
+Route::get('/legal/terms', TermsPolicyPage::class)
+    ->middleware(SetUpPanel::class.':pendaftar')
+    ->name('legal.terms');
+Route::get('/legal/privacy', PrivacyPolicyPage::class)
+    ->middleware(SetUpPanel::class.':pendaftar')
+    ->name('legal.privacy');
 Route::get('/penerimaan/unit/{unit:code}/qr.svg', [AdmissionQrCodeController::class, 'unit'])->name('admissions.unit.qr');
 Route::get('/penerimaan/unit/{unit:code}', PublicUnitAdmissionsController::class)->name('admissions.unit');
 Route::get('/penerimaan/{registrationOpening}/qr.svg', [AdmissionQrCodeController::class, 'opening'])->whereUuid('registrationOpening')->name('admissions.qr');
