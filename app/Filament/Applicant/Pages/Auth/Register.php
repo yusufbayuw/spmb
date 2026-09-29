@@ -43,7 +43,12 @@ class Register extends BaseRegister
                 ->schema([
                     Forms\Components\Checkbox::make('account_consent_accepted')
                         ->label(new HtmlString(
-                            'Saya menyetujui <a class="font-medium text-primary-600 underline" href="'.e(route('legal.terms')).'" target="_blank" rel="noopener noreferrer">Ketentuan Penggunaan</a> dan telah membaca <a class="font-medium text-primary-600 underline" href="'.e(route('legal.privacy')).'" target="_blank" rel="noopener noreferrer">Kebijakan Privasi</a> Platform SPMB.'
+                            e((string) $policy->required_confirmation_text)
+                            .' <span class="text-gray-500">('
+                            .'<a class="font-medium text-primary-600 underline" href="'.e(route('legal.terms')).'" target="_blank" rel="noopener noreferrer">Ketentuan Penggunaan</a>'
+                            .' · '
+                            .'<a class="font-medium text-primary-600 underline" href="'.e(route('legal.privacy')).'" target="_blank" rel="noopener noreferrer">Kebijakan Privasi</a>'
+                            .')</span>'
                         ))
                         ->accepted()
                         ->required()
