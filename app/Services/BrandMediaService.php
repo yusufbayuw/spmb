@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Filesystem\FilesystemAdapter;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Storage;
 
 class BrandMediaService
@@ -64,7 +64,7 @@ class BrandMediaService
         ];
     }
 
-    public function response(string $path): Response
+    public function response(string $path): StreamedResponse
     {
         $path = ltrim($path, '/');
 
