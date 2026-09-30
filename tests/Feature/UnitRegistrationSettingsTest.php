@@ -137,6 +137,35 @@ class UnitRegistrationSettingsTest extends TestCase
     }
 
 
+    public function test_admin_unit_can_configure_applicant_card_header(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSee('Kartu Pendaftaran')
+            ->assertSee('Label Header Kartu')
+            ->assertSee('Judul Header Kartu')
+            ->assertSee('Tahun Ajaran {{ tahun_ajaran }}')
+            ->fillForm([
+                'applicant_card_header_label' => 'KARTU PESERTA',
+                'applicant_card_header_title' => 'SD Taruna Bakti',
+            ])
+            ->call('publish')
+            ->assertHasNoFormErrors();
+
+        $published = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'published')
+            ->latest('version')
+            ->firstOrFail();
+
+        $this->assertSame('KARTU PESERTA', $published->applicant_card_header_label);
+        $this->assertSame('SD Taruna Bakti', $published->applicant_card_header_title);
+    }
+
     public function test_admin_unit_can_configure_versioned_pre_form_consent(): void
     {
         [$unit, $staff] = $this->fixture();
