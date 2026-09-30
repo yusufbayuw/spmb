@@ -29,7 +29,11 @@ class AdmissionTestResource extends Resource
     {
         return $form->schema([
             Forms\Components\Select::make('unit_id')
-                ->relationship('unit', 'name')
+                ->relationship(
+                    'unit',
+                    'name',
+                    fn (Builder $query): Builder => $query->operational(),
+                )
                 ->label('Unit / Institusi')
                 ->default(fn () => auth()->user()?->isTU() ? auth()->user()->unit_id : null)
                 ->disabled(fn () => auth()->user()?->isTU() ?? false)
@@ -47,7 +51,7 @@ class AdmissionTestResource extends Resource
                     ->get()
                     ->mapWithKeys(fn (StudyProgram $program): array => [$program->id => $program->label()])
                     ->all())
-                ->visible(fn (Forms\Get $get): bool => filled($get('unit_id')) && Unit::query()->whereKey($get('unit_id'))->where('institution_type', 'university')->exists())
+                ->visible(fn (Forms\Get $get): bool => filled($get('unit_id')) && Unit::query()->operational()->whereKey($get('unit_id'))->where('institution_type', 'university')->exists())
                 ->searchable()
                 ->preload(),
             Forms\Components\TextInput::make('name')->label('Nama Tes')->maxLength(150)->required(),
