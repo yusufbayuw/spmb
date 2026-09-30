@@ -108,9 +108,21 @@ class Unit extends Model
         return $query->whereIn('institution_type', SpmbOperationalMode::allowedInstitutionTypes());
     }
 
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query
+            ->forOperationalMode()
+            ->where('is_active', true);
+    }
+
     public function isAllowedByOperationalMode(): bool
     {
         return SpmbOperationalMode::allowsInstitutionType($this->institution_type);
+    }
+
+    public function isOperational(): bool
+    {
+        return $this->is_active && $this->isAllowedByOperationalMode();
     }
 
     public function educationLevel(): BelongsTo
