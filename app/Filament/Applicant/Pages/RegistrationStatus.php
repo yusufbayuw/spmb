@@ -24,6 +24,7 @@ class RegistrationStatus extends Page
         abort_unless(Str::isUuid($registration), 404);
         $this->registrationRecord = Registration::query()
             ->where('user_id', auth()->id())
+            ->whereHas('unit', fn ($unitQuery) => $unitQuery->operational())
             ->with([
                 'configuration',
                 'receipts',
