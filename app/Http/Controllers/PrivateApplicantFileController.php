@@ -138,9 +138,13 @@ class PrivateApplicantFileController extends Controller
     ): void {
         abort_unless($user?->is_active && $registration, 403);
 
+        $registration->loadMissing('unit');
+
         if ($user->isAdmin()) {
             return;
         }
+
+        abort_unless($registration->unit?->isOperational(), 404);
 
         if ($user->isTU()) {
             abort_unless(
