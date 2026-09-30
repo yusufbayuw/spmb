@@ -90,7 +90,7 @@ class RegistrationCardTest extends TestCase
                 'version' => 99,
                 'status' => 'published',
                 'applicant_card_header_label' => 'KARTU PESERTA',
-                'applicant_card_header_title' => 'SMP Taruna Bakti',
+                'applicant_card_header_title' => 'SMP Contoh',
                 'published_at' => now(),
                 'legacy' => false,
             ],
@@ -105,7 +105,7 @@ class RegistrationCardTest extends TestCase
             ->get(route('registration.card', $registration))
             ->assertOk()
             ->assertSee('KARTU PESERTA')
-            ->assertSee('SMP Taruna Bakti')
+            ->assertSee('SMP Contoh')
             ->assertSee('Tahun Ajaran 2026/2027')
             ->assertSee('SMP-0050')
             ->assertDontSee('KARTU-SMP-0050')
