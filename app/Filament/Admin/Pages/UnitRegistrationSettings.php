@@ -61,7 +61,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function mount(): void
     {
         abort_unless(static::canAccess(), 403);
-        $this->unitUuid = auth()->user()->isTU() ? auth()->user()->unit?->uuid : Unit::query()->value('uuid');
+        $this->unitUuid = auth()->user()->isAdminUnit()
+            ? auth()->user()->unit?->uuid
+            : Unit::query()->forOperationalMode()->orderBy('name')->value('uuid');
         if ($this->unitUuid) {
             $this->loadUnit();
         }
@@ -69,7 +71,12 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public function units(): array
     {
-        return Unit::query()->when(auth()->user()->isTU(), fn ($q) => $q->whereKey(auth()->user()->unit_id))->pluck('name', 'uuid')->all();
+        return Unit::query()
+            ->forOperationalMode()
+            ->when(auth()->user()->isAdminUnit(), fn ($query) => $query->whereKey(auth()->user()->unit_id))
+            ->orderBy('name')
+            ->pluck('name', 'uuid')
+            ->all();
     }
 
     public function loadUnit(): void
