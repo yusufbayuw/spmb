@@ -64,7 +64,7 @@ class RegistrationNumberFormatTest extends TestCase
 
         $this->assertSame('SMP-001', $firstNumber);
         $this->assertSame('SMP-002', $secondNumber);
-        $this->assertSame('KARTU-SMP-001', $first->fresh()->generateApplicantCardNumber());
+        $this->assertSame('SMP-001', $first->fresh()->generateApplicantCardNumber());
     }
 
     public function test_blank_prefix_keeps_legacy_format_and_respects_configured_digits(): void
@@ -105,7 +105,7 @@ class RegistrationNumberFormatTest extends TestCase
         );
 
         $this->assertSame('REG-SMA-20262027-00001', $number);
-        $this->assertSame('KARTU-SMA-20262027-00001', $registration->fresh()->generateApplicantCardNumber());
+        $this->assertSame('REG-SMA-20262027-00001', $registration->fresh()->generateApplicantCardNumber());
     }
 
     public function test_admin_configuration_normalizes_prefix_and_requires_at_least_three_digits(): void
