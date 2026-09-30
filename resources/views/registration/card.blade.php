@@ -89,6 +89,8 @@
         ->take(2)
         ->map(fn (string $word): string => mb_strtoupper(mb_substr($word, 0, 1)))
         ->implode('');
+    $headerTitleLineCount = max(1, count($card['headerTitleLines']));
+    $academicYearY = $headerTitleLineCount > 1 ? 174 : 140;
 @endphp
 
 <div class="toolbar">
@@ -152,7 +154,7 @@
             <text x="202" y="{{ 106 + ($index * 34) }}" fill="#fff" font-size="{{ $card['headerTitleFontSize'] }}" font-weight="800">{{ $line }}</text>
         @endforeach
 
-        <text x="202" y="169" fill="#dcecff" font-size="16" font-weight="600">{{ $card['academicYearText'] }}</text>
+        <text x="202" y="{{ $academicYearY }}" fill="#dcecff" font-size="22" font-weight="700">{{ $card['academicYearText'] }}</text>
 
         <g font-family="Arial, Helvetica, sans-serif">
             <text x="62" y="242" fill="#45637f" font-size="17" font-weight="700">No. Peserta</text>
