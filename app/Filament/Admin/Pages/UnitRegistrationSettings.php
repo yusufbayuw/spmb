@@ -54,8 +54,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->is_active
-            && (auth()->user()->isAdmin() || auth()->user()->isAdminUnit());
+        $user = auth()->user();
+
+        return (bool) $user?->is_active
+            && ($user->isAdmin() || ($user->isAdminUnit() && $user->hasOperationalUnitAccess()));
     }
 
     public function mount(): void
@@ -63,7 +65,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         abort_unless(static::canAccess(), 403);
         $this->unitUuid = auth()->user()->isAdminUnit()
             ? auth()->user()->unit?->uuid
-            : Unit::query()->forOperationalMode()->orderBy('name')->value('uuid');
+            : Unit::query()->operational()->orderBy('name')->value('uuid');
         if ($this->unitUuid) {
             $this->loadUnit();
         }
@@ -72,7 +74,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function units(): array
     {
         return Unit::query()
-            ->forOperationalMode()
+            ->operational()
             ->when(auth()->user()->isAdminUnit(), fn ($query) => $query->whereKey(auth()->user()->unit_id))
             ->orderBy('name')
             ->pluck('name', 'uuid')
@@ -1080,6 +1082,6 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     private function unitId(): ?int
     {
-        return Unit::query()->where('uuid', $this->unitUuid)->value('id');
+        return Unit::query()->operational()->where('uuid', $this->unitUuid)->value('id');
     }
 }
