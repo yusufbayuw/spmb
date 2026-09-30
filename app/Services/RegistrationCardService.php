@@ -52,6 +52,7 @@ class RegistrationCardService
     {
         $registration->loadMissing([
             'unit',
+            'configuration',
             'opening.studyProgram',
             'pathway',
             'documents',
@@ -61,6 +62,13 @@ class RegistrationCardService
         $unit = $registration->unit;
         $opening = $registration->opening;
         $isHigherEducation = $unit?->isHigherEducation() ?? false;
+        $configuration = $registration->configuration;
+        $headerLabel = filled($configuration?->applicant_card_header_label)
+            ? trim((string) $configuration->applicant_card_header_label)
+            : 'KARTU PENDAFTARAN';
+        $headerTitle = filled($configuration?->applicant_card_header_title)
+            ? trim((string) $configuration->applicant_card_header_title)
+            : ($unit?->name ?? 'Unit / Institusi');
 
         $secondaryLabel = $isHigherEducation ? 'Program Studi' : 'Asal Sekolah';
         $secondaryValue = $isHigherEducation
@@ -74,9 +82,11 @@ class RegistrationCardService
 
         return [
             'unitName' => $unit?->name ?? 'Unit / Institusi',
-            'unitNameLines' => $this->wrapText($unit?->name ?? 'Unit / Institusi', 34, 2),
-            'unitNameFontSize' => $this->fontSize($unit?->name ?? '', 34, 30, 25),
-            'unitAddress' => Str::limit((string) ($unit?->public_address ?? ''), 82),
+            'headerLabel' => $headerLabel,
+            'headerTitle' => $headerTitle,
+            'headerTitleLines' => $this->wrapText($headerTitle, 34, 2),
+            'headerTitleFontSize' => $this->fontSize($headerTitle, 34, 30, 25),
+            'academicYearText' => 'Tahun Ajaran '.($opening?->academic_year ?: '—'),
             'logoDataUri' => $this->fileDataUri('public', $unit?->logo_path),
             'photoDataUri' => $photo
                 ? $this->fileDataUri(ApplicantFileStorage::PRIVATE_DISK, $photo->file_path, $photo->mime_type)
@@ -85,7 +95,7 @@ class RegistrationCardService
                 && Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->exists($photo->file_path),
             'verificationQrDataUri' => $this->verificationQrDataUri($registration),
             'verificationUrl' => route('registration.card.verify', $registration),
-            'cardNumber' => $registration->applicant_card_number,
+            'cardNumber' => $registration->applicantCardDisplayNumber(),
             'participantName' => $registration->full_name,
             'participantNameLines' => $this->wrapText($registration->full_name, 30, 2),
             'participantNameFontSize' => $this->fontSize($registration->full_name, 30, 28, 21),
