@@ -78,6 +78,7 @@ class AdmissionQuotaResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->whereHas('opening.unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
             ->with(['opening.studyProgram', 'pathway'])
             ->when(auth()->user()?->isTU(), fn (Builder $q) => $q->whereHas('opening', fn (Builder $opening) => $opening->where('unit_id', auth()->user()->unit_id)));
     }
