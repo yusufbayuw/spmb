@@ -102,6 +102,22 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->hasRole('pendaftar');
     }
 
+    public function hasOperationalUnitAccess(): bool
+    {
+        if (! $this->isTU()) {
+            return true;
+        }
+
+        if (! $this->unit_id) {
+            return false;
+        }
+
+        return Unit::query()
+            ->operational()
+            ->whereKey($this->unit_id)
+            ->exists();
+    }
+
     public function sendEmailVerificationNotification(): void
     {
         $notification = app(ApplicantVerifyEmail::class);
