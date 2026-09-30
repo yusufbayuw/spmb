@@ -76,6 +76,7 @@ class RegistrationPathway extends Model
     {
         return $query
             ->where('unit_id', $unitId)
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
             ->where('is_active', true)
             ->whereNull('archived_at');
     }
