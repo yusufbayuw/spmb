@@ -121,12 +121,18 @@ class PublicAdmissionsFlowTest extends TestCase
         $this->assertStringStartsWith('attachment;', (string) $openingQr->headers->get('Content-Disposition'));
     }
 
-    public function test_inactive_unit_admissions_page_and_qr_are_not_public(): void
+    public function test_inactive_unit_hides_unit_opening_qr_and_apply_routes(): void
     {
-        $unit = $this->schoolUnit(['is_active' => false]);
+        $unit = $this->schoolUnit();
+        $opening = $this->opening($unit);
+
+        $unit->update(['is_active' => false]);
 
         $this->get(route('admissions.unit', ['unit' => $unit->code]))->assertNotFound();
         $this->get(route('admissions.unit.qr', ['unit' => $unit->code]))->assertNotFound();
+        $this->get(route('admissions.show', $opening))->assertNotFound();
+        $this->get(route('admissions.qr', $opening))->assertNotFound();
+        $this->get(route('admissions.apply', $opening))->assertNotFound();
     }
 
     public function test_guest_apply_preserves_opening_intent_before_registration(): void
