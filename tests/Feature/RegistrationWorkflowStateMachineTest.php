@@ -81,7 +81,7 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertSame('documents', $registration->current_stage);
         $this->assertSame('payment_verified', $registration->status);
         $this->assertSame('REG-SMA-20262027-0001', $registration->registration_number);
-        $this->assertSame('KARTU-SMA-20262027-0001', $registration->applicant_card_number);
+        $this->assertSame('REG-SMA-20262027-0001', $registration->applicant_card_number);
         $this->assertNotNull($registration->applicant_card_issued_at);
         $this->assertSame($staff->id, $registration->applicant_card_issued_by);
         $this->assertSame(
