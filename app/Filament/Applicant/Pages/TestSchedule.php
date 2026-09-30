@@ -27,7 +27,11 @@ class TestSchedule extends Page
     public function mount(int|string $registration): void
     {
         abort_unless(Str::isUuid($registration), 404);
-        $this->registrationRecord = Registration::where('user_id', auth()->id())->where('uuid', $registration)->firstOrFail();
+        $this->registrationRecord = Registration::query()
+            ->where('user_id', auth()->id())
+            ->whereHas('unit', fn ($unitQuery) => $unitQuery->operational())
+            ->where('uuid', $registration)
+            ->firstOrFail();
         abort_unless($this->registrationRecord->isOperational() && $this->registrationRecord->current_stage === 'tests', 403);
     }
 
