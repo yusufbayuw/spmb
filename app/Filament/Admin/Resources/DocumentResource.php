@@ -159,7 +159,10 @@ class DocumentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->whereNull('superseded_at')->with(['registration.unit', 'registration.user', 'registration.configuration']);
+        $query = parent::getEloquentQuery()
+            ->whereNull('superseded_at')
+            ->whereHas('registration', fn (Builder $registration): Builder => $registration->operational())
+            ->with(['registration.unit', 'registration.user', 'registration.configuration']);
         if (auth()->user()?->isTU()) {
             $query->whereHas('registration', fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id));
         }
