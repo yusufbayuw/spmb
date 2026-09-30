@@ -27,8 +27,10 @@ class FaqResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return (bool) auth()->user()?->is_active
-            && (auth()->user()->isAdmin() || auth()->user()->isAdminUnit());
+        $user = auth()->user();
+
+        return (bool) $user?->is_active
+            && ($user->isAdmin() || ($user->isAdminUnit() && $user->hasOperationalUnitAccess()));
     }
 
     public static function canCreate(): bool
@@ -155,7 +157,7 @@ class FaqResource extends Resource
                 Tables\Filters\SelectFilter::make('unit_id')
                     ->label('Unit')
                     ->options(fn (): array => Unit::query()
-                        ->forOperationalMode()
+                        ->operational()
                         ->when(
                             auth()->user()?->isAdminUnit(),
                             fn (Builder $query): Builder => $query->whereKey(auth()->user()->unit_id),
@@ -172,6 +174,7 @@ class FaqResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
             ->with(['unit', 'studyProgram', 'registrationPathway'])
             ->when(
                 auth()->user()?->isAdminUnit(),
