@@ -162,7 +162,8 @@ class UnitConfigurationTransfer extends Page implements Forms\Contracts\HasForms
             ->title('Konfigurasi unit berhasil diimpor')
             ->body(
                 "{$result['faqs']} FAQ, {$result['pathways']} jalur, {$result['programs']} program studi, ".
-                "{$result['tests']} tes, dan {$result['sessions']} sesi berhasil diproses. ".
+                "{$result['openings']} pembukaan, {$result['quotas']} daya tampung, {$result['tests']} tes, ".
+                "dan {$result['sessions']} sesi berhasil diproses. ".
                 'Pengaturan pendaftaran dimasukkan sebagai draft agar dapat diperiksa sebelum dipublikasikan.',
             )
             ->success()
