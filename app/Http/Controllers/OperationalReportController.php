@@ -11,7 +11,12 @@ class OperationalReportController extends Controller
     public function __invoke(Request $request, OperationalReportService $reports): BinaryFileResponse
     {
         $user = $request->user();
-        abort_unless($user?->is_active && $user->hasAnyRole(['super_admin', 'tu']), 403);
+        abort_unless(
+            $user?->is_active
+            && $user->hasAnyRole(['super_admin', 'admin_unit', 'tu'])
+            && $user->hasOperationalUnitAccess(),
+            403,
+        );
 
         $filters = $request->only([
             'unit_id',
