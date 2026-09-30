@@ -137,6 +137,7 @@ class RegistrationPathwayResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
             ->with('unit')
             ->when(
                 auth()->user()?->isTU() && auth()->user()?->unit_id,
