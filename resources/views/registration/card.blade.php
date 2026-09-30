@@ -146,15 +146,13 @@
         @endif
 
         <line x1="178" y1="40" x2="178" y2="150" stroke="#fff" stroke-width="2" opacity=".72"/>
-        <text x="202" y="64" fill="#d9ebff" font-size="22" font-weight="700" letter-spacing="2">KARTU PENDAFTARAN</text>
+        <text x="202" y="64" fill="#d9ebff" font-size="22" font-weight="700" letter-spacing="2">{{ mb_strtoupper($card['headerLabel']) }}</text>
 
-        @foreach($card['unitNameLines'] as $index => $line)
-            <text x="202" y="{{ 106 + ($index * 34) }}" fill="#fff" font-size="{{ $card['unitNameFontSize'] }}" font-weight="800">{{ $line }}</text>
+        @foreach($card['headerTitleLines'] as $index => $line)
+            <text x="202" y="{{ 106 + ($index * 34) }}" fill="#fff" font-size="{{ $card['headerTitleFontSize'] }}" font-weight="800">{{ $line }}</text>
         @endforeach
 
-        @if($card['unitAddress'])
-            <text x="202" y="169" fill="#dcecff" font-size="16">{{ $card['unitAddress'] }}</text>
-        @endif
+        <text x="202" y="169" fill="#dcecff" font-size="16" font-weight="600">{{ $card['academicYearText'] }}</text>
 
         <g font-family="Arial, Helvetica, sans-serif">
             <text x="62" y="242" fill="#45637f" font-size="17" font-weight="700">No. Peserta</text>
