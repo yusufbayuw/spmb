@@ -23,6 +23,13 @@ class Unit extends Model
         'university' => 'Perguruan Tinggi',
     ];
 
+    public const DEFAULT_PRE_REGISTRATION_ITEMS = [
+        ['title' => 'Email aktif', 'description' => 'Digunakan untuk aktivasi akun dan notifikasi proses penerimaan.'],
+        ['title' => 'Identitas resmi', 'description' => 'Gunakan data calon peserta sesuai dokumen resmi.'],
+        ['title' => 'Nomor telepon aktif', 'description' => 'Untuk komunikasi selama proses penerimaan.'],
+        ['title' => 'Dokumen pendukung', 'description' => 'Dokumen yang diperlukan akan mengikuti unit dan jalur yang dipilih.'],
+    ];
+
     protected $fillable = [
         'name',
         'code',
@@ -31,6 +38,9 @@ class Unit extends Model
         'description',
         'public_headline',
         'public_body',
+        'pre_registration_heading',
+        'pre_registration_body',
+        'pre_registration_items',
         'public_contact_name',
         'public_email',
         'public_phone',
@@ -42,7 +52,10 @@ class Unit extends Model
         'is_active',
     ];
 
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = [
+        'is_active' => 'boolean',
+        'pre_registration_items' => 'array',
+    ];
 
     protected static function booted(): void
     {
@@ -165,6 +178,23 @@ class Unit extends Model
     public function institutionTypeLabel(): string
     {
         return self::INSTITUTION_TYPES[$this->institution_type] ?? $this->institution_type;
+    }
+
+    /** @return list<array{title:string,description:string}> */
+    public function preRegistrationItems(): array
+    {
+        if (is_array($this->pre_registration_items)) {
+            return collect($this->pre_registration_items)
+                ->filter(fn (mixed $item): bool => is_array($item) && filled($item['title'] ?? null))
+                ->map(fn (array $item): array => [
+                    'title' => trim((string) $item['title']),
+                    'description' => trim((string) ($item['description'] ?? '')),
+                ])
+                ->values()
+                ->all();
+        }
+
+        return self::DEFAULT_PRE_REGISTRATION_ITEMS;
     }
 
     public function hasPublicContact(): bool
