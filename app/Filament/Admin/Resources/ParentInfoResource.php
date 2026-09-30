@@ -51,7 +51,9 @@ class ParentInfoResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $q = parent::getEloquentQuery()->with('registration.unit');
+        $q = parent::getEloquentQuery()
+            ->whereHas('registration', fn (Builder $registration): Builder => $registration->operational())
+            ->with('registration.unit');
         if (auth()->user()?->isTU()) {
             $q->whereHas('registration', fn (Builder $x) => $x->where('unit_id', auth()->user()->unit_id));
         }
