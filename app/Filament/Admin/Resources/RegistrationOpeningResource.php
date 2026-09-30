@@ -179,7 +179,7 @@ class RegistrationOpeningResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->forOperationalMode()
+            ->operational()
             ->with(['unit', 'studyProgram']);
 
         if (auth()->user()?->isTU() && auth()->user()?->unit_id) {
