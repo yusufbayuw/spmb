@@ -97,6 +97,7 @@ class AdmissionTestResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
             ->with(['unit', 'studyProgram'])
             ->withCount('sessions')
             ->when(auth()->user()?->isTU(), fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id));
