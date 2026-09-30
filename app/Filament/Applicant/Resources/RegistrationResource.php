@@ -235,6 +235,7 @@ class RegistrationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('user_id', auth()->id())
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
             ->with(['unit', 'opening.studyProgram', 'pathway', 'latestPayment']);
     }
 
