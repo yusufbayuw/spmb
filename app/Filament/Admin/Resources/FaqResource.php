@@ -62,7 +62,7 @@ class FaqResource extends Resource
                     Forms\Components\Select::make('unit_id')
                         ->label('Unit / Institusi')
                         ->options(fn (): array => Unit::query()
-                            ->forOperationalMode()
+                            ->operational()
                             ->when(
                                 auth()->user()?->isAdminUnit(),
                                 fn (Builder $query): Builder => $query->whereKey(auth()->user()->unit_id),
@@ -91,7 +91,7 @@ class FaqResource extends Resource
                             ->all())
                         ->searchable()
                         ->preload()
-                        ->visible(fn (Forms\Get $get): bool => (bool) Unit::query()->find($get('unit_id'))?->isHigherEducation()),
+                        ->visible(fn (Forms\Get $get): bool => (bool) Unit::query()->operational()->find($get('unit_id'))?->isHigherEducation()),
                     Forms\Components\Select::make('registration_pathway_id')
                         ->label('Jalur Pendaftaran')
                         ->helperText('Kosongkan jika FAQ berlaku untuk semua jalur.')
