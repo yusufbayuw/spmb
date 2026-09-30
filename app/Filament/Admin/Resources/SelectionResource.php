@@ -368,7 +368,9 @@ class SelectionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with([
+        $query = parent::getEloquentQuery()
+            ->whereHas('registration', fn (Builder $registration): Builder => $registration->operational())
+            ->with([
             'registration.unit',
             'registration.configuration',
             'registration.announcement',
