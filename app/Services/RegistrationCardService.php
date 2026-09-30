@@ -62,7 +62,9 @@ class RegistrationCardService
         $unit = $registration->unit;
         $opening = $registration->opening;
         $isHigherEducation = $unit?->isHigherEducation() ?? false;
-        $configuration = $registration->configuration;
+        $configuration = $unit
+            ? (app(UnitConfigurationService::class)->current($unit->id) ?? $registration->configuration)
+            : $registration->configuration;
         $headerLabel = filled($configuration?->applicant_card_header_label)
             ? trim((string) $configuration->applicant_card_header_label)
             : 'KARTU PENDAFTARAN';
