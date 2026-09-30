@@ -36,7 +36,11 @@ class OperationalReport extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['super_admin', 'admin_unit', 'tu']) ?? false;
+        $user = auth()->user();
+
+        return (bool) $user?->is_active
+            && $user->hasAnyRole(['super_admin', 'admin_unit', 'tu'])
+            && $user->hasOperationalUnitAccess();
     }
 
     public function form(Form $form): Form
@@ -48,7 +52,7 @@ class OperationalReport extends Page implements HasForms
                     ->schema([
                         Forms\Components\Select::make('unit_id')
                             ->label('Unit / Institusi')
-                            ->options(fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
+                            ->options(fn (): array => Unit::query()->operational()->orderBy('name')->pluck('name', 'id')->all())
                             ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
                             ->disabled(fn (): bool => auth()->user()?->isTU() ?? false)
                             ->dehydrated()
@@ -76,6 +80,7 @@ class OperationalReport extends Page implements HasForms
                             ->label('Pembukaan')
                             ->options(function (Forms\Get $get): array {
                                 return RegistrationOpening::query()
+                                    ->operational()
                                     ->with(['unit', 'studyProgram'])
                                     ->when(auth()->user()?->isTU(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))
                                     ->when(! auth()->user()?->isTU() && filled($get('unit_id')), fn (Builder $q) => $q->where('unit_id', $get('unit_id')))
