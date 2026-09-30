@@ -113,7 +113,9 @@ class RegistrationCardService
             'period' => $period ?: '—',
             'issuedDate' => $registration->applicant_card_issued_at?->format('d-m-Y') ?? '—',
             'filenameStem' => 'kartu-pendaftaran-'.Str::slug(
-                (string) ($registration->applicant_card_number ?: $registration->registration_number ?: $registration->uuid)
+                $registration->applicantCardDisplayNumber() !== '—'
+                    ? $registration->applicantCardDisplayNumber()
+                    : (string) $registration->uuid
             ),
         ];
     }
