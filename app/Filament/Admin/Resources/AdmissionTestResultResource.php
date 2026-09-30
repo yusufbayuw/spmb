@@ -176,6 +176,7 @@ class AdmissionTestResultResource extends Resource
         $q = parent::getEloquentQuery()
             ->with(['registration.unit', 'admissionTest'])
             ->whereHas('registration', fn (Builder $registration): Builder => $registration
+                ->operational()
                 ->whereIn('current_stage', [
                     'tests',
                     'selection',
