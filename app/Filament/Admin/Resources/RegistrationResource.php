@@ -242,6 +242,10 @@ class RegistrationResource extends Resource
                         ->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])
                         ->all()),
                 Tables\Filters\SelectFilter::make('current_stage')->label('Tahap')->options(Registration::STAGES),
+                Tables\Filters\SelectFilter::make('lifecycle_status')
+                    ->label('Lifecycle')
+                    ->options(Registration::LIFECYCLE_STATUSES)
+                    ->default('active'),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
             ])
             ->actions([
@@ -317,7 +321,9 @@ class RegistrationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway', 'configuration', 'academicScores', 'achievements', 'consent.configuration']);
+        $query = parent::getEloquentQuery()
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
+            ->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway', 'configuration', 'academicScores', 'achievements', 'consent.configuration']);
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
         }
