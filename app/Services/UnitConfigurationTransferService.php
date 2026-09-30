@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\AdmissionQuota;
 use App\Models\AdmissionTest;
 use App\Models\EducationLevel;
 use App\Models\Faq;
+use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\StudyProgram;
 use App\Models\TestSession;
@@ -75,6 +77,8 @@ class UnitConfigurationTransferService
             'faqs.registrationPathway',
             'registrationPathways',
             'studyPrograms.educationLevel',
+            'registrationOpenings.studyProgram',
+            'registrationOpenings.admissionQuotas.pathway',
             'admissionTests.studyProgram',
             'admissionTests.sessions',
         ]);
@@ -128,6 +132,30 @@ class UnitConfigurationTransferService
                 ])
                 ->values()
                 ->all(),
+            'registration_openings' => $unit->registrationOpenings
+                ->map(fn (RegistrationOpening $opening): array => [
+                    'study_program_code' => $opening->studyProgram?->code,
+                    'academic_year' => $opening->academic_year,
+                    'wave' => $opening->wave,
+                    'registration_fee' => $opening->registration_fee,
+                    'description' => $opening->description,
+                    'status' => $opening->status,
+                    'opened_at' => $opening->opened_at?->toIso8601String(),
+                    'closed_at' => $opening->closed_at?->toIso8601String(),
+                    'archived_at' => $opening->archived_at?->toIso8601String(),
+                    'admission_quotas' => $opening->admissionQuotas
+                        ->map(fn (AdmissionQuota $quota): array => [
+                            'registration_pathway_name' => $quota->pathway?->name,
+                            'capacity' => $quota->capacity,
+                            'offer_expires_in_hours' => $quota->offer_expires_in_hours,
+                            're_registration_due_in_days' => $quota->re_registration_due_in_days,
+                            'is_active' => $quota->is_active,
+                        ])
+                        ->values()
+                        ->all(),
+                ])
+                ->values()
+                ->all(),
             'admission_tests' => $unit->admissionTests
                 ->map(fn (AdmissionTest $test): array => [
                     'code' => $test->code,
@@ -177,7 +205,7 @@ class UnitConfigurationTransferService
 
     /**
      * @param array<string, mixed> $payload
-     * @return array{pathways:int,programs:int,tests:int,sessions:int,faqs:int,configuration:bool}
+     * @return array{pathways:int,programs:int,openings:int,quotas:int,tests:int,sessions:int,faqs:int,configuration:bool}
      */
     public function import(Unit $unit, User $actor, array $payload): array
     {
@@ -206,6 +234,7 @@ class UnitConfigurationTransferService
 
             $pathwayCount = $this->importPathways($unit, $payload['registration_pathways'] ?? []);
             $programCount = $this->importStudyPrograms($unit, $payload['study_programs'] ?? []);
+            [$openingCount, $quotaCount] = $this->importRegistrationOpenings($unit, $payload['registration_openings'] ?? []);
             [$testCount, $sessionCount] = $this->importAdmissionTests($unit, $payload['admission_tests'] ?? []);
             $faqCount = $this->importFaqs($unit, $payload['faqs'] ?? []);
 
@@ -225,6 +254,8 @@ class UnitConfigurationTransferService
                 newValues: [
                     'pathways' => $pathwayCount,
                     'programs' => $programCount,
+                    'openings' => $openingCount,
+                    'quotas' => $quotaCount,
                     'tests' => $testCount,
                     'sessions' => $sessionCount,
                     'faqs' => $faqCount,
@@ -243,6 +274,8 @@ class UnitConfigurationTransferService
             return [
                 'pathways' => $pathwayCount,
                 'programs' => $programCount,
+                'openings' => $openingCount,
+                'quotas' => $quotaCount,
                 'tests' => $testCount,
                 'sessions' => $sessionCount,
                 'faqs' => $faqCount,
@@ -369,6 +402,110 @@ class UnitConfigurationTransferService
         }
 
         return $count;
+    }
+
+    /**
+     * @param array<int, mixed> $rows
+     * @return array{int,int}
+     */
+    private function importRegistrationOpenings(Unit $unit, array $rows): array
+    {
+        $openingCount = 0;
+        $quotaCount = 0;
+
+        foreach ($rows as $row) {
+            if (! is_array($row) || blank($row['academic_year'] ?? null) || blank($row['wave'] ?? null)) {
+                continue;
+            }
+
+            $programId = null;
+            if (filled($row['study_program_code'] ?? null)) {
+                $programId = StudyProgram::query()
+                    ->where('unit_id', $unit->id)
+                    ->where('code', mb_strtoupper(trim((string) $row['study_program_code'])))
+                    ->value('id');
+
+                if (! $programId) {
+                    throw ValidationException::withMessages([
+                        'import_file' => 'Program Studi untuk pembukaan '.($row['wave'] ?? '').' tidak ditemukan pada unit tujuan.',
+                    ]);
+                }
+            }
+
+            $opening = RegistrationOpening::query()
+                ->where('unit_id', $unit->id)
+                ->where('academic_year', trim((string) $row['academic_year']))
+                ->where('wave', trim((string) $row['wave']))
+                ->when(
+                    $programId,
+                    fn ($query) => $query->where('study_program_id', $programId),
+                    fn ($query) => $query->whereNull('study_program_id'),
+                )
+                ->first()
+                ?? new RegistrationOpening(['unit_id' => $unit->id]);
+
+            $archivedAt = filled($row['archived_at'] ?? null)
+                ? Carbon::parse($row['archived_at'])
+                : null;
+
+            $opening->fill([
+                'study_program_id' => $programId,
+                'academic_year' => trim((string) $row['academic_year']),
+                'wave' => trim((string) $row['wave']),
+                'registration_fee' => $row['registration_fee'] ?? 0,
+                'description' => $row['description'] ?? null,
+                'status' => $archivedAt ? 'archived' : ($row['status'] ?? 'draft'),
+                'opened_at' => filled($row['opened_at'] ?? null) ? Carbon::parse($row['opened_at']) : null,
+                'closed_at' => filled($row['closed_at'] ?? null) ? Carbon::parse($row['closed_at']) : null,
+                'archived_at' => $archivedAt,
+            ]);
+            $opening->unit_id = $unit->id;
+            $opening->save();
+            $openingCount++;
+
+            foreach (is_array($row['admission_quotas'] ?? null) ? $row['admission_quotas'] : [] as $quotaRow) {
+                if (! is_array($quotaRow)) {
+                    continue;
+                }
+
+                $pathwayId = null;
+                if (filled($quotaRow['registration_pathway_name'] ?? null)) {
+                    $pathwayId = RegistrationPathway::query()
+                        ->where('unit_id', $unit->id)
+                        ->where('name', trim((string) $quotaRow['registration_pathway_name']))
+                        ->value('id');
+
+                    if (! $pathwayId) {
+                        throw ValidationException::withMessages([
+                            'import_file' => 'Jalur Pendaftaran untuk daya tampung pembukaan '.($row['wave'] ?? '').' tidak ditemukan pada unit tujuan.',
+                        ]);
+                    }
+                }
+
+                $quota = AdmissionQuota::query()
+                    ->where('registration_opening_id', $opening->id)
+                    ->when(
+                        $pathwayId,
+                        fn ($query) => $query->where('registration_pathway_id', $pathwayId),
+                        fn ($query) => $query->whereNull('registration_pathway_id'),
+                    )
+                    ->first()
+                    ?? new AdmissionQuota(['registration_opening_id' => $opening->id]);
+
+                $quota->fill([
+                    'registration_pathway_id' => $pathwayId,
+                    'capacity' => (int) ($quotaRow['capacity'] ?? 0),
+                    'offer_expires_in_hours' => (int) ($quotaRow['offer_expires_in_hours'] ?? 72),
+                    're_registration_due_in_days' => (int) ($quotaRow['re_registration_due_in_days'] ?? 14),
+                    'is_active' => (bool) ($quotaRow['is_active'] ?? true),
+                ]);
+                $quota->registration_opening_id = $opening->id;
+                $quota->save();
+                $quotaCount++;
+            }
+        }
+
+        return [$openingCount, $quotaCount];
     }
 
     /**
