@@ -20,7 +20,17 @@ class RegistrationPrintController extends Controller
     private function authorizeRegistration(Request $request, Registration $registration): void
     {
         $user = $request->user();
-        abort_unless($user?->is_active && ($user->id === $registration->user_id || $user->isAdmin() || ($user->isTU() && (int) $user->unit_id === (int) $registration->unit_id)), 404);
+
+        abort_unless(
+            $user?->is_active
+            && ($user->id === $registration->user_id || $user->isAdmin() || ($user->isTU() && (int) $user->unit_id === (int) $registration->unit_id)),
+            404,
+        );
+
+        if (! $user->isAdmin()) {
+            $registration->loadMissing('unit');
+            abort_unless($registration->unit?->isOperational(), 404);
+        }
     }
 
     public function applicantCard(
