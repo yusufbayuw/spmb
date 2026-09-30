@@ -166,10 +166,18 @@ class RegistrationOpening extends Model
         return $query->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->forOperationalMode());
     }
 
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->whereHas(
+            'unit',
+            fn (Builder $unitQuery): Builder => $unitQuery->operational(),
+        );
+    }
+
     public function scopeCurrentlyOpen(Builder $query): Builder
     {
         return $query
-            ->forOperationalMode()
+            ->operational()
             ->where('status', '!=', 'archived')
             ->where(function (Builder $availability): void {
                 $availability
@@ -193,7 +201,7 @@ class RegistrationOpening extends Model
     public function scopeUpcoming(Builder $query): Builder
     {
         return $query
-            ->forOperationalMode()
+            ->operational()
             ->where('status', '!=', 'archived')
             ->whereNotNull('opened_at')
             ->whereNotNull('closed_at')
@@ -204,7 +212,7 @@ class RegistrationOpening extends Model
     public function scopeVisibleToApplicants(Builder $query): Builder
     {
         return $query
-            ->forOperationalMode()
+            ->operational()
             ->where('status', '!=', 'archived')
             ->where(function (Builder $visibility): void {
                 $visibility
