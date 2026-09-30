@@ -64,6 +64,9 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
             'public_headline' => $unit->public_headline,
             'description' => $unit->description,
             'public_body' => $unit->public_body,
+            'pre_registration_heading' => $unit->pre_registration_heading ?: 'Siapkan informasi utama',
+            'pre_registration_body' => $unit->pre_registration_body,
+            'pre_registration_items' => $unit->preRegistrationItems(),
             'public_contact_name' => $unit->public_contact_name,
             'public_email' => $unit->public_email,
             'public_phone' => $unit->public_phone,
@@ -106,6 +109,49 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
                             ->columnSpanFull(),
                     ])
                     ->columns(['default' => 1, 'md' => 2]),
+                Forms\Components\Section::make('Sebelum Mendaftar')
+                    ->description('Atur informasi persiapan yang tampil pada halaman pembukaan sebelum calon pendaftar menekan tombol Daftar Sekarang.')
+                    ->schema([
+                        Forms\Components\TextInput::make('pre_registration_heading')
+                            ->label('Judul Bagian')
+                            ->maxLength(180)
+                            ->default('Siapkan informasi utama')
+                            ->columnSpanFull(),
+                        Forms\Components\RichEditor::make('pre_registration_body')
+                            ->label('Pengantar')
+                            ->helperText('Opsional. Format judul, tebal, daftar, dan tautan akan ditampilkan sama pada halaman publik.')
+                            ->toolbarButtons([
+                                'h2',
+                                'h3',
+                                'bold',
+                                'italic',
+                                'bulletList',
+                                'orderedList',
+                                'link',
+                                'undo',
+                                'redo',
+                            ])
+                            ->columnSpanFull(),
+                        Forms\Components\Repeater::make('pre_registration_items')
+                            ->label('Daftar Persiapan')
+                            ->schema([
+                                Forms\Components\TextInput::make('title')
+                                    ->label('Judul')
+                                    ->required()
+                                    ->maxLength(150),
+                                Forms\Components\Textarea::make('description')
+                                    ->label('Keterangan')
+                                    ->rows(2)
+                                    ->maxLength(1000),
+                            ])
+                            ->columns(['default' => 1, 'md' => 2])
+                            ->addActionLabel('Tambah informasi')
+                            ->reorderable()
+                            ->maxItems(12)
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(1)
+                    ->collapsible(),
                 Forms\Components\Section::make('Kontak & Helpdesk')
                     ->description('Kontak resmi yang dapat dilihat calon pendaftar.')
                     ->schema([
@@ -151,6 +197,18 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
             'public_headline' => $data['public_headline'] ?? null,
             'description' => $data['description'] ?? null,
             'public_body' => $data['public_body'] ?? null,
+            'pre_registration_heading' => filled($data['pre_registration_heading'] ?? null)
+                ? trim((string) $data['pre_registration_heading'])
+                : null,
+            'pre_registration_body' => $data['pre_registration_body'] ?? null,
+            'pre_registration_items' => collect($data['pre_registration_items'] ?? [])
+                ->filter(fn (mixed $item): bool => is_array($item) && filled($item['title'] ?? null))
+                ->map(fn (array $item): array => [
+                    'title' => trim((string) $item['title']),
+                    'description' => trim((string) ($item['description'] ?? '')),
+                ])
+                ->values()
+                ->all(),
             'public_contact_name' => $data['public_contact_name'] ?? null,
             'public_email' => $data['public_email'] ?? null,
             'public_phone' => $data['public_phone'] ?? null,
