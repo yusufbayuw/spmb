@@ -151,7 +151,7 @@ class UnitRegistrationSettingsTest extends TestCase
             ->assertSee('Tahun Ajaran {{ tahun_ajaran }}')
             ->fillForm([
                 'applicant_card_header_label' => 'KARTU PESERTA',
-                'applicant_card_header_title' => 'SD Taruna Bakti',
+                'applicant_card_header_title' => 'SD Contoh',
             ])
             ->call('publish')
             ->assertHasNoFormErrors();
@@ -163,7 +163,7 @@ class UnitRegistrationSettingsTest extends TestCase
             ->firstOrFail();
 
         $this->assertSame('KARTU PESERTA', $published->applicant_card_header_label);
-        $this->assertSame('SD Taruna Bakti', $published->applicant_card_header_title);
+        $this->assertSame('SD Contoh', $published->applicant_card_header_title);
     }
 
     public function test_admin_unit_can_configure_versioned_pre_form_consent(): void
