@@ -7,6 +7,7 @@ use App\Services\AuditTrail;
 use App\Services\SpmbNotificationService;
 use App\Services\TestBookingService;
 use App\Services\UnitConfigurationService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -102,6 +103,13 @@ class Registration extends Model
             }
         });
 
+    }
+
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query
+            ->where('lifecycle_status', 'active')
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational());
     }
 
     public function configuration(): BelongsTo
@@ -702,18 +710,23 @@ class Registration extends Model
 
     public function isOperational(): bool
     {
-        return ($this->lifecycle_status ?: 'active') === 'active';
+        return ($this->lifecycle_status ?: 'active') === 'active'
+            && ($this->unit?->isOperational() ?? false);
     }
 
     public function assertOperational(): void
     {
-        if ($this->isOperational()) {
-            return;
+        if (! ($this->unit?->isOperational() ?? false)) {
+            throw ValidationException::withMessages([
+                'unit_id' => 'Unit / institusi sedang nonaktif. Seluruh proses pendaftaran untuk unit ini dihentikan sementara.',
+            ]);
         }
 
-        throw ValidationException::withMessages([
-            'lifecycle_status' => 'Pendaftaran tidak aktif ('.$this->lifecycleLabel().') dan tidak dapat melanjutkan proses.',
-        ]);
+        if (($this->lifecycle_status ?: 'active') !== 'active') {
+            throw ValidationException::withMessages([
+                'lifecycle_status' => 'Pendaftaran tidak aktif ('.$this->lifecycleLabel().') dan tidak dapat melanjutkan proses.',
+            ]);
+        }
     }
 
     public function changeLifecycle(string $status, User $actor, ?string $reason = null): void
