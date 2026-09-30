@@ -119,7 +119,9 @@ class PaymentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['registration.unit', 'registration.opening', 'verifier']);
+        $query = parent::getEloquentQuery()
+            ->whereHas('registration', fn (Builder $registration): Builder => $registration->operational())
+            ->with(['registration.unit', 'registration.opening', 'verifier']);
         if (auth()->user()?->isTU()) {
             $query->whereHas('registration', fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id));
         }
