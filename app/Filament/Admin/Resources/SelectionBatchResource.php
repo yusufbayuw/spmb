@@ -81,7 +81,7 @@ class SelectionBatchResource extends Resource
         return $form->schema([
             Forms\Components\Select::make('registration_opening_id')
                 ->label('Pembukaan Pendaftaran')
-                ->options(fn (): array => RegistrationOpening::query()->when(auth()->user()?->isTU(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))->get()->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])->all())
+                ->options(fn (): array => RegistrationOpening::query()->operational()->when(auth()->user()?->isTU(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))->get()->mapWithKeys(fn (RegistrationOpening $opening): array => [$opening->id => $opening->label()])->all())
                 ->searchable()
                 ->live()
                 ->required(),
