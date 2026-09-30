@@ -47,7 +47,13 @@ class PublicInformationSettingsTest extends TestCase
             ->fillForm([
                 'public_headline' => 'Penerimaan SMA Konten',
                 'description' => 'Ringkasan penerimaan yang dikelola admin unit.',
-                'public_body' => '<p>Informasi lengkap penerimaan.</p>',
+                'public_body' => '<p>Informasi <strong>lengkap</strong> penerimaan.</p><ol><li>Tahap satu</li></ol>',
+                'pre_registration_heading' => 'Sebelum mengisi formulir',
+                'pre_registration_body' => '<p>Siapkan dokumen dengan <strong>teliti</strong>.</p>',
+                'pre_registration_items' => [
+                    ['title' => 'Kartu Keluarga', 'description' => 'Pastikan data terbaca.'],
+                    ['title' => 'Rapor', 'description' => 'Gunakan rapor terbaru.'],
+                ],
                 'public_contact_name' => 'Panitia SMA Konten',
                 'public_whatsapp' => '6281234567890',
             ])
@@ -58,7 +64,12 @@ class PublicInformationSettingsTest extends TestCase
             'id' => $unit->id,
             'public_headline' => 'Penerimaan SMA Konten',
             'public_contact_name' => 'Panitia SMA Konten',
+            'pre_registration_heading' => 'Sebelum mengisi formulir',
         ]);
+        $this->assertSame(
+            'Kartu Keluarga',
+            Unit::query()->findOrFail($unit->id)->pre_registration_items[0]['title'],
+        );
 
         $component = Livewire::test(PublicInformationSettings::class);
 
