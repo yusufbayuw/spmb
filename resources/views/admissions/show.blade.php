@@ -133,6 +133,21 @@
     <section class="bg-white py-16 sm:py-20">
         <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-8">
             <div class="space-y-12">
+                @if ($opening->unit && ($opening->unit->public_headline || $opening->unit->description || $opening->unit->public_body))
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Profil penerimaan</p>
+                        <h2 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">{{ $opening->unit->public_headline ?: 'Penerimaan '.$opening->unit->name }}</h2>
+
+                        @if ($opening->unit->description)
+                            <p class="mt-4 text-sm leading-7 text-slate-600">{{ $opening->unit->description }}</p>
+                        @endif
+
+                        @if ($opening->unit->public_body)
+                            <div class="cms-content mt-5">{!! $opening->unit->public_body !!}</div>
+                        @endif
+                    </div>
+                @endif
+
                 @if ($opening->studyProgram && (
                     $opening->studyProgram->public_headline
                     || $opening->studyProgram->description
@@ -214,23 +229,7 @@
 
                 <x-admissions.faqs :faqs="$faqs" :contained="false" />
 
-                <div>
-                    <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Sebelum mendaftar</p>
-                    <h2 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">Siapkan informasi utama</h2>
-                    <div class="mt-5 grid gap-3 sm:grid-cols-2">
-                        @foreach ([
-                            ['Email aktif', 'Digunakan untuk aktivasi akun dan notifikasi proses penerimaan.'],
-                            ['Identitas resmi', 'Gunakan data calon peserta sesuai dokumen resmi.'],
-                            ['Nomor telepon aktif', 'Untuk komunikasi selama proses penerimaan.'],
-                            ['Dokumen pendukung', 'Dokumen yang diperlukan akan mengikuti unit dan jalur yang dipilih.'],
-                        ] as [$itemTitle, $itemText])
-                            <div class="rounded-xl border border-slate-200 p-4">
-                                <p class="font-bold text-slate-900">{{ $itemTitle }}</p>
-                                <p class="mt-1 text-sm leading-6 text-slate-600">{{ $itemText }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
+                <x-admissions.pre-registration :unit="$opening->unit" :contained="false" />
             </div>
 
             <div class="space-y-5">
