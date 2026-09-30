@@ -39,10 +39,15 @@ class ReRegistration extends Page implements HasForms
         abort_unless(Str::isUuid($registration), 404);
         $this->registrationRecord = Registration::query()
             ->where('user_id', auth()->id())
+            ->whereHas('unit', fn ($unitQuery) => $unitQuery->operational())
             ->with(['configuration', 'reRegistrationItems'])
             ->where('uuid', $registration)
             ->firstOrFail();
-        abort_unless($this->registrationRecord->current_stage === 're_registration', 403);
+        abort_unless(
+            $this->registrationRecord->isOperational()
+            && $this->registrationRecord->current_stage === 're_registration',
+            403,
+        );
 
         $this->form->fill($this->registrationRecord->reRegistrationItems->mapWithKeys(
             fn (ReRegistrationItem $item): array => [$item->requirement_key => $item->type === 'document' ? $item->file_path : ($item->value['value'] ?? null)],
