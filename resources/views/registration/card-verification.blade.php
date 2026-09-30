@@ -28,7 +28,7 @@
 
     <dl>
         <dt>No. Peserta</dt>
-        <dd>{{ $registration->applicant_card_number }}</dd>
+        <dd>{{ $registration->applicantCardDisplayNumber() }}</dd>
 
         <dt>Nama</dt>
         <dd>{{ $registration->full_name }}</dd>
