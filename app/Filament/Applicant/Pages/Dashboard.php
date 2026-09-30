@@ -24,6 +24,7 @@ class Dashboard extends BaseDashboard
     {
         $this->registrations = Registration::query()
             ->where('user_id', auth()->id())
+            ->whereHas('unit', fn ($unitQuery) => $unitQuery->operational())
             ->with(['unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection', 'announcement'])
             ->latest()
             ->get();
