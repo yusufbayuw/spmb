@@ -110,6 +110,8 @@
         </div>
     </section>
 
+    <x-admissions.pre-registration :unit="$unit" />
+
     <x-admissions.faqs :faqs="$faqs" />
 
     <section class="border-t border-slate-200 bg-slate-50 py-16">
