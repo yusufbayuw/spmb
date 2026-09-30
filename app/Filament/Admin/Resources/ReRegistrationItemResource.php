@@ -96,6 +96,7 @@ class ReRegistrationItemResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->whereHas('registration', fn (Builder $registration): Builder => $registration->operational())
             ->with(['registration.unit'])
             ->when(auth()->user()?->isTU(), fn (Builder $q) => $q->whereHas('registration', fn (Builder $registration) => $registration->where('unit_id', auth()->user()->unit_id)));
     }
