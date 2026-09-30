@@ -9,6 +9,7 @@ use App\Models\Faq;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
+use App\Models\UnitConfiguration;
 use App\Models\User;
 use App\Services\UnitConfigurationService;
 use App\Services\UnitConfigurationTransferService;
@@ -79,6 +80,18 @@ class UnitConfigurationTransferTest extends TestCase
 
         app(UnitConfigurationService::class)->initialize($source);
 
+        UnitConfiguration::create(array_merge(
+            app(UnitConfigurationService::class)->defaults($source),
+            [
+                'unit_id' => $source->id,
+                'version' => 2,
+                'status' => 'draft',
+                'applicant_card_header_label' => 'KARTU PESERTA',
+                'applicant_card_header_title' => 'SMP Sumber 2026',
+                'legacy' => false,
+            ],
+        ));
+
         $target = Unit::create([
             'name' => 'SMP Tujuan',
             'code' => 'SMPTGT',
@@ -132,6 +145,8 @@ class UnitConfigurationTransferTest extends TestCase
             'unit_id' => $target->id,
             'status' => 'draft',
             'registration_number_prefix' => 'SMPSRC',
+            'applicant_card_header_label' => 'KARTU PESERTA',
+            'applicant_card_header_title' => 'SMP Sumber 2026',
         ]);
     }
 
