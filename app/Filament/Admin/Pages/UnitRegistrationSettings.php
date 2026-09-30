@@ -198,6 +198,27 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->columns(['default' => 1, 'md' => 2])
                 ->collapsible(),
+            Forms\Components\Section::make('Kartu Pendaftaran')
+                ->description('Atur teks header kartu peserta. Tahun ajaran selalu diambil dari Pembukaan Pendaftaran yang dipilih pendaftar.')
+                ->schema([
+                    Forms\Components\TextInput::make('applicant_card_header_label')
+                        ->label('Label Header Kartu')
+                        ->helperText('Contoh: KARTU PENDAFTARAN, KARTU PESERTA, atau KARTU CALON SISWA.')
+                        ->maxLength(80)
+                        ->required(),
+                    Forms\Components\TextInput::make('applicant_card_header_title')
+                        ->label('Judul Header Kartu')
+                        ->helperText('Contoh: SMP Taruna Bakti. Baris alamat tidak lagi ditampilkan pada kartu.')
+                        ->maxLength(180)
+                        ->required(),
+                    Forms\Components\Placeholder::make('applicant_card_academic_year_preview')
+                        ->label('Baris Tahun Ajaran')
+                        ->content('Tahun Ajaran {{ tahun_ajaran }}')
+                        ->helperText('Nilai {{ tahun_ajaran }} akan otomatis memakai Tahun Ajaran dari Pembukaan Pendaftaran.')
+                        ->columnSpanFull(),
+                ])
+                ->columns(['default' => 1, 'md' => 2])
+                ->collapsible(),
             Forms\Components\Section::make('Persetujuan Sebelum Formulir')
                 ->description('Tampilkan persetujuan wajib sebelum pendaftar mulai mengisi formulir. Isi mengikuti versi konfigurasi sehingga naskah yang disetujui tetap dapat diaudit.')
                 ->schema([
