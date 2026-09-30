@@ -76,9 +76,12 @@ class RegistrationResource extends Resource
                         ->relationship(
                             'opening',
                             'academic_year',
-                            fn (Builder $query): Builder => auth()->user()?->isTU() && auth()->user()?->unit_id
-                                ? $query->where('unit_id', auth()->user()->unit_id)
-                                : $query,
+                            fn (Builder $query): Builder => $query
+                                ->operational()
+                                ->when(
+                                    auth()->user()?->isTU() && auth()->user()?->unit_id,
+                                    fn (Builder $openingQuery): Builder => $openingQuery->where('unit_id', auth()->user()->unit_id),
+                                ),
                         )
                         ->getOptionLabelFromRecordUsing(fn (RegistrationOpening $record): string => $record->loadMissing('unit')->label())
                         ->searchable(['academic_year', 'wave'])
@@ -99,9 +102,12 @@ class RegistrationResource extends Resource
                         ->relationship(
                             'unit',
                             'name',
-                            fn (Builder $query): Builder => auth()->user()?->isTU() && auth()->user()?->unit_id
-                                ? $query->whereKey(auth()->user()->unit_id)
-                                : $query,
+                            fn (Builder $query): Builder => $query
+                                ->operational()
+                                ->when(
+                                    auth()->user()?->isTU() && auth()->user()?->unit_id,
+                                    fn (Builder $unitQuery): Builder => $unitQuery->whereKey(auth()->user()->unit_id),
+                                ),
                         )
                         ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
                         ->disabled(fn (Forms\Get $get): bool => filled($get('registration_opening_id')) || (auth()->user()?->isTU() ?? false))
@@ -236,6 +242,7 @@ class RegistrationResource extends Resource
                 Tables\Filters\SelectFilter::make('registration_opening_id')
                     ->label('Pembukaan')
                     ->options(fn (): array => RegistrationOpening::query()
+                        ->operational()
                         ->with('unit')
                         ->when(auth()->user()?->isTU() && auth()->user()?->unit_id, fn (Builder $query): Builder => $query->where('unit_id', auth()->user()->unit_id))
                         ->latest()->get()
