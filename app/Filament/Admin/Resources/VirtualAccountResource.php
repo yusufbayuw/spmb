@@ -92,7 +92,9 @@ class VirtualAccountResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['unit', 'studyProgram', 'registration', 'batch']);
+        $query = parent::getEloquentQuery()
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
+            ->with(['unit', 'studyProgram', 'registration', 'batch']);
 
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
