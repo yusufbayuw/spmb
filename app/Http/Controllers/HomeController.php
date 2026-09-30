@@ -70,6 +70,7 @@ class HomeController extends Controller
         if ($user?->isUser()) {
             $registrationPreviews = Registration::query()
                 ->where('user_id', $user->id)
+                ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
                 ->with(['unit', 'opening.studyProgram', 'pathway'])
                 ->latest()
                 ->limit(3)
@@ -97,8 +98,7 @@ class HomeController extends Controller
 
             if ($helpdeskUnits->isEmpty()) {
                 $helpdeskUnits = Unit::query()
-                    ->forOperationalMode()
-                    ->where('is_active', true)
+                    ->operational()
                     ->orderBy('name')
                     ->get();
             }
