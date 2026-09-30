@@ -45,7 +45,12 @@ class DocumentsUpload extends Page implements HasForms
     public function mount(int|string $registration): void
     {
         abort_unless(Str::isUuid($registration), 404);
-        $this->registrationRecord = Registration::query()->where('user_id', auth()->id())->with(['documents', 'unit', 'configuration'])->where('uuid', $registration)->firstOrFail();
+        $this->registrationRecord = Registration::query()
+            ->where('user_id', auth()->id())
+            ->whereHas('unit', fn ($unitQuery) => $unitQuery->operational())
+            ->with(['documents', 'unit', 'configuration'])
+            ->where('uuid', $registration)
+            ->firstOrFail();
         abort_unless($this->registrationRecord->isOperational() && in_array($this->registrationRecord->current_stage, ['documents', 'document_verification'], true), 403);
         // Existing private files are rendered through authenticated routes in the Blade view.
         // Never hydrate private storage paths back into FileUpload: FilePond would try to
