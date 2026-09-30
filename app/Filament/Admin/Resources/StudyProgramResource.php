@@ -254,6 +254,7 @@ class StudyProgramResource extends Resource
     {
         return parent::getEloquentQuery()
             ->forOperationalMode()
+            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
             ->with(['unit', 'educationLevel'])
             ->when(
                 auth()->user()?->isTU() && auth()->user()?->unit_id,
@@ -276,7 +277,7 @@ class StudyProgramResource extends Resource
         }
 
         return Unit::query()
-            ->forOperationalMode()
+            ->operational()
             ->whereKey(auth()->user()->unit_id)
             ->where('institution_type', 'university')
             ->exists();
