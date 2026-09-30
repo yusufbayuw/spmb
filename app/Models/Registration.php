@@ -663,18 +663,25 @@ class Registration extends Model
     public function generateApplicantCardNumber(): string
     {
         if (filled($this->registration_number)) {
-            $registrationNumber = (string) $this->registration_number;
-
-            return str_starts_with($registrationNumber, 'REG-')
-                ? (preg_replace('/^REG-/', 'KARTU-', $registrationNumber) ?: 'KARTU-'.$registrationNumber)
-                : 'KARTU-'.$registrationNumber;
+            return (string) $this->registration_number;
         }
 
         $year = $this->opening?->academic_year
             ? str_replace(['/', '-'], '', $this->opening->academic_year)
             : ($this->created_at?->format('Y') ?? now()->format('Y'));
 
-        return 'KARTU-'.$this->unit->code.'-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
+        return $this->unit->code.'-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
+    }
+
+    public function applicantCardDisplayNumber(): string
+    {
+        $number = trim((string) ($this->applicant_card_number ?: $this->registration_number));
+
+        if ($number === '') {
+            return '—';
+        }
+
+        return preg_replace('/^KARTU-/i', '', $number) ?: $number;
     }
 
     public function stageLabel(): string
