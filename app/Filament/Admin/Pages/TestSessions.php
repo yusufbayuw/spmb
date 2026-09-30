@@ -39,7 +39,12 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
     private function sessionFields(): array
     {
         return [
-            Forms\Components\Select::make('admission_test_uuid')->label('Jenis Tes')->options(fn (): array => AdmissionTest::query()->when(auth()->user()->isTU(), fn ($q) => $q->where('unit_id', auth()->user()->unit_id))->pluck('name', 'uuid')->all())->required(),
+            Forms\Components\Select::make('admission_test_uuid')->label('Jenis Tes')->options(fn (): array => AdmissionTest::query()
+                ->whereHas('unit', fn ($query) => $query->operational())
+                ->where('is_active', true)
+                ->when(auth()->user()->isTU(), fn ($q) => $q->where('unit_id', auth()->user()->unit_id))
+                ->pluck('name', 'uuid')
+                ->all())->required(),
             Forms\Components\DateTimePicker::make('starts_at')->label('Mulai')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->required(),
             Forms\Components\DateTimePicker::make('ends_at')->label('Selesai')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->required(),
             Forms\Components\DateTimePicker::make('booking_closes_at')->label('Batas pemesanan/perpindahan')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->helperText('Kosongkan untuk 24 jam sebelum mulai.'),
@@ -53,6 +58,7 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
     public function table(Table $table): Table
     {
         return $table->query(TestSession::query()
+            ->whereHas('admissionTest.unit', fn ($query) => $query->operational())
             ->with('admissionTest')
             ->withCount('bookings')
             ->when(auth()->user()->isTU(), fn ($query) => $query->whereHas('admissionTest', fn ($testQuery) => $testQuery->where('unit_id', auth()->user()->unit_id)))
