@@ -90,7 +90,8 @@
         ->map(fn (string $word): string => mb_strtoupper(mb_substr($word, 0, 1)))
         ->implode('');
     $headerTitleLineCount = max(1, count($card['headerTitleLines']));
-    $academicYearY = $headerTitleLineCount > 1 ? 174 : 140;
+    // Tempatkan Tahun Ajaran rapat tepat di bawah baris terakhir judul header.
+    $academicYearY = 132 + (($headerTitleLineCount - 1) * 34);
 @endphp
 
 <div class="toolbar">
