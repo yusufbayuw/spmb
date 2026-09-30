@@ -208,7 +208,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->required(),
                     Forms\Components\TextInput::make('applicant_card_header_title')
                         ->label('Judul Header Kartu')
-                        ->helperText('Contoh: SMP Taruna Bakti. Baris alamat tidak lagi ditampilkan pada kartu.')
+                        ->helperText('Contoh: SMP Contoh. Baris alamat tidak lagi ditampilkan pada kartu.')
                         ->maxLength(180)
                         ->required(),
                     Forms\Components\Placeholder::make('applicant_card_academic_year_preview')
