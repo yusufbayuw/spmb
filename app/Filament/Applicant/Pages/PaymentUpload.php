@@ -38,6 +38,7 @@ class PaymentUpload extends Page implements HasForms
         abort_unless(Str::isUuid($registration), 404);
         $this->registrationRecord = Registration::query()
             ->where('user_id', auth()->id())
+            ->whereHas('unit', fn ($unitQuery) => $unitQuery->operational())
             ->with(['unit', 'opening', 'latestPayment'])
             ->where('uuid', $registration)->firstOrFail();
 
