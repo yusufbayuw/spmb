@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kartu Pendaftaran · {{ $registration->applicant_card_number }}</title>
+    <title>Kartu Pendaftaran · {{ $card['cardNumber'] }}</title>
     <style>
         * { box-sizing: border-box; }
         html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
