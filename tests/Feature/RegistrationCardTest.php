@@ -9,8 +9,10 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
+use App\Models\UnitConfiguration;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
+use App\Services\UnitConfigurationService;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -75,6 +77,58 @@ class RegistrationCardTest extends TestCase
             ->get(route('registration.card', $registration))
             ->assertOk()
             ->assertSee('Foto belum tersedia');
+    }
+
+    public function test_card_uses_custom_header_academic_year_and_number_without_kartu_prefix(): void
+    {
+        [$registration, $user] = $this->fixture();
+
+        $configuration = UnitConfiguration::create(array_merge(
+            app(UnitConfigurationService::class)->defaults($registration->unit),
+            [
+                'unit_id' => $registration->unit_id,
+                'version' => 99,
+                'status' => 'published',
+                'applicant_card_header_label' => 'KARTU PESERTA',
+                'applicant_card_header_title' => 'SMP Taruna Bakti',
+                'published_at' => now(),
+                'legacy' => false,
+            ],
+        ));
+
+        $registration->update([
+            'unit_configuration_id' => $configuration->id,
+            'applicant_card_number' => 'KARTU-SMP-0050',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('registration.card', $registration))
+            ->assertOk()
+            ->assertSee('KARTU PESERTA')
+            ->assertSee('SMP Taruna Bakti')
+            ->assertSee('Tahun Ajaran 2026/2027')
+            ->assertSee('SMP-0050')
+            ->assertDontSee('KARTU-SMP-0050')
+            ->assertDontSee('Jl. Pendidikan No. 10 Bandung');
+
+        $this->actingAs($user)
+            ->get(route('registration.card.verify', $registration))
+            ->assertOk()
+            ->assertSee('SMP-0050')
+            ->assertDontSee('KARTU-SMP-0050');
+    }
+
+    public function test_new_applicant_card_number_reuses_registration_number_without_kartu_prefix(): void
+    {
+        [$registration] = $this->fixture();
+
+        $registration->forceFill(['applicant_card_number' => null])->saveQuietly();
+
+        $this->assertSame(
+            $registration->registration_number,
+            $registration->fresh()->generateApplicantCardNumber(),
+        );
+        $this->assertStringNotContainsString('KARTU-', $registration->fresh()->generateApplicantCardNumber());
     }
 
     public function test_card_renders_ktp_template_and_public_verification_without_sensitive_identity_data(): void
