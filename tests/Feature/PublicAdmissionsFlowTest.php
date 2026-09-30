@@ -80,13 +80,22 @@ class PublicAdmissionsFlowTest extends TestCase
 
         $unit->update([
             'public_headline' => 'Gabung Bersama SMA Contoh',
-            'public_body' => '<p>Kenali proses penerimaan dan siapkan dokumen sejak awal.</p>',
+            'public_body' => '<p>Kenali <strong>proses penerimaan</strong> dan siapkan dokumen sejak awal.</p><ol><li>Baca petunjuk</li></ol>',
+            'pre_registration_heading' => 'Persiapan khusus SMA',
+            'pre_registration_body' => '<p>Periksa dokumen <strong>sebelum</strong> mulai.</p>',
+            'pre_registration_items' => [
+                ['title' => 'Rapor terbaru', 'description' => 'Siapkan file yang terbaca.'],
+            ],
         ]);
 
         $this->get(route('admissions.unit', ['unit' => $unit->code]))
             ->assertOk()
             ->assertSee('Gabung Bersama SMA Contoh')
-            ->assertSee('Kenali proses penerimaan dan siapkan dokumen sejak awal.')
+            ->assertSee('<strong>proses penerimaan</strong>', false)
+            ->assertSee('<ol>', false)
+            ->assertSee('Persiapan khusus SMA')
+            ->assertSee('<strong>sebelum</strong>', false)
+            ->assertSee('Rapor terbaru')
             ->assertSee('Kapan pendaftaran ditutup?')
             ->assertSee('Penerimaan resmi SMA Contoh.')
             ->assertSee($open->wave)
