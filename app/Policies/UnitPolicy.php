@@ -11,6 +11,8 @@ class UnitPolicy extends ShieldResourcePolicy
 
     public function configureRegistration(User $user, Unit $unit): bool
     {
-        return $user->is_active && ($user->isAdmin() || ($user->isTU() && (int) $user->unit_id === $unit->id));
+        return $user->is_active
+            && $unit->isOperational()
+            && ($user->isAdmin() || ($user->isTU() && (int) $user->unit_id === $unit->id));
     }
 }
