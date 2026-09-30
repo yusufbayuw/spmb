@@ -27,7 +27,7 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
         $user = auth()->user();
 
         return (bool) $user?->is_active
-            && ($user->isAdmin() || $user->isAdminUnit());
+            && ($user->isAdmin() || ($user->isAdminUnit() && $user->hasOperationalUnitAccess()));
     }
 
     public function mount(): void
@@ -36,7 +36,7 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
 
         $this->unitUuid = auth()->user()->isAdminUnit()
             ? auth()->user()->unit?->uuid
-            : Unit::query()->forOperationalMode()->orderBy('name')->value('uuid');
+            : Unit::query()->operational()->orderBy('name')->value('uuid');
 
         if ($this->unitUuid) {
             $this->loadUnit();
@@ -46,7 +46,7 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
     public function units(): array
     {
         return Unit::query()
-            ->forOperationalMode()
+            ->operational()
             ->when(
                 auth()->user()?->isAdminUnit(),
                 fn ($query) => $query->whereKey(auth()->user()->unit_id),
@@ -228,7 +228,7 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
     private function accessibleUnit(): Unit
     {
         return Unit::query()
-            ->forOperationalMode()
+            ->operational()
             ->when(
                 auth()->user()?->isAdminUnit(),
                 fn ($query) => $query->whereKey(auth()->user()->unit_id),
