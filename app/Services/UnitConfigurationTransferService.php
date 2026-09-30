@@ -54,6 +54,8 @@ class UnitConfigurationTransferService
         'completion_message',
         'registration_number_prefix',
         'registration_number_digits',
+        'applicant_card_header_label',
+        'applicant_card_header_title',
         'pre_form_consent',
         'workflow_blocks',
         'builtin_field_policy',
