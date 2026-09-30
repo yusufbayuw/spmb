@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\UnitConfigurationTransfer;
 use App\Filament\Admin\Pages\UnitRegistrationSettings;
+use App\Models\AdmissionQuota;
 use App\Models\Faq;
+use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
@@ -55,6 +57,26 @@ class UnitConfigurationTransferTest extends TestCase
             'is_active' => true,
         ]);
 
+        $sourceOpening = RegistrationOpening::create([
+            'unit_id' => $source->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 250000,
+            'description' => 'Pembukaan utama',
+            'status' => 'open',
+            'opened_at' => now()->subDay(),
+            'closed_at' => now()->addMonth(),
+        ]);
+
+        AdmissionQuota::create([
+            'registration_opening_id' => $sourceOpening->id,
+            'registration_pathway_id' => $sourcePathway->id,
+            'capacity' => 120,
+            'offer_expires_in_hours' => 48,
+            're_registration_due_in_days' => 10,
+            'is_active' => true,
+        ]);
+
         app(UnitConfigurationService::class)->initialize($source);
 
         $target = Unit::create([
@@ -87,6 +109,24 @@ class UnitConfigurationTransferTest extends TestCase
         $this->assertDatabaseHas('faqs', [
             'unit_id' => $target->id,
             'question' => 'Dokumen apa yang disiapkan?',
+        ]);
+
+        $targetOpening = RegistrationOpening::query()
+            ->where('unit_id', $target->id)
+            ->where('academic_year', '2026/2027')
+            ->where('wave', 'Gelombang 1')
+            ->firstOrFail();
+
+        $this->assertSame('250000.00', $targetOpening->registration_fee);
+        $this->assertDatabaseHas('admission_quotas', [
+            'registration_opening_id' => $targetOpening->id,
+            'registration_pathway_id' => RegistrationPathway::query()
+                ->where('unit_id', $target->id)
+                ->where('name', 'Reguler')
+                ->value('id'),
+            'capacity' => 120,
+            'offer_expires_in_hours' => 48,
+            're_registration_due_in_days' => 10,
         ]);
         $this->assertDatabaseHas('unit_configurations', [
             'unit_id' => $target->id,
