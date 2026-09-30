@@ -53,6 +53,8 @@ class UnitConfigurationService
             'completion_message' => 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.',
             'registration_number_prefix' => $unit->code,
             'registration_number_digits' => 4,
+            'applicant_card_header_label' => 'KARTU PENDAFTARAN',
+            'applicant_card_header_title' => $unit->name,
             'pre_form_consent' => app(RegistrationConsentService::class)->defaultConfiguration($unit),
             'workflow_blocks' => collect(Registration::DEFAULT_WORKFLOW_BLOCKS)->map(fn (string $key): array => ['key' => $key])->all(),
             'builtin_field_policy' => 'system_default',
@@ -120,7 +122,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -333,6 +335,12 @@ class UnitConfigurationService
         $data['registration_number_digits'] = filled($data['registration_number_digits'] ?? null)
             ? (int) $data['registration_number_digits']
             : 4;
+        $data['applicant_card_header_label'] = filled($data['applicant_card_header_label'] ?? null)
+            ? trim((string) $data['applicant_card_header_label'])
+            : 'KARTU PENDAFTARAN';
+        $data['applicant_card_header_title'] = filled($data['applicant_card_header_title'] ?? null)
+            ? trim((string) $data['applicant_card_header_title'])
+            : ($unit?->name ?? 'Unit / Institusi');
 
         $formGroups = collect(is_array($data['form_groups'] ?? null) ? $data['form_groups'] : [])
             ->filter(fn (mixed $group): bool => is_array($group) && filled($group['key'] ?? null) && filled($group['label'] ?? null))
@@ -547,6 +555,8 @@ class UnitConfigurationService
                 'completion_message' => ['required', 'string', 'max:3000'],
                 'registration_number_prefix' => ['nullable', 'string', 'max:30', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/'],
                 'registration_number_digits' => ['required', 'integer', 'min:3', 'max:12'],
+                'applicant_card_header_label' => ['required', 'string', 'max:80'],
+                'applicant_card_header_title' => ['required', 'string', 'max:180'],
                 'pre_form_consent' => ['present', 'array'],
                 'pre_form_consent.enabled' => ['required', 'boolean'],
                 'pre_form_consent.title' => ['required', 'string', 'max:180'],
