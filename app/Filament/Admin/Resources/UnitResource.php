@@ -8,6 +8,7 @@ use App\Models\Unit;
 use App\Support\SpmbOperationalMode;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -74,7 +75,10 @@ class UnitResource extends Resource
                         ->helperText('Jenjang menjadi sumber urutan dan filter portal publik.'),
                     Forms\Components\Toggle::make('is_active')
                         ->label('Aktif')
-                        ->default(true),
+                        ->helperText('Status operasional unit hanya dapat diubah oleh Admin Pusat.')
+                        ->default(true)
+                        ->disabled(fn (): bool => ! (auth()->user()?->isAdmin() ?? false))
+                        ->dehydrated(fn (): bool => auth()->user()?->isAdmin() ?? false),
                     Forms\Components\Textarea::make('description')
                         ->label('Deskripsi')
                         ->rows(4)
@@ -139,6 +143,12 @@ class UnitResource extends Resource
                 Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
             ])
             ->filters([
+                Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Status Unit')
+                    ->placeholder('Semua unit')
+                    ->trueLabel('Aktif')
+                    ->falseLabel('Nonaktif')
+                    ->default(true),
                 Tables\Filters\SelectFilter::make('institution_type')
                     ->label('Jenis Institusi')
                     ->options(fn (): array => array_intersect_key(
@@ -170,6 +180,33 @@ class UnitResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Tutup')
                     ->modalWidth('md'),
+                Tables\Actions\Action::make('toggleOperational')
+                    ->label(fn (Unit $record): string => $record->is_active ? 'Nonaktifkan Unit' : 'Aktifkan Unit')
+                    ->icon(fn (Unit $record): string => $record->is_active ? 'heroicon-o-pause-circle' : 'heroicon-o-play-circle')
+                    ->color(fn (Unit $record): string => $record->is_active ? 'danger' : 'success')
+                    ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Unit $record): string => $record->is_active ? 'Nonaktifkan '.$record->name.'?' : 'Aktifkan '.$record->name.'?')
+                    ->modalDescription(function (Unit $record): string {
+                        $activeRegistrations = $record->registrations()
+                            ->where('lifecycle_status', 'active')
+                            ->count();
+
+                        return $record->is_active
+                            ? "Unit akan hilang dari portal publik dan seluruh data unit tidak tampil di area operasional. {$activeRegistrations} pendaftaran aktif akan dipause tanpa dihapus atau diubah statusnya."
+                            : 'Unit akan kembali tersedia. Data dan konfigurasi yang sebelumnya aktif tetap dipertahankan dan dapat digunakan kembali.';
+                    })
+                    ->action(function (Unit $record): void {
+                        $record->update(['is_active' => ! $record->is_active]);
+
+                        Notification::make()
+                            ->title($record->is_active ? 'Unit diaktifkan' : 'Unit dinonaktifkan')
+                            ->body($record->is_active
+                                ? 'Unit kembali tersedia untuk portal dan operasional.'
+                                : 'Unit disembunyikan dari portal dan area operasional tanpa menghapus data.')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
             ]);
     }
