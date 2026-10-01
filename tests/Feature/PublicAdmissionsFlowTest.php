@@ -135,6 +135,39 @@ class PublicAdmissionsFlowTest extends TestCase
         $this->get(route('admissions.apply', $opening))->assertNotFound();
     }
 
+    public function test_paused_opening_disappears_from_all_public_surfaces_and_returns_after_start(): void
+    {
+        $unit = $this->schoolUnit();
+        $opening = $this->opening($unit, ['wave' => 'Gelombang Pause Global']);
+
+        $this->get('/')->assertOk()->assertSee('Gelombang Pause Global');
+        $this->get(route('admissions.unit', ['unit' => $unit->code]))
+            ->assertOk()
+            ->assertSee('Gelombang Pause Global');
+        $this->get(route('admissions.show', $opening))->assertOk();
+        $this->get(route('admissions.qr', $opening))->assertOk();
+
+        $opening->pause();
+
+        $this->get('/')->assertOk()->assertDontSee('Gelombang Pause Global');
+        $this->get(route('admissions.unit', ['unit' => $unit->code]))
+            ->assertOk()
+            ->assertDontSee('Gelombang Pause Global');
+        $this->get(route('admissions.show', $opening))->assertNotFound();
+        $this->get(route('admissions.qr', $opening))->assertNotFound();
+        $this->get(route('admissions.apply', $opening))->assertNotFound();
+
+        $opening->resume();
+        $opening->refresh();
+
+        $this->get('/')->assertOk()->assertSee('Gelombang Pause Global');
+        $this->get(route('admissions.unit', ['unit' => $unit->code]))
+            ->assertOk()
+            ->assertSee('Gelombang Pause Global');
+        $this->get(route('admissions.show', $opening))->assertOk();
+        $this->get(route('admissions.qr', $opening))->assertOk();
+    }
+
     public function test_guest_apply_preserves_opening_intent_before_registration(): void
     {
         $opening = $this->opening($this->schoolUnit());
