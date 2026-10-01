@@ -27,7 +27,7 @@ class TrainingCertificationTest extends TestCase
 
         $training = TrainingProgram::query()->where('code', 'TRN-UNIT')->with('modules.lessons')->firstOrFail();
 
-        foreach ($training->modules->flatMap->lessons as $lesson) {
+        foreach ($training->modules->flatMap(fn ($module) => $module->lessons) as $lesson) {
             app(TrainingService::class)->completeLesson($user, $lesson);
         }
 
