@@ -132,6 +132,7 @@ class RegistrationOpeningResource extends Resource
                     ->formatStateUsing(fn (string $state): string => RegistrationOpening::STATUSES[$state] ?? $state)
                     ->color(fn (string $state): string => match ($state) {
                         'open' => 'success',
+                        'paused' => 'danger',
                         'closed' => 'warning',
                         'archived' => 'gray',
                         default => 'info',
@@ -165,9 +166,48 @@ class RegistrationOpeningResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Tutup')
                     ->modalWidth('md'),
+                Tables\Actions\Action::make('pause')
+                    ->label('Pause Pendaftaran')
+                    ->icon('heroicon-o-pause-circle')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Pause pembukaan pendaftaran?')
+                    ->modalDescription('Pembukaan akan langsung disembunyikan dari halaman publik, daftar pendaftar, QR, dan link pendaftaran. Data pendaftar yang sudah ada tidak berubah.')
+                    ->visible(fn (RegistrationOpening $record): bool => static::canEdit($record)
+                        && ! $record->isPaused()
+                        && in_array($record->operationalStatus(), ['open', 'scheduled'], true))
+                    ->action(function (RegistrationOpening $record): void {
+                        $record->pause(auth()->user());
+
+                        Notification::make()
+                            ->title('Pendaftaran dipause')
+                            ->body('Pembukaan tidak lagi tampil pada seluruh area publik. Data existing tetap aman.')
+                            ->warning()
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('resume')
+                    ->label('Start Pendaftaran')
+                    ->icon('heroicon-o-play-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Start kembali pembukaan pendaftaran?')
+                    ->modalDescription('Pembukaan akan kembali mengikuti jadwal aslinya. Jika periode masih aktif, pembukaan langsung muncul kembali di area publik.')
+                    ->visible(fn (RegistrationOpening $record): bool => static::canEdit($record) && $record->isPaused())
+                    ->action(function (RegistrationOpening $record): void {
+                        $record->resume();
+                        $record->refresh();
+
+                        Notification::make()
+                            ->title('Pendaftaran di-start kembali')
+                            ->body($record->isOpen()
+                                ? 'Pembukaan kembali tampil dan dapat menerima pendaftaran baru.'
+                                : 'Pause dilepas. Visibilitas pembukaan kembali mengikuti jadwal yang tersimpan.')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\Action::make('archive')
                     ->label('Arsipkan')->icon('heroicon-o-archive-box')->color('gray')->requiresConfirmation()
-                    ->visible(fn (RegistrationOpening $record): bool => $record->operationalStatus() !== 'archived')
+                    ->visible(fn (RegistrationOpening $record): bool => static::canEdit($record) && $record->operationalStatus() !== 'archived')
                     ->action(function (RegistrationOpening $record): void {
                         $record->archive();
                         Notification::make()->title('Pembukaan diarsipkan')->success()->send();
