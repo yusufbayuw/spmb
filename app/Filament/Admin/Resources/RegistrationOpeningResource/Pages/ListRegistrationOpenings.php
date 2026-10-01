@@ -22,11 +22,16 @@ class ListRegistrationOpenings extends ListRecords
                     $schedule->whereNull('opened_at')->orWhereNull('closed_at');
                 })),
             'scheduled' => Tab::make('Dijadwalkan')->query(fn (Builder $query): Builder => $query
+                ->whereNull('paused_at')
                 ->where('status', '!=', 'archived')
                 ->whereNotNull('opened_at')
                 ->where('opened_at', '>', now())),
             'open' => Tab::make('Dibuka')->query(fn (Builder $query): Builder => $query->currentlyOpen()),
+            'paused' => Tab::make('Dipause')->query(fn (Builder $query): Builder => $query
+                ->whereNotNull('paused_at')
+                ->where('status', '!=', 'archived')),
             'closed' => Tab::make('Ditutup')->query(fn (Builder $query): Builder => $query
+                ->whereNull('paused_at')
                 ->where('status', '!=', 'archived')
                 ->where(function (Builder $closed): void {
                     $closed
