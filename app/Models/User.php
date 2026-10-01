@@ -75,6 +75,35 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->hasMany(UserConsent::class);
     }
 
+    public function trainingEnrollments(): HasMany
+    {
+        return $this->hasMany(TrainingEnrollment::class);
+    }
+
+    public function certificationAttempts(): HasMany
+    {
+        return $this->hasMany(CertificationAttempt::class);
+    }
+
+    public function certifications(): HasMany
+    {
+        return $this->hasMany(UserCertification::class);
+    }
+
+    public function hasValidCertification(?string $programCode = null): bool
+    {
+        return $this->certifications()
+            ->valid()
+            ->when(
+                filled($programCode),
+                fn ($query) => $query->whereHas(
+                    'program',
+                    fn ($programQuery) => $programQuery->where('code', $programCode),
+                ),
+            )
+            ->exists();
+    }
+
     public function isAdmin(): bool
     {
         return $this->hasRole('super_admin');
