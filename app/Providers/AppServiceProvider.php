@@ -40,6 +40,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -56,6 +57,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         app(AppBrandingService::class)->applyToConfig();
+
+        // HTTPS may be terminated by an upstream CDN/load balancer while the
+        // aaPanel/PHP origin receives plain HTTP. In that topology Laravel's
+        // request scheme can be "http" even though the canonical application
+        // URL is HTTPS, causing mixed-content URLs for Livewire and Filament.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
 
         DateTimePicker::configureUsing(function (DateTimePicker $component): void {
             if (! $component->hasTime()) {
