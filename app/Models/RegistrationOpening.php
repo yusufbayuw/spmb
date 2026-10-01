@@ -22,6 +22,7 @@ class RegistrationOpening extends Model
         'scheduled' => 'Dijadwalkan',
         'open' => 'Dibuka',
         'closed' => 'Ditutup',
+        'paused' => 'Dipause',
         'archived' => 'Diarsipkan',
     ];
 
@@ -35,6 +36,8 @@ class RegistrationOpening extends Model
         'status',
         'opened_at',
         'closed_at',
+        'paused_at',
+        'paused_by',
         'archived_at',
         'created_by',
     ];
@@ -43,6 +46,7 @@ class RegistrationOpening extends Model
         'registration_fee' => 'decimal:2',
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
+        'paused_at' => 'datetime',
         'archived_at' => 'datetime',
     ];
 
@@ -146,6 +150,11 @@ class RegistrationOpening extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function pausedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paused_by');
+    }
+
     public function registrations(): HasMany
     {
         return $this->hasMany(Registration::class);
@@ -178,6 +187,7 @@ class RegistrationOpening extends Model
     {
         return $query
             ->operational()
+            ->whereNull('paused_at')
             ->where('status', '!=', 'archived')
             ->where(function (Builder $availability): void {
                 $availability
@@ -202,6 +212,7 @@ class RegistrationOpening extends Model
     {
         return $query
             ->operational()
+            ->whereNull('paused_at')
             ->where('status', '!=', 'archived')
             ->whereNotNull('opened_at')
             ->whereNotNull('closed_at')
@@ -213,6 +224,7 @@ class RegistrationOpening extends Model
     {
         return $query
             ->operational()
+            ->whereNull('paused_at')
             ->where('status', '!=', 'archived')
             ->where(function (Builder $visibility): void {
                 $visibility
@@ -234,6 +246,11 @@ class RegistrationOpening extends Model
         return $this->operationalStatus() === 'open';
     }
 
+    public function isPaused(): bool
+    {
+        return $this->paused_at !== null;
+    }
+
     public function statusLabel(): string
     {
         return self::STATUSES[$this->operationalStatus()] ?? $this->operationalStatus();
@@ -243,6 +260,10 @@ class RegistrationOpening extends Model
     {
         if ($this->status === 'archived' || $this->archived_at) {
             return 'archived';
+        }
+
+        if ($this->isPaused()) {
+            return 'paused';
         }
 
         if ($this->opened_at && $this->closed_at) {
@@ -271,8 +292,37 @@ class RegistrationOpening extends Model
         ])->filter()->implode(' · ');
     }
 
+    public function pause(?User $actor = null): void
+    {
+        if ($this->status === 'archived' || $this->archived_at || $this->isPaused()) {
+            return;
+        }
+
+        $this->update([
+            'paused_at' => now(),
+            'paused_by' => $actor?->id ?? auth()->id(),
+        ]);
+    }
+
+    public function resume(): void
+    {
+        if (! $this->isPaused()) {
+            return;
+        }
+
+        $this->update([
+            'paused_at' => null,
+            'paused_by' => null,
+        ]);
+    }
+
     public function archive(): void
     {
-        $this->update(['status' => 'archived', 'archived_at' => now()]);
+        $this->update([
+            'status' => 'archived',
+            'archived_at' => now(),
+            'paused_at' => null,
+            'paused_by' => null,
+        ]);
     }
 }
