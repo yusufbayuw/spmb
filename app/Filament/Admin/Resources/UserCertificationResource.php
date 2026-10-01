@@ -56,11 +56,11 @@ class UserCertificationResource extends Resource
             Tables\Columns\TextColumn::make('issued_at')->label('Terbit')->dateTime('d/m/Y H:i'),
             Tables\Columns\TextColumn::make('expires_at')->label('Berlaku Sampai')->date('d/m/Y')->placeholder('Tanpa batas'),
             Tables\Columns\TextColumn::make('status')->label('Status')->badge()
-                ->formatStateUsing(fn (UserCertification $record): string => match ($record->effectiveStatus()) {
+                ->formatStateUsing(fn (string $state, UserCertification $record): string => match ($record->effectiveStatus()) {
                     'active' => 'Aktif',
                     'expired' => 'Kedaluwarsa',
                     'revoked' => 'Dicabut',
-                    default => $record->effectiveStatus(),
+                    default => $state,
                 }),
         ])->actions([
             Tables\Actions\Action::make('verify')->label('Buka')->icon('heroicon-o-arrow-top-right-on-square')
