@@ -48,6 +48,38 @@ class RegistrationOpeningTest extends TestCase
         $this->assertSame(['closed', 'open'], $statuses);
     }
 
+    public function test_paused_opening_is_hidden_from_applicant_visibility_and_open_scopes_until_resumed(): void
+    {
+        $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang Pause',
+            'status' => 'open',
+            'opened_at' => now()->subDay(),
+            'closed_at' => now()->addDays(10),
+        ]);
+
+        $this->assertTrue($opening->isOpen());
+        $this->assertTrue(RegistrationOpening::query()->visibleToApplicants()->whereKey($opening)->exists());
+        $this->assertTrue(RegistrationOpening::query()->currentlyOpen()->whereKey($opening)->exists());
+
+        $opening->pause();
+
+        $this->assertTrue($opening->fresh()->isPaused());
+        $this->assertSame('paused', $opening->fresh()->operationalStatus());
+        $this->assertFalse(RegistrationOpening::query()->visibleToApplicants()->whereKey($opening)->exists());
+        $this->assertFalse(RegistrationOpening::query()->currentlyOpen()->whereKey($opening)->exists());
+
+        $opening->resume();
+        $opening->refresh();
+
+        $this->assertFalse($opening->isPaused());
+        $this->assertSame('open', $opening->operationalStatus());
+        $this->assertTrue(RegistrationOpening::query()->visibleToApplicants()->whereKey($opening)->exists());
+        $this->assertTrue(RegistrationOpening::query()->currentlyOpen()->whereKey($opening)->exists());
+    }
+
     public function test_registration_uses_unit_from_selected_opening(): void
     {
         $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
