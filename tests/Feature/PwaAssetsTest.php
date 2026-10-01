@@ -38,6 +38,17 @@ class PwaAssetsTest extends TestCase
         $this->assertStringNotContainsString('caches.open', $serviceWorker);
     }
 
+    public function test_global_file_preview_modal_is_fail_closed_even_without_tailwind_hidden_utility(): void
+    {
+        $view = file_get_contents(resource_path('views/components/file-preview-modal.blade.php'));
+
+        $this->assertStringContainsString('aria-hidden="true"', $view);
+        $this->assertStringContainsString('#file-preview-modal[aria-hidden="true"]', $view);
+        $this->assertStringContainsString('display: none !important;', $view);
+        $this->assertStringContainsString('#file-preview-modal[aria-hidden="false"]', $view);
+        $this->assertStringContainsString('display: block !important;', $view);
+    }
+
     public function test_unified_login_and_applicant_registration_load_pwa_manifest_and_client(): void
     {
         foreach (['/login', '/pendaftar/register'] as $url) {
