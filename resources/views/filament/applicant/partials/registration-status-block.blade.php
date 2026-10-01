@@ -122,7 +122,6 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                         </div>
                     </x-filament::section>
                 @endif
-            </div>
         @break
 
     @case('summary')
