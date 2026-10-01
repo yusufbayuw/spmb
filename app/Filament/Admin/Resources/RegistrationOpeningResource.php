@@ -155,7 +155,7 @@ class RegistrationOpeningResource extends Resource
                     ->label('Bagikan')
                     ->icon('heroicon-o-qr-code')
                     ->color('info')
-                    ->visible(fn (RegistrationOpening $record): bool => $record->operationalStatus() !== 'archived')
+                    ->visible(fn (RegistrationOpening $record): bool => ! $record->isPaused() && $record->operationalStatus() !== 'archived')
                     ->modalHeading(fn (RegistrationOpening $record): string => 'Bagikan '.$record->label())
                     ->modalContent(fn (RegistrationOpening $record) => view('filament.admin.components.admission-share', [
                         'title' => $record->label(),
