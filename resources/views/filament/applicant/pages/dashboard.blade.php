@@ -21,7 +21,7 @@
 
         @if ($registrations->isEmpty())
             <x-filament::section>
-                <div class="py-10 text-center">
+                <div class="py-12 text-center sm:py-14">
                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/10">
                         <x-heroicon-o-user-plus class="h-7 w-7" />
                     </div>
@@ -29,7 +29,7 @@
                     <p class="mx-auto mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
                         Pilih pembukaan SPMB sekolah atau PMB perguruan tinggi yang tersedia. Unit/institusi dan program studi akan mengikuti pilihan tersebut.
                     </p>
-                    <div class="mt-5">
+                    <div class="mt-7 sm:mt-8">
                         <x-filament::button
                             tag="a"
                             href="{{ \App\Filament\Applicant\Pages\RegistrationOpenings::getUrl() }}"
@@ -58,7 +58,7 @@
                             {{ $registration->registration_number ?: 'Nomor registrasi menunggu verifikasi pembayaran' }} · {{ $registration->unit?->name ?? 'Unit / institusi belum ditentukan' }}
                         </x-slot>
 
-                        <div class="space-y-5">
+                        <div class="space-y-6">
                             @if ($registration->opening)
                                 <div class="rounded-xl bg-gray-50 p-4 text-sm dark:bg-white/5">
                                     @if ($registration->opening->studyProgram)
@@ -101,7 +101,7 @@
                                 </div>
                             </div>
 
-                            <div class="flex flex-wrap gap-2">
+                            <div class="flex flex-wrap gap-x-3 gap-y-3 pt-1">
                                 <x-filament::button
                                     tag="a"
                                     href="{{ \App\Filament\Applicant\Pages\RegistrationStatus::getUrl(['registration' => $registration->uuid]) }}"

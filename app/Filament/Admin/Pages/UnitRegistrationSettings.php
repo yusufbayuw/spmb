@@ -334,6 +334,34 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->columns(['default' => 1, 'md' => 2])
                 ->collapsible(),
+            Forms\Components\Section::make('Tata Letak Portal Pendaftar')
+                ->description('Aksi Selanjutnya dan Tahapan Pendaftaran selalu menjadi dua blok pertama agar pendaftar langsung melihat apa yang harus dilakukan dan alur prosesnya. Blok informasi lain dapat diurutkan dan disembunyikan per unit.')
+                ->schema([
+                    Forms\Components\Placeholder::make('applicant_portal_primary_blocks')
+                        ->label('Blok utama tetap')
+                        ->content('1. Aksi Selanjutnya  ·  2. Tahapan Pendaftaran'),
+                    Forms\Components\Repeater::make('applicant_portal_blocks')
+                        ->label('Blok informasi lainnya')
+                        ->helperText('Drag & drop untuk mengatur urutan setelah dua blok utama. Matikan Tampilkan bila blok tidak perlu muncul di portal pendaftar.')
+                        ->schema([
+                            Forms\Components\Select::make('key')
+                                ->label('Blok')
+                                ->options(UnitConfiguration::APPLICANT_PORTAL_BLOCK_LABELS)
+                                ->disabled()
+                                ->dehydrated()
+                                ->required(),
+                            Forms\Components\Toggle::make('active')
+                                ->label('Tampilkan')
+                                ->default(true)
+                                ->required(),
+                        ])
+                        ->columns(['default' => 1, 'md' => 2])
+                        ->reorderable()
+                        ->addable(false)
+                        ->deletable(false)
+                        ->itemLabel(fn (array $state): string => UnitConfiguration::APPLICANT_PORTAL_BLOCK_LABELS[$state['key'] ?? ''] ?? 'Blok portal'),
+                ])
+                ->collapsible(),
             Forms\Components\Section::make('Nama Tahapan di Portal Pendaftar')
                 ->description('Ubah nama tampilan setiap tahapan template tanpa mengubah kunci maupun logika workflow. Pada perguruan tinggi, pengaturan per Program Studi tetap menjadi override yang lebih spesifik.')
                 ->schema(

@@ -48,6 +48,7 @@ class UnitConfigurationService
             'post_announcement_enabled' => $unit->isHigherEducation(),
             'workflow_stage_labels' => Registration::STAGES,
             'applicant_visible_stages' => array_keys(Registration::STAGES),
+            'applicant_portal_blocks' => UnitConfiguration::defaultApplicantPortalBlocks(),
             'completion_after_stage' => null,
             'completion_title' => 'Pendaftaran Telah Selesai',
             'completion_message' => 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.',
@@ -122,7 +123,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -322,6 +323,7 @@ class UnitConfigurationService
         }
 
         $data['applicant_visible_stages'] = $visibleStages;
+        $data['applicant_portal_blocks'] = UnitConfiguration::normalizeApplicantPortalBlocks($data['applicant_portal_blocks'] ?? null);
         $data['completion_title'] = filled($data['completion_title'] ?? null)
             ? trim((string) $data['completion_title'])
             : 'Pendaftaran Telah Selesai';
@@ -550,6 +552,9 @@ class UnitConfigurationService
                 'workflow_stage_labels' => ['present', 'array'], 'workflow_stage_labels.*' => ['required', 'string', 'max:120'],
                 'applicant_visible_stages' => ['present', 'array', 'min:1'],
                 'applicant_visible_stages.*' => ['required', Rule::in(array_keys(Registration::STAGES)), 'distinct'],
+                'applicant_portal_blocks' => ['present', 'array', 'size:'.count(UnitConfiguration::DEFAULT_APPLICANT_PORTAL_BLOCKS)],
+                'applicant_portal_blocks.*.key' => ['required', Rule::in(array_keys(UnitConfiguration::APPLICANT_PORTAL_BLOCK_LABELS)), 'distinct'],
+                'applicant_portal_blocks.*.active' => ['required', 'boolean'],
                 'completion_after_stage' => ['nullable', Rule::in(array_keys(array_diff_key(Registration::STAGES, ['completed' => true])))],
                 'completion_title' => ['required', 'string', 'max:180'],
                 'completion_message' => ['required', 'string', 'max:3000'],
@@ -660,6 +665,14 @@ class UnitConfigurationService
                 || array_diff($workflowKeys, Registration::DEFAULT_WORKFLOW_BLOCKS) !== []) {
                 throw ValidationException::withMessages([
                     'workflow_blocks' => 'Urutan pra-seleksi hanya boleh terdiri dari Kartu Pendaftar dan Berkas.',
+                ]);
+            }
+
+            $portalBlockKeys = collect($validated['applicant_portal_blocks'])->pluck('key')->values()->all();
+            if (array_diff(UnitConfiguration::DEFAULT_APPLICANT_PORTAL_BLOCKS, $portalBlockKeys) !== []
+                || array_diff($portalBlockKeys, UnitConfiguration::DEFAULT_APPLICANT_PORTAL_BLOCKS) !== []) {
+                throw ValidationException::withMessages([
+                    'applicant_portal_blocks' => 'Susunan blok portal pendaftar tidak valid.',
                 ]);
             }
 

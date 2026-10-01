@@ -137,6 +137,49 @@ class UnitRegistrationSettingsTest extends TestCase
     }
 
 
+    public function test_admin_unit_can_reorder_and_hide_optional_applicant_portal_blocks(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $blocks = [
+            ['key' => 'summary', 'active' => true],
+            ['key' => 'payment', 'active' => false],
+            ['key' => 'required_documents', 'active' => true],
+            ['key' => 'additional_information', 'active' => false],
+            ['key' => 'selection_tests', 'active' => true],
+            ['key' => 'announcement', 'active' => true],
+            ['key' => 'post_announcement', 'active' => true],
+        ];
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSee('Tata Letak Portal Pendaftar')
+            ->assertSee('Aksi Selanjutnya')
+            ->assertSee('Tahapan Pendaftaran')
+            ->fillForm(['applicant_portal_blocks' => $blocks])
+            ->call('publish')
+            ->assertHasNoFormErrors();
+
+        $published = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'published')
+            ->latest('version')
+            ->firstOrFail();
+
+        $this->assertSame(
+            array_column($blocks, 'key'),
+            collect($published->applicant_portal_blocks)->pluck('key')->all(),
+        );
+        $this->assertFalse(
+            (bool) collect($published->applicant_portal_blocks)->firstWhere('key', 'payment')['active'],
+        );
+        $this->assertFalse(
+            (bool) collect($published->applicant_portal_blocks)->firstWhere('key', 'additional_information')['active'],
+        );
+    }
+
     public function test_admin_unit_can_configure_applicant_card_header(): void
     {
         [$unit, $staff] = $this->fixture();
