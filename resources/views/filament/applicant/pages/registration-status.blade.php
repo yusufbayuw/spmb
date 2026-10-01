@@ -32,8 +32,8 @@
 
     <div class="space-y-6">
         <x-filament::section>
-            <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                <div class="space-y-2">
+            <div class="flex w-full flex-col gap-5 lg:flex-row lg:items-center">
+                <div class="min-w-0 flex-1 space-y-2">
                     <div class="flex flex-wrap items-center gap-2">
                         <x-filament::badge color="primary">{{ $registration->stageLabel() }}</x-filament::badge>
                         <x-filament::badge color="gray">
@@ -52,9 +52,11 @@
                     @endif
                 </div>
 
-                <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\Dashboard::getUrl() }}" color="gray" outlined icon="heroicon-m-arrow-left">
-                    Semua Pendaftaran
-                </x-filament::button>
+                <div class="shrink-0 lg:ml-auto lg:pl-8">
+                    <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\Dashboard::getUrl() }}" color="gray" outlined icon="heroicon-m-arrow-left">
+                        Semua Pendaftaran
+                    </x-filament::button>
+                </div>
             </div>
 
             <div class="mt-5 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
@@ -95,7 +97,7 @@
             </x-filament::section>
         @endif
 
-<x-filament::section>
+<x-filament::section collapsible>
                     <x-slot name="heading">Aksi Selanjutnya</x-slot>
                     <x-slot name="description">Aksi yang tersedia menyesuaikan tahap pendaftaran saat ini.</x-slot>
 
@@ -172,7 +174,7 @@
                     </div>
                 </x-filament::section>
 
-                <x-filament::section>
+                <x-filament::section collapsible>
                     <x-slot name="heading">Tahapan Pendaftaran</x-slot>
                     <div class="space-y-1">
                         @foreach ($stages as $index => $stage)

@@ -1,7 +1,7 @@
 @switch($blockKey)
     @case('additional_information')
         @if ($registration->custom_answers)
-            <x-filament::section heading="Informasi Tambahan">
+            <x-filament::section heading="Informasi Tambahan" collapsible>
                 @include('registration.custom-answers', ['registration' => $registration])
             </x-filament::section>
         @endif
@@ -9,7 +9,7 @@
 
     @case('selection_tests')
 @if ($registration->testResults->isNotEmpty())
-                    <x-filament::section>
+                    <x-filament::section collapsible>
                         <x-slot name="heading">Tes Seleksi</x-slot>
                         <div class="divide-y divide-gray-200 dark:divide-white/10">
                             @foreach ($registration->testResults->sortBy(fn ($result) => $result->admissionTest?->sort_order ?? 999) as $result)
@@ -58,7 +58,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
 
     @case('announcement')
 @if ($registration->announcement?->status === 'published')
-                    <x-filament::section icon="heroicon-o-megaphone" icon-color="success">
+                    <x-filament::section icon="heroicon-o-megaphone" icon-color="success" collapsible>
                         <x-slot name="heading">{{ $registration->announcement->title ?: 'Pengumuman Hasil Penerimaan' }}</x-slot>
                         <p class="text-sm text-gray-700 dark:text-gray-300">{{ $registration->announcement->message }}</p>
                         @if ($registration->selection)
@@ -74,7 +74,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
 
     @case('post_announcement')
 @if ($registration->current_stage === 'admission_offer' && $registration->admissionOffer)
-                    <x-filament::section icon="heroicon-o-academic-cap" icon-color="success">
+                    <x-filament::section icon="heroicon-o-academic-cap" icon-color="success" collapsible>
                         <x-slot name="heading">Selamat, Anda Diterima</x-slot>
                         <p class="text-sm text-gray-700 dark:text-gray-300">
                             Konfirmasikan penerimaan sebelum {{ $registration->admissionOffer->expires_at->format('d/m/Y H:i') }}.
@@ -98,7 +98,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                         </div>
                     </x-filament::section>
                 @elseif ($registration->current_stage === 'waiting_list' && $registration->selection)
-                    <x-filament::section icon="heroicon-o-clock" icon-color="warning">
+                    <x-filament::section icon="heroicon-o-clock" icon-color="warning" collapsible>
                         <x-slot name="heading">Status: Daftar Tunggu</x-slot>
                         <p class="text-sm text-gray-700 dark:text-gray-300">
                             @if ($registration->selection->waitlist_rank)
@@ -108,7 +108,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
                         </p>
                     </x-filament::section>
                 @elseif ($registration->current_stage === 're_registration')
-                    <x-filament::section icon="heroicon-o-document-check" icon-color="info">
+                    <x-filament::section icon="heroicon-o-document-check" icon-color="info" collapsible>
                         <x-slot name="heading">Tahap berikutnya: Daftar Ulang</x-slot>
                         @php
                             $requiredItems = $registration->reRegistrationItems->where('is_required', true);
@@ -125,7 +125,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
         @break
 
     @case('summary')
-<x-filament::section>
+<x-filament::section collapsible>
                     <x-slot name="heading">Ringkasan</x-slot>
                     <dl class="space-y-4 text-sm">
                         <div><dt class="text-gray-500">Nomor pendaftaran</dt><dd class="mt-1 font-semibold text-gray-950 dark:text-white">{{ $registration->registration_number }}</dd></div>
@@ -148,7 +148,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
         @break
 
     @case('payment')
-<x-filament::section>
+<x-filament::section collapsible>
                     <x-slot name="heading">Pembayaran</x-slot>
                     @foreach($registration->receipts as $receipt)
                         <x-filament::button tag="a" :href="route('registration.receipt', [$registration, $receipt])" target="_blank">Cetak Kuitansi</x-filament::button>
@@ -172,7 +172,7 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
 
     @case('required_documents')
 @if(count($requiredDocuments))
-                <x-filament::section>
+                <x-filament::section collapsible>
                     <x-slot name="heading">Dokumen Wajib</x-slot>
                     <div class="space-y-3">
                         @foreach ($requiredDocuments as $type)
