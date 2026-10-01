@@ -201,6 +201,13 @@ class RegistrationOpeningTest extends TestCase
             'wave' => 'Gelombang Ditutup',
             'status' => 'closed',
         ]);
+        RegistrationOpening::create([
+            'unit_id' => $school->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang Dipause',
+            'status' => 'open',
+            'paused_at' => now(),
+        ]);
 
         $this->actingAs($this->userWithRole('pendaftar'));
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
@@ -209,7 +216,8 @@ class RegistrationOpeningTest extends TestCase
             ->assertSet('availability', 'open')
             ->assertSee('Gelombang Terbuka')
             ->assertDontSee('Gelombang Mendatang')
-            ->assertDontSee('Gelombang Ditutup');
+            ->assertDontSee('Gelombang Ditutup')
+            ->assertDontSee('Gelombang Dipause');
 
         $page->set('availability', 'scheduled')
             ->assertSee('Gelombang Mendatang')
@@ -222,6 +230,7 @@ class RegistrationOpeningTest extends TestCase
             ->assertSet('educationLevelCode', 'S1')
             ->assertSee('Gelombang Ditutup')
             ->assertDontSee('Gelombang Terbuka')
+            ->assertDontSee('Gelombang Dipause')
             ->call('clearFilters')
             ->assertSet('educationLevelCode', null)
             ->assertSet('availability', 'open')
