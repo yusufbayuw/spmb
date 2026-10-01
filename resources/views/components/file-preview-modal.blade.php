@@ -49,6 +49,20 @@
         z-index: 2147483647 !important;
     }
 
+    /*
+     * Fail closed: this modal is mounted globally on every Filament panel.
+     * Do not rely on Tailwind's `hidden` utility to keep it out of the way,
+     * because a stale/incomplete published Filament stylesheet can otherwise
+     * turn the empty modal into a full-screen overlay.
+     */
+    #file-preview-modal[aria-hidden="true"] {
+        display: none !important;
+    }
+
+    #file-preview-modal[aria-hidden="false"] {
+        display: block !important;
+    }
+
     #file-preview-modal [data-file-preview-backdrop] {
         position: absolute;
         inset: 0;
