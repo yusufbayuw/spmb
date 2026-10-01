@@ -18,18 +18,13 @@ class CertificationService
     public function availablePrograms(User $user): Collection
     {
         return CertificationProgram::query()
-            ->active()
-            ->forUser($user)
+            ->active()->forUser($user)
             ->with([
                 'trainingProgram',
                 'questions' => fn ($query) => $query->where('is_active', true),
-                'certifications' => fn ($query) => $query
-                    ->where('user_id', $user->id)
-                    ->latest('issued_at'),
+                'certifications' => fn ($query) => $query->where('user_id', $user->id)->latest('issued_at'),
             ])
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('sort_order')->orderBy('name')->get();
     }
 
     public function eligible(User $user, CertificationProgram $program): bool
@@ -52,23 +47,25 @@ class CertificationService
     public function start(User $user, CertificationProgram $program): CertificationAttempt
     {
         if (! $this->eligible($user, $program)) {
-            throw ValidationException::withMessages([
-                'certification' => 'Syarat training untuk ujian sertifikasi belum terpenuhi.',
-            ]);
+            throw ValidationException::withMessages(['certification' => 'Syarat training untuk ujian sertifikasi belum terpenuhi.']);
+        }
+
+        if (UserCertification::query()
+            ->where('user_id', $user->id)
+            ->where('certification_program_id', $program->id)
+            ->valid()->exists()) {
+            throw ValidationException::withMessages(['certification' => 'Sertifikasi ini masih aktif dan belum memerlukan ujian ulang.']);
         }
 
         if (! $program->questions()->where('is_active', true)->exists()) {
-            throw ValidationException::withMessages([
-                'certification' => 'Program sertifikasi belum memiliki soal aktif.',
-            ]);
+            throw ValidationException::withMessages(['certification' => 'Program sertifikasi belum memiliki soal aktif.']);
         }
 
         $existing = CertificationAttempt::query()
             ->where('certification_program_id', $program->id)
             ->where('user_id', $user->id)
             ->where('status', 'in_progress')
-            ->latest('id')
-            ->first();
+            ->latest('id')->first();
 
         if ($existing) {
             return $existing->load('program.questions');
@@ -92,34 +89,20 @@ class CertificationService
     {
         return DB::transaction(function () use ($attempt, $user, $answers): CertificationAttempt {
             $locked = CertificationAttempt::query()
-                ->whereKey($attempt->id)
-                ->where('user_id', $user->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+                ->whereKey($attempt->id)->where('user_id', $user->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status !== 'in_progress') {
-                throw ValidationException::withMessages([
-                    'certification' => 'Ujian ini sudah diselesaikan.',
-                ]);
+                throw ValidationException::withMessages(['certification' => 'Ujian ini sudah diselesaikan.']);
             }
 
             $program = $locked->program;
             if (! $this->eligible($user, $program)) {
-                throw ValidationException::withMessages([
-                    'certification' => 'Pengguna tidak lagi memenuhi syarat ujian ini.',
-                ]);
+                throw ValidationException::withMessages(['certification' => 'Pengguna tidak lagi memenuhi syarat ujian ini.']);
             }
 
-            $questions = $program->questions()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get();
-
+            $questions = $program->questions()->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get();
             if ($questions->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'certification' => 'Tidak ada soal aktif untuk dinilai.',
-                ]);
+                throw ValidationException::withMessages(['certification' => 'Tidak ada soal aktif untuk dinilai.']);
             }
 
             $totalWeight = 0.0;
@@ -127,36 +110,21 @@ class CertificationService
 
             foreach ($questions as $question) {
                 $weight = max(0.01, (float) $question->weight);
-                $answer = array_key_exists($question->id, $answers)
-                    ? trim((string) $answers[$question->id])
-                    : null;
+                $answer = array_key_exists($question->id, $answers) ? trim((string) $answers[$question->id]) : null;
                 $isCorrect = $answer !== null && hash_equals((string) $question->correct_answer, $answer);
                 $answerScore = $isCorrect ? $weight : 0.0;
-
                 $totalWeight += $weight;
                 $earned += $answerScore;
 
                 CertificationAnswer::query()->updateOrCreate(
-                    [
-                        'certification_attempt_id' => $locked->id,
-                        'certification_question_id' => $question->id,
-                    ],
-                    [
-                        'answer' => $answer,
-                        'is_correct' => $isCorrect,
-                        'score' => $answerScore,
-                    ],
+                    ['certification_attempt_id' => $locked->id, 'certification_question_id' => $question->id],
+                    ['answer' => $answer, 'is_correct' => $isCorrect, 'score' => $answerScore],
                 );
             }
 
             $score = round(($earned / $totalWeight) * 100, 2);
             $passed = $score >= $program->passing_score;
-
-            $locked->update([
-                'score' => $score,
-                'status' => $passed ? 'passed' : 'failed',
-                'submitted_at' => now(),
-            ]);
+            $locked->update(['score' => $score, 'status' => $passed ? 'passed' : 'failed', 'submitted_at' => now()]);
 
             if ($passed) {
                 $this->issue($user, $program, $locked);
@@ -176,10 +144,7 @@ class CertificationService
 
     public function issue(User $user, CertificationProgram $program, CertificationAttempt $attempt): UserCertification
     {
-        $existing = UserCertification::query()
-            ->where('certification_attempt_id', $attempt->id)
-            ->first();
-
+        $existing = UserCertification::query()->where('certification_attempt_id', $attempt->id)->first();
         if ($existing) {
             return $existing;
         }
@@ -196,9 +161,7 @@ class CertificationService
             'verification_code' => $verificationCode,
             'score' => $attempt->score,
             'issued_at' => $issuedAt,
-            'expires_at' => $program->valid_months > 0
-                ? $issuedAt->copy()->addMonths($program->valid_months)
-                : null,
+            'expires_at' => $program->valid_months > 0 ? $issuedAt->copy()->addMonths($program->valid_months) : null,
             'status' => 'active',
         ]);
 
