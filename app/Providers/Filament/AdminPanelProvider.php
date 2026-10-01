@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\Auth\Login;
+use App\Filament\Support\LocalLoginBackgrounds;
 use App\Http\Middleware\RedirectLegacyPanelLogin;
 use App\Services\AppBrandingService;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
@@ -23,7 +24,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Swis\Filament\Backgrounds\FilamentBackgroundsPlugin;
-use App\Filament\Support\LocalLoginBackgrounds;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -47,7 +47,7 @@ class AdminPanelProvider extends PanelProvider
                 FilamentBackgroundsPlugin::make()
                     ->imageProvider(LocalLoginBackgrounds::make('images/login-admin')),
             ])
-            ->navigationGroups(['Pendaftaran','Pasca-Pengumuman','Laporan','Informasi Publik','Konfigurasi SPMB','Sistem & Akses'])
+            ->navigationGroups(['Pendaftaran','Pasca-Pengumuman','Laporan','Informasi Publik','Konfigurasi SPMB','Training & Sertifikasi','Sistem & Akses'])
             ->sidebarCollapsibleOnDesktop()
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('pwa.meta'))
             ->renderHook(

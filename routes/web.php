@@ -2,8 +2,9 @@
 
 use App\Http\Controllers\AdmissionOfferController;
 use App\Http\Controllers\AdmissionQrCodeController;
-use App\Http\Controllers\BrandMediaController;
 use App\Http\Controllers\Auth\ApplicantEmailVerificationController;
+use App\Http\Controllers\BrandMediaController;
+use App\Http\Controllers\CertificateVerificationController;
 use App\Http\Controllers\HomeController;
 use App\Filament\Legal\Pages\Privacy as PrivacyPolicyPage;
 use App\Filament\Legal\Pages\Terms as TermsPolicyPage;
@@ -39,6 +40,12 @@ Route::get('/penerimaan/{registrationOpening}/daftar', StartRegistrationControll
 Route::get('/verifikasi/kartu/{registration}', [RegistrationPrintController::class, 'verifyCard'])
     ->whereUuid('registration')
     ->name('registration.card.verify');
+Route::get('/verifikasi/sertifikat/{certificate}', [CertificateVerificationController::class, 'show'])
+    ->whereUuid('certificate')
+    ->name('certificates.verify');
+Route::get('/verifikasi/sertifikat/{certificate}/qr.svg', [CertificateVerificationController::class, 'qr'])
+    ->whereUuid('certificate')
+    ->name('certificates.qr');
 
 Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantEmailVerificationController::class)
     ->middleware(['auth', 'signed', 'throttle:6,1'])
