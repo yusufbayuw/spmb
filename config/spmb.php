@@ -30,6 +30,8 @@ return [
         'clamav_timeout' => (int) env('SPMB_CLAMAV_TIMEOUT', 30),
     ],
 
+    'certificate_artifact_signing_key' => env('SPMB_CERTIFICATE_ARTIFACT_SIGNING_KEY'),
+
     'mail' => [
         'queue' => env('SPMB_MAIL_QUEUE', 'emails'),
     ],
