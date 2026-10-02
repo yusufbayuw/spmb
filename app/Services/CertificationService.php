@@ -53,6 +53,7 @@ class CertificationService
             ->where('certification_program_id', $program->id)
             ->where('user_id', $user->id)
             ->where('status', 'passed')
+            ->whereDoesntHave('certification')
             ->latest('submitted_at')
             ->latest('id')
             ->first();
