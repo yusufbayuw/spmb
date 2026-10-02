@@ -96,7 +96,13 @@ class RegistrationResource extends Resource
                             ignoreRecord: true,
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
                                 ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
-                        ),
+                        )
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
+                            if (method_exists($livewire, 'applyContinuationPrefill')) {
+                                $livewire->applyContinuationPrefill($get, $set);
+                            }
+                        }),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
                     Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
@@ -107,7 +113,13 @@ class RegistrationResource extends Resource
                         ->required()
                         ->native(false)
                         ->maxDate(now()->subDay())
-                        ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_uuid'))),
+                        ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_uuid')))
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
+                            if (method_exists($livewire, 'applyContinuationPrefill')) {
+                                $livewire->applyContinuationPrefill($get, $set);
+                            }
+                        }),
                     Forms\Components\TextInput::make('phone')->label('Nomor Telepon')->tel()->maxLength(20),
                     Forms\Components\TextInput::make('email')->label('Email Peserta')->email()->maxLength(100),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->rows(3)->columnSpanFull(),
