@@ -265,10 +265,6 @@ class ContinuationCandidateImportService
             return $value->format('Y-m-d');
         }
 
-        if (is_float($value) && floor($value) === $value) {
-            return sprintf('%.0f', $value);
-        }
-
         return $value;
     }
 
