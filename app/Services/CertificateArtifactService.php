@@ -209,7 +209,9 @@ class CertificateArtifactService
 
     private function escapePdfText(string $text): string
     {
-        $converted = iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text);
+        $converted = function_exists('iconv')
+            ? iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text)
+            : $text;
 
         return str_replace(
             ['\\', '(', ')'],
