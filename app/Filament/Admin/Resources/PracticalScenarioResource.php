@@ -36,9 +36,20 @@ class PracticalScenarioResource extends Resource
                 ->schema([
                     Forms\Components\Select::make('certification_program_id')
                         ->label('Program Sertifikasi')
-                        ->options(fn (): array => CertificationProgram::query()->orderBy('name')->pluck('name', 'id')->all())
+                        ->options(fn (): array => CertificationProgram::query()
+                            ->orderBy('name')
+                            ->orderBy('version')
+                            ->get()
+                            ->mapWithKeys(fn (CertificationProgram $program): array => [
+                                $program->id => $program->name.' · v'.$program->version,
+                            ])
+                            ->all())
                         ->searchable()->preload()->required(),
-                    Forms\Components\TextInput::make('code')->label('Kode')->required()->maxLength(80)->unique(ignoreRecord: true),
+                    Forms\Components\TextInput::make('code')
+                        ->label('Kode')
+                        ->required()
+                        ->maxLength(80)
+                        ->helperText('Kode scenario unik di dalam versi program sertifikasi terkait.'),
                     Forms\Components\TextInput::make('name')->label('Nama Scenario')->required()->maxLength(180),
                     Forms\Components\TextInput::make('time_limit_minutes')->label('Batas Waktu (menit)')->integer()->minValue(1),
                     Forms\Components\Textarea::make('description')->label('Deskripsi')->rows(2)->columnSpanFull(),
@@ -141,6 +152,7 @@ class PracticalScenarioResource extends Resource
                 Tables\Columns\TextColumn::make('code')->label('Kode')->badge()->searchable(),
                 Tables\Columns\TextColumn::make('name')->label('Scenario')->searchable(),
                 Tables\Columns\TextColumn::make('program.code')->label('Sertifikasi')->badge(),
+                Tables\Columns\TextColumn::make('program.version')->label('Versi')->badge(),
                 Tables\Columns\TextColumn::make('records_count')->counts('records')->label('Record'),
                 Tables\Columns\TextColumn::make('actions_count')->counts('actions')->label('Aksi'),
                 Tables\Columns\TextColumn::make('assertions_count')->counts('assertions')->label('Validator'),
