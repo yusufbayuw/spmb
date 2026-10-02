@@ -73,6 +73,11 @@ class CertificationAttempt extends Model
         return $this->expires_at?->isPast() ?? false;
     }
 
+    public function hasPracticalRequirementsSnapshot(): bool
+    {
+        return $this->getAttribute('required_practical_scenario_ids_snapshot') !== null;
+    }
+
     public function requiredPracticalScenarioIds(): array
     {
         return collect($this->required_practical_scenario_ids_snapshot ?? [])
