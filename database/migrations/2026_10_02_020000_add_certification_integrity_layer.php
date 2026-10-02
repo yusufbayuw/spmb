@@ -38,6 +38,7 @@ return new class extends Migration
             $table->unsignedTinyInteger('theory_weight_snapshot')->nullable()->after('passing_score_snapshot');
             $table->unsignedTinyInteger('practical_weight_snapshot')->nullable()->after('theory_weight_snapshot');
             $table->unsignedTinyInteger('practical_passing_score_snapshot')->nullable()->after('practical_weight_snapshot');
+            $table->unsignedSmallInteger('valid_months_snapshot')->nullable()->after('practical_passing_score_snapshot');
             $table->unsignedSmallInteger('question_count_snapshot')->nullable()->after('practical_passing_score_snapshot');
             $table->unsignedSmallInteger('time_limit_minutes_snapshot')->nullable()->after('question_count_snapshot');
             $table->json('required_practical_scenario_ids_snapshot')->nullable()->after('time_limit_minutes_snapshot');
@@ -223,7 +224,7 @@ return new class extends Migration
             $table->dropColumn([
                 'program_code_snapshot', 'program_name_snapshot', 'program_version_snapshot',
                 'passing_score_snapshot', 'theory_weight_snapshot', 'practical_weight_snapshot',
-                'practical_passing_score_snapshot', 'question_count_snapshot',
+                'practical_passing_score_snapshot', 'valid_months_snapshot', 'question_count_snapshot',
                 'time_limit_minutes_snapshot', 'required_practical_scenario_ids_snapshot',
                 'expires_at',
             ]);
