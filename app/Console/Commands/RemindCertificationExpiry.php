@@ -49,12 +49,10 @@ class RemindCertificationExpiry extends Command
 
                     $threshold = collect($thresholds)
                         ->sort()
-                        ->first(fn (int $day): bool =>
-                            $remaining <= $day
-                            && ! array_key_exists((string) $day, $already)
-                        );
+                        ->first(fn (int $day): bool => $remaining <= $day);
 
-                    if ($threshold === null) {
+                    if ($threshold === null
+                        || array_key_exists((string) $threshold, $already)) {
                         continue;
                     }
 
