@@ -30,7 +30,7 @@ return new class extends Migration
             $table->timestamp('imported_at')->nullable();
             $table->timestamps();
 
-            $table->index(['unit_id', 'academic_year', 'nik', 'birth_date'], 'continuation_candidates_match_idx');
+            $table->index(['unit_id', 'academic_year', 'nik', 'birth_date', 'is_active'], 'continuation_candidates_match_idx');
             $table->index(['unit_id', 'academic_year', 'is_active'], 'continuation_candidates_scope_idx');
         });
 
