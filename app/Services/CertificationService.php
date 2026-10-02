@@ -71,7 +71,11 @@ class CertificationService
             return false;
         }
 
-        $scenarioIds = collect($attempt->requiredPracticalScenarioIds());
+        $scenarioIds = $attempt->hasPracticalRequirementsSnapshot()
+            ? collect($attempt->requiredPracticalScenarioIds())
+            : $program->practicalScenarios()
+                ->where('is_active', true)
+                ->pluck('id');
 
         if ($scenarioIds->isEmpty()) {
             return true;
@@ -504,7 +508,11 @@ class CertificationService
         User $user,
         CertificationAttempt $attempt,
     ): ?float {
-        $scenarioIds = collect($attempt->requiredPracticalScenarioIds());
+        $scenarioIds = $attempt->hasPracticalRequirementsSnapshot()
+            ? collect($attempt->requiredPracticalScenarioIds())
+            : $attempt->program->practicalScenarios()
+                ->where('is_active', true)
+                ->pluck('id');
 
         if ($scenarioIds->isEmpty()) {
             return null;
