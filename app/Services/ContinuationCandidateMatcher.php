@@ -63,7 +63,7 @@ class ContinuationCandidateMatcher
             ->where('unit_id', $opening->unit_id)
             ->where('academic_year', $opening->academic_year)
             ->where('nik', $nik)
-            ->where('birth_date', $birthDate)
+            ->whereDate('birth_date', $birthDate)
             ->limit(2)
             ->get();
 
