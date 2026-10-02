@@ -428,6 +428,22 @@ class CertificationService
             description: 'Sertifikat '.$certificate->program_name_snapshot.' diterbitkan',
         );
 
+        if (app(TrainingGovernanceService::class)->certificateArtifactEnabled()) {
+            try {
+                $certificate = app(CertificateArtifactService::class)->generate($certificate);
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                app(AuditTrail::class)->record(
+                    'certification.artifact_failed',
+                    $certificate,
+                    actor: $user,
+                    metadata: ['error' => $exception->getMessage()],
+                    description: 'Pembuatan artifact PDF sertifikat gagal',
+                );
+            }
+        }
+
         return $certificate;
     }
 
