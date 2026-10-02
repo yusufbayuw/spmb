@@ -742,6 +742,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public function save(): void
     {
+        app(\App\Services\CertificationAccessService::class)
+            ->assertSensitiveOperation(auth()->user(), 'menyimpan konfigurasi pendaftaran unit');
+
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
         $data = $this->configurationFormData($configuration);
 
@@ -756,6 +759,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public function publish(): void
     {
+        app(\App\Services\CertificationAccessService::class)
+            ->assertSensitiveOperation(auth()->user(), 'mempublikasikan konfigurasi pendaftaran unit');
+
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
         $data = $this->configurationFormData($configuration);
         $service = app(UnitConfigurationService::class);
