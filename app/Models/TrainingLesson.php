@@ -21,7 +21,7 @@ class TrainingLesson extends Model
     ];
 
     protected $fillable = [
-        'training_module_id', 'title', 'type', 'content', 'video_url',
+        'training_module_id', 'seed_key', 'title', 'type', 'content', 'video_url',
         'duration_minutes', 'sort_order', 'is_required',
     ];
 

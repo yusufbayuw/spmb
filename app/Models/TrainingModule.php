@@ -12,7 +12,7 @@ class TrainingModule extends Model
     use HasPublicUuid;
 
     protected $fillable = [
-        'training_program_id', 'title', 'description', 'sort_order', 'is_required',
+        'training_program_id', 'seed_key', 'title', 'description', 'sort_order', 'is_required',
     ];
 
     protected $casts = [
