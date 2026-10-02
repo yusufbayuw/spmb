@@ -143,7 +143,7 @@ class TrainingCertificationTest extends TestCase
         $certification = app(CertificationService::class);
 
         $firstTheory = $certification->start($user, $program);
-        $certification->submit($firstTheory, $user, $this->correctAnswers($attempt));
+        $certification->submit($firstTheory, $user, $this->correctAnswers($firstTheory));
 
         $scenario = PracticalScenario::query()
             ->where('code', 'SCUA-OPENING-01')
