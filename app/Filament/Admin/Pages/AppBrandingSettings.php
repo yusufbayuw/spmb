@@ -127,6 +127,9 @@ class AppBrandingSettings extends Page implements Forms\Contracts\HasForms
 
     public function save(): void
     {
+        app(\App\Services\CertificationAccessService::class)
+            ->assertSensitiveOperation(auth()->user(), 'mengubah white-label aplikasi');
+
         $data = $this->form->getState();
 
         $settings = AppSetting::query()->first() ?? new AppSetting();
