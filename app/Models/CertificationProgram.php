@@ -14,11 +14,15 @@ class CertificationProgram extends Model
 
     protected $fillable = [
         'code', 'name', 'description', 'target_role', 'version', 'passing_score',
+        'theory_weight', 'practical_weight', 'practical_passing_score',
         'valid_months', 'training_program_id', 'is_active', 'sort_order',
     ];
 
     protected $casts = [
         'passing_score' => 'integer',
+        'theory_weight' => 'integer',
+        'practical_weight' => 'integer',
+        'practical_passing_score' => 'integer',
         'valid_months' => 'integer',
         'is_active' => 'boolean',
     ];
@@ -36,6 +40,11 @@ class CertificationProgram extends Model
     public function attempts(): HasMany
     {
         return $this->hasMany(CertificationAttempt::class);
+    }
+
+    public function practicalScenarios(): HasMany
+    {
+        return $this->hasMany(PracticalScenario::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function certifications(): HasMany

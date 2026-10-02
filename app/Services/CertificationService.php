@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CertificationAnswer;
 use App\Models\CertificationAttempt;
 use App\Models\CertificationProgram;
+use App\Models\PracticalRun;
 use App\Models\TrainingEnrollment;
 use App\Models\User;
 use App\Models\UserCertification;
@@ -22,6 +23,8 @@ class CertificationService
             ->with([
                 'trainingProgram',
                 'questions' => fn ($query) => $query->where('is_active', true),
+                'practicalScenarios' => fn ($query) => $query->where('is_active', true),
+                'attempts' => fn ($query) => $query->where('user_id', $user->id)->latest('id'),
                 'certifications' => fn ($query) => $query->where('user_id', $user->id)->latest('issued_at'),
             ])
             ->orderBy('sort_order')->orderBy('name')->get();
@@ -44,6 +47,45 @@ class CertificationService
             ->exists();
     }
 
+    public function latestPassedTheory(User $user, CertificationProgram $program): ?CertificationAttempt
+    {
+        return CertificationAttempt::query()
+            ->where('certification_program_id', $program->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'passed')
+            ->latest('submitted_at')
+            ->latest('id')
+            ->first();
+    }
+
+    public function practicalComplete(User $user, CertificationProgram $program, ?CertificationAttempt $attempt = null): bool
+    {
+        $attempt ??= $this->latestPassedTheory($user, $program);
+
+        if (! $attempt) {
+            return false;
+        }
+
+        $scenarioIds = $program->practicalScenarios()
+            ->where('is_active', true)
+            ->pluck('id');
+
+        if ($scenarioIds->isEmpty()) {
+            return true;
+        }
+
+        $passedScenarioIds = PracticalRun::query()
+            ->where('certification_attempt_id', $attempt->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'passed')
+            ->where('passed', true)
+            ->whereIn('practical_scenario_id', $scenarioIds)
+            ->distinct()
+            ->pluck('practical_scenario_id');
+
+        return $scenarioIds->diff($passedScenarioIds)->isEmpty();
+    }
+
     public function start(User $user, CertificationProgram $program): CertificationAttempt
     {
         if (! $this->eligible($user, $program)) {
@@ -55,6 +97,12 @@ class CertificationService
             ->where('certification_program_id', $program->id)
             ->valid()->exists()) {
             throw ValidationException::withMessages(['certification' => 'Sertifikasi ini masih aktif dan belum memerlukan ujian ulang.']);
+        }
+
+        if ($this->latestPassedTheory($user, $program)) {
+            throw ValidationException::withMessages([
+                'certification' => 'Ujian teori sudah lulus. Selesaikan practical exam yang masih diperlukan.',
+            ]);
         }
 
         if (! $program->questions()->where('is_active', true)->exists()) {
@@ -87,7 +135,7 @@ class CertificationService
 
     public function submit(CertificationAttempt $attempt, User $user, array $answers): CertificationAttempt
     {
-        return DB::transaction(function () use ($attempt, $user, $answers): CertificationAttempt {
+        $evaluated = DB::transaction(function () use ($attempt, $user, $answers): CertificationAttempt {
             $locked = CertificationAttempt::query()
                 ->whereKey($attempt->id)->where('user_id', $user->id)->lockForUpdate()->firstOrFail();
 
@@ -126,10 +174,6 @@ class CertificationService
             $passed = $score >= $program->passing_score;
             $locked->update(['score' => $score, 'status' => $passed ? 'passed' : 'failed', 'submitted_at' => now()]);
 
-            if ($passed) {
-                $this->issue($user, $program, $locked);
-            }
-
             app(AuditTrail::class)->record(
                 'certification.exam_submitted',
                 $locked,
@@ -140,6 +184,30 @@ class CertificationService
 
             return $locked->fresh(['program', 'answers', 'certification']);
         }, 3);
+
+        if ($evaluated->status === 'passed') {
+            $this->issueIfComplete($user, $evaluated->program, $evaluated);
+        }
+
+        return $evaluated->fresh(['program', 'answers', 'certification']);
+    }
+
+    public function issueIfComplete(
+        User $user,
+        CertificationProgram $program,
+        ?CertificationAttempt $attempt = null,
+    ): ?UserCertification {
+        $attempt ??= $this->latestPassedTheory($user, $program);
+
+        if (! $attempt || $attempt->status !== 'passed') {
+            return null;
+        }
+
+        if (! $this->practicalComplete($user, $program, $attempt)) {
+            return null;
+        }
+
+        return $this->issue($user, $program, $attempt);
     }
 
     public function issue(User $user, CertificationProgram $program, CertificationAttempt $attempt): UserCertification
@@ -149,6 +217,7 @@ class CertificationService
             return $existing;
         }
 
+        $finalScore = $this->finalScore($user, $program, $attempt);
         $verificationCode = (string) Str::uuid();
         $suffix = strtoupper(substr(str_replace('-', '', $verificationCode), 0, 10));
         $issuedAt = now();
@@ -159,7 +228,7 @@ class CertificationService
             'certification_attempt_id' => $attempt->id,
             'certificate_number' => 'SPMB-'.Str::upper($program->code).'-'.$issuedAt->format('Y').'-'.$suffix,
             'verification_code' => $verificationCode,
-            'score' => $attempt->score,
+            'score' => $finalScore,
             'issued_at' => $issuedAt,
             'expires_at' => $program->valid_months > 0 ? $issuedAt->copy()->addMonths($program->valid_months) : null,
             'status' => 'active',
@@ -169,10 +238,58 @@ class CertificationService
             'certification.issued',
             $certificate,
             actor: $user,
-            metadata: ['certificate_number' => $certificate->certificate_number],
+            metadata: [
+                'certificate_number' => $certificate->certificate_number,
+                'theory_score' => (float) $attempt->score,
+                'final_score' => $finalScore,
+            ],
             description: 'Sertifikat '.$program->name.' diterbitkan',
         );
 
         return $certificate;
+    }
+
+    public function finalScore(User $user, CertificationProgram $program, CertificationAttempt $attempt): float
+    {
+        $scenarioIds = $program->practicalScenarios()
+            ->where('is_active', true)
+            ->pluck('id');
+
+        if ($scenarioIds->isEmpty()) {
+            return round((float) $attempt->score, 2);
+        }
+
+        $scores = [];
+        foreach ($scenarioIds as $scenarioId) {
+            $score = PracticalRun::query()
+                ->where('certification_attempt_id', $attempt->id)
+                ->where('user_id', $user->id)
+                ->where('practical_scenario_id', $scenarioId)
+                ->where('status', 'passed')
+                ->where('passed', true)
+                ->latest('submitted_at')
+                ->value('score');
+
+            if ($score === null) {
+                return round((float) $attempt->score, 2);
+            }
+
+            $scores[] = (float) $score;
+        }
+
+        $practicalAverage = array_sum($scores) / count($scores);
+        $theoryWeight = max(0, $program->theory_weight);
+        $practicalWeight = max(0, $program->practical_weight);
+        $totalWeight = $theoryWeight + $practicalWeight;
+
+        if ($totalWeight === 0) {
+            return round(((float) $attempt->score + $practicalAverage) / 2, 2);
+        }
+
+        return round(
+            (((float) $attempt->score * $theoryWeight) + ($practicalAverage * $practicalWeight))
+            / $totalWeight,
+            2,
+        );
     }
 }
