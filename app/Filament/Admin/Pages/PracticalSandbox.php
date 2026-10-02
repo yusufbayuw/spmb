@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Models\PracticalRun;
+use App\Models\PracticalRunAction;
 use App\Models\PracticalScenario;
-use App\Models\PracticalScenarioAction;
 use App\Models\UserCertification;
 use App\Services\PracticalSandboxService;
 use Filament\Notifications\Notification;
@@ -55,7 +55,7 @@ class PracticalSandbox extends Page
     {
         $scenario = PracticalScenario::query()
             ->where('uuid', $scenarioUuid)
-            ->with(['program', 'records'])
+            ->with(['program', 'records', 'actions', 'assertions'])
             ->firstOrFail();
 
         $run = app(PracticalSandboxService::class)->start(auth()->user(), $scenario);
@@ -65,7 +65,7 @@ class PracticalSandbox extends Page
 
         Notification::make()
             ->title('Practical sandbox dimulai')
-            ->body('Semua tindakan pada halaman ini hanya mengubah data sandbox.')
+            ->body('Scenario, aksi, dan validator telah dibekukan untuk attempt ini.')
             ->success()
             ->send();
     }
@@ -82,7 +82,7 @@ class PracticalSandbox extends Page
             ->where('status', 'in_progress')
             ->with([
                 'scenario.program',
-                'scenario.actions' => fn ($query) => $query->where('is_active', true),
+                'runActions',
                 'sandboxRecords',
                 'events' => fn ($query) => $query->latest('id'),
             ])
@@ -95,11 +95,13 @@ class PracticalSandbox extends Page
 
         abort_unless($run, 404);
 
-        $action = PracticalScenarioAction::query()
+        $action = PracticalRunAction::query()
             ->where('uuid', $actionUuid)
+            ->where('practical_run_id', $run->id)
             ->firstOrFail();
 
-        app(PracticalSandboxService::class)->performAction(auth()->user(), $run, $action);
+        app(PracticalSandboxService::class)
+            ->performAction(auth()->user(), $run, $action);
 
         Notification::make()
             ->title('Aksi sandbox diterapkan')
@@ -114,7 +116,9 @@ class PracticalSandbox extends Page
 
         abort_unless($run, 404);
 
-        $result = app(PracticalSandboxService::class)->submit(auth()->user(), $run);
+        $result = app(PracticalSandboxService::class)
+            ->submit(auth()->user(), $run);
+
         $certificate = UserCertification::query()
             ->where('certification_attempt_id', $result->certification_attempt_id)
             ->first();
@@ -122,15 +126,16 @@ class PracticalSandbox extends Page
         $this->lastResult = [
             'passed' => (bool) $result->passed,
             'score' => (float) $result->score,
-            'scenario' => $result->scenario->name,
-            'program' => $result->scenario->program->name,
+            'scenario' => $result->displayName(),
+            'program' => $result->theoryAttempt?->program_name_snapshot
+                ?: $result->scenario->program->name,
             'certificate_uuid' => $certificate?->uuid,
             'certificate_number' => $certificate?->certificate_number,
             'assertions' => $result->results
                 ->map(fn ($item): array => [
-                    'name' => $item->assertion->name,
+                    'name' => $item->assertionName(),
                     'passed' => $item->passed,
-                    'critical' => $item->assertion->is_critical,
+                    'critical' => $item->assertionIsCritical(),
                     'feedback' => $item->feedback,
                 ])
                 ->values()
