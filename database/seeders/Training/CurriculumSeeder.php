@@ -188,6 +188,42 @@ abstract class CurriculumSeeder extends Seeder
             .'<h3>Ringkasan</h3><p>'.e($summary).'</p>';
     }
 
+    protected function seedQuestionBank(
+        CertificationProgram $program,
+        string $prefix,
+        array $questions,
+    ): void {
+        foreach ($questions as $index => $item) {
+            $seedKey = $prefix.'-q'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT);
+            $sortOrder = $index + 1;
+
+            if (($item['type'] ?? 'choice') === 'tf') {
+                $this->seedTrueFalseQuestion(
+                    $program,
+                    $seedKey,
+                    $item['question'],
+                    (bool) $item['correct'],
+                    $item['explanation'],
+                    $sortOrder,
+                    (float) ($item['weight'] ?? 1),
+                );
+
+                continue;
+            }
+
+            $this->seedChoiceQuestion(
+                $program,
+                $seedKey,
+                $item['question'],
+                $item['options'],
+                $item['correct'],
+                $item['explanation'],
+                $sortOrder,
+                (float) ($item['weight'] ?? 1),
+            );
+        }
+    }
+
     protected function seedChoiceQuestion(
         CertificationProgram $program,
         string $seedKey,
