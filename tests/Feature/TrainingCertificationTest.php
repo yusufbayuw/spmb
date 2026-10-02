@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\CertificationService;
 use App\Services\PracticalSandboxService;
 use App\Services\TrainingService;
+use App\Services\TrainingMasteryService;
 use Database\Seeders\ShieldSeeder;
 use Database\Seeders\TrainingCertificationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -208,11 +209,26 @@ class TrainingCertificationTest extends TestCase
     {
         $training = TrainingProgram::query()
             ->where('code', $trainingCode)
-            ->with('modules.lessons')
+            ->with('modules.lessons', 'modules.assessment.questions')
             ->firstOrFail();
 
-        foreach ($training->modules->flatMap(fn ($module) => $module->lessons) as $lesson) {
-            app(TrainingService::class)->completeLesson($user, $lesson);
+        foreach ($training->modules as $module) {
+            foreach ($module->lessons as $lesson) {
+                app(TrainingService::class)->completeLesson($user, $lesson);
+            }
+
+            $assessment = $module->assessment;
+            if ($assessment?->is_active && $assessment?->is_required) {
+                $attempt = app(TrainingMasteryService::class)->start($user, $assessment);
+                $attempt->loadMissing('attemptQuestions');
+
+                $answers = $attempt->attemptQuestions
+                    ->pluck('correct_answer', 'id')
+                    ->mapWithKeys(fn ($answer, $id): array => [(int) $id => (string) $answer])
+                    ->all();
+
+                app(TrainingMasteryService::class)->submit($attempt, $user, $answers);
+            }
         }
 
         $this->assertDatabaseHas('training_enrollments', [
