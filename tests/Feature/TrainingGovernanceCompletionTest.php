@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\AppSetting;
 use App\Models\CertificationProgram;
+use App\Models\TrainingEnrollment;
 use App\Models\TrainingModuleAttempt;
 use App\Models\TrainingProgram;
 use App\Models\User;
 use App\Models\UserCertification;
 use App\Services\CertificateArtifactService;
 use App\Services\CertificationAccessService;
+use App\Services\CertificationService;
 use App\Services\TrainingAnalyticsService;
 use App\Services\TrainingMasteryService;
 use App\Services\TrainingService;
@@ -137,6 +139,44 @@ class TrainingGovernanceCompletionTest extends TestCase
         $this->assertSame($originalAnswer, $freshSnapshot->correct_answer);
     }
 
+    public function test_legacy_completed_enrollment_does_not_bypass_new_mastery_requirements(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $this->seed(TrainingCertificationSeeder::class);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('super_admin');
+
+        $training = TrainingProgram::query()
+            ->where('code', 'TRN-ADMIN')
+            ->where('version', '1.0')
+            ->firstOrFail();
+
+        $certification = CertificationProgram::query()
+            ->where('code', 'SCA')
+            ->where('version', '1.0')
+            ->firstOrFail();
+
+        TrainingEnrollment::query()->create([
+            'training_program_id' => $training->id,
+            'user_id' => $user->id,
+            'status' => 'completed',
+            'enrolled_at' => now()->subDay(),
+            'started_at' => now()->subDay(),
+            'completed_at' => now()->subHour(),
+        ]);
+
+        $this->assertFalse(
+            app(CertificationService::class)->eligible($user, $certification),
+        );
+
+        $this->completeTraining($user, $training);
+
+        $this->assertTrue(
+            app(CertificationService::class)->eligible($user->fresh(), $certification),
+        );
+    }
+
     public function test_certification_enforcement_modes_are_safe_by_default_and_configurable(): void
     {
         $this->seed(ShieldSeeder::class);
@@ -229,6 +269,7 @@ class TrainingGovernanceCompletionTest extends TestCase
     public function test_certificate_pdf_artifact_is_tamper_evident(): void
     {
         Storage::fake('local');
+        config()->set('spmb.certificate_artifact_signing_key', 'stable-certificate-signing-key-for-test');
 
         $this->seed(ShieldSeeder::class);
         $this->seed(TrainingCertificationSeeder::class);
@@ -265,6 +306,13 @@ class TrainingGovernanceCompletionTest extends TestCase
 
         Storage::disk('local')->assertExists($certificate->artifact_path);
         $this->assertTrue($service->verify($certificate));
+
+        config()->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
+        $this->assertTrue(
+            $service->verify($certificate->fresh()),
+            'Certificate artifact integrity must survive APP_KEY rotation when a dedicated signing key is configured.',
+        );
+
         $this->assertStringStartsWith(
             '%PDF-1.4',
             Storage::disk('local')->get($certificate->artifact_path),
