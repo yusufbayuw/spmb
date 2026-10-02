@@ -35,4 +35,9 @@ class TrainingEnrollment extends Model
     {
         return $this->hasMany(TrainingProgress::class);
     }
+
+    public function moduleAttempts(): HasMany
+    {
+        return $this->hasMany(TrainingModuleAttempt::class);
+    }
 }
