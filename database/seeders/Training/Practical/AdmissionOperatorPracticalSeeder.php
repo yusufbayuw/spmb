@@ -11,7 +11,7 @@ class AdmissionOperatorPracticalSeeder extends CurriculumSeeder
 {
     public function run(): void
     {
-        $program = CertificationProgram::query()->where('code', 'SCAO')->firstOrFail();
+        $program = CertificationProgram::query()->where('code', 'SCAO')->where('version', '1.0')->firstOrFail();
 
         $this->verificationScenario($program);
         $this->identityScenario($program);

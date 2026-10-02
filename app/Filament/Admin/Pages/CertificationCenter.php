@@ -80,12 +80,7 @@ class CertificationCenter extends Page
             ->where('uuid', $this->attemptUuid)
             ->where('user_id', auth()->id())
             ->where('status', 'in_progress')
-            ->with([
-                'program.questions' => fn ($query) => $query
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->orderBy('id'),
-            ])
+            ->with(['program', 'attemptQuestions'])
             ->first();
     }
 
@@ -96,16 +91,18 @@ class CertificationCenter extends Page
             ->where('user_id', auth()->id())
             ->firstOrFail();
 
-        $result = app(CertificationService::class)->submit($attempt, auth()->user(), $this->answers);
+        $result = app(CertificationService::class)
+            ->submit($attempt, auth()->user(), $this->answers);
+
         $certificate = $result->certification;
         $requiresPractical = $result->status === 'passed'
-            && $result->program->practicalScenarios()->where('is_active', true)->exists()
+            && collect($result->requiredPracticalScenarioIds())->isNotEmpty()
             && ! $certificate;
 
         $this->lastResult = [
             'status' => $result->status,
             'score' => (float) $result->score,
-            'passing_score' => $result->program->passing_score,
+            'passing_score' => $result->passing_score_snapshot ?? $result->program->passing_score,
             'requires_practical' => $requiresPractical,
             'certificate_uuid' => $certificate?->uuid,
             'certificate_number' => $certificate?->certificate_number,

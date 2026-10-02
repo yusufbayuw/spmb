@@ -19,22 +19,46 @@
     <div class="actions"><button class="button" onclick="window.print()">Cetak / Simpan PDF</button></div>
     <main class="sheet">
         <div class="eyebrow">{{ $portalName }}</div><h1>Bukti Kelulusan Sertifikasi SPMB</h1>
-        <p class="muted">Dokumen ini dapat diverifikasi melalui QR dan URL verifikasi yang tercantum pada halaman ini.</p>
+        <p class="muted">Identitas penerima, program, versi, dan nilai pada dokumen ini merupakan snapshot saat sertifikat diterbitkan.</p>
 
-        <div style="margin-top:36px"><div class="eyebrow">Diberikan kepada</div><h2>{{ $certificate->user->name }}</h2><div class="muted">{{ $certificate->user->unit?->name ?? 'Admin Pusat' }}</div></div>
-        <div style="margin-top:32px"><div class="eyebrow">Sertifikasi</div><h2>{{ $certificate->program->name }}</h2><div class="muted">{{ $certificate->program->code }} · Versi {{ $certificate->program->version }} · {{ $certificate->program->roleLabel() }}</div></div>
+        <div style="margin-top:36px">
+            <div class="eyebrow">Diberikan kepada</div>
+            <h2>{{ $certificate->recipientName() }}</h2>
+            <div class="muted">{{ $certificate->recipientUnit() }} · {{ $certificate->recipientRole() }}</div>
+        </div>
+
+        <div style="margin-top:32px">
+            <div class="eyebrow">Sertifikasi</div>
+            <h2>{{ $certificate->programName() }}</h2>
+            <div class="muted">{{ $certificate->programCode() }} · Versi {{ $certificate->programVersion() }}</div>
+        </div>
 
         <div class="grid">
             <div class="item"><div class="label">Nomor Sertifikat</div><div class="value">{{ $certificate->certificate_number }}</div></div>
-            <div class="item"><div class="label">Nilai</div><div class="value">{{ number_format((float) $certificate->score, 2, ',', '.') }}</div></div>
+            <div class="item"><div class="label">Nilai Akhir</div><div class="value">{{ number_format((float) $certificate->score, 2, ',', '.') }}</div></div>
+            @if ($certificate->theory_score !== null)
+                <div class="item"><div class="label">Nilai Teori</div><div class="value">{{ number_format((float) $certificate->theory_score, 2, ',', '.') }}</div></div>
+            @endif
+            @if ($certificate->practical_score !== null)
+                <div class="item"><div class="label">Nilai Practical</div><div class="value">{{ number_format((float) $certificate->practical_score, 2, ',', '.') }}</div></div>
+            @endif
             <div class="item"><div class="label">Tanggal Terbit</div><div class="value">{{ $certificate->issued_at?->timezone(config('app.timezone'))->format('d/m/Y') }}</div></div>
             <div class="item"><div class="label">Berlaku Sampai</div><div class="value">{{ $certificate->expires_at?->timezone(config('app.timezone'))->format('d/m/Y') ?? 'Tanpa batas waktu' }}</div></div>
         </div>
 
-        <div style="margin-top:28px"><span class="status {{ $status }}">{{ match($status) {'active' => 'VALID', 'expired' => 'KEDALUWARSA', 'revoked' => 'DICABUT', default => strtoupper($status)} }}</span></div>
+        <div style="margin-top:28px">
+            <span class="status {{ $status }}">{{ match($status) {'active' => 'VALID', 'expired' => 'KEDALUWARSA', 'revoked' => 'DICABUT', default => strtoupper($status)} }}</span>
+        </div>
+
+        @if ($status === 'revoked')
+            <p class="muted" style="margin-top:12px">Sertifikat ini telah dicabut oleh penerbit. Hubungi pengelola SPMB jika diperlukan verifikasi administratif lebih lanjut.</p>
+        @endif
+
         <div class="footer">
-            <div><div class="label">Kode Verifikasi</div><div class="value" style="font-family:monospace">{{ $certificate->verification_code }}</div>
-                <p class="muted" style="max-width:560px;font-size:13px">Status pada halaman verifikasi merupakan status terkini. Jika sertifikat dicabut atau masa berlakunya berakhir, halaman ini akan menampilkan perubahan tersebut.</p>
+            <div>
+                <div class="label">Kode Verifikasi</div>
+                <div class="value" style="font-family:monospace">{{ $certificate->verification_code }}</div>
+                <p class="muted" style="max-width:560px;font-size:13px">Status pada halaman verifikasi merupakan status terkini. Snapshot identitas dan program tidak berubah saat master data pengguna atau program diperbarui.</p>
             </div>
             <img class="qr" src="{{ route('certificates.qr', $certificate) }}" alt="QR verifikasi sertifikat">
         </div>

@@ -13,7 +13,7 @@ class AdministratorPracticalSeeder extends CurriculumSeeder
 {
     public function run(): void
     {
-        $program = CertificationProgram::query()->where('code', 'SCA')->firstOrFail();
+        $program = CertificationProgram::query()->where('code', 'SCA')->where('version', '1.0')->firstOrFail();
 
         $this->accessScenario($program);
         $this->unitLifecycleScenario($program);

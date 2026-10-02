@@ -33,10 +33,14 @@ class TrainingProgramResource extends Resource
             Forms\Components\Section::make('Program')
                 ->columns(['default' => 1, 'md' => 2])
                 ->schema([
-                    Forms\Components\TextInput::make('code')->label('Kode')->required()->maxLength(50)->unique(ignoreRecord: true),
+                    Forms\Components\TextInput::make('code')
+                        ->label('Kode')
+                        ->required()
+                        ->maxLength(50)
+                        ->helperText('Kode boleh digunakan kembali pada versi baru. Kombinasi kode + versi harus unik.'),
+                    Forms\Components\TextInput::make('version')->label('Versi')->required()->default('1.0')->maxLength(30),
                     Forms\Components\TextInput::make('name')->label('Nama')->required()->maxLength(180),
                     Forms\Components\Select::make('target_role')->label('Role Sasaran')->options(TrainingProgram::ROLE_LABELS)->required(),
-                    Forms\Components\TextInput::make('version')->label('Versi')->required()->default('1.0')->maxLength(30),
                     Forms\Components\Textarea::make('description')->label('Deskripsi')->rows(3)->columnSpanFull(),
                     Forms\Components\TextInput::make('sort_order')->label('Urutan')->integer()->default(0),
                     Forms\Components\Toggle::make('is_active')->label('Aktif')->default(true),
@@ -79,9 +83,10 @@ class TrainingProgramResource extends Resource
     {
         return $table->defaultSort('sort_order')->columns([
             Tables\Columns\TextColumn::make('code')->label('Kode')->badge()->searchable(),
+            Tables\Columns\TextColumn::make('version')->label('Versi')->badge(),
             Tables\Columns\TextColumn::make('name')->label('Program')->searchable(),
-            Tables\Columns\TextColumn::make('target_role')->label('Role')->badge()->formatStateUsing(fn (string $state): string => TrainingProgram::ROLE_LABELS[$state] ?? $state),
-            Tables\Columns\TextColumn::make('version')->label('Versi'),
+            Tables\Columns\TextColumn::make('target_role')->label('Role')->badge()
+                ->formatStateUsing(fn (string $state): string => TrainingProgram::ROLE_LABELS[$state] ?? $state),
             Tables\Columns\TextColumn::make('modules_count')->counts('modules')->label('Modul'),
             Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
         ])->actions([Tables\Actions\EditAction::make()]);

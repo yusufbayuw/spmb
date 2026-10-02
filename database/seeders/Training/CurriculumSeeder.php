@@ -17,9 +17,11 @@ abstract class CurriculumSeeder extends Seeder
 {
     protected function ensureTrainingProgram(array $attributes): TrainingProgram
     {
+        $version = $attributes['version'] ?? '1.0';
+
         return TrainingProgram::query()->firstOrCreate(
-            ['code' => $attributes['code']],
-            $attributes + ['is_active' => true],
+            ['code' => $attributes['code'], 'version' => $version],
+            $attributes + ['version' => $version, 'is_active' => true],
         );
     }
 
@@ -27,14 +29,21 @@ abstract class CurriculumSeeder extends Seeder
         TrainingProgram $training,
         array $attributes,
     ): CertificationProgram {
-        return CertificationProgram::query()->firstOrCreate(
-            ['code' => $attributes['code']],
+        $version = $attributes['version'] ?? $training->version;
+
+        $program = CertificationProgram::query()->firstOrCreate(
+            ['code' => $attributes['code'], 'version' => $version],
             [
                 'name' => $attributes['name'],
                 'description' => $attributes['description'],
                 'target_role' => $training->target_role,
-                'version' => $attributes['version'] ?? $training->version,
                 'passing_score' => $attributes['passing_score'],
+                'question_count' => $attributes['question_count'] ?? null,
+                'time_limit_minutes' => $attributes['time_limit_minutes'] ?? null,
+                'max_attempts' => $attributes['max_attempts'] ?? null,
+                'cooldown_hours' => $attributes['cooldown_hours'] ?? 0,
+                'shuffle_questions' => $attributes['shuffle_questions'] ?? true,
+                'shuffle_options' => $attributes['shuffle_options'] ?? true,
                 'theory_weight' => $attributes['theory_weight'] ?? 40,
                 'practical_weight' => $attributes['practical_weight'] ?? 60,
                 'practical_passing_score' => $attributes['practical_passing_score'] ?? 80,
@@ -44,6 +53,21 @@ abstract class CurriculumSeeder extends Seeder
                 'sort_order' => $attributes['sort_order'] ?? $training->sort_order,
             ],
         );
+
+        if ($program->question_count === null
+            && $program->time_limit_minutes === null
+            && $program->max_attempts === null) {
+            $program->update([
+                'question_count' => $attributes['question_count'] ?? null,
+                'time_limit_minutes' => $attributes['time_limit_minutes'] ?? null,
+                'max_attempts' => $attributes['max_attempts'] ?? null,
+                'cooldown_hours' => $attributes['cooldown_hours'] ?? 0,
+                'shuffle_questions' => $attributes['shuffle_questions'] ?? true,
+                'shuffle_options' => $attributes['shuffle_options'] ?? true,
+            ]);
+        }
+
+        return $program;
     }
 
     protected function seedModule(
@@ -298,7 +322,10 @@ abstract class CurriculumSeeder extends Seeder
         array $scenario,
     ): PracticalScenario {
         return PracticalScenario::query()->firstOrCreate(
-            ['code' => $scenario['code']],
+            [
+                'certification_program_id' => $program->id,
+                'code' => $scenario['code'],
+            ],
             [
                 'certification_program_id' => $program->id,
                 'name' => $scenario['name'],

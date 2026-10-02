@@ -9,7 +9,7 @@ class UnitAdministratorCertificationSeeder extends CurriculumSeeder
 {
     public function run(): void
     {
-        $program = CertificationProgram::query()->where('code', 'SCUA')->firstOrFail();
+        $program = CertificationProgram::query()->where('code', 'SCUA')->where('version', '1.0')->firstOrFail();
 
         $q = [
             ['question'=>'Tanggung jawab utama Admin Unit adalah?','options'=>['A'=>'Mengelola seluruh deployment lintas unit','B'=>'Mengelola konfigurasi dan operasi penerimaan pada unitnya','C'=>'Mengelola server Linux','D'=>'Menjadi pendaftar cadangan'],'correct'=>'B','explanation'=>'Admin Unit memiliki kewenangan pada konfigurasi dan operasi unitnya.'],

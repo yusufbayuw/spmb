@@ -11,7 +11,8 @@ class CertificationAnswer extends Model
     use HasPublicUuid;
 
     protected $fillable = [
-        'certification_attempt_id', 'certification_question_id', 'answer', 'is_correct', 'score',
+        'certification_attempt_id', 'certification_question_id',
+        'certification_attempt_question_id', 'answer', 'is_correct', 'score',
     ];
 
     protected $casts = [
@@ -27,5 +28,10 @@ class CertificationAnswer extends Model
     public function question(): BelongsTo
     {
         return $this->belongsTo(CertificationQuestion::class, 'certification_question_id');
+    }
+
+    public function attemptQuestion(): BelongsTo
+    {
+        return $this->belongsTo(CertificationAttemptQuestion::class, 'certification_attempt_question_id');
     }
 }

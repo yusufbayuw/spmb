@@ -5,7 +5,7 @@
         <x-filament::section>
             <x-slot name="heading">Sandbox Terisolasi</x-slot>
             <x-slot name="description">
-                Semua record pada ujian praktik berada di tabel sandbox terpisah. Aksi di halaman ini tidak mengubah pendaftar, pembayaran, dokumen, unit, atau pembukaan pendaftaran production.
+                Data practical terpisah dari data production. Scenario, aksi, dan validator dibekukan saat practical dimulai sehingga perubahan Admin tidak mengubah attempt yang sedang berjalan.
             </x-slot>
         </x-filament::section>
 
@@ -57,17 +57,18 @@
 
         @if ($run)
             <x-filament::section>
-                <x-slot name="heading">{{ $run->scenario->name }}</x-slot>
+                <x-slot name="heading">{{ $run->displayName() }}</x-slot>
                 <x-slot name="description">
-                    {{ $run->scenario->program->name }} · Percobaan ke-{{ $run->attempt_no }}
-                    @if ($run->scenario->time_limit_minutes)
-                        · Batas {{ $run->scenario->time_limit_minutes }} menit
+                    {{ $run->theoryAttempt?->program_name_snapshot ?: $run->scenario->program->name }}
+                    · Percobaan ke-{{ $run->attempt_no }}
+                    @if ($run->time_limit_minutes_snapshot)
+                        · Batas {{ $run->time_limit_minutes_snapshot }} menit
                     @endif
                 </x-slot>
 
                 <div class="space-y-5">
                     <div class="rounded-xl bg-gray-50 p-4 text-sm dark:bg-white/5">
-                        {{ $run->scenario->instructions }}
+                        {{ $run->displayInstructions() }}
                     </div>
 
                     @if ($run->isExpired())
@@ -105,7 +106,7 @@
                     <div>
                         <div class="mb-3 font-semibold text-gray-950 dark:text-white">Tindakan</div>
                         <div class="flex flex-wrap gap-3">
-                            @foreach ($run->scenario->actions as $action)
+                            @foreach ($run->runActions as $action)
                                 @if ($action->requires_confirmation)
                                     <x-filament::button
                                         wire:click="performAction('{{ $action->uuid }}')"
@@ -158,7 +159,7 @@
 
                 <x-filament::section>
                     <x-slot name="heading">{{ $scenario->name }}</x-slot>
-                    <x-slot name="description">{{ $scenario->program->code }} · {{ $scenario->code }}</x-slot>
+                    <x-slot name="description">{{ $scenario->program->code }} v{{ $scenario->program->version }} · {{ $scenario->code }}</x-slot>
 
                     <div class="space-y-4">
                         @if ($scenario->description)
@@ -171,7 +172,7 @@
                             @elseif ($canStart)
                                 <x-filament::badge color="warning">Siap dikerjakan</x-filament::badge>
                             @else
-                                <x-filament::badge color="gray">Lulus teori terlebih dahulu</x-filament::badge>
+                                <x-filament::badge color="gray">Belum tersedia pada siklus sertifikasi ini</x-filament::badge>
                             @endif
 
                             @if ($scenario->time_limit_minutes)

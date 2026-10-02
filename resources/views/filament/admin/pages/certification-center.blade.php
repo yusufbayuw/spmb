@@ -13,11 +13,7 @@
                         <div class="rounded-xl border border-warning-200 bg-warning-50 p-4 text-sm dark:border-warning-500/20 dark:bg-warning-500/10">
                             Teori sudah lulus. Sertifikat belum diterbitkan sampai seluruh practical scenario wajib lulus.
                         </div>
-                        <x-filament::button
-                            tag="a"
-                            href="{{ \App\Filament\Admin\Pages\PracticalSandbox::getUrl() }}"
-                            icon="heroicon-m-beaker"
-                        >
+                        <x-filament::button tag="a" href="{{ \App\Filament\Admin\Pages\PracticalSandbox::getUrl() }}" icon="heroicon-m-beaker">
                             Lanjut ke Ujian Praktik
                         </x-filament::button>
                     @elseif ($lastResult['certificate_uuid'])
@@ -37,11 +33,32 @@
         @if ($attempt)
             <form wire:submit="submitExam" class="space-y-6">
                 <x-filament::section>
-                    <x-slot name="heading">{{ $attempt->program->name }}</x-slot>
-                    <x-slot name="description">Ujian Teori · Percobaan ke-{{ $attempt->attempt_no }} · Nilai minimum {{ $attempt->program->passing_score }}</x-slot>
+                    <x-slot name="heading">{{ $attempt->program_name_snapshot ?: $attempt->program->name }}</x-slot>
+                    <x-slot name="description">
+                        {{ $attempt->program_code_snapshot ?: $attempt->program->code }}
+                        · v{{ $attempt->program_version_snapshot ?: $attempt->program->version }}
+                        · Percobaan ke-{{ $attempt->attempt_no }}
+                        · Nilai minimum {{ $attempt->passing_score_snapshot ?? $attempt->program->passing_score }}
+                    </x-slot>
 
-                    <div class="space-y-6">
-                        @foreach ($attempt->program->questions as $question)
+                    <div class="space-y-5">
+                        <div class="flex flex-wrap gap-2">
+                            <x-filament::badge color="gray">{{ $attempt->attemptQuestions->count() }} soal snapshot</x-filament::badge>
+                            @if ($attempt->time_limit_minutes_snapshot)
+                                <x-filament::badge color="warning">{{ $attempt->time_limit_minutes_snapshot }} menit</x-filament::badge>
+                            @endif
+                            @if ($attempt->expires_at)
+                                <x-filament::badge :color="$attempt->isExpired() ? 'danger' : 'gray'">
+                                    Batas {{ $attempt->expires_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}
+                                </x-filament::badge>
+                            @endif
+                        </div>
+
+                        <div class="rounded-xl bg-gray-50 p-4 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">
+                            Paket soal, opsi, kunci, bobot, passing score, dan practical requirement telah dibekukan saat ujian dimulai.
+                        </div>
+
+                        @foreach ($attempt->attemptQuestions as $question)
                             <div class="rounded-xl border border-gray-200 p-4 dark:border-white/10">
                                 <div class="font-medium text-gray-950 dark:text-white">{{ $loop->iteration }}. {{ $question->question }}</div>
                                 <div class="mt-4 space-y-2">
@@ -69,7 +86,7 @@
             <x-filament::section>
                 <x-slot name="heading">Sertifikasi Kompetensi SPMB</x-slot>
                 <x-slot name="description">
-                    Training memberi eligibility. Ujian teori dan practical dinilai terpisah; jika practical scenario aktif, keduanya wajib lulus sebelum sertifikat diterbitkan.
+                    Training memberi eligibility. Setiap attempt memakai snapshot immutable sehingga perubahan bank soal atau konfigurasi tidak mengubah attempt yang sudah dimulai.
                 </x-slot>
             </x-filament::section>
 
@@ -77,9 +94,10 @@
                 @php($eligible = $this->eligible($program))
                 @php($certificate = $program->certifications->first(fn ($item) => $item->isValid()))
                 @php($theory = $certificate?->attempt ?? $this->latestPassedTheory($program))
-                @php($practicalRequired = $program->practicalScenarios->isNotEmpty())
+                @php($bankCount = $program->questions->count())
+                @php($attemptQuestionCount = $program->question_count ? min($program->question_count, $bankCount) : $bankCount)
+                @php($practicalRequired = $theory ? collect($theory->requiredPracticalScenarioIds())->isNotEmpty() : $program->practicalScenarios->isNotEmpty())
                 @php($practicalComplete = $certificate ? true : ($theory ? $this->practicalComplete($program) : false))
-                @php($questionCount = $program->questions->count())
 
                 <x-filament::section>
                     <x-slot name="heading">{{ $program->name }}</x-slot>
@@ -102,11 +120,22 @@
                                     {{ $practicalComplete ? 'Practical lulus' : 'Practical belum lengkap' }}
                                 </x-filament::badge>
                             @endif
-                            <x-filament::badge color="gray">{{ $questionCount }} soal teori</x-filament::badge>
+                            <x-filament::badge color="gray">{{ $attemptQuestionCount }} dari {{ $bankCount }} soal</x-filament::badge>
+                            @if ($program->time_limit_minutes)
+                                <x-filament::badge color="gray">{{ $program->time_limit_minutes }} menit</x-filament::badge>
+                            @endif
                         </div>
 
                         <p class="text-xs text-gray-500">
-                            Bobot teori {{ $program->theory_weight }}% · practical {{ $program->practical_weight }}% · minimum practical {{ $program->practical_passing_score }}
+                            Teori ≥ {{ $program->passing_score }}
+                            · Practical ≥ {{ $program->practical_passing_score }}
+                            · Bobot {{ $program->theory_weight }}% / {{ $program->practical_weight }}%
+                            @if ($program->max_attempts)
+                                · Maks. {{ $program->max_attempts }} attempt/siklus
+                            @endif
+                            @if ($program->cooldown_hours)
+                                · Retry {{ $program->cooldown_hours }} jam
+                            @endif
                         </p>
 
                         @if ($certificate)
@@ -121,7 +150,7 @@
                             </div>
                         @elseif (! $eligible)
                             <p class="text-sm text-gray-500">Selesaikan {{ $program->trainingProgram?->name ?? 'training terkait' }} terlebih dahulu.</p>
-                        @elseif (! $theory && $questionCount === 0)
+                        @elseif (! $theory && $bankCount === 0)
                             <p class="text-sm text-gray-500">Soal teori belum dipublikasikan oleh Admin Pusat.</p>
                         @elseif (! $theory)
                             <x-filament::button wire:click="startExam('{{ $program->uuid }}')" icon="heroicon-m-pencil-square">

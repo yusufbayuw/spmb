@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CertificationProgram;
 use App\Models\PracticalScenario;
-use App\Models\PracticalScenarioAction;
+use App\Models\PracticalRunAction;
 use App\Models\TrainingProgram;
 use App\Models\User;
 use App\Services\CertificationService;
@@ -34,7 +34,7 @@ class TrainingCertificationTest extends TestCase
 
         $certification = app(CertificationService::class);
         $attempt = $certification->start($user, $program);
-        $theoryResult = $certification->submit($attempt, $user, $this->correctAnswers($program));
+        $theoryResult = $certification->submit($attempt, $user, $this->correctAnswers($attempt));
 
         $this->assertSame('passed', $theoryResult->status);
         $this->assertNull($theoryResult->certification);
@@ -48,8 +48,8 @@ class TrainingCertificationTest extends TestCase
         $sandbox = app(PracticalSandboxService::class);
         $run = $sandbox->start($user, $scenario);
 
-        $pause = PracticalScenarioAction::query()
-            ->where('practical_scenario_id', $scenario->id)
+        $pause = PracticalRunAction::query()
+            ->where('practical_run_id', $run->id)
             ->where('code', 'pause_opening')
             ->firstOrFail();
 
@@ -94,7 +94,7 @@ class TrainingCertificationTest extends TestCase
 
         $certification = app(CertificationService::class);
         $attempt = $certification->start($user, $program);
-        $certification->submit($attempt, $user, $this->correctAnswers($program));
+        $certification->submit($attempt, $user, $this->correctAnswers($attempt));
 
         $scenario = PracticalScenario::query()
             ->where('code', 'SCAO-VERIFY-01')
@@ -105,8 +105,8 @@ class TrainingCertificationTest extends TestCase
         $run = $sandbox->start($user, $scenario);
 
         foreach (['verify_rapor', 'verify_kk', 'verify_payment'] as $actionCode) {
-            $action = PracticalScenarioAction::query()
-                ->where('practical_scenario_id', $scenario->id)
+            $action = PracticalRunAction::query()
+                ->where('practical_run_id', $run->id)
                 ->where('code', $actionCode)
                 ->firstOrFail();
 
@@ -143,7 +143,7 @@ class TrainingCertificationTest extends TestCase
         $certification = app(CertificationService::class);
 
         $firstTheory = $certification->start($user, $program);
-        $certification->submit($firstTheory, $user, $this->correctAnswers($program));
+        $certification->submit($firstTheory, $user, $this->correctAnswers($firstTheory));
 
         $scenario = PracticalScenario::query()
             ->where('code', 'SCUA-OPENING-01')
@@ -153,8 +153,8 @@ class TrainingCertificationTest extends TestCase
         $sandbox = app(PracticalSandboxService::class);
         $firstRun = $sandbox->start($user, $scenario);
 
-        $pause = PracticalScenarioAction::query()
-            ->where('practical_scenario_id', $scenario->id)
+        $pause = PracticalRunAction::query()
+            ->where('practical_run_id', $firstRun->id)
             ->where('code', 'pause_opening')
             ->firstOrFail();
 
@@ -173,7 +173,7 @@ class TrainingCertificationTest extends TestCase
         $secondTheory = $certification->submit(
             $secondTheory,
             $user->fresh(),
-            $this->correctAnswers($program->fresh()),
+            $this->correctAnswers($secondTheory),
         );
 
         $this->assertSame('passed', $secondTheory->status);
@@ -222,10 +222,11 @@ class TrainingCertificationTest extends TestCase
         ]);
     }
 
-    private function correctAnswers(CertificationProgram $program): array
+    private function correctAnswers(\App\Models\CertificationAttempt $attempt): array
     {
-        return $program->questions()
-            ->where('is_active', true)
+        $attempt->loadMissing('attemptQuestions');
+
+        return $attempt->attemptQuestions
             ->pluck('correct_answer', 'id')
             ->mapWithKeys(fn ($answer, $id): array => [(int) $id => (string) $answer])
             ->all();

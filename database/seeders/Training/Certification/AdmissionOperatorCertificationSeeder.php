@@ -9,7 +9,7 @@ class AdmissionOperatorCertificationSeeder extends CurriculumSeeder
 {
     public function run(): void
     {
-        $program = CertificationProgram::query()->where('code', 'SCAO')->firstOrFail();
+        $program = CertificationProgram::query()->where('code', 'SCAO')->where('version', '1.0')->firstOrFail();
 
         $q = [
             ['question'=>'Tugas utama TU/operator dalam SPMB adalah?','options'=>['A'=>'Mendesain kebijakan penerimaan','B'=>'Menjalankan verifikasi dan operasi harian sesuai workflow unit','C'=>'Mengelola seluruh server','D'=>'Mengubah role staff'],'correct'=>'B','explanation'=>'TU menjalankan proses operasional yang sudah dikonfigurasi.'],
