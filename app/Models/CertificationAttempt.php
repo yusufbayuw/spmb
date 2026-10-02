@@ -39,6 +39,11 @@ class CertificationAttempt extends Model
         return $this->hasMany(CertificationAnswer::class);
     }
 
+    public function practicalRuns(): HasMany
+    {
+        return $this->hasMany(PracticalRun::class);
+    }
+
     public function certification(): HasOne
     {
         return $this->hasOne(UserCertification::class);

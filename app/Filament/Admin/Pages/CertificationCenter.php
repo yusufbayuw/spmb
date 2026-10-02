@@ -50,6 +50,16 @@ class CertificationCenter extends Page
         return app(CertificationService::class)->eligible(auth()->user(), $program);
     }
 
+    public function latestPassedTheory(CertificationProgram $program): ?CertificationAttempt
+    {
+        return app(CertificationService::class)->latestPassedTheory(auth()->user(), $program);
+    }
+
+    public function practicalComplete(CertificationProgram $program): bool
+    {
+        return app(CertificationService::class)->practicalComplete(auth()->user(), $program);
+    }
+
     public function startExam(string $programUuid): void
     {
         $program = CertificationProgram::query()->where('uuid', $programUuid)->firstOrFail();
@@ -88,11 +98,15 @@ class CertificationCenter extends Page
 
         $result = app(CertificationService::class)->submit($attempt, auth()->user(), $this->answers);
         $certificate = $result->certification;
+        $requiresPractical = $result->status === 'passed'
+            && $result->program->practicalScenarios()->where('is_active', true)->exists()
+            && ! $certificate;
 
         $this->lastResult = [
             'status' => $result->status,
             'score' => (float) $result->score,
             'passing_score' => $result->program->passing_score,
+            'requires_practical' => $requiresPractical,
             'certificate_uuid' => $certificate?->uuid,
             'certificate_number' => $certificate?->certificate_number,
         ];
@@ -101,8 +115,10 @@ class CertificationCenter extends Page
         $this->answers = [];
 
         Notification::make()
-            ->title($result->status === 'passed' ? 'Selamat, Anda lulus' : 'Ujian belum lulus')
-            ->body('Nilai akhir: '.number_format((float) $result->score, 2, ',', '.'))
+            ->title($result->status === 'passed' ? 'Ujian teori lulus' : 'Ujian teori belum lulus')
+            ->body($requiresPractical
+                ? 'Nilai teori memenuhi syarat. Lanjutkan ke Practical Sandbox.'
+                : 'Nilai akhir teori: '.number_format((float) $result->score, 2, ',', '.'))
             ->color($result->status === 'passed' ? 'success' : 'danger')
             ->send();
     }
