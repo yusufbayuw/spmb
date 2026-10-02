@@ -98,7 +98,11 @@ class CertificateArtifactService
 
     private function signingKey(): string
     {
-        $key = (string) config('app.key');
+        $key = (string) config('spmb.certificate_artifact_signing_key', '');
+
+        if ($key === '') {
+            $key = (string) config('app.key');
+        }
 
         if (str_starts_with($key, 'base64:')) {
             $decoded = base64_decode(substr($key, 7), true);
