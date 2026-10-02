@@ -9,6 +9,7 @@ use App\Models\Registration;
 use App\Models\ReRegistrationItem;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\UserCertification;
 use App\Notifications\SpmbDatabaseNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -514,6 +515,29 @@ class SpmbNotificationService
                 ['lifecycle_status' => $status, 'changed_by_uuid' => $actor->uuid],
             );
         }
+    }
+
+    public function certificationExpiring(UserCertification $certificate, int $daysRemaining): void
+    {
+        $certificate->loadMissing('user');
+
+        $this->notify(
+            collect([$certificate->user]),
+            'certification.expiring',
+            'training',
+            'Sertifikasi akan kedaluwarsa',
+            "{$certificate->programCode()} {$certificate->programVersion()} akan kedaluwarsa dalam {$daysRemaining} hari.",
+            $daysRemaining <= 7 ? 'warning' : 'info',
+            'heroicon-o-clock',
+            'Lihat sertifikat',
+            route('certificates.verify', $certificate),
+            $certificate,
+            [
+                'certificate_uuid' => $certificate->uuid,
+                'days_remaining' => $daysRemaining,
+                'program_code' => $certificate->programCode(),
+            ],
+        );
     }
 
     public function securityNotice(User $user, string $event, string $title, string $body): void
