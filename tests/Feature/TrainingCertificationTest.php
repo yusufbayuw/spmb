@@ -126,6 +126,53 @@ class TrainingCertificationTest extends TestCase
         $this->assertFalse($criticalFailure->passed);
     }
 
+    public function test_recertification_requires_a_new_practical_cycle(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $this->seed(TrainingCertificationSeeder::class);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('admin_unit');
+
+        $this->completeTraining($user, 'TRN-UNIT');
+
+        $program = CertificationProgram::query()->where('code', 'SCUA')->firstOrFail();
+        $question = $this->createTheoryQuestion($program);
+        $certification = app(CertificationService::class);
+
+        $firstTheory = $certification->start($user, $program);
+        $certification->submit($firstTheory, $user, [$question->id => 'B']);
+
+        $scenario = PracticalScenario::query()
+            ->where('code', 'SCUA-OPENING-01')
+            ->with(['program', 'records'])
+            ->firstOrFail();
+        $sandbox = app(PracticalSandboxService::class);
+        $firstRun = $sandbox->start($user, $scenario);
+        $pause = PracticalScenarioAction::query()
+            ->where('practical_scenario_id', $scenario->id)
+            ->where('code', 'pause_opening')
+            ->firstOrFail();
+        $sandbox->performAction($user, $firstRun, $pause);
+        $sandbox->submit($user, $firstRun);
+
+        $certificate = $user->fresh()->certifications()
+            ->where('certification_program_id', $program->id)
+            ->firstOrFail();
+        $certificate->update(['expires_at' => now()->subDay()]);
+
+        $secondTheory = $certification->start($user->fresh(), $program->fresh());
+        $this->assertSame(2, $secondTheory->attempt_no);
+
+        $secondTheory = $certification->submit($secondTheory, $user->fresh(), [$question->id => 'B']);
+        $this->assertSame('passed', $secondTheory->status);
+        $this->assertNull($secondTheory->certification);
+
+        $secondRun = $sandbox->start($user->fresh(), $scenario->fresh(['program', 'records']));
+        $this->assertSame($secondTheory->id, $secondRun->certification_attempt_id);
+        $this->assertNotSame($firstRun->certification_attempt_id, $secondRun->certification_attempt_id);
+    }
+
     public function test_certification_cannot_start_before_required_training_is_completed(): void
     {
         $this->seed(ShieldSeeder::class);
