@@ -64,7 +64,7 @@ class PracticalScenarioResource extends Resource
                         ->required()
                         ->columnSpanFull(),
                 ])
-                ->columns(3)
+                ->columns(['default' => 1, 'md' => 3])
                 ->columnSpanFull(),
 
             Forms\Components\Repeater::make('actions')
