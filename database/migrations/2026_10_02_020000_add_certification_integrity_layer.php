@@ -72,29 +72,51 @@ return new class extends Migration
             });
         }
 
-        Schema::create('certification_attempt_questions', function (Blueprint $table): void {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->foreignId('certification_attempt_id');
-            $table->foreignId('certification_question_id')->nullable();
-            $table->foreign('certification_attempt_id', 'cert_attempt_q_attempt_fk')
-                ->references('id')->on('certification_attempts')->cascadeOnDelete();
-            $table->foreign('certification_question_id', 'cert_attempt_q_source_fk')
-                ->references('id')->on('certification_questions')->nullOnDelete();
-            $table->string('type', 30);
-            $table->text('question');
-            $table->json('options')->nullable();
-            $table->string('correct_answer', 255);
-            $table->text('explanation')->nullable();
-            $table->decimal('weight', 8, 2)->default(1);
-            $table->unsignedInteger('sort_order')->default(0);
-            $table->timestamps();
+        if (! Schema::hasTable('certification_attempt_questions')) {
+            Schema::create('certification_attempt_questions', function (Blueprint $table): void {
+                $table->id();
+                $table->uuid('uuid');
+                $table->foreignId('certification_attempt_id');
+                $table->foreignId('certification_question_id')->nullable();
+                $table->string('type', 30);
+                $table->text('question');
+                $table->json('options')->nullable();
+                $table->string('correct_answer', 255);
+                $table->text('explanation')->nullable();
+                $table->decimal('weight', 8, 2)->default(1);
+                $table->unsignedInteger('sort_order')->default(0);
+                $table->timestamps();
+            });
+        }
 
-            $table->unique(
-                ['certification_attempt_id', 'sort_order'],
-                'cert_attempt_question_sort_unique'
-            );
-        });
+        if (! $this->hasIndex('certification_attempt_questions', 'certification_attempt_questions_uuid_unique')) {
+            Schema::table('certification_attempt_questions', function (Blueprint $table): void {
+                $table->unique('uuid', 'certification_attempt_questions_uuid_unique');
+            });
+        }
+
+        if (! $this->hasIndex('certification_attempt_questions', 'cert_attempt_question_sort_unique')) {
+            Schema::table('certification_attempt_questions', function (Blueprint $table): void {
+                $table->unique(
+                    ['certification_attempt_id', 'sort_order'],
+                    'cert_attempt_question_sort_unique'
+                );
+            });
+        }
+
+        if (! $this->hasForeignKey('certification_attempt_questions', 'certification_attempt_id')) {
+            Schema::table('certification_attempt_questions', function (Blueprint $table): void {
+                $table->foreign('certification_attempt_id', 'cert_attempt_q_attempt_fk')
+                    ->references('id')->on('certification_attempts')->cascadeOnDelete();
+            });
+        }
+
+        if (! $this->hasForeignKey('certification_attempt_questions', 'certification_question_id')) {
+            Schema::table('certification_attempt_questions', function (Blueprint $table): void {
+                $table->foreign('certification_question_id', 'cert_attempt_q_source_fk')
+                    ->references('id')->on('certification_questions')->nullOnDelete();
+            });
+        }
 
         Schema::table('certification_answers', function (Blueprint $table): void {
             $table->dropForeign(['certification_question_id']);
@@ -214,6 +236,14 @@ return new class extends Migration
     {
         return collect(Schema::getIndexes($table))
             ->contains(fn (array $index): bool => ($index['name'] ?? null) === $name);
+    }
+
+    private function hasForeignKey(string $table, string $column): bool
+    {
+        return collect(Schema::getForeignKeys($table))
+            ->contains(fn (array $foreign): bool =>
+                in_array($column, $foreign['columns'] ?? [], true)
+            );
     }
 
     public function down(): void
