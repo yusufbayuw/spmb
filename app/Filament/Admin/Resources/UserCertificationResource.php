@@ -4,6 +4,9 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\UserCertificationResource\Pages;
 use App\Models\UserCertification;
+use App\Services\CertificationService;
+use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -18,7 +21,7 @@ class UserCertificationResource extends Resource
     protected static ?string $modelLabel = 'Sertifikat Staff';
     protected static ?string $pluralModelLabel = 'Sertifikat Staff';
     protected static ?string $navigationGroup = 'Training & Sertifikasi';
-    protected static ?int $navigationSort = 22;
+    protected static ?int $navigationSort = 23;
 
     public static function canViewAny(): bool
     {
@@ -35,7 +38,7 @@ class UserCertificationResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['user.unit', 'program'])
+            ->with(['user.unit', 'program', 'revokedBy'])
             ->when(
                 auth()->user()?->isAdminUnit(),
                 fn (Builder $query): Builder => $query->whereHas(
@@ -49,9 +52,20 @@ class UserCertificationResource extends Resource
     {
         return $table->defaultSort('issued_at', 'desc')->columns([
             Tables\Columns\TextColumn::make('certificate_number')->label('Nomor')->searchable()->copyable(),
-            Tables\Columns\TextColumn::make('user.name')->label('Nama')->searchable(),
-            Tables\Columns\TextColumn::make('user.unit.name')->label('Unit')->placeholder('Admin Pusat'),
-            Tables\Columns\TextColumn::make('program.name')->label('Sertifikasi'),
+            Tables\Columns\TextColumn::make('recipient_name_snapshot')
+                ->label('Nama')
+                ->formatStateUsing(fn ($state, UserCertification $record): string => $record->recipientName())
+                ->searchable(['recipient_name_snapshot']),
+            Tables\Columns\TextColumn::make('recipient_unit_snapshot')
+                ->label('Unit')
+                ->formatStateUsing(fn ($state, UserCertification $record): string => $record->recipientUnit()),
+            Tables\Columns\TextColumn::make('program_name_snapshot')
+                ->label('Sertifikasi')
+                ->formatStateUsing(fn ($state, UserCertification $record): string => $record->programName()),
+            Tables\Columns\TextColumn::make('program_version_snapshot')
+                ->label('Versi')
+                ->formatStateUsing(fn ($state, UserCertification $record): string => $record->programVersion())
+                ->badge(),
             Tables\Columns\TextColumn::make('score')->label('Nilai')->numeric(decimalPlaces: 2),
             Tables\Columns\TextColumn::make('issued_at')->label('Terbit')->dateTime('d/m/Y H:i'),
             Tables\Columns\TextColumn::make('expires_at')->label('Berlaku Sampai')->date('d/m/Y')->placeholder('Tanpa batas'),
@@ -63,8 +77,41 @@ class UserCertificationResource extends Resource
                     default => $state,
                 }),
         ])->actions([
-            Tables\Actions\Action::make('verify')->label('Buka')->icon('heroicon-o-arrow-top-right-on-square')
-                ->url(fn (UserCertification $record): string => route('certificates.verify', $record))->openUrlInNewTab(),
+            Tables\Actions\Action::make('verify')
+                ->label('Buka')
+                ->icon('heroicon-o-arrow-top-right-on-square')
+                ->url(fn (UserCertification $record): string => route('certificates.verify', $record))
+                ->openUrlInNewTab(),
+            Tables\Actions\Action::make('revoke')
+                ->label('Cabut')
+                ->icon('heroicon-o-no-symbol')
+                ->color('danger')
+                ->visible(fn (UserCertification $record): bool =>
+                    (auth()->user()?->isAdmin() ?? false)
+                    && $record->status !== 'revoked')
+                ->requiresConfirmation()
+                ->modalHeading('Cabut Sertifikat')
+                ->modalDescription('Status publik akan langsung berubah menjadi DICABUT. Histori sertifikat tetap dipertahankan.')
+                ->form([
+                    Forms\Components\Textarea::make('reason')
+                        ->label('Alasan Pencabutan')
+                        ->required()
+                        ->minLength(10)
+                        ->rows(4),
+                ])
+                ->action(function (UserCertification $record, array $data): void {
+                    app(CertificationService::class)->revoke(
+                        $record,
+                        auth()->user(),
+                        $data['reason'],
+                    );
+
+                    Notification::make()
+                        ->title('Sertifikat dicabut')
+                        ->body($record->certificate_number)
+                        ->success()
+                        ->send();
+                }),
         ]);
     }
 
