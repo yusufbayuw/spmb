@@ -22,6 +22,8 @@ class TrainingSeeder extends Seeder
             UnitAdministratorTrainingSeeder::class,
             AdmissionOperatorTrainingSeeder::class,
 
+            TrainingMasterySeeder::class,
+
             AdministratorCertificationSeeder::class,
             UnitAdministratorCertificationSeeder::class,
             AdmissionOperatorCertificationSeeder::class,

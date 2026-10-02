@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\UserCertification;
 use App\Services\AppBrandingService;
+use App\Services\CertificateArtifactService;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\ErrorCorrectionLevel;
@@ -21,6 +22,29 @@ class CertificateVerificationController extends Controller
         return view('certificates.verify', [
             'certificate' => $certificate,
             'portalName' => app(AppBrandingService::class)->portalName(),
+        ]);
+    }
+
+    public function pdf(Request $request, UserCertification $certificate): Response
+    {
+        abort_unless(
+            app(\App\Services\TrainingGovernanceService::class)->certificateArtifactEnabled()
+            || filled($certificate->artifact_path),
+            404,
+        );
+
+        try {
+            $bytes = app(CertificateArtifactService::class)->contents($certificate);
+        } catch (\RuntimeException) {
+            abort(409, 'Artifact sertifikat gagal diverifikasi.');
+        }
+
+        return response($bytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline')
+                .'; filename="sertifikat-'.$certificate->certificate_number.'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 

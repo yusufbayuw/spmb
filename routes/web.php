@@ -46,6 +46,9 @@ Route::get('/verifikasi/sertifikat/{certificate}', [CertificateVerificationContr
 Route::get('/verifikasi/sertifikat/{certificate}/qr.svg', [CertificateVerificationController::class, 'qr'])
     ->whereUuid('certificate')
     ->name('certificates.qr');
+Route::get('/verifikasi/sertifikat/{certificate}/artifact.pdf', [CertificateVerificationController::class, 'pdf'])
+    ->whereUuid('certificate')
+    ->name('certificates.pdf');
 
 Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantEmailVerificationController::class)
     ->middleware(['auth', 'signed', 'throttle:6,1'])

@@ -2,6 +2,14 @@
     @php($attempt = $this->activeAttempt())
 
     <div class="space-y-6">
+        @if ($this->governanceWarning())
+            <x-filament::section>
+                <div class="rounded-xl border border-warning-200 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-200">
+                    {{ $this->governanceWarning() }}
+                </div>
+            </x-filament::section>
+        @endif
+
         @if ($lastResult)
             <x-filament::section>
                 <x-slot name="heading">{{ $lastResult['status'] === 'passed' ? 'Ujian Teori Lulus' : 'Ujian Teori Belum Lulus' }}</x-slot>

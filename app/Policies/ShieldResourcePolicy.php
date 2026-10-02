@@ -24,13 +24,17 @@ abstract class ShieldResourcePolicy
     public function create(User $user): bool
     {
         return $user->hasOperationalUnitAccess()
-            && $user->can('create_'.static::KEY);
+            && $user->can('create_'.static::KEY)
+            && app(\App\Services\CertificationAccessService::class)
+                ->allowsResourceMutation($user, static::KEY, 'create');
     }
 
     public function update(User $user, Model $record): bool
     {
         return $user->hasOperationalUnitAccess()
-            && $user->can('update_'.static::KEY);
+            && $user->can('update_'.static::KEY)
+            && app(\App\Services\CertificationAccessService::class)
+                ->allowsResourceMutation($user, static::KEY, 'update');
     }
 
     // Business records are lifecycle-managed. Permanent deletion is denied at
@@ -45,12 +49,16 @@ abstract class ShieldResourcePolicy
     public function replicate(User $user, Model $record): bool
     {
         return $user->hasOperationalUnitAccess()
-            && $user->can('replicate_'.static::KEY);
+            && $user->can('replicate_'.static::KEY)
+            && app(\App\Services\CertificationAccessService::class)
+                ->allowsResourceMutation($user, static::KEY, 'replicate');
     }
 
     public function reorder(User $user): bool
     {
         return $user->hasOperationalUnitAccess()
-            && $user->can('reorder_'.static::KEY);
+            && $user->can('reorder_'.static::KEY)
+            && app(\App\Services\CertificationAccessService::class)
+                ->allowsResourceMutation($user, static::KEY, 'reorder');
     }
 }

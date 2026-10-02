@@ -18,6 +18,8 @@ class UserCertification extends Model
         'certificate_number', 'verification_code', 'score', 'theory_score', 'practical_score',
         'issued_at', 'expires_at', 'status',
         'revoked_at', 'revoked_by_user_id', 'revocation_reason', 'revocation_metadata',
+        'expiry_reminders_sent', 'artifact_path', 'artifact_sha256', 'artifact_signature',
+        'artifact_signature_algorithm', 'artifact_generated_at',
     ];
 
     protected $casts = [
@@ -28,6 +30,8 @@ class UserCertification extends Model
         'expires_at' => 'datetime',
         'revoked_at' => 'datetime',
         'revocation_metadata' => 'array',
+        'expiry_reminders_sent' => 'array',
+        'artifact_generated_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

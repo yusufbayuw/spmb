@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('spmb:expire-admission-offers')
     ->everyFiveMinutes()
     ->withoutOverlapping();
+
+Schedule::command('spmb:remind-certification-expiry')
+    ->dailyAt('08:00')
+    ->withoutOverlapping();

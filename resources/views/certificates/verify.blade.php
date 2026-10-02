@@ -16,7 +16,12 @@
 </head>
 <body>
     @php($status = $certificate->effectiveStatus())
-    <div class="actions"><button class="button" onclick="window.print()">Cetak / Simpan PDF</button></div>
+    <div class="actions">
+        @if (app(\App\Services\TrainingGovernanceService::class)->certificateArtifactEnabled() || $certificate->artifact_path)
+            <a class="button" style="text-decoration:none" href="{{ route('certificates.pdf', ['certificate' => $certificate, 'download' => 1]) }}">Unduh Artifact PDF</a>
+        @endif
+        <button class="button" onclick="window.print()">Cetak Halaman</button>
+    </div>
     <main class="sheet">
         <div class="eyebrow">{{ $portalName }}</div><h1>Bukti Kelulusan Sertifikasi SPMB</h1>
         <p class="muted">Identitas penerima, program, versi, dan nilai pada dokumen ini merupakan snapshot saat sertifikat diterbitkan.</p>
@@ -59,6 +64,10 @@
                 <div class="label">Kode Verifikasi</div>
                 <div class="value" style="font-family:monospace">{{ $certificate->verification_code }}</div>
                 <p class="muted" style="max-width:560px;font-size:13px">Status pada halaman verifikasi merupakan status terkini. Snapshot identitas dan program tidak berubah saat master data pengguna atau program diperbarui.</p>
+                @if ($certificate->artifact_sha256)
+                    <div class="label" style="margin-top:12px">SHA-256 Artifact</div>
+                    <div class="value" style="font-family:monospace;font-size:11px;word-break:break-all">{{ $certificate->artifact_sha256 }}</div>
+                @endif
             </div>
             <img class="qr" src="{{ route('certificates.qr', $certificate) }}" alt="QR verifikasi sertifikat">
         </div>

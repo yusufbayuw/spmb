@@ -6,6 +6,8 @@ use App\Models\CertificationProgram;
 use App\Models\CertificationQuestion;
 use App\Models\PracticalScenario;
 use App\Models\TrainingLesson;
+use App\Models\TrainingModuleAssessment;
+use App\Models\TrainingModuleQuestion;
 use App\Models\TrainingModule;
 use App\Models\TrainingProgram;
 use Database\Seeders\TrainingCertificationSeeder;
@@ -31,6 +33,9 @@ class TrainingCurriculumSeederTest extends TestCase
         $this->assertCertificationCounts('SCUA', 78, 8);
         $this->assertCertificationCounts('SCAO', 52, 6);
 
+        $this->assertSame(29, TrainingModuleAssessment::query()->count());
+        $this->assertSame(87, TrainingModuleQuestion::query()->count());
+
         $this->assertDatabaseCount('registrations', 0);
         $this->assertDatabaseCount('payments', 0);
         $this->assertDatabaseCount('documents', 0);
@@ -47,6 +52,7 @@ class TrainingCurriculumSeederTest extends TestCase
         $lesson = TrainingLesson::query()->whereNotNull('seed_key')->firstOrFail();
         $question = CertificationQuestion::query()->whereNotNull('seed_key')->firstOrFail();
         $scenario = PracticalScenario::query()->firstOrFail();
+        $masteryQuestion = TrainingModuleQuestion::query()->whereNotNull('seed_key')->firstOrFail();
 
         $lesson->update([
             'title' => 'Judul Materi yang Diedit Admin',
@@ -58,6 +64,10 @@ class TrainingCurriculumSeederTest extends TestCase
         ]);
         $scenario->update([
             'instructions' => 'Instruksi scenario telah disunting oleh Admin Pusat.',
+        ]);
+        $masteryQuestion->update([
+            'question' => 'Checkpoint yang telah disunting Admin Pusat?',
+            'explanation' => 'Penjelasan checkpoint khusus admin.',
         ]);
 
         $this->seed(TrainingSeeder::class);
@@ -84,6 +94,14 @@ class TrainingCurriculumSeederTest extends TestCase
         $this->assertSame(
             'Instruksi scenario telah disunting oleh Admin Pusat.',
             PracticalScenario::query()->findOrFail($scenario->id)->instructions,
+        );
+        $this->assertSame(
+            'Checkpoint yang telah disunting Admin Pusat?',
+            TrainingModuleQuestion::query()->findOrFail($masteryQuestion->id)->question,
+        );
+        $this->assertSame(
+            'Penjelasan checkpoint khusus admin.',
+            TrainingModuleQuestion::query()->findOrFail($masteryQuestion->id)->explanation,
         );
     }
 
@@ -146,6 +164,8 @@ class TrainingCurriculumSeederTest extends TestCase
             'lessons' => TrainingLesson::query()->count(),
             'questions' => CertificationQuestion::query()->count(),
             'scenarios' => PracticalScenario::query()->count(),
+            'module_assessments' => TrainingModuleAssessment::query()->count(),
+            'module_questions' => TrainingModuleQuestion::query()->count(),
         ];
     }
 }

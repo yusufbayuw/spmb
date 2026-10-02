@@ -6,6 +6,7 @@ use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TrainingModule extends Model
 {
@@ -27,5 +28,10 @@ class TrainingModule extends Model
     public function lessons(): HasMany
     {
         return $this->hasMany(TrainingLesson::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function assessment(): HasOne
+    {
+        return $this->hasOne(TrainingModuleAssessment::class, 'training_module_id');
     }
 }
