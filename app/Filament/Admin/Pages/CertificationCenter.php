@@ -45,6 +45,11 @@ class CertificationCenter extends Page
         return app(CertificationService::class)->availablePrograms(auth()->user());
     }
 
+    public function governanceWarning(): ?string
+    {
+        return app(\App\Services\CertificationAccessService::class)->warning(auth()->user());
+    }
+
     public function eligible(CertificationProgram $program): bool
     {
         return app(CertificationService::class)->eligible(auth()->user(), $program);
