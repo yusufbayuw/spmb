@@ -394,7 +394,7 @@ class CertificationService
             'certification_attempt_id' => $attempt->id,
 
             'recipient_name_snapshot' => $user->name,
-            'recipient_unit_snapshot' => $user->unit?->name,
+            'recipient_unit_snapshot' => $user->unit?->name ?? 'Admin Pusat',
             'recipient_role_snapshot' => $program->roleLabel(),
             'program_code_snapshot' => $attempt->program_code_snapshot ?: $program->code,
             'program_name_snapshot' => $attempt->program_name_snapshot ?: $program->name,
