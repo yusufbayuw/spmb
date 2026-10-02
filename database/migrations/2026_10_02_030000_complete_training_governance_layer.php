@@ -11,7 +11,9 @@ return new class extends Migration
         Schema::create('training_module_assessments', function (Blueprint $table): void {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('training_module_id')->unique()->constrained()->cascadeOnDelete();
+            $table->foreignId('training_module_id')->unique();
+            $table->foreign('training_module_id', 'tr_mod_assessment_module_fk')
+                ->references('id')->on('training_modules')->cascadeOnDelete();
             $table->string('seed_key', 160)->nullable()->unique();
             $table->string('title', 180);
             $table->text('description')->nullable();
@@ -26,7 +28,9 @@ return new class extends Migration
         Schema::create('training_module_questions', function (Blueprint $table): void {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('training_module_assessment_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('training_module_assessment_id');
+            $table->foreign('training_module_assessment_id', 'tr_mod_question_assessment_fk')
+                ->references('id')->on('training_module_assessments')->cascadeOnDelete();
             $table->string('seed_key', 180)->nullable();
             $table->string('type', 30)->default('single_choice');
             $table->text('question');
@@ -47,9 +51,15 @@ return new class extends Migration
         Schema::create('training_module_attempts', function (Blueprint $table): void {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('training_module_assessment_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('training_enrollment_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('training_module_assessment_id');
+            $table->foreignId('training_enrollment_id');
+            $table->foreignId('user_id');
+            $table->foreign('training_module_assessment_id', 'tr_mod_attempt_assessment_fk')
+                ->references('id')->on('training_module_assessments')->cascadeOnDelete();
+            $table->foreign('training_enrollment_id', 'tr_mod_attempt_enrollment_fk')
+                ->references('id')->on('training_enrollments')->cascadeOnDelete();
+            $table->foreign('user_id', 'tr_mod_attempt_user_fk')
+                ->references('id')->on('users')->cascadeOnDelete();
             $table->unsignedSmallInteger('attempt_no');
             $table->string('status', 30)->default('in_progress');
             $table->decimal('score', 5, 2)->nullable();
@@ -69,8 +79,12 @@ return new class extends Migration
         Schema::create('training_module_attempt_questions', function (Blueprint $table): void {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('training_module_attempt_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('training_module_question_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('training_module_attempt_id');
+            $table->foreignId('training_module_question_id')->nullable();
+            $table->foreign('training_module_attempt_id', 'tr_mod_attempt_q_attempt_fk')
+                ->references('id')->on('training_module_attempts')->cascadeOnDelete();
+            $table->foreign('training_module_question_id', 'tr_mod_attempt_q_source_fk')
+                ->references('id')->on('training_module_questions')->nullOnDelete();
             $table->string('type', 30);
             $table->text('question');
             $table->json('options')->nullable();
@@ -89,9 +103,15 @@ return new class extends Migration
         Schema::create('training_module_answers', function (Blueprint $table): void {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('training_module_attempt_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('training_module_attempt_question_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('training_module_question_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('training_module_attempt_id');
+            $table->foreignId('training_module_attempt_question_id');
+            $table->foreignId('training_module_question_id')->nullable();
+            $table->foreign('training_module_attempt_id', 'tr_mod_answer_attempt_fk')
+                ->references('id')->on('training_module_attempts')->cascadeOnDelete();
+            $table->foreign('training_module_attempt_question_id', 'tr_mod_answer_snapshot_q_fk')
+                ->references('id')->on('training_module_attempt_questions')->cascadeOnDelete();
+            $table->foreign('training_module_question_id', 'tr_mod_answer_source_q_fk')
+                ->references('id')->on('training_module_questions')->nullOnDelete();
             $table->string('answer', 255)->nullable();
             $table->boolean('is_correct')->nullable();
             $table->decimal('score', 8, 2)->default(0);
