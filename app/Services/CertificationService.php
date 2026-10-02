@@ -44,11 +44,21 @@ class CertificationService
             return true;
         }
 
-        return TrainingEnrollment::query()
+        $enrollment = TrainingEnrollment::query()
             ->where('training_program_id', $program->training_program_id)
             ->where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->exists();
+            ->first();
+
+        if (! $enrollment || $enrollment->status !== 'completed') {
+            return false;
+        }
+
+        if (app(TrainingGovernanceService::class)->masteryRequired()
+            && app(TrainingService::class)->percentage($enrollment) < 100) {
+            return false;
+        }
+
+        return true;
     }
 
     public function latestPassedTheory(User $user, CertificationProgram $program): ?CertificationAttempt
