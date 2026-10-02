@@ -42,14 +42,17 @@ class CertificationProgramResource extends Resource
                         ->label('Training Prasyarat')
                         ->options(fn (): array => TrainingProgram::query()->orderBy('name')->pluck('name', 'id')->all())
                         ->searchable()->preload(),
-                    Forms\Components\TextInput::make('passing_score')->label('Nilai Minimum')->integer()->minValue(1)->maxValue(100)->default(80)->required(),
+                    Forms\Components\TextInput::make('passing_score')->label('Minimum Teori')->integer()->minValue(1)->maxValue(100)->default(80)->required(),
+                    Forms\Components\TextInput::make('practical_passing_score')->label('Minimum Practical')->integer()->minValue(1)->maxValue(100)->default(80)->required(),
+                    Forms\Components\TextInput::make('theory_weight')->label('Bobot Teori')->integer()->minValue(0)->maxValue(100)->default(40)->suffix('%')->required(),
+                    Forms\Components\TextInput::make('practical_weight')->label('Bobot Practical')->integer()->minValue(0)->maxValue(100)->default(60)->suffix('%')->required(),
                     Forms\Components\TextInput::make('valid_months')->label('Masa Berlaku (bulan)')->integer()->minValue(0)->default(24)->required(),
                     Forms\Components\TextInput::make('sort_order')->label('Urutan')->integer()->default(0),
                     Forms\Components\Toggle::make('is_active')->label('Aktif')->default(true),
                     Forms\Components\Textarea::make('description')->label('Deskripsi')->rows(3)->columnSpanFull(),
                 ]),
             Forms\Components\Repeater::make('questions')
-                ->label('Bank Soal')
+                ->label('Bank Soal Teori')
                 ->relationship('questions')
                 ->orderColumn('sort_order')
                 ->collapsible()
@@ -77,8 +80,10 @@ class CertificationProgramResource extends Resource
             Tables\Columns\TextColumn::make('code')->label('Kode')->badge()->searchable(),
             Tables\Columns\TextColumn::make('name')->label('Sertifikasi')->searchable(),
             Tables\Columns\TextColumn::make('target_role')->label('Role')->badge()->formatStateUsing(fn (string $state): string => TrainingProgram::ROLE_LABELS[$state] ?? $state),
-            Tables\Columns\TextColumn::make('passing_score')->label('Lulus ≥'),
+            Tables\Columns\TextColumn::make('passing_score')->label('Teori ≥'),
+            Tables\Columns\TextColumn::make('practical_passing_score')->label('Practical ≥'),
             Tables\Columns\TextColumn::make('questions_count')->counts('questions')->label('Soal'),
+            Tables\Columns\TextColumn::make('practical_scenarios_count')->counts('practicalScenarios')->label('Scenario'),
             Tables\Columns\TextColumn::make('valid_months')->label('Berlaku')->suffix(' bln'),
             Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
         ])->actions([Tables\Actions\EditAction::make()]);
