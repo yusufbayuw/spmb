@@ -113,7 +113,7 @@ class TrainingCertificationSeeder extends Seeder
                 );
             }
 
-            CertificationProgram::query()->updateOrCreate(
+            CertificationProgram::query()->firstOrCreate(
                 ['code' => $definition['certification']['code']],
                 [
                     'name' => $definition['certification']['name'],
@@ -141,7 +141,7 @@ class TrainingCertificationSeeder extends Seeder
     {
         $program = CertificationProgram::query()->where('code', 'SCA')->firstOrFail();
 
-        $scenario = PracticalScenario::query()->updateOrCreate(
+        $scenario = PracticalScenario::query()->firstOrCreate(
             ['code' => 'SCA-ACCESS-01'],
             [
                 'certification_program_id' => $program->id,
@@ -193,7 +193,7 @@ class TrainingCertificationSeeder extends Seeder
     {
         $program = CertificationProgram::query()->where('code', 'SCUA')->firstOrFail();
 
-        $scenario = PracticalScenario::query()->updateOrCreate(
+        $scenario = PracticalScenario::query()->firstOrCreate(
             ['code' => 'SCUA-OPENING-01'],
             [
                 'certification_program_id' => $program->id,
@@ -242,7 +242,7 @@ class TrainingCertificationSeeder extends Seeder
     {
         $program = CertificationProgram::query()->where('code', 'SCAO')->firstOrFail();
 
-        $scenario = PracticalScenario::query()->updateOrCreate(
+        $scenario = PracticalScenario::query()->firstOrCreate(
             ['code' => 'SCAO-VERIFY-01'],
             [
                 'certification_program_id' => $program->id,
@@ -279,7 +279,7 @@ class TrainingCertificationSeeder extends Seeder
 
     private function syncRecord(PracticalScenario $scenario, string $type, string $key, string $label, array $state, int $sort): void
     {
-        PracticalScenarioRecord::query()->updateOrCreate(
+        PracticalScenarioRecord::query()->firstOrCreate(
             ['practical_scenario_id' => $scenario->id, 'entity_type' => $type, 'entity_key' => $key],
             ['label' => $label, 'initial_state' => $state, 'sort_order' => $sort],
         );
@@ -296,7 +296,7 @@ class TrainingCertificationSeeder extends Seeder
         string $color,
         int $sort,
     ): void {
-        PracticalScenarioAction::query()->updateOrCreate(
+        PracticalScenarioAction::query()->firstOrCreate(
             ['practical_scenario_id' => $scenario->id, 'code' => $code],
             [
                 'label' => $label,
@@ -322,7 +322,7 @@ class TrainingCertificationSeeder extends Seeder
         bool $critical,
         int $sort,
     ): void {
-        PracticalAssertion::query()->updateOrCreate(
+        PracticalAssertion::query()->firstOrCreate(
             ['practical_scenario_id' => $scenario->id, 'code' => $code],
             [
                 'name' => $name,
