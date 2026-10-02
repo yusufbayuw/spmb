@@ -16,7 +16,7 @@ class ShieldSeeder extends Seeder
 
         $standard = ['view', 'view_any', 'create', 'update', 'delete', 'delete_any'];
         $resources = [
-            'registration', 'registrationopening', 'registrationpathway', 'studyprogram', 'parentinfo', 'document',
+            'registration', 'continuationcandidate', 'registrationopening', 'registrationpathway', 'studyprogram', 'parentinfo', 'document',
             'payment', 'virtualaccount', 'unit', 'user', 'admissiontest', 'admissiontestresult',
             'selection', 'selectionbatch', 'admissionquota', 'admissionoffer', 'reregistrationitem', 'announcement', 'auditlog',
         ];
