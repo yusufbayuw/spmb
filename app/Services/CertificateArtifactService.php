@@ -14,7 +14,11 @@ class CertificateArtifactService
             return $certificate;
         }
 
-        if ($certificate->artifact_path && $this->verify($certificate)) {
+        if ($certificate->artifact_path) {
+            if (! $this->verify($certificate)) {
+                throw new RuntimeException('Artifact sertifikat tidak lolos verifikasi integritas.');
+            }
+
             return $certificate;
         }
 
