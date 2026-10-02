@@ -9,7 +9,7 @@ class AdministratorCertificationSeeder extends CurriculumSeeder
 {
     public function run(): void
     {
-        $program = CertificationProgram::query()->where('code', 'SCA')->firstOrFail();
+        $program = CertificationProgram::query()->where('code', 'SCA')->where('version', '1.0')->firstOrFail();
 
         $questions = [
             ['question'=>'Seorang TU tidak dapat mengakses unitnya. Tindakan awal yang paling tepat adalah?','options'=>['A'=>'Jadikan Super Admin','B'=>'Periksa status user, assignment unit, status unit, dan role','C'=>'Reset seluruh permission','D'=>'Hapus lalu buat akun baru'],'correct'=>'B','explanation'=>'Diagnosis akses dimulai dari state user, unit, dan role sebelum memperluas privilege.'],
