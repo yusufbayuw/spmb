@@ -148,9 +148,20 @@ class PracticalSandbox extends Page
 
     public function passedRunFor(PracticalScenario $scenario): ?PracticalRun
     {
-        return $scenario->runs
+        $theory = app(\App\Services\CertificationService::class)
+            ->latestPassedTheory(auth()->user(), $scenario->program);
+
+        if (! $theory) {
+            return null;
+        }
+
+        return PracticalRun::query()
+            ->where('practical_scenario_id', $scenario->id)
+            ->where('certification_attempt_id', $theory->id)
+            ->where('user_id', auth()->id())
             ->where('status', 'passed')
             ->where('passed', true)
+            ->latest('submitted_at')
             ->first();
     }
 
