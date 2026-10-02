@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\CertificationProgram;
-use App\Models\CertificationQuestion;
 use App\Models\PracticalScenario;
 use App\Models\PracticalScenarioAction;
 use App\Models\TrainingProgram;
@@ -31,11 +30,11 @@ class TrainingCertificationTest extends TestCase
         $this->completeTraining($user, 'TRN-UNIT');
 
         $program = CertificationProgram::query()->where('code', 'SCUA')->firstOrFail();
-        $question = $this->createTheoryQuestion($program);
+        $this->limitPracticalTo($program, 'SCUA-OPENING-01');
 
         $certification = app(CertificationService::class);
         $attempt = $certification->start($user, $program);
-        $theoryResult = $certification->submit($attempt, $user, [$question->id => 'B']);
+        $theoryResult = $certification->submit($attempt, $user, $this->correctAnswers($program));
 
         $this->assertSame('passed', $theoryResult->status);
         $this->assertNull($theoryResult->certification);
@@ -61,7 +60,10 @@ class TrainingCertificationTest extends TestCase
         $this->assertSame(100.0, (float) $practicalResult->score);
         $this->assertTrue($user->fresh()->hasValidCertification('SCUA'));
 
-        $certificate = $user->fresh()->certifications()->whereHas('program', fn ($query) => $query->where('code', 'SCUA'))->firstOrFail();
+        $certificate = $user->fresh()->certifications()
+            ->whereHas('program', fn ($query) => $query->where('code', 'SCUA'))
+            ->firstOrFail();
+
         $this->assertSame(100.0, (float) $certificate->score);
 
         $this->assertDatabaseCount('registration_openings', 0);
@@ -88,11 +90,11 @@ class TrainingCertificationTest extends TestCase
         $this->completeTraining($user, 'TRN-TU');
 
         $program = CertificationProgram::query()->where('code', 'SCAO')->firstOrFail();
-        $question = $this->createTheoryQuestion($program);
+        $this->limitPracticalTo($program, 'SCAO-VERIFY-01');
 
         $certification = app(CertificationService::class);
         $attempt = $certification->start($user, $program);
-        $certification->submit($attempt, $user, [$question->id => 'B']);
+        $certification->submit($attempt, $user, $this->correctAnswers($program));
 
         $scenario = PracticalScenario::query()
             ->where('code', 'SCAO-VERIFY-01')
@@ -137,38 +139,51 @@ class TrainingCertificationTest extends TestCase
         $this->completeTraining($user, 'TRN-UNIT');
 
         $program = CertificationProgram::query()->where('code', 'SCUA')->firstOrFail();
-        $question = $this->createTheoryQuestion($program);
+        $this->limitPracticalTo($program, 'SCUA-OPENING-01');
         $certification = app(CertificationService::class);
 
         $firstTheory = $certification->start($user, $program);
-        $certification->submit($firstTheory, $user, [$question->id => 'B']);
+        $certification->submit($firstTheory, $user, $this->correctAnswers($program));
 
         $scenario = PracticalScenario::query()
             ->where('code', 'SCUA-OPENING-01')
             ->with(['program', 'records'])
             ->firstOrFail();
+
         $sandbox = app(PracticalSandboxService::class);
         $firstRun = $sandbox->start($user, $scenario);
+
         $pause = PracticalScenarioAction::query()
             ->where('practical_scenario_id', $scenario->id)
             ->where('code', 'pause_opening')
             ->firstOrFail();
+
         $sandbox->performAction($user, $firstRun, $pause);
         $sandbox->submit($user, $firstRun);
 
         $certificate = $user->fresh()->certifications()
             ->where('certification_program_id', $program->id)
             ->firstOrFail();
+
         $certificate->update(['expires_at' => now()->subDay()]);
 
         $secondTheory = $certification->start($user->fresh(), $program->fresh());
         $this->assertSame(2, $secondTheory->attempt_no);
 
-        $secondTheory = $certification->submit($secondTheory, $user->fresh(), [$question->id => 'B']);
+        $secondTheory = $certification->submit(
+            $secondTheory,
+            $user->fresh(),
+            $this->correctAnswers($program->fresh()),
+        );
+
         $this->assertSame('passed', $secondTheory->status);
         $this->assertNull($secondTheory->certification);
 
-        $secondRun = $sandbox->start($user->fresh(), $scenario->fresh(['program', 'records']));
+        $secondRun = $sandbox->start(
+            $user->fresh(),
+            $scenario->fresh(['program', 'records']),
+        );
+
         $this->assertSame($secondTheory->id, $secondRun->certification_attempt_id);
         $this->assertNotSame($firstRun->certification_attempt_id, $secondRun->certification_attempt_id);
     }
@@ -182,7 +197,6 @@ class TrainingCertificationTest extends TestCase
         $user->assignRole('tu');
 
         $program = CertificationProgram::query()->where('code', 'SCAO')->firstOrFail();
-        $this->createTheoryQuestion($program);
 
         $this->assertFalse(app(CertificationService::class)->eligible($user, $program));
 
@@ -208,17 +222,20 @@ class TrainingCertificationTest extends TestCase
         ]);
     }
 
-    private function createTheoryQuestion(CertificationProgram $program): CertificationQuestion
+    private function correctAnswers(CertificationProgram $program): array
     {
-        return CertificationQuestion::create([
-            'certification_program_id' => $program->id,
-            'type' => 'single_choice',
-            'question' => 'Konfigurasi yang digunakan pendaftar baru harus berada pada status apa?',
-            'options' => ['A' => 'Draft', 'B' => 'Published'],
-            'correct_answer' => 'B',
-            'weight' => 1,
-            'sort_order' => 1,
-            'is_active' => true,
-        ]);
+        return $program->questions()
+            ->where('is_active', true)
+            ->pluck('correct_answer', 'id')
+            ->mapWithKeys(fn ($answer, $id): array => [(int) $id => (string) $answer])
+            ->all();
+    }
+
+    private function limitPracticalTo(CertificationProgram $program, string $scenarioCode): void
+    {
+        PracticalScenario::query()
+            ->where('certification_program_id', $program->id)
+            ->where('code', '!=', $scenarioCode)
+            ->update(['is_active' => false]);
     }
 }

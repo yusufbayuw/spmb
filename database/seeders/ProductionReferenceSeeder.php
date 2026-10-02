@@ -11,7 +11,7 @@ class ProductionReferenceSeeder extends Seeder
         $this->call([
             EducationLevelSeeder::class,
             ShieldSeeder::class,
-            TrainingCertificationSeeder::class,
+            TrainingSeeder::class,
         ]);
     }
 }

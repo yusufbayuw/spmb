@@ -17,7 +17,7 @@ class CertificationQuestion extends Model
     ];
 
     protected $fillable = [
-        'certification_program_id', 'type', 'question', 'options', 'correct_answer',
+        'certification_program_id', 'seed_key', 'type', 'question', 'options', 'correct_answer',
         'explanation', 'weight', 'sort_order', 'is_active',
     ];
 
