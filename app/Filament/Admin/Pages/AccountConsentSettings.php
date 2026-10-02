@@ -88,6 +88,9 @@ class AccountConsentSettings extends Page implements Forms\Contracts\HasForms
 
     public function save(): void
     {
+        app(\App\Services\CertificationAccessService::class)
+            ->assertSensitiveOperation(auth()->user(), 'mengubah kebijakan persetujuan akun');
+
         $policy = AccountConsentPolicy::query()->where('uuid', $this->policyUuid)->firstOrFail();
 
         app(AccountConsentService::class)->save($policy, auth()->user(), $this->form->getState());
@@ -98,6 +101,9 @@ class AccountConsentSettings extends Page implements Forms\Contracts\HasForms
 
     public function publish(): void
     {
+        app(\App\Services\CertificationAccessService::class)
+            ->assertSensitiveOperation(auth()->user(), 'mempublikasikan kebijakan persetujuan akun');
+
         $service = app(AccountConsentService::class);
         $policy = AccountConsentPolicy::query()->where('uuid', $this->policyUuid)->firstOrFail();
         $published = $service->save($policy, auth()->user(), $this->form->getState(), true);
