@@ -4,11 +4,14 @@ namespace App\Services\PracticalValidators;
 
 use App\Models\PracticalAssertion;
 use App\Models\PracticalRun;
+use App\Models\PracticalRunAssertion;
 
 class StateUnchangedValidator implements PracticalValidator
 {
-    public function validate(PracticalRun $run, PracticalAssertion $assertion): PracticalValidationResult
-    {
+    public function validate(
+        PracticalRun $run,
+        PracticalAssertion|PracticalRunAssertion $assertion,
+    ): PracticalValidationResult {
         $config = $assertion->config;
         $record = $run->sandboxRecords()
             ->where('entity_type', $config['entity_type'] ?? '')
@@ -16,18 +19,28 @@ class StateUnchangedValidator implements PracticalValidator
             ->first();
 
         if (! $record) {
-            return new PracticalValidationResult(false, [], [], 'Record sandbox yang diperlukan tidak ditemukan.');
+            return new PracticalValidationResult(
+                false,
+                [],
+                [],
+                'Record sandbox yang diperlukan tidak ditemukan.',
+            );
         }
 
         $path = (string) ($config['path'] ?? '');
-        $expected = $path === '' ? $record->original_state : data_get($record->original_state, $path);
-        $actual = $path === '' ? $record->state : data_get($record->state, $path);
+        $expected = $path === ''
+            ? $record->original_state
+            : data_get($record->original_state, $path);
+        $actual = $path === ''
+            ? $record->state
+            : data_get($record->state, $path);
+        $passed = PracticalValue::equivalent($expected, $actual);
 
         return new PracticalValidationResult(
-            PracticalValue::equivalent($expected, $actual),
+            $passed,
             ['value' => $expected],
             ['value' => $actual],
-            PracticalValue::equivalent($expected, $actual) ? null : 'Data yang seharusnya dipertahankan telah berubah.',
+            $passed ? null : 'Data yang seharusnya dipertahankan telah berubah.',
         );
     }
 }
