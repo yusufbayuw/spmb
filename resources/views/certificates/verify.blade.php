@@ -17,7 +17,9 @@
 <body>
     @php($status = $certificate->effectiveStatus())
     <div class="actions">
-        <a class="button" style="text-decoration:none" href="{{ route('certificates.pdf', ['certificate' => $certificate, 'download' => 1]) }}">Unduh Artifact PDF</a>
+        @if (app(\App\Services\TrainingGovernanceService::class)->certificateArtifactEnabled() || $certificate->artifact_path)
+            <a class="button" style="text-decoration:none" href="{{ route('certificates.pdf', ['certificate' => $certificate, 'download' => 1]) }}">Unduh Artifact PDF</a>
+        @endif
         <button class="button" onclick="window.print()">Cetak Halaman</button>
     </div>
     <main class="sheet">
