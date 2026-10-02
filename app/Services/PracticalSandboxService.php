@@ -38,13 +38,7 @@ class PracticalSandboxService
 
     public function latestPassedTheory(User $user, PracticalScenario $scenario): ?CertificationAttempt
     {
-        return CertificationAttempt::query()
-            ->where('certification_program_id', $scenario->certification_program_id)
-            ->where('user_id', $user->id)
-            ->where('status', 'passed')
-            ->latest('submitted_at')
-            ->latest('id')
-            ->first();
+        return app(CertificationService::class)->latestPassedTheory($user, $scenario->program);
     }
 
     public function canStart(User $user, PracticalScenario $scenario): bool
