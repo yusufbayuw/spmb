@@ -75,10 +75,10 @@
 
             @forelse ($programs as $program)
                 @php($eligible = $this->eligible($program))
-                @php($theory = $this->latestPassedTheory($program))
-                @php($practicalRequired = $program->practicalScenarios->isNotEmpty())
-                @php($practicalComplete = $theory ? $this->practicalComplete($program) : false)
                 @php($certificate = $program->certifications->first(fn ($item) => $item->isValid()))
+                @php($theory = $certificate?->attempt ?? $this->latestPassedTheory($program))
+                @php($practicalRequired = $program->practicalScenarios->isNotEmpty())
+                @php($practicalComplete = $certificate ? true : ($theory ? $this->practicalComplete($program) : false))
                 @php($questionCount = $program->questions->count())
 
                 <x-filament::section>
