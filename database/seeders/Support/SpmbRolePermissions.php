@@ -14,6 +14,7 @@ final class SpmbRolePermissions
     {
         return [
             'view_registration', 'view_any_registration', 'update_registration', 'validate_data_registration', 'send_va_registration', 'issue_card_registration',
+            'view_continuationcandidate', 'view_any_continuationcandidate', 'create_continuationcandidate', 'update_continuationcandidate',
             'view_registrationopening', 'view_any_registrationopening', 'create_registrationopening', 'update_registrationopening',
             'view_registrationpathway', 'view_any_registrationpathway', 'create_registrationpathway', 'update_registrationpathway',
             'view_studyprogram', 'view_any_studyprogram', 'create_studyprogram', 'update_studyprogram',
