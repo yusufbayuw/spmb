@@ -18,6 +18,18 @@ class AppSetting extends Model
         'service_hours',
         'logo_path',
         'theme_color',
+        'training_enforce_sequence',
+        'training_require_module_mastery',
+        'certification_enforcement_mode',
+        'certification_expiry_reminder_days',
+        'certificate_artifact_enabled',
+    ];
+
+    protected $casts = [
+        'training_enforce_sequence' => 'boolean',
+        'training_require_module_mastery' => 'boolean',
+        'certification_expiry_reminder_days' => 'array',
+        'certificate_artifact_enabled' => 'boolean',
     ];
 
     protected static function booted(): void
