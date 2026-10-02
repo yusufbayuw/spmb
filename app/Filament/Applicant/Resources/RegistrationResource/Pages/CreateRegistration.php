@@ -128,7 +128,10 @@ class CreateRegistration extends CreateRecord
         }
 
         foreach ($matcher->prefill($candidate) as $path => $value) {
-            if (! blank($get($path)) || blank($value)) {
+            $currentValue = $get($path);
+            $isSystemDefault = $path === 'religion' && $currentValue === 'Islam';
+
+            if ((! blank($currentValue) && ! $isSystemDefault) || blank($value)) {
                 continue;
             }
 
