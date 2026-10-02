@@ -106,16 +106,24 @@
                         <div class="mb-3 font-semibold text-gray-950 dark:text-white">Tindakan</div>
                         <div class="flex flex-wrap gap-3">
                             @foreach ($run->scenario->actions as $action)
-                                <x-filament::button
-                                    wire:click="performAction('{{ $action->uuid }}')"
-                                    :color="$this->safeColor($action->button_color)"
-                                    :disabled="$run->isExpired()"
-                                    @if ($action->requires_confirmation)
+                                @if ($action->requires_confirmation)
+                                    <x-filament::button
+                                        wire:click="performAction('{{ $action->uuid }}')"
                                         wire:confirm="Tindakan ini dapat menyebabkan practical gagal. Tetap jalankan?"
-                                    @endif
-                                >
-                                    {{ $action->label }}
-                                </x-filament::button>
+                                        :color="$this->safeColor($action->button_color)"
+                                        :disabled="$run->isExpired()"
+                                    >
+                                        {{ $action->label }}
+                                    </x-filament::button>
+                                @else
+                                    <x-filament::button
+                                        wire:click="performAction('{{ $action->uuid }}')"
+                                        :color="$this->safeColor($action->button_color)"
+                                        :disabled="$run->isExpired()"
+                                    >
+                                        {{ $action->label }}
+                                    </x-filament::button>
+                                @endif
                             @endforeach
                         </div>
                     </div>
