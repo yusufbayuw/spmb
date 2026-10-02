@@ -13,8 +13,9 @@ class PracticalRunEvent extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'practical_run_id', 'practical_scenario_action_id', 'action_code',
-        'target_type', 'target_key', 'before_state', 'after_state', 'metadata', 'created_at',
+        'practical_run_id', 'practical_scenario_action_id', 'practical_run_action_id',
+        'action_code', 'target_type', 'target_key', 'before_state', 'after_state',
+        'metadata', 'created_at',
     ];
 
     protected $casts = [
@@ -32,5 +33,10 @@ class PracticalRunEvent extends Model
     public function action(): BelongsTo
     {
         return $this->belongsTo(PracticalScenarioAction::class, 'practical_scenario_action_id');
+    }
+
+    public function runAction(): BelongsTo
+    {
+        return $this->belongsTo(PracticalRunAction::class, 'practical_run_action_id');
     }
 }

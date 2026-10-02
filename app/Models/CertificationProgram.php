@@ -14,12 +14,20 @@ class CertificationProgram extends Model
 
     protected $fillable = [
         'code', 'name', 'description', 'target_role', 'version', 'passing_score',
+        'question_count', 'time_limit_minutes', 'max_attempts', 'cooldown_hours',
+        'shuffle_questions', 'shuffle_options',
         'theory_weight', 'practical_weight', 'practical_passing_score',
         'valid_months', 'training_program_id', 'is_active', 'sort_order',
     ];
 
     protected $casts = [
         'passing_score' => 'integer',
+        'question_count' => 'integer',
+        'time_limit_minutes' => 'integer',
+        'max_attempts' => 'integer',
+        'cooldown_hours' => 'integer',
+        'shuffle_questions' => 'boolean',
+        'shuffle_options' => 'boolean',
         'theory_weight' => 'integer',
         'practical_weight' => 'integer',
         'practical_passing_score' => 'integer',
@@ -60,6 +68,11 @@ class CertificationProgram extends Model
     public function scopeForUser(Builder $query, User $user): Builder
     {
         return $query->whereIn('target_role', $user->getRoleNames()->all());
+    }
+
+    public function scopeCodeVersion(Builder $query, string $code, string $version): Builder
+    {
+        return $query->where('code', $code)->where('version', $version);
     }
 
     public function roleLabel(): string

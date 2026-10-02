@@ -12,11 +12,15 @@ class PracticalRun extends Model
     use HasPublicUuid;
 
     protected $fillable = [
-        'practical_scenario_id', 'certification_attempt_id', 'user_id', 'attempt_no',
-        'status', 'score', 'passed', 'started_at', 'submitted_at',
+        'practical_scenario_id', 'certification_attempt_id', 'user_id',
+        'scenario_code_snapshot', 'scenario_name_snapshot', 'instructions_snapshot',
+        'time_limit_minutes_snapshot', 'passing_score_snapshot',
+        'attempt_no', 'status', 'score', 'passed', 'started_at', 'submitted_at',
     ];
 
     protected $casts = [
+        'time_limit_minutes_snapshot' => 'integer',
+        'passing_score_snapshot' => 'integer',
         'attempt_no' => 'integer',
         'score' => 'decimal:2',
         'passed' => 'boolean',
@@ -44,6 +48,16 @@ class PracticalRun extends Model
         return $this->hasMany(PracticalSandboxRecord::class);
     }
 
+    public function runActions(): HasMany
+    {
+        return $this->hasMany(PracticalRunAction::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function runAssertions(): HasMany
+    {
+        return $this->hasMany(PracticalRunAssertion::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(PracticalRunEvent::class);
@@ -56,10 +70,20 @@ class PracticalRun extends Model
 
     public function isExpired(): bool
     {
-        $limit = $this->scenario?->time_limit_minutes;
+        $limit = $this->time_limit_minutes_snapshot ?? $this->scenario?->time_limit_minutes;
 
         return $limit
             ? $this->started_at->copy()->addMinutes($limit)->isPast()
             : false;
+    }
+
+    public function displayName(): string
+    {
+        return $this->scenario_name_snapshot ?: $this->scenario?->name ?: '-';
+    }
+
+    public function displayInstructions(): string
+    {
+        return $this->instructions_snapshot ?: $this->scenario?->instructions ?: '';
     }
 }
