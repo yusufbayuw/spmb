@@ -55,16 +55,14 @@ class PracticalSandboxService
             return false;
         }
 
-        $requiredScenarioIds = $theory->requiredPracticalScenarioIds();
-
-        if ($requiredScenarioIds === []) {
-            $requiredScenarioIds = $scenario->program
+        $requiredScenarioIds = $theory->hasPracticalRequirementsSnapshot()
+            ? $theory->requiredPracticalScenarioIds()
+            : $scenario->program
                 ->practicalScenarios()
                 ->where('is_active', true)
                 ->pluck('id')
                 ->map(fn ($id): int => (int) $id)
                 ->all();
-        }
 
         return $user->is_active
             && $scenario->is_active
