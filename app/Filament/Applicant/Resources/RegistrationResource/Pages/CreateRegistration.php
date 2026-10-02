@@ -7,6 +7,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\ContinuationCandidateMatcher;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationRegionService;
 use App\Services\RegistrationSupplementalDataService;
@@ -42,6 +43,11 @@ class CreateRegistration extends CreateRecord
     public ?string $privacyConsentUuid = null;
 
     public array $privacyConsentPresentation = [];
+
+    public ?string $continuationLookupFingerprint = null;
+
+    /** @var array<string, mixed> */
+    public array $continuationPrefilledValues = [];
 
     public function mount(): void
     {
@@ -82,6 +88,52 @@ class CreateRegistration extends CreateRecord
         if ($consentService->isEnabled($configuration, $opening->unit)) {
             $this->privacyConsentPresentation = $consentService->render($configuration, $opening);
             $this->mountAction('privacyConsent');
+        }
+    }
+
+    public function applyContinuationPrefill(Forms\Get $get, Forms\Set $set): void
+    {
+        $matcher = app(ContinuationCandidateMatcher::class);
+        $fingerprint = $matcher->fingerprint(
+            $get('registration_opening_uuid'),
+            $get('nik'),
+            $get('birth_date'),
+        );
+
+        if ($fingerprint === $this->continuationLookupFingerprint) {
+            return;
+        }
+
+        foreach ($this->continuationPrefilledValues as $path => $previousValue) {
+            if ($get($path) === $previousValue) {
+                $set($path, null);
+            }
+        }
+
+        $this->continuationPrefilledValues = [];
+        $this->continuationLookupFingerprint = $fingerprint;
+
+        if ($fingerprint === null) {
+            return;
+        }
+
+        $candidate = $matcher->match(
+            $get('registration_opening_uuid'),
+            $get('nik'),
+            $get('birth_date'),
+        );
+
+        if (! $candidate) {
+            return;
+        }
+
+        foreach ($matcher->prefill($candidate) as $path => $value) {
+            if (! blank($get($path)) || blank($value)) {
+                continue;
+            }
+
+            $set($path, $value);
+            $this->continuationPrefilledValues[$path] = $value;
         }
     }
 
@@ -354,6 +406,8 @@ class CreateRegistration extends CreateRecord
                     $record,
                 );
             }
+
+            app(ContinuationCandidateMatcher::class)->linkRegistration($record);
 
             return $record;
         }, 5);
