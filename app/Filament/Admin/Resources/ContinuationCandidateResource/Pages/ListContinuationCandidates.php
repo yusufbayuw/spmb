@@ -6,12 +6,14 @@ use App\Filament\Admin\Resources\ContinuationCandidateResource;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Services\ContinuationCandidateImportService;
+use App\Services\ContinuationCandidateTemplateService;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ListContinuationCandidates extends ListRecords
 {
@@ -20,6 +22,13 @@ class ListContinuationCandidates extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('downloadTemplate')
+                ->label('Download Template XLSX')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->visible(fn (): bool => ContinuationCandidateResource::canCreate())
+                ->action(fn (): BinaryFileResponse => app(ContinuationCandidateTemplateService::class)->download(auth()->user())),
+
             Actions\Action::make('import')
                 ->label('Import Data')
                 ->icon('heroicon-o-arrow-up-tray')
