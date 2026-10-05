@@ -132,9 +132,6 @@ class RegistrationPrintController extends Controller
                 'name' => Str::limit((string) ($configuredTest['name'] ?? $booking->admissionTest?->name ?? 'Tes'), 46),
                 'time' => $startsAt->format('d/m/Y H:i').'–'.$endsAt->format('H:i'),
                 'location' => Str::limit((string) ($session->location ?: 'Lokasi belum ditentukan'), 40),
-                'instructions' => filled($session->instructions)
-                    ? Str::limit(trim((string) $session->instructions), 60)
-                    : null,
             ];
         });
 
