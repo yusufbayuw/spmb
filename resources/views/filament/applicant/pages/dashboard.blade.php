@@ -122,16 +122,29 @@
                                     </x-filament::button>
                                 @endif
 
-                                @if ($registration->applicant_card_number)
+                                @if ($registration->registrationCardEnabled() && $registration->applicant_card_number)
                                     <x-filament::button
                                         tag="a"
                                         href="{{ route('registration.card', $registration) }}"
                                         target="_blank"
                                         color="gray"
                                         outlined
-                                        icon="heroicon-m-printer"
+                                        icon="heroicon-m-identification"
                                     >
-                                        Cetak Kartu
+                                        Kartu Pendaftaran
+                                    </x-filament::button>
+                                @endif
+
+                                @if ($registration->testCardEnabled() && filled($registration->test_schedule_confirmed_at))
+                                    <x-filament::button
+                                        tag="a"
+                                        href="{{ route('registration.test-card', $registration) }}"
+                                        target="_blank"
+                                        color="gray"
+                                        outlined
+                                        icon="heroicon-m-academic-cap"
+                                    >
+                                        Kartu Tes
                                     </x-filament::button>
                                 @endif
                             </div>
