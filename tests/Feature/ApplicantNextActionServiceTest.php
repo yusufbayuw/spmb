@@ -2,11 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Models\AdmissionTest;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\TestBooking;
+use App\Models\TestSession;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\ApplicantNextActionService;
+use App\Services\TestScheduleConfirmationService;
+use App\Services\UnitConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -56,6 +61,91 @@ class ApplicantNextActionServiceTest extends TestCase
         $this->assertSame('Perbaiki Data', $item['action_label']);
         $this->assertSame('NIK perlu diperbaiki.', $item['message']);
         $this->assertNotNull($item['action_url']);
+    }
+
+    public function test_test_stage_action_tracks_required_schedule_completion_and_confirmation(): void
+    {
+        [$registration] = $this->registrations();
+        $unit = $registration->unit()->firstOrFail();
+
+        $firstTest = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik',
+            'code' => 'AKAD-ACTION',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+        $secondTest = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Wawancara',
+            'code' => 'WAW-ACTION',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+
+        app(UnitConfigurationService::class)->initialize($unit);
+
+        $registration->refresh()->update([
+            'current_stage' => 'tests',
+            'data_validation_status' => 'valid',
+        ]);
+
+        $service = app(ApplicantNextActionService::class);
+        $item = $service->resolve($registration->fresh());
+
+        $this->assertSame('Lengkapi Jadwal Tes', $item['title']);
+        $this->assertSame('0 dari 2 tes wajib sudah dipilih. Masih ada 2 tes wajib yang belum memiliki jadwal.', $item['message']);
+
+        $firstSession = TestSession::create([
+            'admission_test_id' => $firstTest->id,
+            'starts_at' => now()->addDays(3),
+            'ends_at' => now()->addDays(3)->addHour(),
+            'booking_closes_at' => now()->addDays(2),
+            'location' => 'Ruang Akademik',
+            'capacity' => 20,
+            'status' => 'active',
+        ]);
+        $secondSession = TestSession::create([
+            'admission_test_id' => $secondTest->id,
+            'starts_at' => now()->addDays(4),
+            'ends_at' => now()->addDays(4)->addHour(),
+            'booking_closes_at' => now()->addDays(3),
+            'location' => 'Ruang Wawancara',
+            'capacity' => 20,
+            'status' => 'active',
+        ]);
+
+        TestBooking::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $firstTest->id,
+            'test_session_id' => $firstSession->id,
+            'revision' => 1,
+        ]);
+
+        $item = $service->resolve($registration->fresh());
+
+        $this->assertSame('1 dari 2 tes wajib sudah dipilih. Masih ada 1 tes wajib yang belum memiliki jadwal.', $item['message']);
+
+        TestBooking::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $secondTest->id,
+            'test_session_id' => $secondSession->id,
+            'revision' => 1,
+        ]);
+
+        $item = $service->resolve($registration->fresh());
+
+        $this->assertSame('attention', $item['state']);
+        $this->assertSame('Konfirmasi Jadwal Tes', $item['title']);
+        $this->assertSame('Konfirmasi Jadwal Tes', $item['action_label']);
+
+        app(TestScheduleConfirmationService::class)->confirm($registration->fresh());
+
+        $item = $service->resolve($registration->fresh());
+
+        $this->assertSame('processing', $item['state']);
+        $this->assertSame('Ikuti Rangkaian Tes', $item['title']);
+        $this->assertSame('Lihat Jadwal Tes', $item['action_label']);
     }
 
     public function test_completed_and_inactive_registrations_do_not_trigger_the_modal(): void
