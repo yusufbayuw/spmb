@@ -10,6 +10,7 @@ use App\Models\RegistrationOpening;
 use App\Models\TestBooking;
 use App\Models\TestSession;
 use App\Models\Unit;
+use App\Models\UnitConfiguration;
 use App\Models\User;
 use App\Services\TestBookingService;
 use App\Services\TestScheduleConfirmationService;
