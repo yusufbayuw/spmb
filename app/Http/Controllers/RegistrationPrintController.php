@@ -37,7 +37,8 @@ class RegistrationPrintController extends Controller
         Request $request,
         Registration $registration,
         RegistrationCardService $cards,
-    ): View {
+    ): View
+    {
         $this->authorizeRegistration($request, $registration);
         $registration->loadMissing('configuration');
         abort_unless(
@@ -72,7 +73,8 @@ class RegistrationPrintController extends Controller
         Registration $registration,
         RegistrationCardService $cards,
         TestCardEligibilityService $eligibility,
-    ): View {
+    ): View
+    {
         $registration->loadMissing(['configuration', 'unit', 'opening.studyProgram', 'pathway']);
         abort_unless($eligibility->canPrint($registration), 404);
 
