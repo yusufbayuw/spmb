@@ -138,7 +138,7 @@ class ApplicantNextActionService
             'applicant_card' => $this->processing(
                 $registration,
                 'Kartu Pendaftaran',
-                'Menunggu penerbitan kartu pendaftaran oleh petugas.',
+                'Kartu pendaftaran sedang diterbitkan otomatis. Tahap ini akan dilanjutkan sistem tanpa approval petugas.',
                 'heroicon-o-identification',
             ),
             'selection' => $this->processing(

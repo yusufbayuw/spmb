@@ -145,7 +145,7 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         Queue::assertPushed(SendAnnouncementPublishedMail::class, fn ($job) => $job->announcementId === $announcement->id);
     }
 
-    public function test_documents_first_workflow_waits_to_issue_card_until_documents_are_verified(): void
+    public function test_documents_first_workflow_automatically_issues_card_after_documents_are_verified(): void
     {
         Queue::fake();
 
@@ -216,15 +216,10 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertTrue($workflow->refreshDocumentStage($registration));
         $registration->refresh();
 
-        $this->assertSame('applicant_card', $registration->current_stage);
-        $this->assertNull($registration->applicant_card_number);
-
-        $workflow->issueApplicantCard($registration, $staff);
-        $registration->refresh();
-
         $this->assertSame('selection', $registration->current_stage);
         $this->assertNotNull($registration->applicant_card_number);
         $this->assertNotNull($registration->applicant_card_issued_at);
+        $this->assertSame($staff->id, $registration->applicant_card_issued_by);
     }
 
     public function test_registration_number_sequence_is_independent_per_unit(): void
