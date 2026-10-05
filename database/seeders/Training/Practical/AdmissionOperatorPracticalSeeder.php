@@ -19,6 +19,7 @@ class AdmissionOperatorPracticalSeeder extends CurriculumSeeder
         $this->paymentScenario($program);
         $this->testScenario($program);
         $this->escalationScenario($program);
+        $this->testScheduleSupportScenario($program);
     }
 
     private function verificationScenario(CertificationProgram $program): void
@@ -87,4 +88,48 @@ class AdmissionOperatorPracticalSeeder extends CurriculumSeeder
         $this->seedScenarioAssertion($s,'escalated','Masalah dieskalasikan',StateEqualsValidator::class,['entity_type'=>'issue','entity_key'=>'missing-requirement','path'=>'operator_action','expected'=>'escalated'],60,true,1);
         $this->seedScenarioAssertion($s,'no-bypass','Tidak melakukan bypass workflow',EventNotExistsValidator::class,['action_code'=>'bypass_requirement'],40,true,2);
     }
+    private function testScheduleSupportScenario(CertificationProgram $program): void
+    {
+        $s=$this->seedScenario($program,[
+            'code'=>'SCAO-TEST-CONFIRM-01',
+            'name'=>'Dampingi Peserta Menyelesaikan Jadwal Tes',
+            'description'=>'Mengarahkan peserta menyelesaikan seluruh tes wajib dan konfirmasi tanpa mengambil alih happy path.',
+            'instructions'=>'Peserta memiliki 3 tes wajib tetapi baru memilih 1 sesi. Bantu dengan mengarahkan peserta memilih 2 sesi yang tersisa lalu melakukan konfirmasi final. Jangan pilihkan secara paksa dan jangan cetak kartu sebelum konfirmasi.',
+            'time_limit_minutes'=>8,
+            'sort_order'=>7,
+        ]);
+        $this->seedScenarioRecord($s,'test_schedule','candidate-3','Jadwal Tes Kandidat',[
+            'required_tests'=>3,
+            'booked_tests'=>1,
+            'confirmed'=>false,
+            'support_action'=>null,
+            'card_printed_early'=>false,
+        ],1);
+        $this->seedScenarioAction($s,'guide_complete','Arahkan Lengkapi dan Konfirmasi','test_schedule','candidate-3',[
+            'booked_tests'=>3,
+            'confirmed'=>true,
+            'support_action'=>'guided_to_complete_and_confirm',
+        ],[],'success',1);
+        $this->seedScenarioAction($s,'operator_force_select','Pilihkan Paksa oleh Operator','test_schedule','candidate-3',[
+            'booked_tests'=>3,
+            'confirmed'=>true,
+            'support_action'=>'operator_forced_selection',
+        ],[],'danger',2);
+        $this->seedScenarioAction($s,'print_early','Cetak Kartu Sebelum Konfirmasi','test_schedule','candidate-3',[
+            'card_printed_early'=>true,
+        ],[],'danger',3);
+        $this->seedScenarioAssertion($s,'all-booked','Semua tes wajib dilengkapi',StateEqualsValidator::class,[
+            'entity_type'=>'test_schedule','entity_key'=>'candidate-3','path'=>'booked_tests','expected'=>3,
+        ],30,true,1);
+        $this->seedScenarioAssertion($s,'confirmed','Jadwal dikonfirmasi',StateEqualsValidator::class,[
+            'entity_type'=>'test_schedule','entity_key'=>'candidate-3','path'=>'confirmed','expected'=>true,
+        ],30,true,2);
+        $this->seedScenarioAssertion($s,'guided','TU hanya memandu happy path',StateEqualsValidator::class,[
+            'entity_type'=>'test_schedule','entity_key'=>'candidate-3','path'=>'support_action','expected'=>'guided_to_complete_and_confirm',
+        ],25,true,3);
+        $this->seedScenarioAssertion($s,'no-early-card','Tidak mencetak kartu terlalu dini',EventNotExistsValidator::class,[
+            'action_code'=>'print_early',
+        ],15,true,4);
+    }
+
 }
