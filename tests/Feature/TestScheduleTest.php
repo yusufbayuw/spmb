@@ -163,6 +163,26 @@ class TestScheduleTest extends TestCase
         $this->get(route('registration.test-card.verify', $registration))
             ->assertOk()
             ->assertSeeText('Verifikasi Kartu Tes');
+
+        $registrationOnlyConfiguration = UnitConfiguration::create(array_merge(
+            app(UnitConfigurationService::class)->defaults($registration->unit),
+            [
+                'unit_id' => $registration->unit_id,
+                'version' => 99,
+                'status' => 'published',
+                'legacy' => false,
+                'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY,
+                'published_at' => now(),
+            ],
+        ));
+
+        $registration->update(['unit_configuration_id' => $registrationOnlyConfiguration->id]);
+
+        $this->get(route('registration.test-card', $registration))
+            ->assertNotFound();
+
+        $this->get(route('registration.test-card.verify', $registration))
+            ->assertNotFound();
     }
 
     public function test_test_card_requires_sessions_for_every_required_test_but_ignores_optional_tests(): void
