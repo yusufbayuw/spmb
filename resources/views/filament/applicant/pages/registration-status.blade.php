@@ -154,14 +154,20 @@
                             </x-filament::button>
                         @endif
 
-                        @if ($registration->isOperational() && $registration->applicant_card_number && $identityPhoto)
+                        @if ($registration->registrationCardEnabled() && $registration->isOperational() && $registration->applicant_card_number && $identityPhoto)
                             <x-filament::button tag="a" href="{{ route('registration.card', $registration) }}" target="_blank" color="gray" outlined icon="heroicon-m-identification">
                                 Kartu Pendaftaran
                             </x-filament::button>
-                        @elseif ($registration->isOperational() && $registration->applicant_card_number && ! $identityPhoto)
+                        @elseif ($registration->registrationCardEnabled() && $registration->isOperational() && $registration->applicant_card_number && ! $identityPhoto)
                             <x-filament::badge color="warning" icon="heroicon-m-photo">
                                 Upload foto identitas untuk membuka kartu pendaftaran
                             </x-filament::badge>
+                        @endif
+
+                        @if ($registration->testCardEnabled() && $registration->isOperational() && filled($registration->test_schedule_confirmed_at))
+                            <x-filament::button tag="a" href="{{ route('registration.test-card', $registration) }}" target="_blank" color="gray" outlined icon="heroicon-m-academic-cap">
+                                Kartu Tes
+                            </x-filament::button>
                         @endif
                     </div>
                 </x-filament::section>
