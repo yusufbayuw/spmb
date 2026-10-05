@@ -162,11 +162,11 @@
             $scheduleRowHeight = match (true) {
                 $scheduleCount <= 2 => 72,
                 $scheduleCount === 3 => 55,
-                $scheduleCount === 4 => 43,
-                default => 34,
+                default => max(12, intdiv(126, max(1, $scheduleCount - 1))),
             };
-            $scheduleNameFontSize = $scheduleCount <= 3 ? 17 : 14;
-            $scheduleMetaFontSize = $scheduleCount <= 3 ? 14 : 12;
+            $scheduleLineOffset = $scheduleCount <= 3 ? 20 : ($scheduleCount <= 6 ? 14 : 11);
+            $scheduleNameFontSize = $scheduleCount <= 3 ? 17 : ($scheduleCount <= 6 ? 13 : 10);
+            $scheduleMetaFontSize = $scheduleCount <= 3 ? 14 : ($scheduleCount <= 6 ? 10 : 9);
             $showInstructions = $scheduleCount <= 2;
         @endphp
 
@@ -187,7 +187,7 @@
                     $rowY = 374 + ($index * $scheduleRowHeight);
                 @endphp
                 <text x="62" y="{{ $rowY }}" fill="#0f274d" font-size="{{ $scheduleNameFontSize }}" font-weight="800">{{ $schedule['name'] }}</text>
-                <text x="62" y="{{ $rowY + 20 }}" fill="#45637f" font-size="{{ $scheduleMetaFontSize }}" font-weight="700">{{ $schedule['time'] }} · {{ $schedule['location'] }}</text>
+                <text x="62" y="{{ $rowY + $scheduleLineOffset }}" fill="#45637f" font-size="{{ $scheduleMetaFontSize }}" font-weight="700">{{ $schedule['time'] }} · {{ $schedule['location'] }}</text>
                 @if($showInstructions && filled($schedule['instructions']))
                     <text x="62" y="{{ $rowY + 39 }}" fill="#6b7f94" font-size="12">{{ $schedule['instructions'] }}</text>
                 @endif
