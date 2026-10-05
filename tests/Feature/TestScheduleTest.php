@@ -157,7 +157,7 @@ class TestScheduleTest extends TestCase
             ->assertSee('85,6 × 53,98 mm')
             ->assertSeeText('20/09/2026 08:00–09:30')
             ->assertSeeText('Ruang Ujian A')
-            ->assertSeeText('Bawa alat tulis.')
+            ->assertDontSeeText('Bawa alat tulis.')
             ->assertDontSee('<table', false);
 
         $this->get(route('registration.test-card.verify', $registration))
