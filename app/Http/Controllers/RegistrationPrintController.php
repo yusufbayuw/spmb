@@ -57,14 +57,51 @@ class RegistrationPrintController extends Controller
         return view('registration.card-verification', compact('registration', 'hasPhoto', 'isValid'));
     }
 
-    public function testCard(Request $request, Registration $registration, TestCardEligibilityService $eligibility): View
-    {
+    public function testCard(
+        Request $request,
+        Registration $registration,
+        TestCardEligibilityService $eligibility,
+        RegistrationCardService $cards,
+    ): View {
         $this->authorizeRegistration($request, $registration);
         abort_unless($registration->isOperational() && $eligibility->canPrint($registration), 404);
-        $bookings = TestBooking::with(['session', 'admissionTest'])->where('registration_id', $registration->id)->whereNotNull('test_session_id')->get();
+
+        $bookings = TestBooking::with(['session', 'admissionTest'])
+            ->where('registration_id', $registration->id)
+            ->whereNotNull('test_session_id')
+            ->get()
+            ->sortBy(fn (TestBooking $booking): int => $booking->session?->starts_at?->timestamp ?? PHP_INT_MAX)
+            ->values();
+
         abort_if($bookings->isEmpty(), 404);
 
-        return view('registration.test-card', compact('registration', 'bookings'));
+        $card = $cards->cardData($registration);
+        $card['headerLabel'] = 'KARTU TES';
+        $card['issuedDate'] = $registration->test_schedule_confirmed_at?->format('d-m-Y') ?? '—';
+        $card['filenameStem'] = 'kartu-tes-'.Str::slug(
+            $card['cardNumber'] !== '—'
+                ? $card['cardNumber']
+                : (string) $registration->uuid
+        );
+
+        $configuredTests = collect($registration->configuredTests());
+        $schedules = $bookings->map(function (TestBooking $booking) use ($configuredTests): array {
+            $configuredTest = $configuredTests->first(
+                fn (array $test): bool => (int) ($test['id'] ?? 0) === (int) $booking->admission_test_id,
+            );
+            $session = $booking->session;
+
+            return [
+                'name' => Str::limit((string) ($configuredTest['name'] ?? $booking->admissionTest?->name ?? 'Tes'), 46),
+                'time' => $session->starts_at->format('d/m/Y H:i').'–'.$session->ends_at->format('H:i'),
+                'location' => Str::limit((string) ($session->location ?: 'Lokasi belum ditentukan'), 40),
+                'instructions' => filled($session->instructions)
+                    ? Str::limit(trim((string) $session->instructions), 60)
+                    : null,
+            ];
+        });
+
+        return view('registration.test-card', compact('registration', 'card', 'schedules'));
     }
 
     public function receipt(Request $request, Registration $registration, PaymentReceipt $receipt): View
