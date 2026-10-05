@@ -5,12 +5,14 @@ namespace App\Filament\Admin\Pages;
 use App\Models\AdmissionTest;
 use App\Models\TestSession;
 use App\Services\TestBookingService;
+use App\Services\TestParticipantExcelExportService;
 use App\Services\UnitConfigurationService;
 use Filament\Forms;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Contracts\HasTable
 {
@@ -74,8 +76,41 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
             ])->headerActions([
                 Tables\Actions\Action::make('create')->label('Tambah Sesi')->form($this->sessionFields())->action(fn (array $data) => app(TestBookingService::class)->saveSession(null, $this->sessionData($data), auth()->user())),
             ])->actions([
-                Tables\Actions\Action::make('edit')->label('Ubah Sesi')->form($this->sessionFields())->fillForm(fn (TestSession $record): array => $this->sessionFormData($record))->action(fn (TestSession $record, array $data) => app(TestBookingService::class)->saveSession($record, $this->sessionData($data), auth()->user())),
+                Tables\Actions\Action::make('exportParticipants')
+                    ->label('Export Peserta')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->disabled(fn (TestSession $record): bool => (int) $record->bookings_count === 0)
+                    ->tooltip(fn (TestSession $record): string => (int) $record->bookings_count === 0
+                        ? 'Belum ada peserta pada sesi ini.'
+                        : 'Export peserta yang terdaftar pada sesi ini ke Excel.')
+                    ->action(fn (TestSession $record): BinaryFileResponse => $this->exportParticipants($record)),
+                Tables\Actions\Action::make('edit')
+                    ->label('Ubah Sesi')
+                    ->form($this->sessionFields())
+                    ->fillForm(fn (TestSession $record): array => $this->sessionFormData($record))
+                    ->action(fn (TestSession $record, array $data) => app(TestBookingService::class)->saveSession($record, $this->sessionData($data), auth()->user())),
             ]);
+    }
+
+    public function exportParticipants(TestSession $session): BinaryFileResponse
+    {
+        $result = app(TestParticipantExcelExportService::class)->export(
+            $session,
+            auth()->user(),
+        );
+
+        return response()
+            ->download(
+                $result['path'],
+                $result['filename'],
+                [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'Cache-Control' => 'private, no-store',
+                    'X-Content-Type-Options' => 'nosniff',
+                ],
+            )
+            ->deleteFileAfterSend(true);
     }
 
     public function selectStatusTab(string $status): void
