@@ -4,6 +4,7 @@
     @endphp
 
     <div
+        class="space-y-6"
         x-data="{ scheduleConfirmed: @entangle('scheduleConfirmed') }"
         x-on:beforeunload.window="
             if (! scheduleConfirmed) {
@@ -80,14 +81,14 @@
             @endphp
 
             <x-filament::section :heading="$test['name']">
-                <p class="mb-4 text-sm">
+                <p class="mb-5 text-sm">
                     {{ $test['is_required'] ? 'Wajib' : 'Opsional' }}
                     · Pilihan saat ini: {{ $booking?->session?->label() ?? 'Belum memilih sesi' }}
                 </p>
 
-                <div class="grid gap-4 md:grid-cols-2">
+                <div class="grid gap-5 md:grid-cols-2">
                     @forelse($this->sessions($test['id']) as $session)
-                        <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-700">
                             <p class="font-semibold">{{ $session->label() }}</p>
                             <p class="text-sm">
                                 Sisa kuota: {{ max(0, $session->capacity - $session->bookings_count) }}
