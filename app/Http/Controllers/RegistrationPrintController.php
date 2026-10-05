@@ -12,6 +12,7 @@ use App\Services\TestCardEligibilityService;
 use App\Services\UnitConfigurationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -98,7 +99,13 @@ class RegistrationPrintController extends Controller
             ->where('registration_id', $registration->id)
             ->whereNotNull('test_session_id')
             ->get()
-            ->sortBy(fn (TestBooking $booking): int => $booking->session?->starts_at?->timestamp ?? PHP_INT_MAX)
+            ->sortBy(function (TestBooking $booking): int {
+                $startsAt = $booking->session?->starts_at;
+
+                return filled($startsAt)
+                    ? Carbon::parse($startsAt)->timestamp
+                    : PHP_INT_MAX;
+            })
             ->values();
 
         abort_if($bookings->isEmpty(), 404);
@@ -118,10 +125,12 @@ class RegistrationPrintController extends Controller
                 fn (array $test): bool => (int) ($test['id'] ?? 0) === (int) $booking->admission_test_id,
             );
             $session = $booking->session;
+            $startsAt = Carbon::parse($session->starts_at);
+            $endsAt = Carbon::parse($session->ends_at);
 
             return [
                 'name' => Str::limit((string) ($configuredTest['name'] ?? $booking->admissionTest?->name ?? 'Tes'), 46),
-                'time' => $session->starts_at->format('d/m/Y H:i').'–'.$session->ends_at->format('H:i'),
+                'time' => $startsAt->format('d/m/Y H:i').'–'.$endsAt->format('H:i'),
                 'location' => Str::limit((string) ($session->location ?: 'Lokasi belum ditentukan'), 40),
                 'instructions' => filled($session->instructions)
                     ? Str::limit(trim((string) $session->instructions), 60)
