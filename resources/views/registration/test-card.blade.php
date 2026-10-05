@@ -160,14 +160,14 @@
         @php
             $scheduleCount = max(1, $schedules->count());
             $scheduleRowHeight = match (true) {
-                $scheduleCount <= 2 => 72,
-                $scheduleCount === 3 => 55,
-                default => max(12, intdiv(126, max(1, $scheduleCount - 1))),
+                $scheduleCount <= 2 => 78,
+                $scheduleCount === 3 => 62,
+                $scheduleCount <= 5 => 38,
+                default => max(24, intdiv(126, max(1, $scheduleCount - 1))),
             };
-            $scheduleLineOffset = $scheduleCount <= 3 ? 20 : ($scheduleCount <= 6 ? 14 : 11);
-            $scheduleNameFontSize = $scheduleCount <= 3 ? 17 : ($scheduleCount <= 6 ? 13 : 10);
-            $scheduleMetaFontSize = $scheduleCount <= 3 ? 14 : ($scheduleCount <= 6 ? 10 : 9);
-            $showInstructions = $scheduleCount <= 2;
+            $scheduleLineOffset = $scheduleCount <= 2 ? 25 : ($scheduleCount === 3 ? 21 : ($scheduleCount <= 5 ? 17 : 14));
+            $scheduleNameFontSize = $scheduleCount <= 2 ? 22 : ($scheduleCount === 3 ? 18 : ($scheduleCount <= 5 ? 15 : 12));
+            $scheduleMetaFontSize = $scheduleCount <= 2 ? 17 : ($scheduleCount === 3 ? 14 : ($scheduleCount <= 5 ? 12 : 10));
         @endphp
 
         <g font-family="Arial, Helvetica, sans-serif">
@@ -180,7 +180,7 @@
             @endforeach
 
             <line x1="62" y1="320" x2="730" y2="320" stroke="#b7d3ed" stroke-width="1.5"/>
-            <text x="62" y="346" fill="#45637f" font-size="15" font-weight="800" letter-spacing="1.2">JADWAL TES</text>
+            <text x="62" y="346" fill="#45637f" font-size="18" font-weight="800" letter-spacing="1.2">JADWAL TES</text>
 
             @foreach($schedules as $index => $schedule)
                 @php
@@ -188,9 +188,6 @@
                 @endphp
                 <text x="62" y="{{ $rowY }}" fill="#0f274d" font-size="{{ $scheduleNameFontSize }}" font-weight="800">{{ $schedule['name'] }}</text>
                 <text x="62" y="{{ $rowY + $scheduleLineOffset }}" fill="#45637f" font-size="{{ $scheduleMetaFontSize }}" font-weight="700">{{ $schedule['time'] }} · {{ $schedule['location'] }}</text>
-                @if($showInstructions && filled($schedule['instructions']))
-                    <text x="62" y="{{ $rowY + 39 }}" fill="#6b7f94" font-size="12">{{ $schedule['instructions'] }}</text>
-                @endif
             @endforeach
         </g>
 
