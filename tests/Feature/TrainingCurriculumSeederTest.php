@@ -26,15 +26,33 @@ class TrainingCurriculumSeederTest extends TestCase
         $this->assertSame(3, TrainingProgram::query()->whereIn('code', ['TRN-ADMIN', 'TRN-UNIT', 'TRN-TU'])->count());
 
         $this->assertProgramCounts('TRN-ADMIN', 8, 24);
-        $this->assertProgramCounts('TRN-UNIT', 12, 36);
-        $this->assertProgramCounts('TRN-TU', 9, 27);
+        $this->assertProgramCounts('TRN-UNIT', 13, 39);
+        $this->assertProgramCounts('TRN-TU', 10, 30);
 
         $this->assertCertificationCounts('SCA', 50, 5);
-        $this->assertCertificationCounts('SCUA', 78, 8);
-        $this->assertCertificationCounts('SCAO', 52, 6);
+        $this->assertCertificationCounts('SCUA', 86, 10);
+        $this->assertCertificationCounts('SCAO', 58, 7);
 
-        $this->assertSame(29, TrainingModuleAssessment::query()->count());
-        $this->assertSame(87, TrainingModuleQuestion::query()->count());
+        $this->assertSame(31, TrainingModuleAssessment::query()->count());
+        $this->assertSame(93, TrainingModuleQuestion::query()->count());
+
+        $this->assertDatabaseHas('training_modules', [
+            'seed_key' => 'scua-m13',
+            'title' => 'Terusan dan Orkestrasi Tes Modern',
+        ]);
+        $this->assertDatabaseHas('training_modules', [
+            'seed_key' => 'scao-m10',
+            'title' => 'Pendampingan Tes Multi-Sesi dan Batas Kewenangan',
+        ]);
+        $this->assertDatabaseHas('practical_scenarios', [
+            'code' => 'SCUA-CONTINUATION-01',
+        ]);
+        $this->assertDatabaseHas('practical_scenarios', [
+            'code' => 'SCUA-TEST-CONFIRM-01',
+        ]);
+        $this->assertDatabaseHas('practical_scenarios', [
+            'code' => 'SCAO-TEST-CONFIRM-01',
+        ]);
 
         $this->assertDatabaseCount('registrations', 0);
         $this->assertDatabaseCount('payments', 0);
