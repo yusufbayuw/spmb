@@ -36,7 +36,11 @@ return new class extends Migration
 
         Schema::create('continuation_registration_links', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('continuation_candidate_id')->constrained('continuation_candidates')->restrictOnDelete();
+            $table->foreignId('continuation_candidate_id');
+            $table->foreign('continuation_candidate_id', 'cont_reg_links_candidate_fk')
+                ->references('id')
+                ->on('continuation_candidates')
+                ->restrictOnDelete();
             $table->foreignId('registration_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('matched_by', 50)->default('nik_birth_date');
             $table->json('source_snapshot')->nullable();
