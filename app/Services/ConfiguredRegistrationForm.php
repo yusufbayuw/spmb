@@ -277,6 +277,9 @@ class ConfiguredRegistrationForm
                 ));
         }
 
+        $identityLookup = $components['identity_lookup'] ?? null;
+        unset($components['identity_lookup']);
+
         $ordered = [];
         foreach ($this->formLayout($configuration, $formGroups) as $key) {
             if (array_key_exists($key, $components)) {
@@ -287,6 +290,10 @@ class ConfiguredRegistrationForm
 
         foreach ($components as $component) {
             $ordered[] = $component;
+        }
+
+        if ($identityLookup) {
+            array_unshift($ordered, $identityLookup);
         }
 
         return $ordered;
