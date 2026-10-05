@@ -207,6 +207,35 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->default(UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH)
                         ->required()
                         ->live()
+                        ->afterStateUpdated(function (?string $state, Forms\Get $get, Forms\Set $set): void {
+                            if ($state !== UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY) {
+                                return;
+                            }
+
+                            $set('tests_enabled', true);
+
+                            if (empty($get('test_definitions'))) {
+                                $set('test_definitions', $this->activeTestDefinitions());
+                            }
+
+                            $visibleStages = array_values(array_diff(
+                                is_array($get('applicant_visible_stages')) ? $get('applicant_visible_stages') : [],
+                                ['applicant_card'],
+                            ));
+                            $set('applicant_visible_stages', $visibleStages);
+
+                            if (in_array($get('completion_after_stage'), [
+                                'data_validation',
+                                'virtual_account',
+                                'payment',
+                                'payment_verification',
+                                'applicant_card',
+                                'documents',
+                                'document_verification',
+                            ], true)) {
+                                $set('completion_after_stage', null);
+                            }
+                        })
                         ->helperText('Keduanya menampilkan Kartu Pendaftaran dan Kartu Tes. Hanya Kartu Pendaftaran menonaktifkan Kartu Tes. Hanya Kartu Tes menghilangkan tahap dan seluruh tautan Kartu Pendaftaran.'),
                     Forms\Components\TextInput::make('applicant_card_header_label')
                         ->label('Label Header Kartu Pendaftaran')
@@ -344,7 +373,16 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->options(fn (Forms\Get $get): array => array_diff_key(
                             Registration::STAGES,
                             $get('participant_card_mode') === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
-                                ? ['completed' => true, 'applicant_card' => true]
+                                ? [
+                                    'completed' => true,
+                                    'data_validation' => true,
+                                    'virtual_account' => true,
+                                    'payment' => true,
+                                    'payment_verification' => true,
+                                    'applicant_card' => true,
+                                    'documents' => true,
+                                    'document_verification' => true,
+                                ]
                                 : ['completed' => true],
                         ))
                         ->placeholder('Ikuti alur penuh')
