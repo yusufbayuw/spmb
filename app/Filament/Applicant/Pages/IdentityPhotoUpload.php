@@ -184,7 +184,7 @@ class IdentityPhotoUpload extends Page implements HasForms
 
         Notification::make()
             ->title('Foto identitas berhasil disimpan')
-            ->body('Kartu pendaftaran akan menggunakan foto ini.')
+            ->body('Kartu peserta yang digunakan unit akan menggunakan foto ini.')
             ->success()
             ->send();
 
