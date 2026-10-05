@@ -110,7 +110,9 @@ class TestSchedule extends Page
 
         Notification::make()
             ->title('Jadwal tes dikonfirmasi')
-            ->body('Seluruh tes wajib sudah memiliki jadwal. Simpan kartu tes dan ikuti seluruh rangkaian tes sesuai jadwal.')
+            ->body($this->registrationRecord->testCardEnabled()
+                ? 'Seluruh tes wajib sudah memiliki jadwal. Simpan kartu tes dan ikuti seluruh rangkaian tes sesuai jadwal.'
+                : 'Seluruh tes wajib sudah memiliki jadwal. Ikuti seluruh rangkaian tes sesuai jadwal yang tersimpan di portal.')
             ->success()
             ->send();
     }
