@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Verifikasi Kartu Pendaftaran</title>
+    <title>Verifikasi {{ $cardType ?? 'Kartu Pendaftaran' }}</title>
     <style>
         *{box-sizing:border-box}
         body{margin:0;background:#f4f7fb;color:#14233b;font-family:Arial,Helvetica,sans-serif}
@@ -23,7 +23,7 @@
         {{ $isValid ? 'KARTU VALID' : 'KARTU TIDAK AKTIF' }}
     </span>
 
-    <h1>Verifikasi Kartu Pendaftaran</h1>
+    <h1>Verifikasi {{ $cardType ?? 'Kartu Pendaftaran' }}</h1>
     <p class="muted">Data minimum berikut berasal langsung dari sistem pendaftaran.</p>
 
     <dl>
