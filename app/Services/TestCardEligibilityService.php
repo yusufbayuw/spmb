@@ -8,6 +8,10 @@ class TestCardEligibilityService
 {
     public function canPrint(Registration $registration): bool
     {
-        return app(TestScheduleConfirmationService::class)->isConfirmed($registration);
+        $registration->loadMissing('configuration');
+
+        return $registration->isOperational()
+            && $registration->testCardEnabled()
+            && app(TestScheduleConfirmationService::class)->isConfirmed($registration);
     }
 }
