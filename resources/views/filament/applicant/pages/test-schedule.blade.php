@@ -301,7 +301,11 @@
         </x-filament::section>
 
         <div class="flex flex-wrap items-center gap-3">
-            @if($this->canPrintTestCard())
+            @if(! $registrationRecord->testCardEnabled())
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Konfigurasi unit menggunakan Kartu Pendaftaran tanpa Kartu Tes terpisah.
+                </p>
+            @elseif($this->canPrintTestCard())
                 <x-filament::button
                     tag="a"
                     :href="route('registration.test-card', $registrationRecord)"
