@@ -223,7 +223,9 @@ class ApplicantNextActionService
             'processing',
             'Jadwal dikonfirmasi',
             'Ikuti Rangkaian Tes',
-            'Seluruh jadwal tes wajib sudah dikonfirmasi. Ikuti setiap tes sesuai jadwal yang tertera pada kartu tes.',
+            $registration->testCardEnabled()
+                ? 'Seluruh jadwal tes wajib sudah dikonfirmasi. Ikuti setiap tes sesuai jadwal yang tertera pada kartu tes.'
+                : 'Seluruh jadwal tes wajib sudah dikonfirmasi. Ikuti setiap tes sesuai jadwal yang tersimpan di portal.',
             'info',
             'heroicon-o-academic-cap',
             'Lihat Jadwal Tes',
