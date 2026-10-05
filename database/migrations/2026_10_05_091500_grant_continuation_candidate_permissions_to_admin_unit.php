@@ -47,7 +47,9 @@ return new class extends Migration
             ->first();
 
         if ($adminUnit) {
-            $adminUnit->revokePermissionTo(self::PERMISSIONS);
+            foreach (self::PERMISSIONS as $permission) {
+                $adminUnit->revokePermissionTo($permission);
+            }
         }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
