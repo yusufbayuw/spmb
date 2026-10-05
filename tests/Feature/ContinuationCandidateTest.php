@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Resources\ContinuationCandidateResource;
+use App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration;
 use App\Models\ContinuationCandidate;
 use App\Models\RegistrationOpening;
+use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\ContinuationCandidateImportService;
@@ -13,6 +15,7 @@ use App\Services\ContinuationCandidateTemplateService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use OpenSpout\Reader\XLSX\Reader;
 use Tests\TestCase;
 
@@ -104,6 +107,110 @@ class ContinuationCandidateTest extends TestCase
         $this->assertSame('S1', $candidate->prefill_data['parentInfo.father_education']);
         $this->assertSame('Ibu Budi', $candidate->prefill_data['parentInfo.mother_name']);
         $this->assertSame('Budi', $candidate->raw_data['nama']);
+    }
+
+    public function test_applicant_form_starts_with_nik_and_birth_date_and_prefills_continuation_data(): void
+    {
+        $this->seed(ShieldSeeder::class);
+
+        $unit = Unit::create([
+            'name' => 'SMP Tujuan Form',
+            'code' => 'SMP-FORM',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 0,
+            'status' => 'open',
+        ]);
+        RegistrationPathway::create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+        ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD Asal Form',
+            'source_key' => hash('sha256', 'candidate-form'),
+            'nik' => '3273010101010009',
+            'birth_date' => '2014-01-01',
+            'full_name' => 'Siswa Terusan Form',
+            'prefill_data' => [
+                'full_name' => 'Siswa Terusan Form',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'previous_school' => 'SD Asal Form',
+                'parentInfo.father_name' => 'Ayah Terusan',
+                'parentInfo.mother_name' => 'Ibu Terusan',
+            ],
+            'is_active' => true,
+        ]);
+
+        $applicant = User::factory()->create(['role' => 'user', 'is_active' => true]);
+        $applicant->assignRole('pendaftar');
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $page = Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->assertSeeInOrder([
+                'Identifikasi Peserta',
+                'NIK',
+                'Tanggal Lahir',
+                'Pilihan Pendaftaran',
+                'Identitas Calon Siswa / Mahasiswa',
+            ])
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $page
+            ->set('data.nik', '3273010101010009')
+            ->set('data.birth_date', '2014-01-01')
+            ->assertSet('data.full_name', 'Siswa Terusan Form')
+            ->assertSet('data.gender', 'L')
+            ->assertSet('data.birth_place', 'Bandung')
+            ->assertSet('data.previous_school', 'SD Asal Form')
+            ->assertSet('data.parentInfo.father_name', 'Ayah Terusan')
+            ->assertSet('data.parentInfo.mother_name', 'Ibu Terusan');
+    }
+
+    public function test_import_does_not_silently_keep_unmatchable_continuation_rows(): void
+    {
+        $unit = Unit::create([
+            'name' => 'SMP Import Validation',
+            'code' => 'SMP-IV',
+            'is_active' => true,
+        ]);
+        $user = User::factory()->create();
+
+        $path = tempnam(sys_get_temp_dir(), 'continuation_invalid_').'.csv';
+        file_put_contents($path, implode("\n", [
+            'Nama,NIK,Tanggal Lahir,Sekolah Asal',
+            'Tanpa NIK,,01/01/2014,SD Contoh',
+        ]));
+
+        try {
+            $result = app(ContinuationCandidateImportService::class)->import(
+                $path,
+                $unit->id,
+                '2027/2028',
+                $user->id,
+                'terusan-invalid.csv',
+            );
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(0, $result['created']);
+        $this->assertSame(1, $result['skipped']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertStringContainsString('NIK wajib berupa 16 digit utuh', $result['errors'][0]);
+        $this->assertDatabaseCount('continuation_candidates', 0);
     }
 
     public function test_admin_unit_can_generate_a_safe_xlsx_import_template(): void
