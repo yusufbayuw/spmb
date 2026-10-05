@@ -23,6 +23,8 @@ class UnitAdministratorPracticalSeeder extends CurriculumSeeder
         $this->testScenario($program);
         $this->selectionScenario($program);
         $this->reportScenario($program);
+        $this->continuationScenario($program);
+        $this->testScheduleConfirmationScenario($program);
     }
 
     private function openingScenario(CertificationProgram $program): void
@@ -113,4 +115,86 @@ class UnitAdministratorPracticalSeeder extends CurriculumSeeder
         $this->seedScenarioAssertion($s,'correct-scope','Export hanya Unit A',StateEqualsValidator::class,['entity_type'=>'report_request','entity_key'=>'operational','path'=>'export_scope','expected'=>'unit-a'],60,true,1);
         $this->seedScenarioAssertion($s,'no-global','Tidak export seluruh unit',EventNotExistsValidator::class,['action_code'=>'export_all_units'],40,true,2);
     }
+    private function continuationScenario(CertificationProgram $program): void
+    {
+        $s=$this->seedScenario($program,[
+            'code'=>'SCUA-CONTINUATION-01',
+            'name'=>'Import Terusan Tanpa Membuat Duplikasi',
+            'description'=>'Menggunakan template resmi dan mempertahankan identitas kandidat saat upload ulang.',
+            'instructions'=>'Master Terusan Unit A sudah memiliki Budi dengan NIK dan tanggal lahir yang sama. Unduh template resmi lalu lakukan import sebagai update/upsert. Jangan membuat record duplikat baru.',
+            'time_limit_minutes'=>10,
+            'sort_order'=>9,
+        ]);
+        $this->seedScenarioRecord($s,'continuation_import','budi','Kandidat Terusan Budi',[
+            'same_identity_exists'=>true,
+            'template_downloaded'=>false,
+            'import_mode'=>null,
+            'existing_updated'=>false,
+            'duplicate_created'=>false,
+        ],1);
+        $this->seedScenarioAction($s,'download_template','Unduh Template Resmi','continuation_import','budi',[
+            'template_downloaded'=>true,
+        ],[],'primary',1);
+        $this->seedScenarioAction($s,'import_upsert','Import sebagai Update/Upsert','continuation_import','budi',[
+            'import_mode'=>'upsert',
+            'existing_updated'=>true,
+        ],['template_downloaded'=>true,'same_identity_exists'=>true],'success',2);
+        $this->seedScenarioAction($s,'force_duplicate','Buat Kandidat Baru Duplikat','continuation_import','budi',[
+            'import_mode'=>'duplicate',
+            'duplicate_created'=>true,
+        ],[],'danger',3);
+        $this->seedScenarioAssertion($s,'template','Template resmi digunakan',StateEqualsValidator::class,[
+            'entity_type'=>'continuation_import','entity_key'=>'budi','path'=>'template_downloaded','expected'=>true,
+        ],25,true,1);
+        $this->seedScenarioAssertion($s,'updated','Record existing diperbarui',StateEqualsValidator::class,[
+            'entity_type'=>'continuation_import','entity_key'=>'budi','path'=>'existing_updated','expected'=>true,
+        ],45,true,2);
+        $this->seedScenarioAssertion($s,'no-duplicate','Tidak membuat duplikat',EventNotExistsValidator::class,[
+            'action_code'=>'force_duplicate',
+        ],30,true,3);
+    }
+
+    private function testScheduleConfirmationScenario(CertificationProgram $program): void
+    {
+        $s=$this->seedScenario($program,[
+            'code'=>'SCUA-TEST-CONFIRM-01',
+            'name'=>'Ubah Sesi dan Rekonsiliasi Konfirmasi Jadwal',
+            'description'=>'Menjaga jadwal, konfirmasi peserta, dan export sesi tetap konsisten setelah perubahan.',
+            'instructions'=>'Sesi A sudah memiliki peserta dengan jadwal terkonfirmasi. Waktu sesi harus diubah. Lakukan perubahan resmi sehingga konfirmasi lama menjadi tidak valid, lalu export hanya peserta sesi A. Jangan mempertahankan konfirmasi lama atau export semua unit.',
+            'time_limit_minutes'=>10,
+            'sort_order'=>10,
+        ]);
+        $this->seedScenarioRecord($s,'test_session','session-a','Sesi Tes A',[
+            'participants'=>18,
+            'schedule_changed'=>false,
+            'confirmation_valid'=>true,
+            'export_scope'=>null,
+        ],1);
+        $this->seedScenarioAction($s,'change_session','Ubah Jadwal Sesi','test_session','session-a',[
+            'schedule_changed'=>true,
+            'confirmation_valid'=>false,
+        ],[],'warning',1);
+        $this->seedScenarioAction($s,'export_session','Export Peserta Sesi A','test_session','session-a',[
+            'export_scope'=>'session-a',
+        ],['schedule_changed'=>true],'success',2);
+        $this->seedScenarioAction($s,'keep_old_confirmation','Pertahankan Konfirmasi Lama','test_session','session-a',[
+            'confirmation_valid'=>true,
+        ],['schedule_changed'=>true],'danger',3);
+        $this->seedScenarioAction($s,'export_all_units','Export Semua Unit','test_session','session-a',[
+            'export_scope'=>'all-units',
+        ],[],'danger',4);
+        $this->seedScenarioAssertion($s,'changed','Jadwal sesi berubah',StateEqualsValidator::class,[
+            'entity_type'=>'test_session','entity_key'=>'session-a','path'=>'schedule_changed','expected'=>true,
+        ],25,true,1);
+        $this->seedScenarioAssertion($s,'confirmation-invalid','Konfirmasi lama dibatalkan',StateEqualsValidator::class,[
+            'entity_type'=>'test_session','entity_key'=>'session-a','path'=>'confirmation_valid','expected'=>false,
+        ],35,true,2);
+        $this->seedScenarioAssertion($s,'session-export','Export hanya sesi terkait',StateEqualsValidator::class,[
+            'entity_type'=>'test_session','entity_key'=>'session-a','path'=>'export_scope','expected'=>'session-a',
+        ],25,true,3);
+        $this->seedScenarioAssertion($s,'no-unsafe-action','Tidak mempertahankan konfirmasi lama',EventNotExistsValidator::class,[
+            'action_code'=>'keep_old_confirmation',
+        ],15,true,4);
+    }
+
 }
