@@ -93,7 +93,7 @@
                             </x-filament::badge>
                         @else
                             <x-filament::badge color="warning">
-                                Belum memilih jadwal
+                                Belum memilih sesi
                             </x-filament::badge>
                         @endif
                     </div>
