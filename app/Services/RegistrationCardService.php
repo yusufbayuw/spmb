@@ -51,7 +51,8 @@ class RegistrationCardService
     public function cardData(
         Registration $registration,
         string $verificationRouteName = 'registration.card.verify',
-    ): array {
+    ): array
+    {
         $registration->loadMissing([
             'unit',
             'configuration',
