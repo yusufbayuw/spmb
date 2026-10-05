@@ -188,8 +188,8 @@ class UnitRegistrationSettingsTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
         Livewire::test(UnitRegistrationSettings::class)
-            ->assertSee('Kartu Pendaftaran')
-            ->assertSee('Label Header Kartu')
+            ->assertSee('Kartu Peserta')
+            ->assertSee('Label Header Kartu Pendaftaran')
             ->assertSee('Judul Header Kartu')
             ->assertSee('Tahun Ajaran {{ tahun_ajaran }}')
             ->fillForm([
@@ -207,6 +207,52 @@ class UnitRegistrationSettingsTest extends TestCase
 
         $this->assertSame('KARTU PESERTA', $published->applicant_card_header_label);
         $this->assertSame('SD Contoh', $published->applicant_card_header_title);
+    }
+
+    public function test_admin_unit_can_configure_participant_card_mode(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSee('Jenis Kartu Peserta')
+            ->assertSee('Keduanya')
+            ->assertSee('Hanya Kartu Pendaftaran')
+            ->assertSee('Hanya Kartu Tes')
+            ->fillForm([
+                'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY,
+            ])
+            ->call('publish')
+            ->assertHasNoFormErrors();
+
+        $published = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'published')
+            ->latest('version')
+            ->firstOrFail();
+
+        $this->assertSame(
+            UnitConfiguration::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY,
+            $published->participant_card_mode,
+        );
+    }
+
+    public function test_test_only_card_mode_requires_enabled_required_test(): void
+    {
+        [, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm([
+                'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY,
+            ])
+            ->call('publish')
+            ->assertHasFormErrors(['participant_card_mode'])
+            ->assertNotified('Publikasi konfigurasi gagal');
     }
 
     public function test_admin_unit_can_configure_versioned_pre_form_consent(): void
