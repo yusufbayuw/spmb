@@ -40,6 +40,9 @@ Route::get('/penerimaan/{registrationOpening}/daftar', StartRegistrationControll
 Route::get('/verifikasi/kartu/{registration}', [RegistrationPrintController::class, 'verifyCard'])
     ->whereUuid('registration')
     ->name('registration.card.verify');
+Route::get('/verifikasi/kartu-tes/{registration}', [RegistrationPrintController::class, 'verifyTestCard'])
+    ->whereUuid('registration')
+    ->name('registration.test-card.verify');
 Route::get('/verifikasi/sertifikat/{certificate}', [CertificateVerificationController::class, 'show'])
     ->whereUuid('certificate')
     ->name('certificates.verify');
