@@ -86,6 +86,7 @@ class UnitConfigurationTransferTest extends TestCase
                 'unit_id' => $source->id,
                 'version' => 2,
                 'status' => 'draft',
+                'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY,
                 'applicant_card_header_label' => 'KARTU PESERTA',
                 'applicant_card_header_title' => 'SMP Sumber 2026',
                 'legacy' => false,
@@ -145,6 +146,7 @@ class UnitConfigurationTransferTest extends TestCase
             'unit_id' => $target->id,
             'status' => 'draft',
             'registration_number_prefix' => 'SMPSRC',
+            'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY,
             'applicant_card_header_label' => 'KARTU PESERTA',
             'applicant_card_header_title' => 'SMP Sumber 2026',
         ]);
