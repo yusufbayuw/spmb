@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Admin\Resources\RegistrationResource as AdminRegistrationResource;
 use App\Filament\Applicant\Pages\IdentityPhotoUpload;
+use App\Models\AdmissionTest;
 use App\Models\Document;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -67,6 +68,42 @@ class RegistrationCardTest extends TestCase
         $registration->update(['lifecycle_status' => 'cancelled']);
 
         $this->assertFalse(AdminRegistrationResource::canViewApplicantCard($registration->fresh()));
+    }
+
+    public function test_test_only_mode_blocks_registration_card_and_public_verification(): void
+    {
+        [$registration, $user] = $this->fixture();
+
+        AdmissionTest::create([
+            'unit_id' => $registration->unit_id,
+            'name' => 'Tes Akademik',
+            'code' => 'AKD-CARD',
+            'is_required' => true,
+            'is_active' => true,
+        ]);
+
+        $configuration = UnitConfiguration::create(array_merge(
+            app(UnitConfigurationService::class)->defaults($registration->unit),
+            [
+                'unit_id' => $registration->unit_id,
+                'version' => 2,
+                'status' => 'published',
+                'legacy' => false,
+                'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY,
+                'published_at' => now(),
+            ],
+        ));
+
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        $this->actingAs($user)
+            ->get(route('registration.card', $registration))
+            ->assertNotFound();
+
+        $this->get(route('registration.card.verify', $registration))
+            ->assertNotFound();
+
+        $this->assertFalse($registration->fresh()->registrationCardEnabled());
     }
 
     public function test_legacy_card_without_identity_photo_renders_with_placeholder(): void
