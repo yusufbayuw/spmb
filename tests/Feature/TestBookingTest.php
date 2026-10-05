@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\ReceiptService;
 use App\Services\RegistrationWorkflowService;
 use App\Services\TestBookingService;
+use App\Services\TestScheduleConfirmationService;
 use Database\Seeders\ShieldSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -59,7 +60,7 @@ class TestBookingTest extends TestCase
         $this->assertSame(1, $other->bookings()->count());
     }
 
-    public function test_test_card_button_is_hidden_until_a_session_is_selected(): void
+    public function test_test_card_button_is_hidden_until_schedule_is_selected_and_confirmed(): void
     {
         [$registration, $parent, $session] = $this->fixture();
 
@@ -69,6 +70,14 @@ class TestBookingTest extends TestCase
             ->assertDontSeeText('Cetak Kartu Tes');
 
         app(TestBookingService::class)->book($registration, $session, $parent);
+
+        $this->actingAs($parent)
+            ->get('/pendaftar/jadwal-tes/'.$registration->uuid)
+            ->assertOk()
+            ->assertDontSeeText('Cetak Kartu Tes')
+            ->assertSeeText('Kartu tes dapat dicetak setelah seluruh jadwal tes wajib dikonfirmasi.');
+
+        app(TestScheduleConfirmationService::class)->confirm($registration);
 
         $this->actingAs($parent)
             ->get('/pendaftar/jadwal-tes/'.$registration->uuid)
@@ -87,7 +96,16 @@ class TestBookingTest extends TestCase
         $service->book($registration, $other, $parent);
 
         $this->assertSame(0, $session->bookings()->count());
-        $this->actingAs($parent)->get(route('registration.test-card', $registration))->assertOk()->assertSeeText('Ruang Baru');
+        $this->actingAs($parent)
+            ->get(route('registration.test-card', $registration))
+            ->assertNotFound();
+
+        app(TestScheduleConfirmationService::class)->confirm($registration);
+
+        $this->actingAs($parent)
+            ->get(route('registration.test-card', $registration))
+            ->assertOk()
+            ->assertSeeText('Ruang Baru');
     }
 
     public function test_cancelled_session_releases_seats_and_notifies_affected_parent(): void
@@ -202,6 +220,7 @@ class TestBookingTest extends TestCase
         [$registration, $parent, $session, $staff] = $this->fixture();
         $registration->update(['applicant_card_number' => 'KARTU-SMA-2026-0001']);
         app(TestBookingService::class)->book($registration, $session, $parent);
+        app(TestScheduleConfirmationService::class)->confirm($registration);
         $payment = Payment::create(['registration_id' => $registration->id, 'status' => 'verified', 'amount' => 350000, 'verified_at' => now()]);
         $receipt = app(ReceiptService::class)->issue($payment);
         $this->actingAs($parent);
