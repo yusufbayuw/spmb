@@ -8,7 +8,7 @@ class TestCardEligibilityService
 {
     public function canPrint(Registration $registration): bool
     {
-        $registration->loadMissing('configuration');
+        $registration->loadMissing(['configuration', 'unit']);
 
         return $registration->isOperational()
             && $registration->testCardEnabled()
