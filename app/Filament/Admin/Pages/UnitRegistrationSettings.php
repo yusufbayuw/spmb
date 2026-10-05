@@ -139,8 +139,8 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Branding Kartu Pendaftaran')
-                ->description('Logo merupakan identitas Unit dan digunakan pada kartu pendaftaran. Nama unit dan alamat tetap mengambil data Unit yang sudah ada.')
+            Forms\Components\Section::make('Branding Kartu Peserta')
+                ->description('Logo merupakan identitas Unit dan digunakan pada Kartu Pendaftaran maupun Kartu Tes sesuai mode kartu peserta yang dipilih.')
                 ->schema([
                     Forms\Components\FileUpload::make('unit_logo_path')
                         ->label('Logo Unit')
@@ -198,23 +198,30 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->columns(['default' => 1, 'md' => 2])
                 ->collapsible(),
-            Forms\Components\Section::make('Kartu Pendaftaran')
-                ->description('Atur teks header kartu peserta. Tahun ajaran selalu diambil dari Pembukaan Pendaftaran yang dipilih pendaftar.')
+            Forms\Components\Section::make('Kartu Peserta')
+                ->description('Pilih kartu yang digunakan unit. Mode Hanya Kartu Tes melewati tahap Kartu Pendaftar secara otomatis dan memerlukan Tes aktif dengan minimal satu tes wajib.')
                 ->schema([
+                    Forms\Components\Select::make('participant_card_mode')
+                        ->label('Jenis Kartu Peserta')
+                        ->options(UnitConfiguration::PARTICIPANT_CARD_MODES)
+                        ->default(UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH)
+                        ->required()
+                        ->live()
+                        ->helperText('Keduanya menampilkan Kartu Pendaftaran dan Kartu Tes. Hanya Kartu Pendaftaran menonaktifkan Kartu Tes. Hanya Kartu Tes menghilangkan tahap dan seluruh tautan Kartu Pendaftaran.'),
                     Forms\Components\TextInput::make('applicant_card_header_label')
-                        ->label('Label Header Kartu')
-                        ->helperText('Contoh: KARTU PENDAFTARAN, KARTU PESERTA, atau KARTU CALON SISWA.')
+                        ->label('Label Header Kartu Pendaftaran')
+                        ->helperText('Berlaku untuk Kartu Pendaftaran. Contoh: KARTU PENDAFTARAN, KARTU PESERTA, atau KARTU CALON SISWA.')
                         ->maxLength(80)
                         ->required(),
                     Forms\Components\TextInput::make('applicant_card_header_title')
                         ->label('Judul Header Kartu')
-                        ->helperText('Contoh: SMP Contoh. Baris alamat tidak lagi ditampilkan pada kartu.')
+                        ->helperText('Digunakan pada Kartu Pendaftaran dan Kartu Tes. Contoh: SMP Contoh.')
                         ->maxLength(180)
                         ->required(),
                     Forms\Components\Placeholder::make('applicant_card_academic_year_preview')
                         ->label('Baris Tahun Ajaran')
                         ->content('Tahun Ajaran {{ tahun_ajaran }}')
-                        ->helperText('Nilai {{ tahun_ajaran }} akan otomatis memakai Tahun Ajaran dari Pembukaan Pendaftaran.')
+                        ->helperText('Nilai {{ tahun_ajaran }} otomatis memakai Tahun Ajaran dari Pembukaan Pendaftaran.')
                         ->columnSpanFull(),
                 ])
                 ->columns(['default' => 1, 'md' => 2])
@@ -260,7 +267,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->columns(1)
                 ->collapsible(),
-            Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, kartu pendaftar, seleksi, dan publikasi hasil tetap tersedia. Tahap setelah pengumuman dapat diaktifkan saat diperlukan. Pada perguruan tinggi, label dan urutan progres ditentukan per Program Studi.')->schema([
+            Forms\Components\Section::make('Tahapan Pendaftaran')->description('Validasi identitas, seleksi, dan publikasi hasil tetap tersedia. Tahap Kartu Pendaftar mengikuti Jenis Kartu Peserta. Tahap setelah pengumuman dapat diaktifkan saat diperlukan. Pada perguruan tinggi, label dan urutan progres ditentukan per Program Studi.')->schema([
                 Forms\Components\Toggle::make('payment_enabled')->label('Pembayaran'),
                 Forms\Components\Toggle::make('documents_enabled')->label('Dokumen'),
                 Forms\Components\Toggle::make('tests_enabled')
@@ -304,13 +311,16 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->deletable(false)
                         ->itemLabel(fn (array $state): string => Registration::WORKFLOW_BLOCK_LABELS[$state['key'] ?? ''] ?? 'Tahap'),
                 ])
+                ->visible(fn (Forms\Get $get): bool => $get('participant_card_mode') !== UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY)
                 ->collapsible(),
             Forms\Components\Section::make('Tampilan & Akhir Proses di Portal Pendaftar')
                 ->description('Atur milestone yang terlihat oleh pendaftar dan tentukan kapan workflow benar-benar selesai. Tahap setelah titik akhir tidak dijalankan.')
                 ->schema([
                     Forms\Components\CheckboxList::make('applicant_visible_stages')
                         ->label('Tahapan yang tampil pada progres pendaftar')
-                        ->options(Registration::STAGES)
+                        ->options(fn (Forms\Get $get): array => $get('participant_card_mode') === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
+                            ? array_diff_key(Registration::STAGES, ['applicant_card' => true])
+                            : Registration::STAGES)
                         ->columns(['default' => 1, 'md' => 2])
                         ->bulkToggleable()
                         ->helperText('Sembunyikan tahap internal yang tidak perlu dilihat pendaftar. Tahap Selesai akan selalu ditampilkan oleh sistem.'),
@@ -331,7 +341,12 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->columnSpanFull(),
                     Forms\Components\Select::make('completion_after_stage')
                         ->label('Akhiri proses setelah tahap')
-                        ->options(array_diff_key(Registration::STAGES, ['completed' => true]))
+                        ->options(fn (Forms\Get $get): array => array_diff_key(
+                            Registration::STAGES,
+                            $get('participant_card_mode') === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
+                                ? ['completed' => true, 'applicant_card' => true]
+                                : ['completed' => true],
+                        ))
                         ->placeholder('Ikuti alur penuh')
                         ->searchable()
                         ->native(false)
