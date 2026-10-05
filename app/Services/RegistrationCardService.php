@@ -48,8 +48,10 @@ class RegistrationCardService
     /**
      * @return array<string, mixed>
      */
-    public function cardData(Registration $registration): array
-    {
+    public function cardData(
+        Registration $registration,
+        string $verificationRouteName = 'registration.card.verify',
+    ): array {
         $registration->loadMissing([
             'unit',
             'configuration',
@@ -95,8 +97,8 @@ class RegistrationCardService
                 : null,
             'hasPhoto' => $photo !== null
                 && Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->exists($photo->file_path),
-            'verificationQrDataUri' => $this->verificationQrDataUri($registration),
-            'verificationUrl' => route('registration.card.verify', $registration),
+            'verificationQrDataUri' => $this->verificationQrDataUri($registration, $verificationRouteName),
+            'verificationUrl' => route($verificationRouteName, $registration),
             'cardNumber' => $registration->applicantCardDisplayNumber(),
             'participantName' => $registration->full_name,
             'participantNameLines' => $this->wrapText($registration->full_name, 30, 2),
@@ -195,11 +197,11 @@ class RegistrationCardService
         return 'data:'.$mimeType.';base64,'.base64_encode($disk->get($path));
     }
 
-    private function verificationQrDataUri(Registration $registration): string
+    private function verificationQrDataUri(Registration $registration, string $verificationRouteName): string
     {
         $result = Builder::create()
             ->writer(new SvgWriter())
-            ->data(route('registration.card.verify', $registration))
+            ->data(route($verificationRouteName, $registration))
             ->encoding(new Encoding('UTF-8'))
             ->errorCorrectionLevel(ErrorCorrectionLevel::High)
             ->size(240)
