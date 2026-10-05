@@ -135,8 +135,11 @@ class SpmbNotificationService
 
     public function paymentVerificationResult(Payment $payment, bool $approved, ?string $reason = null): void
     {
-        $payment->loadMissing(['registration.user']);
+        $payment->loadMissing(['registration.user', 'registration.configuration']);
         $registration = $payment->registration;
+        $approvedMessage = $registration->registrationCardEnabled() && filled($registration->applicant_card_number)
+            ? "Pembayaran formulir dinyatakan valid. Nomor {$registration->registration_number} dan kartu {$registration->applicant_card_number} telah diterbitkan otomatis."
+            : "Pembayaran formulir dinyatakan valid. Nomor {$registration->registration_number} telah diterbitkan dan proses pendaftaran dilanjutkan ke tahap berikutnya.";
 
         $this->notify(
             collect([$registration->user]),
@@ -144,7 +147,7 @@ class SpmbNotificationService
             'payment',
             $approved ? 'Pembayaran telah diverifikasi' : 'Bukti pembayaran ditolak',
             $approved
-                ? "Pembayaran formulir dinyatakan valid. Nomor {$registration->registration_number} dan kartu {$registration->applicant_card_number} telah diterbitkan otomatis."
+                ? $approvedMessage
                 : ('Alasan: '.($reason ?: 'Bukti pembayaran perlu diperbaiki.')),
             $approved ? 'success' : 'danger',
             $approved ? 'heroicon-o-check-badge' : 'heroicon-o-x-circle',
@@ -157,7 +160,11 @@ class SpmbNotificationService
 
     public function applicantCardIssued(Registration $registration): void
     {
-        $registration->loadMissing('user');
+        $registration->loadMissing(['user', 'configuration']);
+
+        if (! $registration->registrationCardEnabled()) {
+            return;
+        }
 
         [$body, $actionLabel, $actionUrl] = match ($registration->current_stage) {
             'documents' => [
