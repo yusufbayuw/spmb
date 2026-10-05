@@ -170,6 +170,19 @@ class ContinuationCandidateImportService
 
         $nik = $this->digits($this->value($raw, ['nik']), 16, true);
         $birthDate = $this->date($this->value($raw, ['tanggal lahir', 'tgl lahir']));
+
+        if (! $nik) {
+            throw ValidationException::withMessages([
+                'nik' => 'NIK wajib berupa 16 digit utuh agar data Terusan dapat dicocokkan.',
+            ]);
+        }
+
+        if (! $birthDate) {
+            throw ValidationException::withMessages([
+                'birth_date' => 'Tanggal Lahir wajib valid agar data Terusan dapat dicocokkan.',
+            ]);
+        }
+
         $fullName = $this->string($this->value($raw, ['nama', 'nama lengkap']));
         $nisn = $this->digits($this->value($raw, ['nisn']));
         $nipd = $this->string($this->value($raw, ['nipd']));
@@ -285,8 +298,20 @@ class ContinuationCandidateImportService
 
     private function digits(mixed $value, ?int $exactLength = null, bool $rejectFloat = false): ?string
     {
-        if ($value === null || ($rejectFloat && is_float($value))) {
+        if ($value === null) {
             return null;
+        }
+
+        if (is_float($value)) {
+            $safeIntegerLimit = 9007199254740991;
+
+            if (! is_finite($value)
+                || floor($value) !== $value
+                || ($rejectFloat && abs($value) > $safeIntegerLimit)) {
+                return null;
+            }
+
+            $value = sprintf('%.0f', $value);
         }
 
         $value = $this->string($value);
