@@ -74,6 +74,8 @@ class TestBookingService
             $booking ??= new TestBooking(['registration_id' => $registration->id, 'admission_test_id' => $session->admission_test_id]);
             $booking->fill(['test_session_id' => $session->id, 'revision' => ($booking->revision ?? 0) + 1])->save();
 
+            app(TestScheduleConfirmationService::class)->invalidate($registration);
+
             AdmissionTestResult::firstOrCreate(
                 [
                     'registration_id' => $registration->id,
@@ -200,6 +202,8 @@ class TestBookingService
                 'revision' => $oldRevision + 1,
             ])->save();
 
+            app(TestScheduleConfirmationService::class)->invalidate($registration);
+
             $result->update([
                 'status' => 'scheduled',
                 'result' => 'pending',
@@ -282,6 +286,8 @@ class TestBookingService
             $record->save();
             if ($changed) {
                 foreach ($bookings as $booking) {
+                    app(TestScheduleConfirmationService::class)->invalidate($booking->registration);
+
                     if ($record->status === 'cancelled') {
                         $booking->update(['test_session_id' => null, 'revision' => $booking->revision + 1]);
 
@@ -313,6 +319,10 @@ class TestBookingService
                     ->where('admission_test_id', $booking->admission_test_id)
                     ->where('status', 'scheduled')
                     ->update(['status' => 'unbooked']);
+            }
+
+            if ($bookings->isNotEmpty()) {
+                app(TestScheduleConfirmationService::class)->invalidate($registration);
             }
         }, 5);
     }
