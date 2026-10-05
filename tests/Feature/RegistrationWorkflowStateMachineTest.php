@@ -321,6 +321,47 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $this->assertSame('payment_verification', Registration::query()->findOrFail($registration->id)->current_stage);
     }
 
+    public function test_test_only_card_mode_skips_applicant_card_stage(): void
+    {
+        [$registration, $staff, $unit] = $this->registrationFixture();
+
+        AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Akademik',
+            'code' => 'AKD-ONLY',
+            'is_required' => true,
+            'is_active' => true,
+            'passing_score' => 70,
+        ]);
+
+        $configuration = UnitConfiguration::create(array_merge(
+            app(UnitConfigurationService::class)->defaults($unit),
+            [
+                'unit_id' => $unit->id,
+                'version' => 1,
+                'status' => 'published',
+                'legacy' => false,
+                'payment_enabled' => false,
+                'documents_enabled' => false,
+                'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY,
+                'published_at' => now(),
+            ],
+        ));
+
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        app(RegistrationWorkflowService::class)->validateData($registration, $staff, true);
+
+        $registration->refresh();
+
+        $this->assertSame('tests', $registration->current_stage);
+        $this->assertNotNull($registration->registration_number);
+        $this->assertNull($registration->applicant_card_number);
+        $this->assertArrayNotHasKey('applicant_card', $registration->enabledStages());
+        $this->assertFalse($registration->registrationCardEnabled());
+        $this->assertTrue($registration->testCardEnabled());
+    }
+
     public function test_non_active_registration_cannot_continue_workflow_and_can_be_reactivated(): void
     {
         [$registration, $staff] = $this->registrationFixture();
