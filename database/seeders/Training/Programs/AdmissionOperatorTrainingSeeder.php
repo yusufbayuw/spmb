@@ -162,6 +162,24 @@ class AdmissionOperatorTrainingSeeder extends CurriculumSeeder
                     'Status harus mencerminkan kenyataan.',
                 ],['Kelompokkan antrian.','Selesaikan yang evidence-nya lengkap.','Sisakan dengan status/notes yang jelas.'],['Verify agar antrian kosong.','Menghapus kasus yang sulit.'],'Kualitas state lebih penting daripada dashboard terlihat kosong.',20,'content','queue-close'),
             ]],
+            ['scao-m10','Pendampingan Tes Multi-Sesi dan Batas Kewenangan','Mendampingi pendaftar pada alur tes baru tanpa mengambil alih keputusan yang seharusnya dilakukan pendaftar.',[
+                $this->lesson('Happy Path Pemilihan Jadwal oleh Pendaftar','Memahami bahwa pendaftar memilih sendiri seluruh sesi tes wajib dan melakukan konfirmasi final.',[
+                    'Pilihan setiap sesi tersimpan otomatis.',
+                    'Semua tes wajib harus memiliki booking sebelum jadwal dapat dikonfirmasi.',
+                    'Kartu tes baru tersedia setelah konfirmasi jadwal.',
+                    'TU membantu membaca state dan memberi arahan; TU tidak perlu mengambil alih happy path pemilihan sesi.',
+                ],['Periksa jumlah tes wajib dan booking yang sudah ada.','Arahkan pendaftar kembali ke halaman Jadwal Tes untuk tes yang belum dipilih.','Pastikan pendaftar menekan konfirmasi setelah semua wajib lengkap.','Gunakan kartu tes resmi setelah status sudah dikonfirmasi.'],['Memilihkan satu sesi lalu menganggap proses selesai.','Mencetak kartu sebelum konfirmasi.','Menjanjikan bahwa tab/browser dapat ditutup tanpa menyelesaikan jadwal.'],'Pada happy path, TU memandu state yang benar; pendaftar tetap menyelesaikan pilihan dan konfirmasi sendiri.',25,'guide','applicant-owned-schedule'),
+                $this->lesson('Perubahan atau Pembatalan Sesi','Menangani peserta terdampak perubahan jadwal tanpa bypass kapasitas maupun konfirmasi.',[
+                    'Perubahan sesi dapat membatalkan konfirmasi jadwal yang sebelumnya sudah diberikan.',
+                    'Sesi cancelled melepaskan booking dan peserta harus memilih ulang.',
+                    'TU tidak boleh membuat slot fiktif atau overbooking untuk menutup masalah.',
+                ],['Cek status sesi dan booking peserta.','Arahkan peserta memilih ulang bila booking dilepas.','Pastikan jadwal dikonfirmasi kembali.','Eskalasi perubahan kapasitas, waktu, atau konfigurasi ke Admin Unit bila di luar kewenangan.'],['Memaksa booking ke sesi penuh.','Mengedit kartu tes manual.','Menganggap konfirmasi lama tetap berlaku setelah perubahan.'],'Exception jadwal diselesaikan dengan rebooking dan rekonfirmasi, bukan bypass.',25,'simulation','reschedule-confirmation'),
+                $this->lesson('Terusan sebagai Mekanisme Back-office','Mengenali bahwa Terusan merupakan sumber prefill Admin Unit dan bukan menu operasional TU.',[
+                    'TU tidak memiliki akses normal ke Resource Terusan.',
+                    'Prefill terjadi otomatis ketika NIK dan tanggal lahir cocok.',
+                    'Jika data hasil prefill bermasalah, TU menangani evidence pada registration atau mengeskalasi sumber data ke Admin Unit.',
+                ],['Tangani registration yang ada sesuai workflow.','Jangan meminta akses Terusan hanya untuk koreksi operasional biasa.','Jika mismatch berasal dari master Terusan, kirim contoh kasus dan evidence ke Admin Unit.'],['Membuat data Terusan sendiri melalui workaround.','Mengubah identitas pendaftar tanpa evidence.','Menyebarkan file master Terusan untuk troubleshooting.'],'TU perlu memahami asal prefill, tetapi pengelolaan master Terusan tetap berada pada Admin Unit.',20,'content','continuation-boundary'),
+            ]],
         ];
 
         foreach ($modules as $index => [$key, $title, $description, $lessons]) {
