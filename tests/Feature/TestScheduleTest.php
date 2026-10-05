@@ -149,9 +149,15 @@ class TestScheduleTest extends TestCase
 
         $this->get(route('registration.test-card', $registration))
             ->assertOk()
+            ->assertSeeText('KARTU TES')
+            ->assertSee('Cetak / Simpan PDF A4')
+            ->assertSee('Unduh PNG')
+            ->assertSee('Unduh JPG')
+            ->assertSee('85,6 × 53,98 mm')
             ->assertSeeText('20/09/2026 08:00–09:30')
             ->assertSeeText('Ruang Ujian A')
-            ->assertSeeText('Bawa alat tulis.');
+            ->assertSeeText('Bawa alat tulis.')
+            ->assertDontSee('<table', false);
     }
 
     public function test_test_card_requires_sessions_for_every_required_test_but_ignores_optional_tests(): void
