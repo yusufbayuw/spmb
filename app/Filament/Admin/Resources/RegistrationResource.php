@@ -257,11 +257,18 @@ class RegistrationResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('viewApplicantCard')
-                    ->label('Lihat Kartu')
+                    ->label('Kartu Pendaftaran')
                     ->icon('heroicon-o-identification')
                     ->color('gray')
                     ->visible(fn (Registration $record): bool => static::canViewApplicantCard($record))
                     ->url(fn (Registration $record): string => route('registration.card', $record))
+                    ->openUrlInNewTab(),
+                Tables\Actions\Action::make('viewTestCard')
+                    ->label('Kartu Tes')
+                    ->icon('heroicon-o-academic-cap')
+                    ->color('gray')
+                    ->visible(fn (Registration $record): bool => static::canViewTestCard($record))
+                    ->url(fn (Registration $record): string => route('registration.test-card', $record))
                     ->openUrlInNewTab(),
                 Tables\Actions\Action::make('validateData')
                     ->label('Validasi Data')->icon('heroicon-o-check-badge')->color('info')
@@ -341,8 +348,16 @@ class RegistrationResource extends Resource
     public static function canViewApplicantCard(Registration $record): bool
     {
         return $record->isOperational()
+            && $record->registrationCardEnabled()
             && filled($record->applicant_card_number)
             && app(RegistrationCardService::class)->hasIdentityPhoto($record);
+    }
+
+    public static function canViewTestCard(Registration $record): bool
+    {
+        return $record->isOperational()
+            && $record->testCardEnabled()
+            && filled($record->test_schedule_confirmed_at);
     }
 
     public static function getNavigationBadge(): ?string
