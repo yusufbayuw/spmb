@@ -101,42 +101,31 @@
                     <x-slot name="heading">Aksi Selanjutnya</x-slot>
                     <x-slot name="description">Aksi yang tersedia menyesuaikan tahap pendaftaran saat ini.</x-slot>
 
+                    @if ($this->nextAction)
+                        <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+                            {{ $this->nextAction['message'] }}
+                        </p>
+                    @endif
+
                     <div class="flex flex-wrap gap-3">
                         @if (! $registration->isOperational())
                             <x-filament::badge color="warning">Pendaftaran tidak aktif. Hubungi petugas untuk tindak lanjut.</x-filament::badge>
-                        @elseif ($registration->current_stage === 'payment')
-                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->uuid]) }}" icon="heroicon-m-banknotes">
-                                Upload Bukti Pembayaran
+                        @elseif ($this->nextAction && $this->nextAction['action_url'])
+                            <x-filament::button
+                                tag="a"
+                                href="{{ $this->nextAction['action_url'] }}"
+                                :color="$this->nextAction['color']"
+                                :icon="$this->nextAction['icon']"
+                            >
+                                {{ $this->nextAction['action_label'] }}
                             </x-filament::button>
-                        @elseif ($registration->current_stage === 'payment_verification')
-                            <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu verifikasi pembayaran petugas</x-filament::badge>
-                        @elseif (in_array($registration->current_stage, ['documents', 'document_verification'], true))
-                            <x-filament::button tag="a" href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->uuid]) }}" icon="heroicon-m-document-arrow-up">
-                                {{ $registration->current_stage === 'documents' ? 'Lengkapi Dokumen' : 'Lihat Dokumen' }}
-                            </x-filament::button>
-                        @elseif ($registration->current_stage === 'data_validation')
-                            <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu validasi data oleh petugas</x-filament::badge>
-                        @elseif ($registration->current_stage === 'virtual_account')
-                            <x-filament::badge color="warning" icon="heroicon-m-envelope">Menunggu Virtual Account dari petugas</x-filament::badge>
-                        @elseif ($registration->current_stage === 'applicant_card')
-                            <x-filament::badge color="warning" icon="heroicon-m-identification">Menunggu penerbitan kartu pendaftar</x-filament::badge>
-                        @elseif ($registration->current_stage === 'tests')
-                            <x-filament::button tag="a" :href="\App\Filament\Applicant\Pages\TestSchedule::getUrl(['registration' => $registration->uuid])">Pilih / Ubah Jadwal Tes</x-filament::button>
-                            <x-filament::badge color="info" icon="heroicon-m-academic-cap">Ikuti rangkaian tes sesuai jadwal</x-filament::badge>
-                        @elseif ($registration->current_stage === 'selection')
-                            <x-filament::badge color="warning" icon="heroicon-m-clock">Menunggu keputusan seleksi</x-filament::badge>
-                        @elseif ($registration->current_stage === 'announcement')
-                            <x-filament::badge color="warning" icon="heroicon-m-megaphone">Menunggu pengumuman dipublikasikan</x-filament::badge>
-                        @elseif ($registration->current_stage === 'admission_offer')
-                            <x-filament::badge color="success" icon="heroicon-m-academic-cap">Konfirmasikan kursi penerimaan</x-filament::badge>
-                        @elseif ($registration->current_stage === 'waiting_list')
-                            <x-filament::badge color="warning" icon="heroicon-m-clock">Anda berada dalam daftar tunggu</x-filament::badge>
-                        @elseif ($registration->current_stage === 're_registration')
-                            <x-filament::button tag="a" :href="\App\Filament\Applicant\Pages\ReRegistration::getUrl(['registration' => $registration->uuid])" icon="heroicon-m-document-check">
-                                Lanjutkan Daftar Ulang
-                            </x-filament::button>
-                        @elseif ($registration->current_stage === 'enrollment')
-                            <x-filament::badge color="info" icon="heroicon-m-user-plus">Menunggu proses enrollment petugas</x-filament::badge>
+                        @elseif ($this->nextAction)
+                            <x-filament::badge
+                                :color="$this->nextAction['color']"
+                                :icon="$this->nextAction['icon']"
+                            >
+                                {{ $this->nextAction['state_label'] }} · {{ $this->nextAction['title'] }}
+                            </x-filament::badge>
                         @else
                             <x-filament::badge color="success" icon="heroicon-m-check-circle">Proses pendaftaran selesai</x-filament::badge>
                         @endif

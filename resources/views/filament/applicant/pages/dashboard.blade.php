@@ -50,6 +50,7 @@
                         $stageIndex = $stageIndex === false ? 0 : $stageIndex;
                         $progress = (int) round((($stageIndex + 1) / max(count($stages), 1)) * 100);
                         $isHigherEducation = $registration->unit?->isHigherEducation() ?? false;
+                        $nextAction = collect($this->nextActions)->firstWhere('registration_uuid', $registration->uuid);
                     @endphp
 
                     <x-filament::section>
@@ -110,25 +111,14 @@
                                     Lihat Progres
                                 </x-filament::button>
 
-                                @if ($registration->current_stage === 'payment')
+                                @if ($nextAction && $nextAction['action_url'])
                                     <x-filament::button
                                         tag="a"
-                                        href="{{ \App\Filament\Applicant\Pages\PaymentUpload::getUrl(['registration' => $registration->uuid]) }}"
-                                        color="warning"
-                                        icon="heroicon-m-banknotes"
+                                        href="{{ $nextAction['action_url'] }}"
+                                        :color="$nextAction['color']"
+                                        :icon="$nextAction['icon']"
                                     >
-                                        Upload Pembayaran
-                                    </x-filament::button>
-                                @endif
-
-                                @if (in_array($registration->current_stage, ['documents', 'document_verification'], true))
-                                    <x-filament::button
-                                        tag="a"
-                                        href="{{ \App\Filament\Applicant\Pages\DocumentsUpload::getUrl(['registration' => $registration->uuid]) }}"
-                                        color="info"
-                                        icon="heroicon-m-document-arrow-up"
-                                    >
-                                        Dokumen
+                                        {{ $nextAction['action_label'] }}
                                     </x-filament::button>
                                 @endif
 
@@ -151,4 +141,85 @@
             </div>
         @endif
     </div>
+
+    @if (! empty($this->nextActions))
+        <x-filament::modal
+            id="applicant-next-actions"
+            width="2xl"
+            icon="heroicon-o-arrow-right-circle"
+            icon-color="primary"
+            :close-by-clicking-away="true"
+            :close-by-escaping="true"
+        >
+            <x-slot name="heading">Lanjutkan Proses Pendaftaran</x-slot>
+            <x-slot name="description">
+                Ada {{ count($this->nextActions) }} pendaftaran yang masih berjalan. Tindakan yang perlu dikerjakan ditampilkan lebih dulu.
+            </x-slot>
+
+            <div class="space-y-4">
+                @foreach ($this->nextActions as $nextAction)
+                    <div class="rounded-xl border border-gray-200 p-4 dark:border-white/10">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <div class="font-semibold text-gray-950 dark:text-white">
+                                        {{ $nextAction['registration_name'] }}
+                                    </div>
+                                    <x-filament::badge :color="$nextAction['color']" :icon="$nextAction['icon']">
+                                        {{ $nextAction['state_label'] }}
+                                    </x-filament::badge>
+                                </div>
+
+                                <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {{ $nextAction['unit_name'] }}
+                                    @if ($nextAction['registration_number'])
+                                        · {{ $nextAction['registration_number'] }}
+                                    @endif
+                                    · {{ $nextAction['stage_label'] }}
+                                </div>
+
+                                <div class="mt-3 text-sm font-medium text-gray-950 dark:text-white">
+                                    {{ $nextAction['title'] }}
+                                </div>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                    {{ $nextAction['message'] }}
+                                </p>
+                            </div>
+
+                            @if ($nextAction['action_url'])
+                                <div class="shrink-0">
+                                    <x-filament::button
+                                        tag="a"
+                                        href="{{ $nextAction['action_url'] }}"
+                                        :color="$nextAction['color']"
+                                        :icon="$nextAction['icon']"
+                                    >
+                                        {{ $nextAction['action_label'] }}
+                                    </x-filament::button>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <x-slot name="footerActions">
+                <x-filament::button
+                    color="gray"
+                    outlined
+                    x-on:click="$dispatch('close-modal', { id: 'applicant-next-actions' })"
+                >
+                    Tutup
+                </x-filament::button>
+            </x-slot>
+        </x-filament::modal>
+
+        <div
+            x-data
+            x-init="$nextTick(() => $dispatch('open-modal', { id: 'applicant-next-actions' }))"
+            class="hidden"
+            aria-hidden="true"
+        ></div>
+    @endif
+
 </x-filament-panels::page>

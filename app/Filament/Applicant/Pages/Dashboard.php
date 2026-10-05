@@ -3,6 +3,7 @@
 namespace App\Filament\Applicant\Pages;
 
 use App\Models\Registration;
+use App\Services\ApplicantNextActionService;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -20,14 +21,21 @@ class Dashboard extends BaseDashboard
 
     public Collection $registrations;
 
+    /** @var list<array<string, mixed>> */
+    public array $nextActions = [];
+
     public function mount(): void
     {
         $this->registrations = Registration::query()
             ->where('user_id', auth()->id())
             ->whereHas('unit', fn ($unitQuery) => $unitQuery->operational())
-            ->with(['unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection', 'announcement'])
+            ->with(['configuration', 'unit', 'opening.studyProgram', 'pathway', 'latestPayment', 'selection', 'announcement'])
             ->latest()
             ->get();
+
+        $this->nextActions = app(ApplicantNextActionService::class)
+            ->resolveMany($this->registrations)
+            ->all();
     }
 
     public function getHeading(): string

@@ -3,6 +3,7 @@
 namespace App\Filament\Applicant\Pages;
 
 use App\Models\Registration;
+use App\Services\ApplicantNextActionService;
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Str;
@@ -18,6 +19,9 @@ class RegistrationStatus extends Page
     protected static string $view = 'filament.applicant.pages.registration-status';
 
     public Registration $registrationRecord;
+
+    /** @var array<string, mixed>|null */
+    public ?array $nextAction = null;
 
     public function mount(int|string $registration): void
     {
@@ -41,6 +45,8 @@ class RegistrationStatus extends Page
                 'reRegistrationItems',
             ])
             ->where('uuid', $registration)->firstOrFail();
+
+        $this->nextAction = app(ApplicantNextActionService::class)->resolve($this->registrationRecord);
     }
 
     public function getTitle(): string
