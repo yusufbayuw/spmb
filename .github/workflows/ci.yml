@@ -32,7 +32,7 @@ jobs:
           cache: npm
 
       - name: Resolve Composer dependencies
-        run: composer update --with-all-dependencies --no-interaction --prefer-dist
+        run: composer update --with-all-dependencies --no-interaction --prefer-dist --no-scripts
 
       - name: Sync composer.lock
         run: |
@@ -44,6 +44,9 @@ jobs:
             git pull --rebase origin main
             git push origin HEAD:main
           fi
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
 
       - name: Build frontend
         run: |
