@@ -209,6 +209,26 @@ class UnitAdministratorTrainingSeeder extends CurriculumSeeder
                     'Data historis tetap berguna untuk audit dan laporan.',
                 ],['Close opening.','Selesaikan proses outstanding.','Review laporan akhir.','Archive ketika tidak lagi operasional.'],['Hard delete periode lama.','Archive saat masih ada proses aktif yang belum selesai.'],'Penutupan siklus harus mempertahankan histori dan mengurangi noise operasional.',20,'guide','close'),
             ]],
+            ['scua-m13','Terusan dan Orkestrasi Tes Modern','Mengelola prefill Terusan serta alur tes multi-sesi sesuai perilaku aplikasi terkini.',[
+                $this->lesson('Data Terusan dan Template Import','Mengelola data siswa terusan tanpa menampilkan mekanisme internal kepada pendaftar.',[
+                    'Resource Terusan hanya tersedia bagi Admin Unit sesuai scope unit.',
+                    'Template XLSX menyediakan struktur dua tingkat untuk data siswa dan orang tua/wali.',
+                    'Matching ke formulir pendaftaran berjalan di belakang layar menggunakan unit, tahun ajaran, NIK, dan tanggal lahir.',
+                    'Upload ulang dengan identitas yang sama memperbarui kandidat existing; perubahan identitas utama dapat membentuk kandidat baru.',
+                ],['Unduh template resmi dari menu Terusan.','Isi sheet Data Terusan tanpa mengubah header.','Import ke unit dan tahun ajaran yang tepat.','Review jumlah data baru, diperbarui, dan dilewati.','Tangani koreksi identitas dengan hati-hati agar tidak membuat duplikasi.'],['Mengedit struktur header template.','Menganggap upload kedua selalu mengganti seluruh dataset.','Mengubah NIK/tanggal lahir tanpa menilai kemungkinan record baru.','Membagikan file master Terusan ke kanal yang tidak berwenang.'],'Terusan adalah sumber prefill scoped per unit; kualitas identitas menentukan keberhasilan matching dan deduplikasi.',30,'guide','continuation'),
+                $this->lesson('Tes Wajib, Konfirmasi Jadwal, dan Kartu Tes','Memahami bahwa pemilihan sesi kini diselesaikan pendaftar untuk seluruh tes wajib lalu dikonfirmasi final.',[
+                    'Setiap pilihan sesi tersimpan otomatis, tetapi pemilihan jadwal belum selesai sebelum semua tes wajib memiliki sesi.',
+                    'Tes opsional tidak menghalangi penyelesaian jadwal wajib.',
+                    'Kartu tes hanya dapat dicetak setelah seluruh tes wajib dipilih dan jadwal dikonfirmasi.',
+                    'Konfirmasi jadwal tidak memindahkan stage ke selection; stage tests selesai setelah seluruh hasil tes wajib final.',
+                ],['Konfigurasikan seluruh tes wajib dan sesi yang tersedia.','Uji skenario lebih dari satu tes wajib.','Pastikan peserta memilih semua sesi lalu menekan konfirmasi final.','Pastikan kartu tes baru tersedia setelah konfirmasi.','Bedakan penyelesaian jadwal dengan penyelesaian pelaksanaan tes.'],['Menganggap satu booking berarti seluruh tahap tes selesai.','Mencetak kartu sebelum konfirmasi.','Memaksa transisi selection hanya karena jadwal sudah lengkap.'],'Jadwal tes adalah komitmen multi-item: lengkap, dikonfirmasi, lalu dilaksanakan sebelum workflow dapat lanjut.',30,'simulation','multi-test-confirmation'),
+                $this->lesson('Perubahan Sesi dan Export Peserta Tes','Mengelola perubahan jadwal setelah ada booking tanpa kehilangan konsistensi dan scope data.',[
+                    'Perubahan waktu, lokasi, status, atau booking membatalkan konfirmasi jadwal peserta terdampak.',
+                    'Pembatalan sesi melepaskan booking dan meminta peserta memilih sesi baru.',
+                    'Export Peserta tersedia per sesi dan harus tetap scoped ke unit serta sesi yang dipilih.',
+                    'Daftar peserta hasil export merupakan data sensitif di luar kontrol permission aplikasi setelah diunduh.',
+                ],['Periksa jumlah booking sebelum mengubah sesi.','Identifikasi peserta terdampak.','Lakukan perubahan melalui Sesi Tes, bukan database langsung.','Verifikasi notifikasi dan kebutuhan konfirmasi ulang.','Gunakan Export Peserta hanya untuk sesi dan kebutuhan kerja yang relevan.'],['Mengubah jadwal diam-diam tanpa mengecek peserta terdampak.','Menganggap konfirmasi lama tetap valid setelah sesi berubah.','Menggabungkan export lintas sesi/unit tanpa kebutuhan.'],'Perubahan sesi harus memicu rekonsiliasi jadwal; export peserta harus tetap spesifik, scoped, dan terlindungi.',30,'simulation','session-change-export'),
+            ]],
         ];
 
         foreach ($modules as $index => [$key, $title, $description, $lessons]) {
