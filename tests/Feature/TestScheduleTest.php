@@ -179,7 +179,7 @@ class TestScheduleTest extends TestCase
         $this->get('/pendaftar/jadwal-tes/'.$registration->uuid)
             ->assertOk()
             ->assertDontSeeText('Cetak Kartu Tes')
-            ->assertSeeText('Kartu tes dapat dicetak setelah seluruh tes wajib memiliki sesi.');
+            ->assertSeeText('Kartu tes dapat dicetak setelah seluruh tes wajib memiliki sesi dan jadwal dikonfirmasi.');
         $this->get(route('registration.test-card', $registration))
             ->assertNotFound();
 
