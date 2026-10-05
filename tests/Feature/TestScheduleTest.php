@@ -12,6 +12,7 @@ use App\Models\TestSession;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\TestBookingService;
+use App\Services\TestScheduleConfirmationService;
 use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
@@ -30,7 +31,9 @@ class TestScheduleTest extends TestCase
         $this->actingAs($parent)
             ->get('/pendaftar/jadwal-tes/'.$registration->uuid)
             ->assertOk()
-            ->assertSeeText('Pilih Jadwal Tes');
+            ->assertSeeText('Pilih Jadwal Tes')
+            ->assertSeeText('Jangan tutup atau tinggalkan halaman ini sebelum seluruh tes wajib dipilih dan jadwal dikonfirmasi.')
+            ->assertSee('x-on:beforeunload.window', false);
 
         $registration->update(['current_stage' => 'selection']);
 
@@ -136,6 +139,13 @@ class TestScheduleTest extends TestCase
             'scheduled',
             $registration->testResults()->where('admission_test_id', $session->admission_test_id)->value('status'),
         );
+        $this->assertNull($registration->fresh()->test_schedule_confirmed_at);
+
+        Livewire::test(TestSchedule::class, ['registration' => $registration->uuid])
+            ->call('confirmSchedule')
+            ->assertNotified('Jadwal tes dikonfirmasi');
+
+        $this->assertNotNull($registration->fresh()->test_schedule_confirmed_at);
 
         $this->get(route('registration.test-card', $registration))
             ->assertOk()
@@ -177,12 +187,51 @@ class TestScheduleTest extends TestCase
 
         $this->get('/pendaftar/jadwal-tes/'.$registration->uuid)
             ->assertOk()
+            ->assertDontSeeText('Cetak Kartu Tes')
+            ->assertSeeText('Konfirmasi Semua Jadwal Tes')
+            ->assertSeeText('Kartu tes dapat dicetak setelah seluruh jadwal tes wajib dikonfirmasi.');
+        $this->get(route('registration.test-card', $registration))
+            ->assertNotFound();
+
+        app(TestScheduleConfirmationService::class)->confirm($registration);
+
+        $this->get('/pendaftar/jadwal-tes/'.$registration->uuid)
+            ->assertOk()
             ->assertSeeText('Cetak Kartu Tes')
-            ->assertDontSeeText('Kartu tes dapat dicetak setelah seluruh tes wajib memiliki sesi.');
+            ->assertSeeText('Sudah dikonfirmasi');
         $this->get(route('registration.test-card', $registration))
             ->assertOk()
             ->assertSeeText('Ruang 1')
             ->assertSeeText('Ruang Wawancara');
+    }
+
+    public function test_changing_a_selected_session_invalidates_schedule_confirmation(): void
+    {
+        $this->travelTo('2026-09-14 08:00:00');
+        [$registration, $parent, $session] = $this->fixture();
+        $service = app(TestBookingService::class);
+        $this->actingAs($parent);
+
+        $service->book($registration, $session, $parent);
+        app(TestScheduleConfirmationService::class)->confirm($registration);
+
+        $this->assertNotNull($registration->fresh()->test_schedule_confirmed_at);
+
+        $replacementSession = TestSession::create([
+            'admission_test_id' => $session->admission_test_id,
+            'starts_at' => '2026-09-22 08:00:00',
+            'ends_at' => '2026-09-22 09:00:00',
+            'booking_closes_at' => '2026-09-21 08:00:00',
+            'location' => 'Ruang Pengganti',
+            'capacity' => 10,
+            'status' => 'active',
+        ]);
+
+        $service->book($registration->fresh(), $replacementSession, $parent);
+
+        $this->assertNull($registration->fresh()->test_schedule_confirmed_at);
+        $this->get(route('registration.test-card', $registration))
+            ->assertNotFound();
     }
 
     public function test_cancelled_selected_session_requires_rebooking_and_removes_test_card(): void
@@ -191,6 +240,9 @@ class TestScheduleTest extends TestCase
         [$registration, $parent, $session, $staff] = $this->fixture();
         $service = app(TestBookingService::class);
         $service->book($registration, $session, $parent);
+        app(TestScheduleConfirmationService::class)->confirm($registration);
+
+        $this->assertNotNull($registration->fresh()->test_schedule_confirmed_at);
 
         $service->saveSession($session, [
             'admission_test_id' => $session->admission_test_id,
@@ -204,6 +256,7 @@ class TestScheduleTest extends TestCase
         ], $staff);
 
         $this->assertNull(TestBooking::query()->where('registration_id', $registration->id)->value('test_session_id'));
+        $this->assertNull($registration->fresh()->test_schedule_confirmed_at);
         $this->assertSame(
             'unbooked',
             $registration->testResults()->where('admission_test_id', $session->admission_test_id)->value('status'),
