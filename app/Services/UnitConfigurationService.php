@@ -942,15 +942,15 @@ class UnitConfigurationService
             }
             $validated['test_definitions'] = $tests->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score']))->all();
             if ($publish) {
-                if ($validated['tests_enabled'] && ! $tests->contains('is_required', true)) {
-                    throw ValidationException::withMessages(['test_definitions' => 'Aktifkan minimal satu tes wajib.']);
-                }
-
                 if ($validated['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
                     && (! $validated['tests_enabled'] || ! $tests->contains('is_required', true))) {
                     throw ValidationException::withMessages([
                         'participant_card_mode' => 'Mode Hanya Kartu Tes memerlukan Tes aktif dengan minimal satu tes wajib.',
                     ]);
+                }
+
+                if ($validated['tests_enabled'] && ! $tests->contains('is_required', true)) {
+                    throw ValidationException::withMessages(['test_definitions' => 'Aktifkan minimal satu tes wajib.']);
                 }
 
                 if (! $validated['payment_enabled'] && $locked->unit->registrationOpenings()->where('status', 'open')->where('registration_fee', '>', 0)->exists()) {
