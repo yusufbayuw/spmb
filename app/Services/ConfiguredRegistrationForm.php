@@ -11,12 +11,14 @@ use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Group;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -321,7 +323,7 @@ class ConfiguredRegistrationForm
                     return $field;
                 }
 
-                foreach (['label', 'help', 'template_path'] as $key) {
+                foreach (['label', 'help', 'template_path', 'placeholder_content'] as $key) {
                     if (array_key_exists($key, $latest)) {
                         $field[$key] = $latest[$key];
                     }
@@ -445,9 +447,22 @@ class ConfiguredRegistrationForm
             ->helperText($definition['help'] ?? null);
     }
 
-    public function field(array $definition, UnitConfiguration $configuration): Field|Group
+    public function field(array $definition, UnitConfiguration $configuration): Field|Group|Placeholder
     {
         $name = 'custom_answers.'.$definition['key'];
+
+        if (($definition['type'] ?? null) === 'placeholder') {
+            $content = app(RegistrationConsentService::class)->sanitizeHtml(
+                (string) ($definition['placeholder_content'] ?? ''),
+            );
+
+            return Placeholder::make('placeholder_'.$definition['key'])
+                ->label('')
+                ->content(new HtmlString(
+                    '<div class="text-sm leading-6 text-gray-700 dark:text-gray-300 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-primary-600 [&_a]:underline dark:[&_a]:text-primary-400">'.$content.'</div>',
+                ))
+                ->columnSpanFull();
+        }
 
         if (($definition['type'] ?? null) === 'file') {
             $formats = array_values($definition['formats'] ?? ['pdf', 'jpg', 'png']);
@@ -590,7 +605,9 @@ class ConfiguredRegistrationForm
         $fileAnswers = [];
 
         foreach ($configuration->fields as $field) {
-            if (! $field['active'] || in_array($field['key'], self::BUILTIN_FIELDS, true)) {
+            if (! $field['active']
+                || in_array($field['key'], self::BUILTIN_FIELDS, true)
+                || ($field['type'] ?? null) === 'placeholder') {
                 continue;
             }
 

@@ -28,9 +28,12 @@
         $portalBlocks = $portalConfiguration
             ? $portalConfiguration->applicantPortalBlocks()
             : \App\Models\UnitConfiguration::defaultApplicantPortalBlocks();
+        $progressDescription = filled($portalConfiguration?->applicant_progress_description)
+            ? app(\App\Services\RegistrationConsentService::class)->sanitizeHtml((string) $portalConfiguration->applicant_progress_description)
+            : null;
     @endphp
 
-    <div class="space-y-6">
+    <div class="space-y-6 md:space-y-8">
         <x-filament::section>
             <div class="flex w-full flex-col gap-5 lg:flex-row lg:items-center">
                 <div class="min-w-0 flex-1 space-y-2">
@@ -107,7 +110,7 @@
                         </p>
                     @endif
 
-                    <div class="flex flex-wrap gap-3">
+                    <div class="flex flex-wrap gap-3 pt-1 sm:gap-4">
                         @if (! $registration->isOperational())
                             <x-filament::badge color="warning">Pendaftaran tidak aktif. Hubungi petugas untuk tindak lanjut.</x-filament::badge>
                         @elseif ($this->nextAction && $this->nextAction['action_url'])
@@ -165,7 +168,14 @@
 
                 <x-filament::section collapsible>
                     <x-slot name="heading">Tahapan Pendaftaran</x-slot>
-                    <div class="space-y-1">
+
+                    @if ($progressDescription)
+                        <div class="mb-5 text-sm leading-6 text-gray-600 dark:text-gray-300 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-primary-600 [&_a]:underline dark:[&_a]:text-primary-400">
+                            {!! $progressDescription !!}
+                        </div>
+                    @endif
+
+                    <div class="space-y-2">
                         @foreach ($stages as $index => $stage)
                             @php
                                 $stageOperationalIndex = array_search($stage, $operationalStages, true);
@@ -178,7 +188,7 @@
                                     ? ($isHigherEducation ? 'Seleksi Calon Mahasiswa' : 'Seleksi Calon Siswa')
                                     : ($stageLabels[$stage] ?? str($stage)->replace('_', ' ')->title());
                             @endphp
-                            <div class="flex items-start gap-3 rounded-xl px-3 py-3 {{ $isCurrent ? 'bg-primary-50 dark:bg-primary-500/10' : '' }}">
+                            <div class="flex items-start gap-4 rounded-xl px-3 py-3.5 sm:px-4 {{ $isCurrent ? 'bg-primary-50 dark:bg-primary-500/10' : '' }}">
                                 <div
                                     class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $isCurrent ? 'bg-primary-600 text-white' : ($isDone ? 'text-white' : 'bg-gray-100 text-gray-500 dark:bg-white/10') }}"
                                     @if ($isDone)

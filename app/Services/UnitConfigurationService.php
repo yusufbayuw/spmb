@@ -49,6 +49,7 @@ class UnitConfigurationService
             'workflow_stage_labels' => Registration::STAGES,
             'applicant_visible_stages' => array_keys(Registration::STAGES),
             'applicant_portal_blocks' => UnitConfiguration::defaultApplicantPortalBlocks(),
+            'applicant_progress_description' => null,
             'completion_after_stage' => null,
             'completion_title' => 'Pendaftaran Telah Selesai',
             'completion_message' => 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.',
@@ -123,7 +124,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -324,6 +325,9 @@ class UnitConfigurationService
 
         $data['applicant_visible_stages'] = $visibleStages;
         $data['applicant_portal_blocks'] = UnitConfiguration::normalizeApplicantPortalBlocks($data['applicant_portal_blocks'] ?? null);
+        $data['applicant_progress_description'] = filled($data['applicant_progress_description'] ?? null)
+            ? app(RegistrationConsentService::class)->sanitizeHtml((string) $data['applicant_progress_description'])
+            : null;
         $data['completion_title'] = filled($data['completion_title'] ?? null)
             ? trim((string) $data['completion_title'])
             : 'Pendaftaran Telah Selesai';
@@ -367,7 +371,17 @@ class UnitConfigurationService
             }
 
             $isBuiltin = in_array($field['key'] ?? null, ConfiguredRegistrationForm::BUILTIN_FIELDS, true);
+            $isPlaceholder = ! $isBuiltin && ($field['type'] ?? null) === 'placeholder';
             $isCustomBoolean = ! $isBuiltin && ($field['type'] ?? null) === 'boolean';
+
+            if ($isPlaceholder) {
+                $fields[$index]['required'] = false;
+                $fields[$index]['placeholder_content'] = app(RegistrationConsentService::class)->sanitizeHtml(
+                    (string) ($field['placeholder_content'] ?? ''),
+                );
+            } else {
+                unset($fields[$index]['placeholder_content']);
+            }
 
             if ($isCustomBoolean) {
                 foreach (['yes', 'no'] as $answer) {
@@ -555,6 +569,7 @@ class UnitConfigurationService
                 'applicant_portal_blocks' => ['present', 'array', 'size:'.count(UnitConfiguration::DEFAULT_APPLICANT_PORTAL_BLOCKS)],
                 'applicant_portal_blocks.*.key' => ['required', Rule::in(array_keys(UnitConfiguration::APPLICANT_PORTAL_BLOCK_LABELS)), 'distinct'],
                 'applicant_portal_blocks.*.active' => ['required', 'boolean'],
+                'applicant_progress_description' => ['nullable', 'string', 'max:30000'],
                 'completion_after_stage' => ['nullable', Rule::in(array_keys(array_diff_key(Registration::STAGES, ['completed' => true])))],
                 'completion_title' => ['required', 'string', 'max:180'],
                 'completion_message' => ['required', 'string', 'max:3000'],
@@ -600,12 +615,13 @@ class UnitConfigurationService
                 'achievement_settings.show_organizer' => ['required', 'boolean'],
                 'achievement_settings.show_description' => ['required', 'boolean'],
                 'fields' => ['present', 'array', 'max:100'], 'fields.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
-                'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean', 'file'])],
+                'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean', 'file', 'placeholder'])],
                 'fields.*.active' => ['required', 'boolean'], 'fields.*.required' => ['required', 'boolean'], 'fields.*.group' => ['nullable', 'string', 'max:100'],
                 'fields.*.group_key' => ['nullable', 'regex:/^[a-z][a-z0-9_]*$/', 'max:60'],
                 'fields.*.help' => ['nullable', 'string', 'max:1000'], 'fields.*.options' => ['nullable', 'array'], 'fields.*.options.*' => ['string', 'max:150'],
                 'fields.*.formats' => ['nullable', 'array', 'max:4'], 'fields.*.formats.*' => [Rule::in(['pdf', 'docx', 'jpg', 'png'])],
                 'fields.*.template_path' => ['nullable', 'string'],
+                'fields.*.placeholder_content' => ['nullable', 'string', 'max:30000'],
                 'fields.*.boolean_yes_detail_enabled' => ['nullable', 'boolean'],
                 'fields.*.boolean_yes_detail_label' => ['nullable', 'string', 'max:150'],
                 'fields.*.boolean_yes_detail_required' => ['nullable', 'boolean'],
@@ -684,7 +700,7 @@ class UnitConfigurationService
 
                 if (blank($field['group_key'] ?? null) || ! $groupKeys->contains($field['group_key'])) {
                     throw ValidationException::withMessages([
-                        'fields' => 'Setiap pertanyaan tambahan harus berada pada kelompok formulir yang valid.',
+                        'fields' => 'Setiap field tambahan harus berada pada kelompok formulir yang valid.',
                     ]);
                 }
             }
@@ -761,6 +777,20 @@ class UnitConfigurationService
                     && empty($field['options'])
                     && ! in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
                     throw ValidationException::withMessages(['fields' => 'Field pilihan harus memiliki opsi.']);
+                }
+
+                if (($field['type'] ?? null) === 'placeholder') {
+                    if (in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                        throw ValidationException::withMessages([
+                            'fields.'.$fieldIndex.'.type' => 'Jenis Keterangan hanya dapat digunakan untuk field tambahan.',
+                        ]);
+                    }
+
+                    if (blank($field['placeholder_content'] ?? null)) {
+                        throw ValidationException::withMessages([
+                            'fields.'.$fieldIndex.'.placeholder_content' => 'Isi keterangan wajib diisi untuk field jenis Keterangan.',
+                        ]);
+                    }
                 }
 
                 if (($field['type'] ?? null) === 'boolean'

@@ -49,6 +49,7 @@ class UnitConfigurationTransferService
         'post_announcement_enabled',
         'workflow_stage_labels',
         'applicant_visible_stages',
+        'applicant_progress_description',
         'completion_after_stage',
         'completion_title',
         'completion_message',

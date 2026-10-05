@@ -6,7 +6,7 @@
     @if($configurationUuid)
         <form wire:submit="save" class="space-y-6">
             {{ $this->form }}
-            <div class="flex flex-wrap gap-3">
+            <div class="flex flex-wrap gap-3 pt-2 sm:gap-4">
                 <x-filament::button type="submit">Simpan Draft</x-filament::button>
                 <x-filament::button type="button" wire:click="showPreview" color="gray">Pratinjau Form Pendaftar</x-filament::button>
                 <x-filament::button type="button" wire:click="publish" wire:confirm="Simpan draft terbaru lalu publikasikan konfigurasi untuk pendaftar baru? Pendaftar lama tetap memakai versi sebelumnya sampai Anda memilih menerapkan versi terpublikasi ke pendaftar aktif." color="success">Publikasikan</x-filament::button>

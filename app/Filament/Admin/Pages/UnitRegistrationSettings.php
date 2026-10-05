@@ -314,6 +314,21 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->columns(['default' => 1, 'md' => 2])
                         ->bulkToggleable()
                         ->helperText('Sembunyikan tahap internal yang tidak perlu dilihat pendaftar. Tahap Selesai akan selalu ditampilkan oleh sistem.'),
+                    Forms\Components\RichEditor::make('applicant_progress_description')
+                        ->label('Keterangan Tahapan Pendaftaran')
+                        ->helperText('Opsional. Ditampilkan tepat di bawah judul Tahapan Pendaftaran dan sebelum daftar tahapan pada portal pendaftar. Kosongkan bila tidak diperlukan.')
+                        ->toolbarButtons([
+                            'h2',
+                            'h3',
+                            'bold',
+                            'italic',
+                            'bulletList',
+                            'orderedList',
+                            'link',
+                            'undo',
+                            'redo',
+                        ])
+                        ->columnSpanFull(),
                     Forms\Components\Select::make('completion_after_stage')
                         ->label('Akhiri proses setelah tahap')
                         ->options(array_diff_key(Registration::STAGES, ['completed' => true]))
@@ -439,12 +454,22 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                             $set('required', false);
                         })
                         ->required(),
-                    Forms\Components\TextInput::make('label')->label('Label')->required(),
+                    Forms\Components\TextInput::make('label')
+                        ->label(fn (Forms\Get $get): string => $get('type') === 'placeholder' ? 'Nama Internal' : 'Label')
+                        ->helperText(fn (Forms\Get $get): ?string => $get('type') === 'placeholder'
+                            ? 'Hanya untuk identifikasi di admin dan tidak ditampilkan ke pendaftar.'
+                            : null)
+                        ->required(),
                     Forms\Components\Select::make('type')
                         ->label('Jenis')
-                        ->options(['text' => 'Teks', 'textarea' => 'Teks panjang', 'number' => 'Angka', 'date' => 'Tanggal', 'select' => 'Pilihan tunggal', 'multiselect' => 'Pilihan jamak', 'boolean' => 'Ya/Tidak', 'file' => 'Unggah Dokumen'])
+                        ->options(['text' => 'Teks', 'textarea' => 'Teks panjang', 'number' => 'Angka', 'date' => 'Tanggal', 'select' => 'Pilihan tunggal', 'multiselect' => 'Pilihan jamak', 'boolean' => 'Ya/Tidak', 'file' => 'Unggah Dokumen', 'placeholder' => 'Keterangan / Placeholder (tanpa input)'])
                         ->default('text')
                         ->live()
+                        ->afterStateUpdated(function (?string $state, Forms\Set $set): void {
+                            if ($state === 'placeholder') {
+                                $set('required', false);
+                            }
+                        })
                         ->disabled(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true))
                         ->dehydrated()
                         ->required(),
@@ -456,7 +481,26 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->native(false)
                         ->visible(fn (Forms\Get $get): bool => ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true))
                         ->required(fn (Forms\Get $get): bool => ! in_array($get('key'), ConfiguredRegistrationForm::BUILTIN_FIELDS, true)),
-                    Forms\Components\Textarea::make('help')->label('Petunjuk'),
+                    Forms\Components\RichEditor::make('placeholder_content')
+                        ->label('Isi Keterangan')
+                        ->helperText('Konten informatif saja dan tidak menghasilkan jawaban pendaftar. Rich text cocok untuk penekanan, daftar, dan tautan.')
+                        ->toolbarButtons([
+                            'h2',
+                            'h3',
+                            'bold',
+                            'italic',
+                            'bulletList',
+                            'orderedList',
+                            'link',
+                            'undo',
+                            'redo',
+                        ])
+                        ->required(fn (Forms\Get $get): bool => $get('type') === 'placeholder')
+                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'placeholder')
+                        ->columnSpanFull(),
+                    Forms\Components\Textarea::make('help')
+                        ->label('Petunjuk')
+                        ->hidden(fn (Forms\Get $get): bool => $get('type') === 'placeholder'),
                     Forms\Components\Fieldset::make('Keterangan saat jawaban Ya')
                         ->schema([
                             Forms\Components\Toggle::make('boolean_yes_detail_enabled')
@@ -500,7 +544,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\TagsInput::make('options')
                         ->label('Opsi pilihan')
                         ->helperText(fn (Forms\Get $get): ?string => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true) ? 'Opsi wilayah diambil otomatis dari master wilayah Indonesia.' : null)
-                        ->hidden(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true) || $get('type') === 'file')
+                        ->hidden(fn (Forms\Get $get): bool => in_array($get('key'), ConfiguredRegistrationForm::REGION_FIELDS, true) || in_array($get('type'), ['file', 'placeholder'], true))
                         ->default([]),
                     Forms\Components\Select::make('formats')
                         ->label('Format dokumen')
@@ -520,7 +564,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->maxSize(5120)
                         ->visible(fn (Forms\Get $get): bool => $get('type') === 'file'),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
-                    Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
+                    Forms\Components\Toggle::make('required')
+                        ->label('Wajib')
+                        ->default(false)
+                        ->visible(fn (Forms\Get $get): bool => $get('type') !== 'placeholder'),
                 ])->columns(['default' => 1, 'md' => 2])->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Field baru'),
             ])->collapsible(),
             Forms\Components\Section::make('Data Nilai')
