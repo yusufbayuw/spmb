@@ -11,6 +11,18 @@ class UnitConfiguration extends Model
 {
     use HasPublicUuid;
 
+    public const PARTICIPANT_CARD_MODE_BOTH = 'both';
+
+    public const PARTICIPANT_CARD_MODE_REGISTRATION_ONLY = 'registration_only';
+
+    public const PARTICIPANT_CARD_MODE_TEST_ONLY = 'test_only';
+
+    public const PARTICIPANT_CARD_MODES = [
+        self::PARTICIPANT_CARD_MODE_BOTH => 'Keduanya',
+        self::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY => 'Hanya Kartu Pendaftaran',
+        self::PARTICIPANT_CARD_MODE_TEST_ONLY => 'Hanya Kartu Tes',
+    ];
+
     public const APPLICANT_PORTAL_BLOCK_LABELS = [
         'additional_information' => 'Informasi Tambahan',
         'selection_tests' => 'Tes Seleksi',
@@ -31,7 +43,7 @@ class UnitConfiguration extends Model
         'required_documents',
     ];
 
-    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
+    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
 
     protected $casts = ['payment_enabled' => 'boolean', 'documents_enabled' => 'boolean', 'tests_enabled' => 'boolean', 'post_announcement_enabled' => 'boolean', 'workflow_stage_labels' => 'array', 'applicant_visible_stages' => 'array', 'applicant_portal_blocks' => 'array', 'registration_number_digits' => 'integer', 'pre_form_consent' => 'array', 'workflow_blocks' => 'array', 'academic_scores_enabled' => 'boolean', 'academic_score_settings' => 'array', 'achievements_enabled' => 'boolean', 'achievement_settings' => 'array', 'fields' => 'array', 'form_groups' => 'array', 'form_layout' => 'array', 'document_requirements' => 'array', 'test_definitions' => 'array', 're_registration_requirements' => 'array', 'published_at' => 'datetime', 'legacy' => 'boolean'];
 
@@ -48,6 +60,25 @@ class UnitConfiguration extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    public function participantCardMode(): string
+    {
+        $mode = (string) ($this->participant_card_mode ?: self::PARTICIPANT_CARD_MODE_BOTH);
+
+        return array_key_exists($mode, self::PARTICIPANT_CARD_MODES)
+            ? $mode
+            : self::PARTICIPANT_CARD_MODE_BOTH;
+    }
+
+    public function registrationCardEnabled(): bool
+    {
+        return $this->participantCardMode() !== self::PARTICIPANT_CARD_MODE_TEST_ONLY;
+    }
+
+    public function testCardEnabled(): bool
+    {
+        return $this->participantCardMode() !== self::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY;
     }
 
     /** @return list<array{key:string,active:bool}> */
