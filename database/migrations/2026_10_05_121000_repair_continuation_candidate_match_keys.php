@@ -1,6 +1,5 @@
 <?php
 
-use DateTimeImmutable;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -109,7 +108,7 @@ return new class extends Migration
         }
 
         foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'd.m.Y'] as $format) {
-            $date = DateTimeImmutable::createFromFormat('!'.$format, $value);
+            $date = \DateTimeImmutable::createFromFormat('!'.$format, $value);
 
             if ($date && $date->format($format) === $value) {
                 return $date->format('Y-m-d');
