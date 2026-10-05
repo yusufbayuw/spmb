@@ -81,30 +81,155 @@
             @endphp
 
             <x-filament::section :heading="$test['name']">
-                <p class="mb-5 text-sm">
-                    {{ $test['is_required'] ? 'Wajib' : 'Opsional' }}
-                    · Pilihan saat ini: {{ $booking?->session?->label() ?? 'Belum memilih sesi' }}
-                </p>
+                <div class="mb-6 space-y-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <x-filament::badge :color="$test['is_required'] ? 'danger' : 'gray'">
+                            {{ $test['is_required'] ? 'Wajib' : 'Opsional' }}
+                        </x-filament::badge>
 
-                <div class="grid gap-5 md:grid-cols-2">
-                    @forelse($this->sessions($test['id']) as $session)
-                        <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-700">
-                            <p class="font-semibold">{{ $session->label() }}</p>
-                            <p class="text-sm">
-                                Sisa kuota: {{ max(0, $session->capacity - $session->bookings_count) }}
-                                · Pemesanan sampai {{ $session->booking_closes_at->format('d/m/Y H:i') }}
+                        @if($booking?->session)
+                            <x-filament::badge color="success" icon="heroicon-m-check-circle">
+                                Jadwal sudah dipilih
+                            </x-filament::badge>
+                        @else
+                            <x-filament::badge color="warning">
+                                Belum memilih jadwal
+                            </x-filament::badge>
+                        @endif
+                    </div>
+
+                    @if($booking?->session)
+                        <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/5">
+                            <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Pilihan saat ini
                             </p>
-                            <p class="my-3 text-sm">{{ $session->instructions }}</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-950 dark:text-white">
+                                {{ $booking->session->starts_at->format('d/m/Y') }}
+                                · {{ $booking->session->starts_at->format('H:i') }}–{{ $booking->session->ends_at->format('H:i') }}
+                                · {{ $booking->session->location }}
+                            </p>
+                        </div>
+                    @endif
+                </div>
 
-                            <x-filament::button
-                                wire:click="choose('{{ $session->uuid }}')"
-                                :disabled="$booking?->test_session_id === $session->id || $session->bookings_count >= $session->capacity"
-                            >
-                                {{ $booking?->test_session_id === $session->id ? 'Dipilih' : 'Pilih Sesi' }}
-                            </x-filament::button>
+                <div class="grid gap-6 md:grid-cols-2">
+                    @forelse($this->sessions($test['id']) as $session)
+                        @php
+                            $isSelected = $booking?->test_session_id === $session->id;
+                            $remainingSeats = max(0, $session->capacity - $session->bookings_count);
+                            $isFull = $remainingSeats <= 0;
+                        @endphp
+
+                        <div
+                            @class([
+                                'flex min-h-full flex-col rounded-2xl border p-5 shadow-sm transition sm:p-6',
+                                'border-primary-500/50 bg-primary-50/60 ring-1 ring-primary-500/20 dark:bg-primary-950/20' => $isSelected,
+                                'border-gray-200 bg-white dark:border-white/10 dark:bg-white/5' => ! $isSelected,
+                            ])
+                        >
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <p class="text-base font-semibold leading-6 text-gray-950 dark:text-white">
+                                        {{ $session->starts_at->format('d/m/Y') }}
+                                    </p>
+                                    <p class="mt-1 text-lg font-bold leading-7 text-gray-950 dark:text-white">
+                                        {{ $session->starts_at->format('H:i') }}–{{ $session->ends_at->format('H:i') }}
+                                    </p>
+                                </div>
+
+                                @if($isSelected)
+                                    <x-filament::badge color="primary" icon="heroicon-m-check">
+                                        Dipilih
+                                    </x-filament::badge>
+                                @elseif($isFull)
+                                    <x-filament::badge color="danger">
+                                        Penuh
+                                    </x-filament::badge>
+                                @else
+                                    <x-filament::badge color="success">
+                                        Tersedia
+                                    </x-filament::badge>
+                                @endif
+                            </div>
+
+                            <div class="mt-5 space-y-3">
+                                <div class="flex items-start gap-3">
+                                    <x-filament::icon
+                                        icon="heroicon-m-map-pin"
+                                        class="mt-0.5 h-5 w-5 shrink-0 text-gray-400"
+                                    />
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Lokasi</p>
+                                        <p class="mt-0.5 break-words text-sm font-medium text-gray-900 dark:text-gray-100">
+                                            {{ $session->location }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start gap-3">
+                                    <x-filament::icon
+                                        icon="heroicon-m-user-group"
+                                        class="mt-0.5 h-5 w-5 shrink-0 text-gray-400"
+                                    />
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Kuota</p>
+                                        <p class="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                            Sisa kuota: {{ $remainingSeats }} dari {{ $session->capacity }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 rounded-xl bg-gray-50 px-4 py-3 dark:bg-black/20">
+                                <div class="flex items-start gap-3">
+                                    <x-filament::icon
+                                        icon="heroicon-m-clock"
+                                        class="mt-0.5 h-5 w-5 shrink-0 text-gray-400"
+                                    />
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                            Batas memilih / mengubah sesi
+                                        </p>
+                                        <p class="mt-0.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                            {{ $session->booking_closes_at->format('d/m/Y H:i') }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if(filled($session->instructions))
+                                <div class="mt-4 border-l-2 border-gray-200 pl-3 dark:border-gray-700">
+                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Petunjuk</p>
+                                    <p class="mt-1 text-sm leading-6 text-gray-700 dark:text-gray-300">
+                                        {{ $session->instructions }}
+                                    </p>
+                                </div>
+                            @endif
+
+                            <div class="mt-auto pt-6">
+                                <x-filament::button
+                                    class="w-full justify-center sm:w-auto"
+                                    wire:click="choose('{{ $session->uuid }}')"
+                                    :color="$isSelected ? 'gray' : 'primary'"
+                                    :icon="$isSelected ? 'heroicon-m-check' : null"
+                                    :disabled="$isSelected || $isFull"
+                                >
+                                    @if($isSelected)
+                                        Jadwal Dipilih
+                                    @elseif($isFull)
+                                        Sesi Penuh
+                                    @else
+                                        Pilih Sesi
+                                    @endif
+                                </x-filament::button>
+                            </div>
                         </div>
                     @empty
-                        <p>Belum ada sesi yang dapat dipesan. Hubungi TU unit.</p>
+                        <div class="rounded-xl border border-dashed border-gray-300 p-6 text-center dark:border-gray-700 md:col-span-2">
+                            <p class="text-sm text-gray-600 dark:text-gray-300">
+                                Belum ada sesi yang dapat dipesan. Hubungi TU unit.
+                            </p>
+                        </div>
                     @endforelse
                 </div>
             </x-filament::section>
