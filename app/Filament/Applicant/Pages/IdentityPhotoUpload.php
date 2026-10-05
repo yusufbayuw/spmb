@@ -70,7 +70,7 @@ class IdentityPhotoUpload extends Page implements HasForms
         return $form
             ->schema([
                 Section::make('Foto Peserta')
-                    ->description('Foto ini menjadi identitas visual pada Kartu Pendaftaran. Gunakan foto terbaru, wajah terlihat jelas, dan latar yang rapi.')
+                    ->description('Foto ini menjadi identitas visual pada Kartu Peserta yang digunakan unit, baik Kartu Pendaftaran maupun Kartu Tes. Gunakan foto terbaru, wajah terlihat jelas, dan latar yang rapi.')
                     ->schema([
                         FileUpload::make('photo')
                             ->label('Foto Identitas')
