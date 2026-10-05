@@ -148,6 +148,10 @@ class Registration extends Model
             unset($stages['documents'], $stages['document_verification']);
         }
 
+        if (! $this->registrationCardEnabled()) {
+            unset($stages['applicant_card']);
+        }
+
         if ($configuration && (! $configuration->tests_enabled || ! collect($this->configuredTests())->contains('is_required', true))) {
             unset($stages['tests']);
         }
@@ -256,6 +260,16 @@ class Registration extends Model
         return (bool) $this->configuration && ! $this->configuration->legacy;
     }
 
+    public function registrationCardEnabled(): bool
+    {
+        return $this->configuration?->registrationCardEnabled() ?? true;
+    }
+
+    public function testCardEnabled(): bool
+    {
+        return $this->configuration?->testCardEnabled() ?? true;
+    }
+
     public function nextEnabledStage(string $stage): ?string
     {
         $stages = array_keys($this->enabledStages());
@@ -267,6 +281,10 @@ class Registration extends Model
     public function completionAfterStage(): ?string
     {
         $stage = $this->configuration?->completion_after_stage;
+
+        if ($stage === 'applicant_card' && ! $this->registrationCardEnabled()) {
+            return null;
+        }
 
         return is_string($stage) && array_key_exists($stage, self::STAGES) && $stage !== 'completed'
             ? $stage
