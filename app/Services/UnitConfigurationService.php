@@ -675,10 +675,18 @@ class UnitConfigurationService
                 ]);
             }
 
-            if ($completionStage === 'applicant_card'
-                && $validated['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY) {
+            if ($validated['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
+                && in_array($completionStage, [
+                    'data_validation',
+                    'virtual_account',
+                    'payment',
+                    'payment_verification',
+                    'applicant_card',
+                    'documents',
+                    'document_verification',
+                ], true)) {
                 throw ValidationException::withMessages([
-                    'completion_after_stage' => 'Kartu Pendaftar tidak dapat menjadi tahap akhir ketika Jenis Kartu Peserta diatur Hanya Kartu Tes.',
+                    'completion_after_stage' => 'Mode Hanya Kartu Tes harus mencapai tahap Rangkaian Tes. Proses tidak dapat diakhiri sebelum Tes.',
                 ]);
             }
 
