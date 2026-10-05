@@ -39,7 +39,13 @@ class RegistrationPrintController extends Controller
         RegistrationCardService $cards,
     ): View {
         $this->authorizeRegistration($request, $registration);
-        abort_unless($registration->isOperational() && $registration->applicant_card_number, 404);
+        $registration->loadMissing('configuration');
+        abort_unless(
+            $registration->isOperational()
+                && $registration->registrationCardEnabled()
+                && $registration->applicant_card_number,
+            404,
+        );
 
         $card = $cards->cardData($registration);
 
@@ -48,13 +54,33 @@ class RegistrationPrintController extends Controller
 
     public function verifyCard(Registration $registration, RegistrationCardService $cards): View
     {
-        abort_unless(filled($registration->applicant_card_number), 404);
+        $registration->loadMissing(['configuration', 'unit', 'opening.studyProgram', 'pathway']);
+        abort_unless(
+            filled($registration->applicant_card_number)
+                && $registration->registrationCardEnabled(),
+            404,
+        );
 
-        $registration->loadMissing(['unit', 'opening.studyProgram', 'pathway']);
         $hasPhoto = $cards->hasIdentityPhoto($registration);
         $isValid = $registration->isOperational() && $hasPhoto;
+        $cardType = 'Kartu Pendaftaran';
 
-        return view('registration.card-verification', compact('registration', 'hasPhoto', 'isValid'));
+        return view('registration.card-verification', compact('registration', 'hasPhoto', 'isValid', 'cardType'));
+    }
+
+    public function verifyTestCard(
+        Registration $registration,
+        RegistrationCardService $cards,
+        TestCardEligibilityService $eligibility,
+    ): View {
+        $registration->loadMissing(['configuration', 'unit', 'opening.studyProgram', 'pathway']);
+        abort_unless($eligibility->canPrint($registration), 404);
+
+        $hasPhoto = $cards->hasIdentityPhoto($registration);
+        $isValid = $registration->isOperational() && $hasPhoto;
+        $cardType = 'Kartu Tes';
+
+        return view('registration.card-verification', compact('registration', 'hasPhoto', 'isValid', 'cardType'));
     }
 
     public function testCard(
@@ -75,7 +101,7 @@ class RegistrationPrintController extends Controller
 
         abort_if($bookings->isEmpty(), 404);
 
-        $card = $cards->cardData($registration);
+        $card = $cards->cardData($registration, 'registration.test-card.verify');
         $card['headerLabel'] = 'KARTU TES';
         $card['issuedDate'] = $registration->test_schedule_confirmed_at?->format('d-m-Y') ?? '—';
         $card['filenameStem'] = 'kartu-tes-'.Str::slug(
