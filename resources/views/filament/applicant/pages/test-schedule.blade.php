@@ -11,7 +11,7 @@
                 $event.returnValue = '';
             }
         "
-        x-on:click.capture="
+        x-on:click.window.capture="
             if (scheduleConfirmed) {
                 return;
             }
