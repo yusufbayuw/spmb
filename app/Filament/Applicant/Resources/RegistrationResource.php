@@ -39,6 +39,40 @@ class RegistrationResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)->apply([
+            'identity_lookup' => Forms\Components\Section::make('Identifikasi Peserta')
+                ->description('Masukkan NIK dan tanggal lahir terlebih dahulu. Jika data Terusan ditemukan, data yang tersedia akan diisikan otomatis dan tetap dapat diedit.')
+                ->columns(['default' => 1, 'md' => 2])
+                ->schema([
+                    Forms\Components\TextInput::make('nik')
+                        ->label('NIK')
+                        ->validationAttribute('NIK')
+                        ->required()
+                        ->rule('digits:16')
+                        ->unique(
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
+                                ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
+                        )
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
+                            if (method_exists($livewire, 'applyContinuationPrefill')) {
+                                $livewire->applyContinuationPrefill($get, $set);
+                            }
+                        }),
+                    Forms\Components\DatePicker::make('birth_date')
+                        ->label('Tanggal Lahir')
+                        ->required()
+                        ->native(false)
+                        ->maxDate(now()->subDay())
+                        ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_uuid')))
+                        ->live()
+                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
+                            if (method_exists($livewire, 'applyContinuationPrefill')) {
+                                $livewire->applyContinuationPrefill($get, $set);
+                            }
+                        }),
+                ]),
+
             'registration_choice' => Forms\Components\Section::make('Pilihan Pendaftaran')
                 ->description('Unit/institusi, program studi, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
                 ->columns(['default' => 1, 'md' => 2])
@@ -90,36 +124,11 @@ class RegistrationResource extends Resource
                 ->description('Gunakan identitas yang sama dengan dokumen resmi calon peserta didik atau calon mahasiswa.')
                 ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
-                    Forms\Components\TextInput::make('nik')
-                        ->label('NIK')->validationAttribute('NIK')->required()->rule('digits:16')
-                        ->unique(
-                            ignoreRecord: true,
-                            modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
-                                ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
-                        )
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
-                            if (method_exists($livewire, 'applyContinuationPrefill')) {
-                                $livewire->applyContinuationPrefill($get, $set);
-                            }
-                        }),
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('nickname')->label('Nama Panggilan')->maxLength(50),
                     Forms\Components\Select::make('gender')->label('Jenis Kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
                     Forms\Components\Select::make('religion')->label('Agama')->options(['Islam' => 'Islam', 'Kristen' => 'Kristen', 'Katolik' => 'Katolik', 'Hindu' => 'Hindu', 'Buddha' => 'Buddha', 'Konghucu' => 'Konghucu'])->default('Islam'),
                     Forms\Components\TextInput::make('birth_place')->label('Tempat Lahir')->required()->maxLength(100),
-                    Forms\Components\DatePicker::make('birth_date')
-                        ->label('Tanggal Lahir')
-                        ->required()
-                        ->native(false)
-                        ->maxDate(now()->subDay())
-                        ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_uuid')))
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
-                            if (method_exists($livewire, 'applyContinuationPrefill')) {
-                                $livewire->applyContinuationPrefill($get, $set);
-                            }
-                        }),
                     Forms\Components\TextInput::make('phone')->label('Nomor Telepon')->tel()->maxLength(20),
                     Forms\Components\TextInput::make('email')->label('Email Peserta')->email()->maxLength(100),
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->rows(3)->columnSpanFull(),
