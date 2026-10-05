@@ -228,11 +228,18 @@ class RegistrationResource extends Resource
                         $record->changeLifecycle('withdrawn', auth()->user(), $data['reason']);
                         Notification::make()->title('Pendaftaran dinyatakan mengundurkan diri')->warning()->send();
                     }),
-                Tables\Actions\Action::make('card')
-                    ->label('Cetak Kartu')->icon('heroicon-o-printer')->color('gray')
-                    ->visible(fn (Registration $record): bool => filled($record->applicant_card_number)
+                Tables\Actions\Action::make('registrationCard')
+                    ->label('Kartu Pendaftaran')->icon('heroicon-o-identification')->color('gray')
+                    ->visible(fn (Registration $record): bool => $record->registrationCardEnabled()
+                        && filled($record->applicant_card_number)
                         && app(\App\Services\RegistrationCardService::class)->hasIdentityPhoto($record))
                     ->url(fn (Registration $record): string => route('registration.card', $record))
+                    ->openUrlInNewTab(),
+                Tables\Actions\Action::make('testCard')
+                    ->label('Kartu Tes')->icon('heroicon-o-academic-cap')->color('gray')
+                    ->visible(fn (Registration $record): bool => $record->testCardEnabled()
+                        && filled($record->test_schedule_confirmed_at))
+                    ->url(fn (Registration $record): string => route('registration.test-card', $record))
                     ->openUrlInNewTab(),
             ])
             ->emptyStateHeading('Belum ada pendaftaran')
