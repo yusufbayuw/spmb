@@ -150,7 +150,7 @@ class ApplicantNextActionService
             'announcement' => $this->processing(
                 $registration,
                 'Pengumuman Hasil',
-                'Menunggu hasil seleksi dipublikasikan.',
+                'Menunggu pengumuman dipublikasikan.',
                 'heroicon-o-megaphone',
             ),
             'waiting_list' => $this->processing(
