@@ -69,18 +69,7 @@ class ApplicantNextActionService
                 DocumentsUpload::getUrl(['registration' => $registration->uuid], panel: 'pendaftar'),
                 10,
             ),
-            'tests' => $this->item(
-                $registration,
-                'action_required',
-                'Perlu tindakan',
-                'Jadwal dan Pelaksanaan Tes',
-                'Pilih atau periksa jadwal tes, lalu ikuti rangkaian tes sesuai ketentuan.',
-                'primary',
-                'heroicon-o-academic-cap',
-                'Pilih / Ubah Jadwal Tes',
-                TestSchedule::getUrl(['registration' => $registration->uuid], panel: 'pendaftar'),
-                10,
-            ),
+            'tests' => $this->testScheduleAction($registration),
             'admission_offer' => $this->item(
                 $registration,
                 'action_required',
@@ -189,6 +178,58 @@ class ApplicantNextActionService
                 mb_strtolower($item['registration_name']),
             ))
             ->values();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function testScheduleAction(Registration $registration): array
+    {
+        $progress = app(TestScheduleConfirmationService::class)->progress($registration);
+        $actionUrl = TestSchedule::getUrl(['registration' => $registration->uuid], panel: 'pendaftar');
+
+        if (! $progress['complete']) {
+            return $this->item(
+                $registration,
+                'action_required',
+                'Perlu tindakan',
+                'Lengkapi Jadwal Tes',
+                "{$progress['booked']} dari {$progress['required']} tes wajib sudah dipilih. Masih ada {$progress['missing']} tes wajib yang belum memiliki jadwal.",
+                'primary',
+                'heroicon-o-academic-cap',
+                'Lengkapi Jadwal Tes',
+                $actionUrl,
+                10,
+            );
+        }
+
+        if (! $progress['confirmed']) {
+            return $this->item(
+                $registration,
+                'attention',
+                'Perlu konfirmasi',
+                'Konfirmasi Jadwal Tes',
+                'Semua tes wajib sudah memiliki jadwal. Konfirmasikan seluruh jadwal untuk menyelesaikan pemilihan.',
+                'warning',
+                'heroicon-o-exclamation-triangle',
+                'Konfirmasi Jadwal Tes',
+                $actionUrl,
+                5,
+            );
+        }
+
+        return $this->item(
+            $registration,
+            'processing',
+            'Jadwal dikonfirmasi',
+            'Ikuti Rangkaian Tes',
+            'Seluruh jadwal tes wajib sudah dikonfirmasi. Ikuti setiap tes sesuai jadwal yang tertera pada kartu tes.',
+            'info',
+            'heroicon-o-academic-cap',
+            'Lihat Jadwal Tes',
+            $actionUrl,
+            30,
+        );
     }
 
     /**
