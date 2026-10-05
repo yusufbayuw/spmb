@@ -159,6 +159,10 @@ class TestScheduleTest extends TestCase
             ->assertSeeText('Ruang Ujian A')
             ->assertSeeText('Bawa alat tulis.')
             ->assertDontSee('<table', false);
+
+        $this->get(route('registration.test-card.verify', $registration))
+            ->assertOk()
+            ->assertSeeText('Verifikasi Kartu Tes');
     }
 
     public function test_test_card_requires_sessions_for_every_required_test_but_ignores_optional_tests(): void
