@@ -55,6 +55,7 @@ class UnitConfigurationService
             'completion_message' => 'Terima kasih telah mengikuti seluruh proses pendaftaran. Informasi selanjutnya akan disampaikan oleh unit melalui kanal resmi.',
             'registration_number_prefix' => $unit->code,
             'registration_number_digits' => 4,
+            'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH,
             'applicant_card_header_label' => 'KARTU PENDAFTARAN',
             'applicant_card_header_title' => $unit->name,
             'pre_form_consent' => app(RegistrationConsentService::class)->defaultConfiguration($unit),
@@ -124,7 +125,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -311,10 +312,19 @@ class UnitConfigurationService
 
         $data['workflow_blocks'] = $workflowBlocks;
 
+        $participantCardMode = (string) ($data['participant_card_mode'] ?? UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH);
+        $data['participant_card_mode'] = array_key_exists($participantCardMode, UnitConfiguration::PARTICIPANT_CARD_MODES)
+            ? $participantCardMode
+            : UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH;
+
         $visibleStages = collect(is_array($data['applicant_visible_stages'] ?? null)
             ? $data['applicant_visible_stages']
             : array_keys(Registration::STAGES))
             ->filter(fn (mixed $stage): bool => is_string($stage) && array_key_exists($stage, Registration::STAGES))
+            ->when(
+                $data['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY,
+                fn ($stages) => $stages->reject(fn (string $stage): bool => $stage === 'applicant_card'),
+            )
             ->unique()
             ->values()
             ->all();
@@ -495,7 +505,8 @@ class UnitConfigurationService
         };
 
         return $keys($from) !== $keys($to)
-            || ($from?->completion_after_stage ?? null) !== ($to->completion_after_stage ?? null);
+            || ($from?->completion_after_stage ?? null) !== ($to->completion_after_stage ?? null)
+            || ($from?->participantCardMode() ?? UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH) !== $to->participantCardMode();
     }
 
     private function supplementalConfigurationChanged(?UnitConfiguration $from, UnitConfiguration $to): bool
@@ -575,6 +586,7 @@ class UnitConfigurationService
                 'completion_message' => ['required', 'string', 'max:3000'],
                 'registration_number_prefix' => ['nullable', 'string', 'max:30', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/'],
                 'registration_number_digits' => ['required', 'integer', 'min:3', 'max:12'],
+                'participant_card_mode' => ['required', Rule::in(array_keys(UnitConfiguration::PARTICIPANT_CARD_MODES))],
                 'applicant_card_header_label' => ['required', 'string', 'max:80'],
                 'applicant_card_header_title' => ['required', 'string', 'max:180'],
                 'pre_form_consent' => ['present', 'array'],
@@ -660,6 +672,13 @@ class UnitConfigurationService
                 && ! $validated['documents_enabled']) {
                 throw ValidationException::withMessages([
                     'completion_after_stage' => 'Tahap akhir dokumen hanya dapat dipilih ketika Dokumen aktif.',
+                ]);
+            }
+
+            if ($completionStage === 'applicant_card'
+                && $validated['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY) {
+                throw ValidationException::withMessages([
+                    'completion_after_stage' => 'Kartu Pendaftar tidak dapat menjadi tahap akhir ketika Jenis Kartu Peserta diatur Hanya Kartu Tes.',
                 ]);
             }
 
@@ -918,6 +937,14 @@ class UnitConfigurationService
                 if ($validated['tests_enabled'] && ! $tests->contains('is_required', true)) {
                     throw ValidationException::withMessages(['test_definitions' => 'Aktifkan minimal satu tes wajib.']);
                 }
+
+                if ($validated['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
+                    && (! $validated['tests_enabled'] || ! $tests->contains('is_required', true))) {
+                    throw ValidationException::withMessages([
+                        'participant_card_mode' => 'Mode Hanya Kartu Tes memerlukan Tes aktif dengan minimal satu tes wajib.',
+                    ]);
+                }
+
                 if (! $validated['payment_enabled'] && $locked->unit->registrationOpenings()->where('status', 'open')->where('registration_fee', '>', 0)->exists()) {
                     throw ValidationException::withMessages(['payment_enabled' => 'Pembukaan aktif harus berbiaya nol sebelum pembayaran dinonaktifkan.']);
                 }
