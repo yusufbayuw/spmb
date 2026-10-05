@@ -246,6 +246,11 @@ class TestBookingTest extends TestCase
         $this->actingAs($adminUnit);
         foreach (['sessions' => '/admin/test-sessions', 'settings' => '/admin/unit-registration-settings'] as $name => $url) {
             $response = $this->get($url)->assertOk();
+
+            if ($name === 'sessions') {
+                $response->assertSeeText('Export Peserta');
+            }
+
             $this->capturePage($name, $response->getContent());
         }
     }
