@@ -10,6 +10,7 @@ use App\Models\TestSession;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\TestParticipantExcelExportService;
+use Database\Seeders\ShieldSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use OpenSpout\Reader\XLSX\Reader;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -18,6 +19,13 @@ use Tests\TestCase;
 class TestParticipantExcelExportTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(ShieldSeeder::class);
+    }
 
     public function test_admin_unit_can_export_only_participants_from_its_test_session(): void
     {
