@@ -506,6 +506,8 @@ class ContinuationCandidateTest extends TestCase
 
     public function test_exported_correction_file_contains_stable_id_and_current_identity(): void
     {
+        $this->seed(ShieldSeeder::class);
+
         $unit = Unit::create([
             'name' => 'Unit Export Koreksi',
             'code' => 'KOREKSI',
@@ -517,6 +519,7 @@ class ContinuationCandidateTest extends TestCase
             'unit_id' => $unit->id,
             'is_active' => true,
         ]);
+        $adminUnit->assignRole('admin_unit');
 
         $candidate = ContinuationCandidate::create([
             'unit_id' => $unit->id,
