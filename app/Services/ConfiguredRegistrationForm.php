@@ -19,7 +19,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -488,9 +487,9 @@ class ConfiguredRegistrationForm
 
             return Placeholder::make('placeholder_'.$definition['key'])
                 ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-sm leading-6 text-gray-700 dark:text-gray-300 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-primary-600 [&_a]:underline dark:[&_a]:text-primary-400">'.$content.'</div>',
-                ))
+                ->content(view('registration.custom-placeholder', [
+                    'content' => $content,
+                ]))
                 ->columnSpanFull();
         }
 
