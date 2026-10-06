@@ -91,22 +91,22 @@ class CreateRegistration extends CreateRecord
         }
     }
 
-    public function applyContinuationPrefill(Forms\Get $get, Forms\Set $set): void
+    public function applyContinuationPrefill(): void
     {
         $matcher = app(ContinuationCandidateMatcher::class);
-        $fingerprint = $matcher->fingerprint(
-            $get('registration_opening_uuid'),
-            $get('nik'),
-            $get('birth_date'),
-        );
+        $openingUuid = data_get($this->data, 'registration_opening_uuid') ?: $this->openingUuid;
+        $nik = data_get($this->data, 'nik');
+        $birthDate = data_get($this->data, 'birth_date');
+
+        $fingerprint = $matcher->fingerprint($openingUuid, $nik, $birthDate);
 
         if ($fingerprint === $this->continuationLookupFingerprint) {
             return;
         }
 
         foreach ($this->continuationPrefilledValues as $path => $previousValue) {
-            if ($get($path) === $previousValue) {
-                $set($path, null);
+            if (data_get($this->data, $path) === $previousValue) {
+                data_set($this->data, $path, null);
             }
         }
 
@@ -117,25 +117,21 @@ class CreateRegistration extends CreateRecord
             return;
         }
 
-        $candidate = $matcher->match(
-            $get('registration_opening_uuid'),
-            $get('nik'),
-            $get('birth_date'),
-        );
+        $candidate = $matcher->match($openingUuid, $nik, $birthDate);
 
         if (! $candidate) {
             return;
         }
 
         foreach ($matcher->prefill($candidate) as $path => $value) {
-            $currentValue = $get($path);
+            $currentValue = data_get($this->data, $path);
             $isSystemDefault = $path === 'religion' && $currentValue === 'Islam';
 
             if ((! blank($currentValue) && ! $isSystemDefault) || blank($value)) {
                 continue;
             }
 
-            $set($path, $value);
+            data_set($this->data, $path, $value);
             $this->continuationPrefilledValues[$path] = $value;
         }
     }

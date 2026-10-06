@@ -54,9 +54,9 @@ class RegistrationResource extends Resource
                                 ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
                         )
                         ->live(debounce: 400)
-                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
+                        ->afterStateUpdated(function (\Livewire\Component $livewire): void {
                             if (method_exists($livewire, 'applyContinuationPrefill')) {
-                                $livewire->applyContinuationPrefill($get, $set);
+                                $livewire->applyContinuationPrefill();
                             }
                         }),
                     Forms\Components\DatePicker::make('birth_date')
@@ -66,9 +66,9 @@ class RegistrationResource extends Resource
                         ->maxDate(now()->subDay())
                         ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_uuid')))
                         ->live()
-                        ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
+                        ->afterStateUpdated(function (\Livewire\Component $livewire): void {
                             if (method_exists($livewire, 'applyContinuationPrefill')) {
-                                $livewire->applyContinuationPrefill($get, $set);
+                                $livewire->applyContinuationPrefill();
                             }
                         }),
                 ]),

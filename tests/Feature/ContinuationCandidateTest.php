@@ -300,6 +300,32 @@ class ContinuationCandidateTest extends TestCase
         $this->assertTrue($matched?->is($latest));
     }
 
+    public function test_legacy_candidate_without_prefill_data_still_autofills_from_raw_data(): void
+    {
+        $candidate = new ContinuationCandidate([
+            'source_school_name' => 'SD Legacy',
+            'full_name' => 'Siswa Legacy',
+            'prefill_data' => null,
+            'raw_data' => [
+                'jk' => 'P',
+                'tempat lahir' => 'Bandung',
+                'alamat' => 'Jl. Legacy',
+                'data ayah nama' => 'Ayah Legacy',
+                'data ibu nama' => 'Ibu Legacy',
+            ],
+        ]);
+
+        $prefill = app(ContinuationCandidateMatcher::class)->prefill($candidate);
+
+        $this->assertSame('Siswa Legacy', $prefill['full_name']);
+        $this->assertSame('P', $prefill['gender']);
+        $this->assertSame('Bandung', $prefill['birth_place']);
+        $this->assertSame('Jl. Legacy', $prefill['home_address']);
+        $this->assertSame('SD Legacy', $prefill['previous_school']);
+        $this->assertSame('Ayah Legacy', $prefill['parentInfo.father_name']);
+        $this->assertSame('Ibu Legacy', $prefill['parentInfo.mother_name']);
+    }
+
     public function test_import_does_not_silently_keep_unmatchable_continuation_rows(): void
     {
         $unit = Unit::create([
