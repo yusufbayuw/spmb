@@ -35,6 +35,8 @@ class AdminUnitRoleSeederTest extends TestCase
 
         foreach ([
             'view_any_registration',
+            'view_any_continuationcandidate',
+            'update_continuationcandidate',
             'verify_payment_payment',
             'verify_document_document',
             'record_result_admissiontestresult',
@@ -49,7 +51,6 @@ class AdminUnitRoleSeederTest extends TestCase
 
         foreach ([
             'view_any_registrationopening',
-            'view_any_continuationcandidate',
             'create_continuationcandidate',
             'create_registrationpathway',
             'view_any_studyprogram',
