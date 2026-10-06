@@ -122,24 +122,57 @@ class TestBookingTest extends TestCase
         $this->assertTrue($parent->notifications()->where('data->title', 'Sesi tes dibatalkan')->exists());
     }
 
-    public function test_cannot_choose_overlapping_session_or_change_after_deadline(): void
+    public function test_different_tests_can_use_overlapping_sessions(): void
+    {
+        [$registration, $parent, $session] = $this->fixture();
+        $service = app(TestBookingService::class);
+
+        $service->book($registration, $session, $parent);
+
+        $secondTest = AdmissionTest::create([
+            'unit_id' => $registration->unit_id,
+            'name' => 'Wawancara',
+            'is_active' => true,
+            'is_required' => true,
+        ]);
+        $secondSession = $session->replicate();
+        $secondSession->admission_test_id = $secondTest->id;
+        $secondSession->location = 'Ruang Wawancara';
+        $secondSession->save();
+
+        $secondBooking = $service->book($registration, $secondSession, $parent);
+
+        $this->assertSame($secondSession->id, $secondBooking->test_session_id);
+        $this->assertDatabaseCount('test_bookings', 2);
+        $this->assertDatabaseHas('test_bookings', [
+            'registration_id' => $registration->id,
+            'admission_test_id' => $session->admission_test_id,
+            'test_session_id' => $session->id,
+        ]);
+        $this->assertDatabaseHas('test_bookings', [
+            'registration_id' => $registration->id,
+            'admission_test_id' => $secondTest->id,
+            'test_session_id' => $secondSession->id,
+        ]);
+    }
+
+    public function test_cannot_change_selected_session_after_old_session_deadline(): void
     {
         [$registration, $parent, $session] = $this->fixture();
         $service = app(TestBookingService::class);
         $service->book($registration, $session, $parent);
-        $secondTest = AdmissionTest::create(['unit_id' => $registration->unit_id, 'name' => 'Wawancara', 'is_active' => true, 'is_required' => true]);
-        $secondSession = $session->replicate();
-        $secondSession->admission_test_id = $secondTest->id;
-        $secondSession->save();
-        try {
-            $service->book($registration, $secondSession, $parent);
-            $this->fail('Overlapping booking accepted');
-        } catch (ValidationException $exception) {
-            $this->assertStringContainsString('berbenturan', $exception->getMessage());
-        }
+
+        $replacement = $session->replicate();
+        $replacement->starts_at = now()->addDays(5);
+        $replacement->ends_at = now()->addDays(5)->addHour();
+        $replacement->booking_closes_at = now()->addDays(4);
+        $replacement->location = 'Ruang Pengganti';
+        $replacement->save();
+
         $this->travel(3)->days();
+
         $this->expectException(ValidationException::class);
-        $service->book($registration, $secondSession, $parent);
+        $service->book($registration, $replacement, $parent);
     }
 
     public function test_cancellation_of_registration_releases_future_seats(): void

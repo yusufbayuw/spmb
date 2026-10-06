@@ -66,11 +66,9 @@ class TestBookingService
             if ($session->bookings()->count() >= $session->capacity) {
                 throw ValidationException::withMessages(['session' => 'Kuota sesi sudah penuh. Kursi lama tetap tersimpan.']);
             }
-            $conflict = TestBooking::query()->where('registration_id', $registration->id)->where('admission_test_id', '!=', $session->admission_test_id)
-                ->whereHas('session', fn ($query) => $query->where('starts_at', '<', $session->ends_at)->where('ends_at', '>', $session->starts_at))->exists();
-            if ($conflict) {
-                throw ValidationException::withMessages(['session' => 'Jadwal berbenturan dengan tes lain yang sudah dipilih.']);
-            }
+            // Different tests may intentionally share the same shift/window.
+            // Keep bookings isolated per (registration, admission_test) and let
+            // each test manage its own capacity and deadline independently.
             $booking ??= new TestBooking(['registration_id' => $registration->id, 'admission_test_id' => $session->admission_test_id]);
             $booking->fill(['test_session_id' => $session->id, 'revision' => ($booking->revision ?? 0) + 1])->save();
 
@@ -173,20 +171,8 @@ class TestBookingService
                 ]);
             }
 
-            $conflict = TestBooking::query()
-                ->where('registration_id', $registration->id)
-                ->where('admission_test_id', '!=', $result->admission_test_id)
-                ->whereHas('session', fn ($query) => $query
-                    ->where('starts_at', '<', $session->ends_at)
-                    ->where('ends_at', '>', $session->starts_at))
-                ->exists();
-
-            if ($conflict) {
-                throw ValidationException::withMessages([
-                    'session' => 'Jadwal berbenturan dengan tes lain yang sudah dipilih.',
-                ]);
-            }
-
+            // Staff may assign overlapping windows for different tests because
+            // a session can represent one shared attendance shift.
             $oldSessionId = $booking?->test_session_id;
             $oldRevision = (int) ($booking?->revision ?? 0);
             $oldResultStatus = $result->status;
@@ -273,11 +259,8 @@ class TestBookingService
             if ($record->exists && $record->starts_at->lte(now()) && $bookings->isNotEmpty()) {
                 throw ValidationException::withMessages(['starts_at' => 'Sesi berpeserta yang sudah dimulai tidak dapat diubah.']);
             }
-            foreach ($bookings as $booking) {
-                if (TestBooking::query()->where('registration_id', $booking->registration_id)->where('id', '!=', $booking->id)->whereHas('session', fn ($q) => $q->where('starts_at', '<', $data['ends_at'])->where('ends_at', '>', $data['starts_at']))->exists()) {
-                    throw ValidationException::withMessages(['starts_at' => 'Perubahan jadwal berbenturan dengan tes peserta.']);
-                }
-            }
+            // Do not reject overlapping windows across different tests.
+            // Multiple tests can deliberately be grouped into the same shift.
             if ($record->status === 'cancelled' && $data['status'] !== 'cancelled') {
                 throw ValidationException::withMessages(['status' => 'Sesi yang dibatalkan tidak dapat diaktifkan kembali. Buat sesi baru.']);
             }

@@ -185,6 +185,57 @@ class TestScheduleTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_applicant_can_choose_overlapping_sessions_for_two_required_tests_and_confirm(): void
+    {
+        $this->travelTo('2026-09-14 08:00:00');
+        [$registration, $parent, $firstSession] = $this->fixture(true);
+
+        $secondRequiredTest = AdmissionTest::query()
+            ->where('unit_id', $registration->unit_id)
+            ->where('code', 'WAW')
+            ->firstOrFail();
+
+        $secondSession = TestSession::create([
+            'admission_test_id' => $secondRequiredTest->id,
+            'starts_at' => $firstSession->starts_at,
+            'ends_at' => $firstSession->ends_at,
+            'booking_closes_at' => $firstSession->booking_closes_at,
+            'location' => 'Ruang Wawancara',
+            'capacity' => 10,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $component = Livewire::test(TestSchedule::class, ['registration' => $registration->uuid])
+            ->call('choose', $firstSession->uuid)
+            ->assertNotified('Pilihan jadwal tersimpan')
+            ->call('choose', $secondSession->uuid)
+            ->assertNotified('Pilihan jadwal tersimpan')
+            ->assertSeeText('2 dari 2 tes wajib sudah dipilih')
+            ->assertSeeText('Konfirmasi Semua Jadwal Tes');
+
+        $this->assertDatabaseCount('test_bookings', 2);
+        $this->assertDatabaseHas('test_bookings', [
+            'registration_id' => $registration->id,
+            'admission_test_id' => $firstSession->admission_test_id,
+            'test_session_id' => $firstSession->id,
+        ]);
+        $this->assertDatabaseHas('test_bookings', [
+            'registration_id' => $registration->id,
+            'admission_test_id' => $secondRequiredTest->id,
+            'test_session_id' => $secondSession->id,
+        ]);
+
+        $component
+            ->call('confirmSchedule')
+            ->assertNotified('Jadwal tes dikonfirmasi')
+            ->assertSet('scheduleConfirmed', true);
+
+        $this->assertNotNull($registration->fresh()->test_schedule_confirmed_at);
+    }
+
     public function test_test_card_requires_sessions_for_every_required_test_but_ignores_optional_tests(): void
     {
         $this->travelTo('2026-09-14 08:00:00');
