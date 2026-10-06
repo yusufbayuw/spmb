@@ -44,6 +44,7 @@ final class SpmbRolePermissions
     {
         return [
             'view_registration', 'view_any_registration', 'update_registration', 'validate_data_registration', 'send_va_registration', 'issue_card_registration',
+            'view_continuationcandidate', 'view_any_continuationcandidate', 'update_continuationcandidate',
             'view_document', 'view_any_document', 'update_document', 'verify_document_document',
             'view_payment', 'view_any_payment', 'create_payment', 'update_payment', 'verify_payment_payment',
             'view_admissiontestresult', 'view_any_admissiontestresult', 'create_admissiontestresult', 'update_admissiontestresult', 'record_result_admissiontestresult',
