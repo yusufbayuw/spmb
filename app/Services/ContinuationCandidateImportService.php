@@ -163,6 +163,18 @@ class ContinuationCandidateImportService
             return null;
         }
 
+        $correctionUuid = $this->string($this->value($raw, [
+            'id data terusan',
+            'uuid data terusan',
+            'id sistem',
+        ]));
+
+        if ($correctionUuid && ! Str::isUuid($correctionUuid)) {
+            throw ValidationException::withMessages([
+                'correction_uuid' => 'ID Data Terusan tidak valid. Gunakan ID asli dari file hasil Download Data Koreksi.',
+            ]);
+        }
+
         $sourceSchool = $this->string($this->value($raw, [
             'sekolah asal',
             'asal sekolah',
@@ -216,8 +228,10 @@ class ContinuationCandidateImportService
 
         $academicYear = $this->academicYear($academicYear);
         $sourceKey = $this->sourceKey($unitId, $academicYear, $nik, $birthDate, $nisn, $nipd, $fullName, $sourceSchool, $raw);
+        $isActive = $this->boolean($this->value($raw, ['aktif', 'status aktif']), true);
 
         return [
+            'correction_uuid' => $correctionUuid,
             'uuid' => (string) Str::uuid(),
             'unit_id' => $unitId,
             'academic_year' => $academicYear,
@@ -233,7 +247,7 @@ class ContinuationCandidateImportService
             'nipd' => $nipd,
             'prefill_data' => json_encode($prefill, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'raw_data' => json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'is_active' => true,
+            'is_active' => $isActive,
             'imported_by' => $actorId,
             'imported_at' => now(),
             'created_at' => now(),
@@ -244,18 +258,111 @@ class ContinuationCandidateImportService
     /** @param list<array<string,mixed>> $buffer @param array{processed:int,created:int,updated:int,skipped:int,errors:list<string>} $result */
     private function flush(array $buffer, array &$result): void
     {
-        $keys = array_column($buffer, 'source_key');
-        $existing = array_fill_keys(ContinuationCandidate::query()->whereIn('source_key', $keys)->pluck('source_key')->all(), true);
+        $corrections = array_values(array_filter(
+            $buffer,
+            fn (array $row): bool => filled($row['correction_uuid'] ?? null),
+        ));
 
-        foreach ($buffer as $row) {
+        $newRows = array_values(array_filter(
+            $buffer,
+            fn (array $row): bool => blank($row['correction_uuid'] ?? null),
+        ));
+
+        foreach ($corrections as $row) {
+            $correctionUuid = (string) $row['correction_uuid'];
+            $existingCandidate = ContinuationCandidate::query()
+                ->where('uuid', $correctionUuid)
+                ->first();
+
+            if (! $existingCandidate) {
+                $this->skipCorrection(
+                    $result,
+                    $row,
+                    'ID Data Terusan tidak ditemukan. Download ulang data koreksi agar menggunakan ID terbaru.',
+                );
+
+                continue;
+            }
+
+            if ((int) $existingCandidate->unit_id !== (int) $row['unit_id']) {
+                $this->skipCorrection(
+                    $result,
+                    $row,
+                    'ID Data Terusan berasal dari unit lain dan tidak boleh diperbarui melalui import ini.',
+                );
+
+                continue;
+            }
+
+            if ($this->academicYear((string) $existingCandidate->academic_year) !== $this->academicYear((string) $row['academic_year'])) {
+                $this->skipCorrection(
+                    $result,
+                    $row,
+                    'ID Data Terusan berasal dari tahun ajaran lain. Pilih Tahun Ajaran yang sama dengan file ekspor.',
+                );
+
+                continue;
+            }
+
+            $hasCollision = ContinuationCandidate::query()
+                ->where('source_key', $row['source_key'])
+                ->whereKeyNot($existingCandidate->getKey())
+                ->exists();
+
+            if ($hasCollision) {
+                $this->skipCorrection(
+                    $result,
+                    $row,
+                    'NIK dan Tanggal Lahir hasil koreksi sudah digunakan data Terusan lain pada unit dan tahun ajaran yang sama.',
+                );
+
+                continue;
+            }
+
+            $payload = $row;
+            unset($payload['correction_uuid'], $payload['uuid'], $payload['created_at']);
+
+            ContinuationCandidate::query()
+                ->whereKey($existingCandidate->getKey())
+                ->update($payload);
+
+            $result['updated']++;
+        }
+
+        if ($newRows === []) {
+            return;
+        }
+
+        foreach ($newRows as &$row) {
+            unset($row['correction_uuid']);
+        }
+        unset($row);
+
+        $keys = array_column($newRows, 'source_key');
+        $existing = array_fill_keys(
+            ContinuationCandidate::query()->whereIn('source_key', $keys)->pluck('source_key')->all(),
+            true,
+        );
+
+        foreach ($newRows as $row) {
             isset($existing[$row['source_key']]) ? $result['updated']++ : $result['created']++;
         }
 
-        ContinuationCandidate::query()->upsert($buffer, ['source_key'], [
+        ContinuationCandidate::query()->upsert($newRows, ['source_key'], [
             'unit_id', 'academic_year', 'source_school_name', 'source_file', 'import_batch_uuid', 'source_row',
             'nik', 'birth_date', 'full_name', 'nisn', 'nipd', 'prefill_data', 'raw_data', 'is_active',
             'imported_by', 'imported_at', 'updated_at',
         ]);
+    }
+
+    /** @param array{processed:int,created:int,updated:int,skipped:int,errors:list<string>} $result @param array<string,mixed> $row */
+    private function skipCorrection(array &$result, array $row, string $message): void
+    {
+        $result['skipped']++;
+
+        if (count($result['errors']) < 20) {
+            $result['errors'][] = 'Baris '.($row['source_row'] ?? '?').': '.$message;
+        }
     }
 
     /** @param array<string,mixed> $raw @param list<string> $aliases */
@@ -361,6 +468,21 @@ class ContinuationCandidateImportService
         }
 
         return null;
+    }
+
+    private function boolean(mixed $value, bool $default = false): bool
+    {
+        $value = mb_strtolower($this->string($value) ?? '');
+
+        if ($value === '') {
+            return $default;
+        }
+
+        return match ($value) {
+            '1', 'ya', 'yes', 'y', 'true', 'aktif', 'active' => true,
+            '0', 'tidak', 'no', 'n', 'false', 'nonaktif', 'inactive' => false,
+            default => $default,
+        };
     }
 
     private function academicYear(string $value): string
