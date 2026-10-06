@@ -163,7 +163,7 @@ class ContinuationCandidateResource extends Resource
                         ->label('NIPD')
                         ->maxLength(50),
                 ])
-                ->columns(2),
+                ->columns(['default' => 1, 'md' => 2]),
 
             Forms\Components\Section::make('Asal & Kontak')
                 ->schema([
@@ -194,7 +194,7 @@ class ContinuationCandidateResource extends Resource
                         ->email()
                         ->maxLength(150),
                 ])
-                ->columns(2),
+                ->columns(['default' => 1, 'md' => 2]),
 
             Forms\Components\Section::make('Data Orang Tua')
                 ->schema([
@@ -225,7 +225,7 @@ class ContinuationCandidateResource extends Resource
                         ->label('Pekerjaan Ibu')
                         ->maxLength(150),
                 ])
-                ->columns(2),
+                ->columns(['default' => 1, 'md' => 2]),
 
             Forms\Components\Toggle::make('is_active')
                 ->label('Data aktif untuk autofill')
