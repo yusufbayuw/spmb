@@ -503,13 +503,41 @@ class ContinuationCandidateTest extends TestCase
         $this->assertStringContainsString('NIK 16 digit', implode(' ', $sheets['Petunjuk'][2]));
     }
 
-    public function test_resource_is_available_to_admin_unit_but_not_tu(): void
+    public function test_resource_is_available_and_editable_for_admin_unit_and_tu_with_unit_scope(): void
     {
         $this->seed(ShieldSeeder::class);
 
         $unit = Unit::create([
             'name' => 'Unit Terusan',
             'code' => 'TERUSAN',
+            'is_active' => true,
+        ]);
+        $otherUnit = Unit::create([
+            'name' => 'Unit Terusan Lain',
+            'code' => 'TERUSAN-LAIN',
+            'is_active' => true,
+        ]);
+
+        $ownCandidate = ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD Contoh',
+            'source_key' => hash('sha256', 'editable-own-candidate'),
+            'nik' => '3273010101010091',
+            'birth_date' => '2014-01-01',
+            'full_name' => 'Siswa Terusan Editable',
+            'prefill_data' => ['full_name' => 'Siswa Terusan Editable'],
+            'is_active' => true,
+        ]);
+        $otherCandidate = ContinuationCandidate::create([
+            'unit_id' => $otherUnit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD Unit Lain',
+            'source_key' => hash('sha256', 'editable-other-candidate'),
+            'nik' => '3273010101010092',
+            'birth_date' => '2014-01-02',
+            'full_name' => 'Siswa Unit Lain',
+            'prefill_data' => ['full_name' => 'Siswa Unit Lain'],
             'is_active' => true,
         ]);
 
@@ -531,12 +559,22 @@ class ContinuationCandidateTest extends TestCase
 
         $this->actingAs($adminUnit);
         $this->assertTrue(ContinuationCandidateResource::canViewAny());
+        $this->assertTrue(ContinuationCandidateResource::canEdit($ownCandidate));
+        $this->assertFalse(ContinuationCandidateResource::canEdit($otherCandidate));
         $this->get(ContinuationCandidateResource::getUrl())
             ->assertOk()
             ->assertSeeText('Download Template XLSX')
-            ->assertSeeText('Import Data');
+            ->assertSeeText('Import Data')
+            ->assertSeeText('Edit');
 
         $this->actingAs($tu);
-        $this->assertFalse(ContinuationCandidateResource::canViewAny());
+        $this->assertTrue(ContinuationCandidateResource::canViewAny());
+        $this->assertTrue(ContinuationCandidateResource::canEdit($ownCandidate));
+        $this->assertFalse(ContinuationCandidateResource::canEdit($otherCandidate));
+        $this->assertFalse(ContinuationCandidateResource::canCreate());
+        $this->get(ContinuationCandidateResource::getUrl())
+            ->assertOk()
+            ->assertSeeText('Edit')
+            ->assertDontSeeText('Import Data');
     }
 }
