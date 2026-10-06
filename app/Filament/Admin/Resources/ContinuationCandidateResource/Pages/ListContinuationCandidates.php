@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\ContinuationCandidateResource\Pages;
 use App\Filament\Admin\Resources\ContinuationCandidateResource;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
+use App\Services\ContinuationCandidateExportService;
 use App\Services\ContinuationCandidateImportService;
 use App\Services\ContinuationCandidateTemplateService;
 use Filament\Actions;
@@ -22,6 +23,67 @@ class ListContinuationCandidates extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('downloadCorrection')
+                ->label('Download Data Koreksi')
+                ->icon('heroicon-o-arrow-down-on-square-stack')
+                ->color('info')
+                ->visible(fn (): bool => ContinuationCandidateResource::canViewAny())
+                ->modalHeading('Download Data Terusan untuk Koreksi')
+                ->modalDescription('File hasil download dapat diedit lalu diunggah kembali. Kolom ID Data Terusan jangan diubah karena dipakai untuk memperbarui record yang sama, termasuk saat NIK atau tanggal lahir diganti.')
+                ->form([
+                    Forms\Components\Select::make('unit_id')
+                        ->label('Unit')
+                        ->options(fn (): array => Unit::query()
+                            ->whereIn('id', ContinuationCandidateResource::scopedQuery()->select('unit_id'))
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                            ->all())
+                        ->default(fn (): ?int => auth()->user()?->unit_id)
+                        ->disabled(fn (): bool => (auth()->user()?->isAdminUnit() ?? false) || (auth()->user()?->isTU() ?? false))
+                        ->dehydrated()
+                        ->live()
+                        ->required(),
+                    Forms\Components\Select::make('academic_year')
+                        ->label('Tahun Ajaran')
+                        ->options(fn (Forms\Get $get): array => filled($get('unit_id'))
+                            ? ContinuationCandidateResource::scopedQuery()
+                                ->where('unit_id', (int) $get('unit_id'))
+                                ->select('academic_year')
+                                ->distinct()
+                                ->orderByDesc('academic_year')
+                                ->pluck('academic_year', 'academic_year')
+                                ->all()
+                            : [])
+                        ->searchable()
+                        ->required(),
+                ])
+                ->action(function (array $data): BinaryFileResponse {
+                    $user = auth()->user();
+                    $unitId = (int) ($data['unit_id'] ?? 0);
+                    $academicYear = (string) ($data['academic_year'] ?? '');
+
+                    if (! $user || ! $unitId || $academicYear === '') {
+                        throw ValidationException::withMessages(['unit_id' => 'Unit dan tahun ajaran wajib dipilih.']);
+                    }
+
+                    if (($user->isAdminUnit() || $user->isTU()) && (int) $user->unit_id !== $unitId) {
+                        throw ValidationException::withMessages(['unit_id' => 'Anda hanya dapat mengekspor data Terusan untuk unit sendiri.']);
+                    }
+
+                    if (! ContinuationCandidateResource::scopedQuery()
+                        ->where('unit_id', $unitId)
+                        ->where('academic_year', $academicYear)
+                        ->exists()) {
+                        throw ValidationException::withMessages(['academic_year' => 'Data Terusan untuk unit dan tahun ajaran tersebut tidak ditemukan.']);
+                    }
+
+                    return app(ContinuationCandidateExportService::class)->download(
+                        $user,
+                        $unitId,
+                        $academicYear,
+                    );
+                }),
+
             Actions\Action::make('downloadTemplate')
                 ->label('Download Template XLSX')
                 ->icon('heroicon-o-arrow-down-tray')
@@ -30,7 +92,7 @@ class ListContinuationCandidates extends ListRecords
                 ->action(fn (): BinaryFileResponse => app(ContinuationCandidateTemplateService::class)->download(auth()->user())),
 
             Actions\Action::make('import')
-                ->label('Import Data')
+                ->label('Import Data / Koreksi')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->visible(fn (): bool => ContinuationCandidateResource::canCreate())
                 ->form([
@@ -57,6 +119,7 @@ class ListContinuationCandidates extends ListRecords
                         ->required(),
                     Forms\Components\FileUpload::make('file')
                         ->label('File Excel / CSV')
+                        ->helperText('Untuk koreksi massal, unggah kembali file dari "Download Data Koreksi" dan jangan mengubah kolom ID Data Terusan.')
                         ->disk('local')
                         ->directory('continuation-imports/'.auth()->id())
                         ->visibility('private')
