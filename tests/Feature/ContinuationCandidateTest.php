@@ -9,6 +9,7 @@ use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\ContinuationCandidateExportService;
 use App\Services\ContinuationCandidateImportService;
 use App\Services\ContinuationCandidateMatcher;
 use App\Services\ContinuationCandidateTemplateService;
@@ -503,6 +504,134 @@ class ContinuationCandidateTest extends TestCase
         $this->assertStringContainsString('NIK 16 digit', implode(' ', $sheets['Petunjuk'][2]));
     }
 
+    public function test_exported_correction_file_contains_stable_id_and_current_identity(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Unit Export Koreksi',
+            'code' => 'KOREKSI',
+            'is_active' => true,
+        ]);
+
+        $adminUnit = User::factory()->create([
+            'role' => 'admin_unit',
+            'unit_id' => $unit->id,
+            'is_active' => true,
+        ]);
+
+        $candidate = ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD Koreksi',
+            'source_key' => hash('sha256', 'export-correction'),
+            'nik' => '3273010101010093',
+            'birth_date' => '2014-01-01',
+            'full_name' => 'Siswa Koreksi',
+            'prefill_data' => [
+                'full_name' => 'Siswa Koreksi',
+                'gender' => 'L',
+                'previous_school' => 'SD Koreksi',
+            ],
+            'is_active' => true,
+        ]);
+
+        $export = app(ContinuationCandidateExportService::class)->export(
+            $adminUnit,
+            $unit->id,
+            '2027/2028',
+        );
+
+        $this->assertFileExists($export['path']);
+        $this->assertSame(1, $export['count']);
+
+        $reader = new Reader();
+        $reader->open($export['path']);
+        $rows = [];
+
+        try {
+            foreach ($reader->getSheetIterator() as $sheet) {
+                if ($sheet->getName() !== 'Data Terusan') {
+                    continue;
+                }
+
+                foreach ($sheet->getRowIterator() as $row) {
+                    $rows[] = $row->toArray();
+
+                    if (count($rows) >= 2) {
+                        break;
+                    }
+                }
+
+                break;
+            }
+        } finally {
+            $reader->close();
+            @unlink($export['path']);
+        }
+
+        $this->assertSame('ID Data Terusan', $rows[0][0]);
+        $this->assertSame('Tanggal Lahir', $rows[0][6]);
+        $this->assertSame('NIK', $rows[0][7]);
+        $this->assertSame($candidate->uuid, $rows[1][0]);
+        $this->assertSame('01/01/2014', $rows[1][6]);
+        $this->assertSame('3273010101010093', $rows[1][7]);
+    }
+
+    public function test_reimporting_exported_row_can_change_nik_and_birth_date_without_creating_duplicate(): void
+    {
+        $unit = Unit::create([
+            'name' => 'Unit Reimport Koreksi',
+            'code' => 'REIMPORT',
+            'is_active' => true,
+        ]);
+        $user = User::factory()->create();
+
+        $candidate = ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD Sebelum Koreksi',
+            'source_key' => hash('sha256', 'before-correction'),
+            'nik' => '3273010101010093',
+            'birth_date' => '2014-01-01',
+            'full_name' => 'Siswa Sebelum Koreksi',
+            'prefill_data' => ['full_name' => 'Siswa Sebelum Koreksi'],
+            'is_active' => true,
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'continuation_correction_').'.csv';
+        file_put_contents($path, implode("\n", [
+            'ID Data Terusan,Nama,NIK,Tanggal Lahir,Sekolah Asal,Aktif',
+            $candidate->uuid.',Siswa Setelah Koreksi,3273010202020094,02/02/2014,SD Setelah Koreksi,Ya',
+        ]));
+
+        try {
+            $result = app(ContinuationCandidateImportService::class)->import(
+                $path,
+                $unit->id,
+                '2027/2028',
+                $user->id,
+                'data-terusan-koreksi.csv',
+            );
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(0, $result['created']);
+        $this->assertSame(1, $result['updated']);
+        $this->assertSame(0, $result['skipped']);
+        $this->assertDatabaseCount('continuation_candidates', 1);
+
+        $candidate->refresh();
+
+        $this->assertSame('3273010202020094', $candidate->nik);
+        $this->assertSame('2014-02-02', $candidate->birth_date?->format('Y-m-d'));
+        $this->assertSame('Siswa Setelah Koreksi', $candidate->full_name);
+        $this->assertSame('SD Setelah Koreksi', $candidate->source_school_name);
+        $this->assertSame(
+            hash('sha256', 'match|'.$unit->id.'|2027/2028|3273010202020094|2014-02-02'),
+            $candidate->source_key,
+        );
+    }
+
     public function test_resource_is_available_and_editable_for_admin_unit_and_tu_with_unit_scope(): void
     {
         $this->seed(ShieldSeeder::class);
@@ -563,6 +692,7 @@ class ContinuationCandidateTest extends TestCase
         $this->assertFalse(ContinuationCandidateResource::canEdit($otherCandidate));
         $this->get(ContinuationCandidateResource::getUrl())
             ->assertOk()
+            ->assertSeeText('Download Data Koreksi')
             ->assertSeeText('Download Template XLSX')
             ->assertSeeText('Import Data')
             ->assertSeeText('Edit');
@@ -574,6 +704,7 @@ class ContinuationCandidateTest extends TestCase
         $this->assertFalse(ContinuationCandidateResource::canCreate());
         $this->get(ContinuationCandidateResource::getUrl())
             ->assertOk()
+            ->assertSeeText('Download Data Koreksi')
             ->assertSeeText('Edit')
             ->assertDontSeeText('Import Data');
     }
