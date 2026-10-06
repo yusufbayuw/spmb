@@ -60,7 +60,7 @@ class ContinuationCandidateMatcher
 
         $academicYear = $this->normalizeAcademicYear($opening->academic_year);
 
-        return ContinuationCandidate::query()
+        $candidate = ContinuationCandidate::query()
             ->matchable()
             ->where('unit_id', $opening->unit_id)
             ->where('nik', $nik)
@@ -71,6 +71,8 @@ class ContinuationCandidateMatcher
             ->first(fn (ContinuationCandidate $candidate): bool =>
                 $this->normalizeAcademicYear($candidate->academic_year) === $academicYear
             );
+
+        return $candidate;
     }
 
     /** @return array<string, mixed> */

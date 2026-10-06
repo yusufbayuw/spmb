@@ -22,6 +22,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class CreateRegistration extends CreateRecord
@@ -91,6 +92,16 @@ class CreateRegistration extends CreateRecord
         }
     }
 
+    public function updatedDataNik(): void
+    {
+        $this->applyContinuationPrefill();
+    }
+
+    public function updatedDataBirthDate(): void
+    {
+        $this->applyContinuationPrefill();
+    }
+
     public function applyContinuationPrefill(): void
     {
         $matcher = app(ContinuationCandidateMatcher::class);
@@ -100,7 +111,46 @@ class CreateRegistration extends CreateRecord
 
         $fingerprint = $matcher->fingerprint($openingUuid, $nik, $birthDate);
 
-        if ($fingerprint === $this->continuationLookupFingerprint) {
+        if ($fingerprint === null) {
+            return;
+        }
+
+        $candidate = $matcher->match($openingUuid, $nik, $birthDate);
+
+        if (! $candidate) {
+            $opening = RegistrationOpening::query()
+                ->where('uuid', $openingUuid)
+                ->first(['id', 'unit_id', 'academic_year']);
+
+            Log::info('continuation.prefill_not_matched', [
+                'opening_uuid' => $openingUuid,
+                'opening_id' => $opening?->id,
+                'unit_id' => $opening?->unit_id,
+                'academic_year' => $opening?->academic_year,
+                'nik_suffix' => substr(preg_replace('/\D+/', '', (string) $nik) ?: '', -4),
+                'birth_date' => is_scalar($birthDate) ? (string) $birthDate : get_debug_type($birthDate),
+                'active_identity_matches' => $opening
+                    ? \App\Models\ContinuationCandidate::query()
+                        ->where('nik', preg_replace('/\D+/', '', (string) $nik))
+                        ->whereDate('birth_date', $birthDate)
+                        ->where('is_active', true)
+                        ->get(['id', 'unit_id', 'academic_year'])
+                        ->map(fn ($row): array => [
+                            'id' => $row->id,
+                            'unit_id' => $row->unit_id,
+                            'academic_year' => $row->academic_year,
+                        ])
+                        ->all()
+                    : [],
+            ]);
+
+            return;
+        }
+
+        // If this exact identity was looked up before but the previous attempt failed
+        // to populate the form, allow the same fingerprint to try again.
+        if ($fingerprint === $this->continuationLookupFingerprint
+            && $this->continuationPrefilledValues !== []) {
             return;
         }
 
@@ -113,16 +163,6 @@ class CreateRegistration extends CreateRecord
         $this->continuationPrefilledValues = [];
         $this->continuationLookupFingerprint = $fingerprint;
 
-        if ($fingerprint === null) {
-            return;
-        }
-
-        $candidate = $matcher->match($openingUuid, $nik, $birthDate);
-
-        if (! $candidate) {
-            return;
-        }
-
         foreach ($matcher->prefill($candidate) as $path => $value) {
             $currentValue = data_get($this->data, $path);
             $isSystemDefault = $path === 'religion' && $currentValue === 'Islam';
@@ -134,6 +174,12 @@ class CreateRegistration extends CreateRecord
             data_set($this->data, $path, $value);
             $this->continuationPrefilledValues[$path] = $value;
         }
+
+        Log::info('continuation.prefill_applied', [
+            'candidate_id' => $candidate->id,
+            'opening_uuid' => $openingUuid,
+            'fields' => array_keys($this->continuationPrefilledValues),
+        ]);
     }
 
     public function privacyConsentAction(): Action

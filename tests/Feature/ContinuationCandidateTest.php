@@ -326,6 +326,60 @@ class ContinuationCandidateTest extends TestCase
         $this->assertSame('Ibu Legacy', $prefill['parentInfo.mother_name']);
     }
 
+    public function test_exact_production_like_identity_autofills_via_livewire_lifecycle_hooks(): void
+    {
+        $this->seed(ShieldSeeder::class);
+
+        $unit = Unit::create([
+            'name' => 'Sekolah Menengah Pertama',
+            'code' => 'SMP',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 805000,
+            'status' => 'open',
+        ]);
+        RegistrationPathway::create([
+            'unit_id' => $unit->id,
+            'name' => 'Akademik',
+            'is_active' => true,
+        ]);
+        ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD Taruna Bakti',
+            'source_key' => hash('sha256', 'production-like-aizhar'),
+            'nik' => '3273023105150000',
+            'birth_date' => '2015-05-31',
+            'full_name' => 'Aizhar Ilrachim Solihin',
+            'prefill_data' => [
+                'full_name' => 'Aizhar Ilrachim Solihin',
+                'previous_school' => 'SD Taruna Bakti',
+            ],
+            'is_active' => true,
+        ]);
+
+        $applicant = User::factory()->create(['role' => 'user', 'is_active' => true]);
+        $applicant->assignRole('pendaftar');
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->set('data.nik', '3273023105150000')
+            ->set('data.birth_date', '2015-05-31')
+            ->call('updatedDataBirthDate')
+            ->assertSet('data.full_name', 'Aizhar Ilrachim Solihin')
+            ->assertSet('data.previous_school', 'SD Taruna Bakti');
+    }
+
     public function test_import_does_not_silently_keep_unmatchable_continuation_rows(): void
     {
         $unit = Unit::create([
