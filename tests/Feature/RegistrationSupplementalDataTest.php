@@ -200,8 +200,8 @@ class RegistrationSupplementalDataTest extends TestCase
 
         $this->assertSame($firstPath, $achievement->certificate_path);
         $state = $service->achievementsFormState($registration->fresh());
-        $this->assertTrue($state[0]['certificate_existing']);
         $this->assertArrayNotHasKey('certificate_path', $state[0]);
+        $this->assertArrayNotHasKey('certificate_existing', $state[0]);
 
         $preserved = $service->validateAchievements($configuration, $pathway->uuid, [[
             'uuid' => $achievement->uuid,

@@ -36,9 +36,8 @@ class RegistrationSupplementalDataService
                 'year' => $achievement->year,
                 'organizer' => $achievement->organizer,
                 'description' => $achievement->description,
-                // Private paths are deliberately not hydrated into FileUpload.
-                // Existing files are accessed through the authenticated route.
-                'certificate_existing' => $achievement->hasCertificate(),
+                // Private certificate paths are deliberately not hydrated into FileUpload.
+                // validateAchievements() preserves the existing file by achievement UUID.
             ])
             ->values()
             ->all();

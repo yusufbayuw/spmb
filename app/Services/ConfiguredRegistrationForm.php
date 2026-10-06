@@ -264,13 +264,12 @@ class ConfiguredRegistrationForm
             ];
 
             if ($certificateMode !== UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE) {
-                $achievementFields[] = Hidden::make('certificate_existing')->dehydrated(false);
                 $achievementFields[] = Hidden::make('certificate_original_name');
                 $achievementFields[] = FileUpload::make('certificate_path')
                     ->label('Sertifikat / Bukti Prestasi')
                     ->helperText($certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
-                        ? 'Wajib. Unggah satu file PDF, JPG, atau PNG.'
-                        : 'Opsional. Unggah satu file PDF, JPG, atau PNG.')
+                        ? 'Wajib. Unggah satu file PDF, JPG, atau PNG. Saat mengedit prestasi yang sudah memiliki bukti, file lama tetap digunakan jika tidak diganti.'
+                        : 'Opsional. Unggah satu file PDF, JPG, atau PNG. Saat mengedit prestasi yang sudah memiliki bukti, file lama tetap digunakan jika tidak diganti.')
                     ->disk(ApplicantFileStorage::PRIVATE_DISK)
                     ->directory(fn (): string => 'pre-registration/'.auth()->id().'/achievements')
                     ->visibility('private')
@@ -279,23 +278,7 @@ class ConfiguredRegistrationForm
                     ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                     ->maxSize((int) config('spmb.uploads.max_kb', 5120))
                     ->storeFileNamesIn('certificate_original_name')
-                    ->required(fn (Forms\Get $get): bool => $certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
-                        && ! (bool) $get('certificate_existing'))
                     ->columnSpanFull();
-
-                $achievementFields[] = Actions::make([
-                    Action::make('view_existing_certificate')
-                        ->label('Lihat Sertifikat Tersimpan')
-                        ->icon('heroicon-o-document-magnifying-glass')
-                        ->color('gray')
-                        ->url(fn (Forms\Get $get, ?Registration $record): ?string => $record && filled($get('uuid'))
-                            ? route('files.applicant.achievements.certificate', ['achievement' => $get('uuid')])
-                            : null)
-                        ->visible(fn (Forms\Get $get, ?Registration $record): bool => (bool) ($record
-                            && filled($get('uuid'))
-                            && $get('certificate_existing')))
-                        ->openUrlInNewTab(),
-                ])->columnSpanFull();
             }
 
             $components['achievements'] = Section::make('Prestasi yang Pernah Diraih')
