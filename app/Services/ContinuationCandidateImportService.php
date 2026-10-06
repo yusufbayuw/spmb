@@ -306,7 +306,7 @@ class ContinuationCandidateImportService
 
             $hasCollision = ContinuationCandidate::query()
                 ->where('source_key', $row['source_key'])
-                ->whereKeyNot($existingCandidate->getKey())
+                ->where($existingCandidate->getKeyName(), '!=', $existingCandidate->getKey())
                 ->exists();
 
             if ($hasCollision) {
