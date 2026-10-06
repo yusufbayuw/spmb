@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Admin\Resources\AnnouncementResource;
 use App\Filament\Admin\Resources\SelectionResource;
+use App\Jobs\SendAnnouncementPublishedMail;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
@@ -60,6 +61,51 @@ class SelectionPublicationWorkflowTest extends TestCase
         $this->assertArrayNotHasKey('enrollment', $registration->enabledStages());
         $this->assertSame('published', $published->status);
         $this->assertNotNull($published->published_at);
+    }
+
+    public function test_correcting_published_result_queues_announcement_email_again(): void
+    {
+        Queue::fake();
+
+        [$registration, $staff] = $this->registrationAtSelectionStage();
+        $workflow = app(RegistrationWorkflowService::class);
+
+        $workflow->decide(
+            $registration,
+            $staff,
+            'accepted',
+            92,
+            'Memenuhi seluruh kriteria penerimaan.',
+        );
+
+        $announcement = $workflow->publish(
+            $registration->fresh(),
+            $staff,
+            'Pengumuman Hasil SPMB',
+            'Selamat, calon siswa dinyatakan diterima.',
+        );
+
+        Queue::assertPushed(SendAnnouncementPublishedMail::class, 1);
+
+        // Queue::fake() prevents the first job from updating email_sent_at.
+        // Simulate a successful first delivery so the correction must reset it.
+        $announcement->forceFill(['email_sent_at' => now()])->save();
+
+        $workflow->correctPublishedDecision(
+            $announcement->fresh(),
+            $staff,
+            'rejected',
+            'Koreksi setelah verifikasi ulang hasil seleksi.',
+        );
+
+        $announcement->refresh();
+        $registration->refresh();
+
+        $this->assertSame('rejected', $registration->selection()->value('decision'));
+        $this->assertSame('rejected', $registration->status);
+        $this->assertNull($announcement->email_sent_at);
+
+        Queue::assertPushed(SendAnnouncementPublishedMail::class, 2);
     }
 
     public function test_selection_and_announcement_cannot_be_created_manually_from_resources(): void
