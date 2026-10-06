@@ -380,6 +380,42 @@ class ContinuationCandidateTest extends TestCase
             ->assertSet('data.previous_school', 'SD Taruna Bakti');
     }
 
+    public function test_matcher_accepts_iso_datetime_birth_date_state(): void
+    {
+        $unit = Unit::create([
+            'name' => 'SMP ISO Date',
+            'code' => 'SMP-ISO',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 0,
+            'status' => 'open',
+        ]);
+
+        $candidate = ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD ISO',
+            'source_key' => hash('sha256', 'iso-date-candidate'),
+            'nik' => '3273023105150000',
+            'birth_date' => '2015-05-31',
+            'full_name' => 'Aizhar Ilrachim Solihin',
+            'prefill_data' => ['full_name' => 'Aizhar Ilrachim Solihin'],
+            'is_active' => true,
+        ]);
+
+        $matched = app(ContinuationCandidateMatcher::class)->match(
+            $opening->uuid,
+            '3273023105150000',
+            '2015-05-31T00:00:00+07:00',
+        );
+
+        $this->assertTrue($matched?->is($candidate));
+    }
+
     public function test_import_does_not_silently_keep_unmatchable_continuation_rows(): void
     {
         $unit = Unit::create([

@@ -53,14 +53,24 @@ class RegistrationResource extends Resource
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
                                 ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
                         )
-                        ->live(debounce: 400),
+                        ->live(debounce: 400)
+                        ->afterStateUpdated(function (\Livewire\Component $livewire): void {
+                            if (method_exists($livewire, 'applyContinuationPrefill')) {
+                                $livewire->applyContinuationPrefill();
+                            }
+                        }),
                     Forms\Components\DatePicker::make('birth_date')
                         ->label('Tanggal Lahir')
                         ->required()
                         ->native(false)
                         ->maxDate(now()->subDay())
                         ->helperText(fn (Forms\Get $get): ?string => static::openingAgeRuleText($get('registration_opening_uuid')))
-                        ->live(),
+                        ->live()
+                        ->afterStateUpdated(function (\Livewire\Component $livewire): void {
+                            if (method_exists($livewire, 'applyContinuationPrefill')) {
+                                $livewire->applyContinuationPrefill();
+                            }
+                        }),
                 ]),
 
             'registration_choice' => Forms\Components\Section::make('Pilihan Pendaftaran')

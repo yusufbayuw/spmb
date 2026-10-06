@@ -122,7 +122,7 @@ class CreateRegistration extends CreateRecord
                 ->where('uuid', $openingUuid)
                 ->first(['id', 'unit_id', 'academic_year']);
 
-            Log::info('continuation.prefill_not_matched', [
+            Log::warning('continuation.prefill_not_matched', [
                 'opening_uuid' => $openingUuid,
                 'opening_id' => $opening?->id,
                 'unit_id' => $opening?->unit_id,
@@ -175,7 +175,7 @@ class CreateRegistration extends CreateRecord
             $this->continuationPrefilledValues[$path] = $value;
         }
 
-        Log::info('continuation.prefill_applied', [
+        Log::warning('continuation.prefill_applied', [
             'candidate_id' => $candidate->id,
             'opening_uuid' => $openingUuid,
             'fields' => array_keys($this->continuationPrefilledValues),

@@ -258,7 +258,7 @@ class ContinuationCandidateMatcher
             return null;
         }
 
-        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'd.m.Y'] as $format) {
+        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'd.m.Y', 'Y-m-d H:i:s', 'Y-m-d\TH:i:sP'] as $format) {
             try {
                 $date = CarbonImmutable::createFromFormat($format, $value);
 
@@ -269,6 +269,15 @@ class ContinuationCandidateMatcher
             }
         }
 
-        return null;
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $value, $matches)
+            && checkdate((int) $matches[2], (int) $matches[3], (int) $matches[1])) {
+            return $matches[1].'-'.$matches[2].'-'.$matches[3];
+        }
+
+        try {
+            return CarbonImmutable::parse($value)->format('Y-m-d');
+        } catch (Throwable) {
+            return null;
+        }
     }
 }
