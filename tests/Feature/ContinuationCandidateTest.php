@@ -350,14 +350,14 @@ class ContinuationCandidateTest extends TestCase
         ContinuationCandidate::create([
             'unit_id' => $unit->id,
             'academic_year' => '2027/2028',
-            'source_school_name' => 'SD Taruna Bakti',
+            'source_school_name' => 'SD Contoh Utama',
             'source_key' => hash('sha256', 'production-like-aizhar'),
             'nik' => '3273023105150000',
             'birth_date' => '2015-05-31',
             'full_name' => 'Aizhar Ilrachim Solihin',
             'prefill_data' => [
                 'full_name' => 'Aizhar Ilrachim Solihin',
-                'previous_school' => 'SD Taruna Bakti',
+                'previous_school' => 'SD Contoh Utama',
             ],
             'is_active' => true,
         ]);
@@ -375,9 +375,8 @@ class ContinuationCandidateTest extends TestCase
             ->assertHasNoActionErrors()
             ->set('data.nik', '3273023105150000')
             ->set('data.birth_date', '2015-05-31')
-            ->call('updatedDataBirthDate')
             ->assertSet('data.full_name', 'Aizhar Ilrachim Solihin')
-            ->assertSet('data.previous_school', 'SD Taruna Bakti');
+            ->assertSet('data.previous_school', 'SD Contoh Utama');
     }
 
     public function test_matcher_accepts_iso_datetime_birth_date_state(): void
