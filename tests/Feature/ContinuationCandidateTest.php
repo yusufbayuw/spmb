@@ -205,7 +205,7 @@ class ContinuationCandidateTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'continuation_e2e_').'.csv';
         file_put_contents($path, implode("\n", [
             'Nama,NIK,Tanggal Lahir,Sekolah Asal,JK,Tempat Lahir,Alamat,Data Ayah,,Data Ibu,',
-            ',,,,,,,,Nama,NIK,Nama,NIK',
+            ',,,,,,,Nama,NIK,Nama,NIK',
             'Siswa E2E,3273010101010011,2014-01-01 00:00:00,SD E2E,L,Bandung,Jl. Contoh,Ayah E2E,3273010101010012,Ibu E2E,3273010101010013',
         ]));
 
