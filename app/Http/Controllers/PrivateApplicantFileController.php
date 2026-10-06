@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Models\RegistrationAchievement;
 use App\Models\ReRegistrationItem;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
@@ -89,6 +90,28 @@ class PrivateApplicantFileController extends Controller
         );
     }
 
+    public function achievementCertificate(
+        Request $request,
+        RegistrationAchievement $achievement,
+        ApplicantFileStorage $storage,
+        AuditTrail $audit,
+    ): BinaryFileResponse {
+        $achievement->loadMissing('registration');
+
+        $this->authorizeRegistration($request->user(), $achievement->registration, 'view_registration');
+        abort_unless($achievement->certificate_path, 404);
+
+        return $this->serve(
+            $request,
+            $storage,
+            $audit,
+            $achievement,
+            'achievement_certificate',
+            $achievement->certificate_path,
+            $achievement->certificateDisplayName(),
+        );
+    }
+
     public function registrationCustomField(
         Request $request,
         Registration $registration,
@@ -168,7 +191,7 @@ class PrivateApplicantFileController extends Controller
         Request $request,
         ApplicantFileStorage $storage,
         AuditTrail $audit,
-        Document|Payment|ReRegistrationItem|Registration $subject,
+        Document|Payment|ReRegistrationItem|Registration|RegistrationAchievement $subject,
         string $eventPrefix,
         string $path,
         string $fileName,

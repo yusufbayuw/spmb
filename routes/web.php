@@ -82,6 +82,10 @@ Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(functi
         ->whereUuid('registration')
         ->name('files.applicant.registration-custom-field');
 
+    Route::get('/files/applicant/achievements/{achievement}/certificate', [PrivateApplicantFileController::class, 'achievementCertificate'])
+        ->whereUuid('achievement')
+        ->name('files.applicant.achievements.certificate');
+
     Route::get('/files/applicant/payments/{payment}/proof', [PrivateApplicantFileController::class, 'paymentProof'])
         ->whereUuid('payment')
         ->name('files.applicant.payments.proof');

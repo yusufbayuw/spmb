@@ -88,6 +88,7 @@ class EditRegistration extends EditRecord
             $this->record->configuration,
             $pathway->uuid,
             $data['achievements'] ?? [],
+            $this->record,
         );
         unset($data['academic_scores'], $data['achievements']);
 

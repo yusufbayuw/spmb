@@ -80,6 +80,7 @@ class UnitConfigurationService
                 'show_year' => false,
                 'show_organizer' => false,
                 'show_description' => false,
+                'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
             ],
             'fields' => [],
             'form_groups' => [
@@ -570,6 +571,7 @@ class UnitConfigurationService
                 'show_year' => false,
                 'show_organizer' => false,
                 'show_description' => false,
+                'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
             ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
             $validated = Validator::make($data, [
@@ -626,6 +628,7 @@ class UnitConfigurationService
                 'achievement_settings.show_year' => ['required', 'boolean'],
                 'achievement_settings.show_organizer' => ['required', 'boolean'],
                 'achievement_settings.show_description' => ['required', 'boolean'],
+                'achievement_settings.certificate_mode' => ['required', Rule::in(array_keys(UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODES))],
                 'fields' => ['present', 'array', 'max:100'], 'fields.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'distinct', 'max:60'],
                 'fields.*.label' => ['required', 'string', 'max:150'], 'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean', 'file', 'placeholder'])],
                 'fields.*.active' => ['required', 'boolean'], 'fields.*.required' => ['required', 'boolean'], 'fields.*.group' => ['nullable', 'string', 'max:100'],

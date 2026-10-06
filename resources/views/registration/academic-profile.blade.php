@@ -53,6 +53,18 @@
                     @if($achievement->description)
                         <div class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $achievement->description }}</div>
                     @endif
+                    @if($achievement->certificate_path)
+                        <div class="mt-3">
+                            <a
+                                href="{{ route('files.applicant.achievements.certificate', $achievement) }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                            >
+                                Lihat Sertifikat / Bukti Prestasi
+                            </a>
+                        </div>
+                    @endif
                 </div>
             @endforeach
         </div>

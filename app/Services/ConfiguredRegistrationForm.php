@@ -11,6 +11,7 @@ use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Group;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
@@ -251,6 +252,51 @@ class ConfiguredRegistrationForm
         if ($configuration->achievements_enabled) {
             $settings = $configuration->achievement_settings ?? [];
             $levels = array_combine($settings['levels'] ?? [], $settings['levels'] ?? []);
+            $certificateMode = $configuration->achievementCertificateMode();
+
+            $achievementFields = [
+                Hidden::make('uuid'),
+                TextInput::make('title')->label('Nama Prestasi')->required()->maxLength(200)->columnSpan(['default' => 1, 'md' => 2]),
+                Select::make('level')->label('Tingkat')->options($levels)->required(),
+                TextInput::make('year')->label('Tahun')->numeric()->minValue(1900)->maxValue(now()->year + 1)->visible((bool) ($settings['show_year'] ?? false)),
+                TextInput::make('organizer')->label('Penyelenggara')->maxLength(200)->visible((bool) ($settings['show_organizer'] ?? false)),
+                Textarea::make('description')->label('Keterangan')->rows(2)->maxLength(2000)->columnSpanFull()->visible((bool) ($settings['show_description'] ?? false)),
+            ];
+
+            if ($certificateMode !== UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE) {
+                $achievementFields[] = Hidden::make('certificate_existing')->dehydrated(false);
+                $achievementFields[] = Hidden::make('certificate_original_name');
+                $achievementFields[] = FileUpload::make('certificate_path')
+                    ->label('Sertifikat / Bukti Prestasi')
+                    ->helperText($certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
+                        ? 'Wajib. Unggah satu file PDF, JPG, atau PNG.'
+                        : 'Opsional. Unggah satu file PDF, JPG, atau PNG.')
+                    ->disk(ApplicantFileStorage::PRIVATE_DISK)
+                    ->directory(fn (): string => 'pre-registration/'.auth()->id().'/achievements')
+                    ->visibility('private')
+                    ->previewable(false)
+                    ->fetchFileInformation(false)
+                    ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                    ->maxSize((int) config('spmb.uploads.max_kb', 5120))
+                    ->storeFileNamesIn('certificate_original_name')
+                    ->required(fn (Forms\Get $get): bool => $certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
+                        && ! (bool) $get('certificate_existing'))
+                    ->columnSpanFull();
+
+                $achievementFields[] = Actions::make([
+                    Action::make('view_existing_certificate')
+                        ->label('Lihat Sertifikat Tersimpan')
+                        ->icon('heroicon-o-document-magnifying-glass')
+                        ->color('gray')
+                        ->url(fn (Forms\Get $get, ?Registration $record): ?string => $record && filled($get('uuid'))
+                            ? route('files.applicant.achievements.certificate', ['achievement' => $get('uuid')])
+                            : null)
+                        ->visible(fn (Forms\Get $get, ?Registration $record): bool => (bool) ($record
+                            && filled($get('uuid'))
+                            && $get('certificate_existing')))
+                        ->openUrlInNewTab(),
+                ])->columnSpanFull();
+            }
 
             $components['achievements'] = Section::make('Prestasi yang Pernah Diraih')
                 ->description('Tambahkan prestasi yang relevan dengan jalur pendaftaran.')
@@ -260,13 +306,7 @@ class ConfiguredRegistrationForm
                         ->default([])
                         ->maxItems((int) ($settings['max_entries'] ?? 3))
                         ->minItems((bool) ($settings['required'] ?? false) ? 1 : 0)
-                        ->schema([
-                            TextInput::make('title')->label('Nama Prestasi')->required()->maxLength(200)->columnSpan(['default' => 1, 'md' => 2]),
-                            Select::make('level')->label('Tingkat')->options($levels)->required(),
-                            TextInput::make('year')->label('Tahun')->numeric()->minValue(1900)->maxValue(now()->year + 1)->visible((bool) ($settings['show_year'] ?? false)),
-                            TextInput::make('organizer')->label('Penyelenggara')->maxLength(200)->visible((bool) ($settings['show_organizer'] ?? false)),
-                            Textarea::make('description')->label('Keterangan')->rows(2)->maxLength(2000)->columnSpanFull()->visible((bool) ($settings['show_description'] ?? false)),
-                        ])
+                        ->schema($achievementFields)
                         ->columns(['default' => 1, 'md' => 2])
                         ->itemLabel(fn (array $state): string => $state['title'] ?? 'Prestasi'),
                 ])

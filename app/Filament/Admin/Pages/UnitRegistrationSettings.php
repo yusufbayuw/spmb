@@ -120,6 +120,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'show_year' => false,
             'show_organizer' => false,
             'show_description' => false,
+            'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
         ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
         $this->form->fill($data);
@@ -741,6 +742,13 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->label('Tingkat Prestasi')
                         ->default(['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'])
                         ->helperText('Contoh: Sekolah, Kabupaten/Kota, Provinsi, Nasional, Internasional.')
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
+                    Forms\Components\Select::make('achievement_settings.certificate_mode')
+                        ->label('Sertifikat / Bukti Prestasi')
+                        ->options(UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODES)
+                        ->default(UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE)
+                        ->helperText('Tidak digunakan: field upload tidak tampil. Opsional: pendaftar boleh mengunggah satu bukti per prestasi. Wajib: setiap prestasi harus memiliki satu bukti.')
+                        ->required()
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),
                     Forms\Components\Toggle::make('achievement_settings.show_year')
                         ->label('Tampilkan Tahun Prestasi')

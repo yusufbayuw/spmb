@@ -23,6 +23,18 @@ class UnitConfiguration extends Model
         self::PARTICIPANT_CARD_MODE_TEST_ONLY => 'Hanya Kartu Tes',
     ];
 
+    public const ACHIEVEMENT_CERTIFICATE_MODE_NONE = 'none';
+
+    public const ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL = 'optional';
+
+    public const ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED = 'required';
+
+    public const ACHIEVEMENT_CERTIFICATE_MODES = [
+        self::ACHIEVEMENT_CERTIFICATE_MODE_NONE => 'Tidak digunakan',
+        self::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL => 'Opsional',
+        self::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED => 'Wajib',
+    ];
+
     public const APPLICANT_PORTAL_BLOCK_LABELS = [
         'additional_information' => 'Informasi Tambahan',
         'selection_tests' => 'Tes Seleksi',
@@ -79,6 +91,19 @@ class UnitConfiguration extends Model
     public function testCardEnabled(): bool
     {
         return $this->participantCardMode() !== self::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY;
+    }
+
+    public function achievementCertificateMode(): string
+    {
+        $mode = (string) data_get(
+            $this->achievement_settings,
+            'certificate_mode',
+            self::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
+        );
+
+        return array_key_exists($mode, self::ACHIEVEMENT_CERTIFICATE_MODES)
+            ? $mode
+            : self::ACHIEVEMENT_CERTIFICATE_MODE_NONE;
     }
 
     /** @return list<array{key:string,active:bool}> */

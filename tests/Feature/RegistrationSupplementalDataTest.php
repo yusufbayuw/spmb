@@ -7,10 +7,12 @@ use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\ApplicantFileStorage;
 use App\Services\RegistrationSupplementalDataService;
 use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class RegistrationSupplementalDataTest extends TestCase
@@ -145,6 +147,73 @@ class RegistrationSupplementalDataTest extends TestCase
         $this->assertFalse(collect($rows)->contains(
             fn (array $row): bool => $row['grade_key'] === 'ix' && $row['assessment_key'] === 'semester_2',
         ));
+    }
+
+    public function test_required_achievement_certificate_is_private_preserved_and_replaced_safely(): void
+    {
+        [$unit, $staff, $registration, $pathway, $applicant] = $this->fixture();
+
+        Storage::fake(ApplicantFileStorage::PRIVATE_DISK);
+        Storage::fake(ApplicantFileStorage::LEGACY_PUBLIC_DISK);
+
+        $configurationService = app(UnitConfigurationService::class);
+        $draft = $configurationService->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['achievements_enabled'] = true;
+        $data['achievement_settings'] = [
+            'required' => true,
+            'max_entries' => 3,
+            'pathway_uuids' => [$pathway->uuid],
+            'levels' => ['Nasional'],
+            'certificate_mode' => 'required',
+        ];
+        $configuration = $configurationService->save($draft, $staff, $data, true);
+        $registration->update(['unit_configuration_id' => $configuration->id]);
+
+        $firstPath = 'pre-registration/'.$applicant->id.'/achievements/sertifikat-1.pdf';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($firstPath, "%PDF-1.4\nsertifikat pertama");
+
+        $service = app(RegistrationSupplementalDataService::class);
+        $validated = $service->validateAchievements($configuration, $pathway->uuid, [[
+            'title' => 'Olimpiade Fisika',
+            'level' => 'Nasional',
+            'certificate_path' => $firstPath,
+            'certificate_original_name' => 'sertifikat.pdf',
+        ]], $registration);
+
+        $service->sync($registration, [], $validated);
+        $achievement = $registration->achievements()->firstOrFail();
+
+        $this->assertSame($firstPath, $achievement->certificate_path);
+        $state = $service->achievementsFormState($registration->fresh());
+        $this->assertTrue($state[0]['certificate_existing']);
+        $this->assertArrayNotHasKey('certificate_path', $state[0]);
+
+        $preserved = $service->validateAchievements($configuration, $pathway->uuid, [[
+            'uuid' => $achievement->uuid,
+            'title' => 'Olimpiade Fisika - Revisi',
+            'level' => 'Nasional',
+        ]], $registration->fresh());
+        $service->sync($registration->fresh(), [], $preserved);
+
+        $this->assertSame($firstPath, $achievement->fresh()->certificate_path);
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertExists($firstPath);
+
+        $secondPath = 'pre-registration/'.$applicant->id.'/achievements/sertifikat-2.pdf';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($secondPath, "%PDF-1.4\nsertifikat pengganti");
+
+        $replacement = $service->validateAchievements($configuration, $pathway->uuid, [[
+            'uuid' => $achievement->uuid,
+            'title' => 'Olimpiade Fisika - Revisi',
+            'level' => 'Nasional',
+            'certificate_path' => $secondPath,
+            'certificate_original_name' => 'sertifikat-baru.pdf',
+        ]], $registration->fresh());
+        $service->sync($registration->fresh(), [], $replacement);
+
+        $this->assertSame($secondPath, $achievement->fresh()->certificate_path);
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertMissing($firstPath);
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertExists($secondPath);
     }
 
     public function test_existing_registration_only_updates_configuration_during_data_validation(): void

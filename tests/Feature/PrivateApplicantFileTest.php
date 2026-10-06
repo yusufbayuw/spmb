@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Models\RegistrationAchievement;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
@@ -71,6 +72,62 @@ class PrivateApplicantFileTest extends TestCase
 
         $this->actingAs($other)
             ->get(route('files.applicant.documents.show', $document))
+            ->assertForbidden();
+    }
+
+    public function test_achievement_certificate_is_private_and_owner_scoped(): void
+    {
+        [$owner, $registration] = $this->registrationForApplicant();
+        $other = $this->applicant();
+
+        $path = 'pre-registration/'.$owner->id.'/achievements/sertifikat.pdf';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($path, "%PDF-1.4\nprivate certificate");
+
+        $achievement = RegistrationAchievement::create([
+            'registration_id' => $registration->id,
+            'title' => 'Olimpiade Sains',
+            'level' => 'Nasional',
+            'certificate_path' => $path,
+            'certificate_original_name' => 'piagam.pdf',
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('files.applicant.achievements.certificate', $achievement))
+            ->assertOk();
+
+        $this->actingAs($other)
+            ->get(route('files.applicant.achievements.certificate', $achievement))
+            ->assertForbidden();
+    }
+
+    public function test_tu_can_view_achievement_certificate_only_for_own_unit_with_permission(): void
+    {
+        $unitA = Unit::create(['name' => 'SMA', 'code' => 'SMA', 'is_active' => true]);
+        $unitB = Unit::create(['name' => 'SMP', 'code' => 'SMP', 'is_active' => true]);
+
+        $tuRole = Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
+        $permission = Permission::firstOrCreate(['name' => 'view_registration', 'guard_name' => 'web']);
+        $tuRole->givePermissionTo($permission);
+
+        $tu = User::factory()->create([
+            'unit_id' => $unitA->id,
+            'is_active' => true,
+        ]);
+        $tu->assignRole($tuRole);
+
+        $owner = $this->applicant();
+        $ownRegistration = $this->registration($owner, $unitA, '3333333333333333');
+        $otherRegistration = $this->registration($owner, $unitB, '4444444444444444');
+
+        $own = $this->achievementWithPrivateFile($ownRegistration, 'own-certificate.pdf');
+        $other = $this->achievementWithPrivateFile($otherRegistration, 'other-certificate.pdf');
+
+        $this->actingAs($tu)
+            ->get(route('files.applicant.achievements.certificate', $own))
+            ->assertOk();
+
+        $this->actingAs($tu)
+            ->get(route('files.applicant.achievements.certificate', $other))
             ->assertForbidden();
     }
 
@@ -198,6 +255,20 @@ class PrivateApplicantFileTest extends TestCase
             'original_name' => $name,
             'file_type' => 'pdf',
             'file_size' => 8,
+        ]);
+    }
+
+    private function achievementWithPrivateFile(Registration $registration, string $name): RegistrationAchievement
+    {
+        $path = 'pre-registration/'.$registration->user_id.'/achievements/'.$name;
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($path, "%PDF-1.4\ncertificate");
+
+        return RegistrationAchievement::create([
+            'registration_id' => $registration->id,
+            'title' => 'Prestasi',
+            'level' => 'Nasional',
+            'certificate_path' => $path,
+            'certificate_original_name' => $name,
         ]);
     }
 
