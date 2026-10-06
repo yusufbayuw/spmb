@@ -17,6 +17,7 @@ use App\Http\Controllers\PublicUnitAdmissionsController;
 use App\Http\Controllers\RegistrationPrintController;
 use App\Http\Controllers\StartRegistrationController;
 use App\Http\Middleware\EnsureApplicantEmailIsVerified;
+use App\Http\Middleware\ValidateApplicantEmailVerificationSignature;
 use App\Services\PortalDestinationService;
 use Filament\Http\Middleware\SetUpPanel;
 use Illuminate\Support\Facades\Route;
@@ -54,7 +55,7 @@ Route::get('/verifikasi/sertifikat/{certificate}/artifact.pdf', [CertificateVeri
     ->name('certificates.pdf');
 
 Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantEmailVerificationController::class)
-    ->middleware(['auth', 'signed', 'throttle:6,1'])
+    ->middleware(['auth', ValidateApplicantEmailVerificationSignature::class, 'throttle:6,1'])
     ->whereUuid('user')
     ->name('applicant.email-verification.verify');
 
