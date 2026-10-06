@@ -80,7 +80,7 @@ class UnitConfigurationService
                 'show_year' => false,
                 'show_organizer' => false,
                 'show_description' => false,
-                'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
+                'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
             ],
             'fields' => [],
             'form_groups' => [
@@ -571,7 +571,7 @@ class UnitConfigurationService
                 'show_year' => false,
                 'show_organizer' => false,
                 'show_description' => false,
-                'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
+                'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
             ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
             $validated = Validator::make($data, [

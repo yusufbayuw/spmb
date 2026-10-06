@@ -120,7 +120,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'show_year' => false,
             'show_organizer' => false,
             'show_description' => false,
-            'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
+            'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
         ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
         $this->form->fill($data);
@@ -746,7 +746,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Select::make('achievement_settings.certificate_mode')
                         ->label('Sertifikat / Bukti Prestasi')
                         ->options(UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODES)
-                        ->default(UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE)
+                        ->default(UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL)
                         ->helperText('Tidak digunakan: field upload tidak tampil. Opsional: pendaftar boleh mengunggah satu bukti per prestasi. Wajib: setiap prestasi harus memiliki satu bukti.')
                         ->required()
                         ->visible(fn (Forms\Get $get): bool => (bool) $get('achievements_enabled')),

@@ -149,6 +149,20 @@ class RegistrationSupplementalDataTest extends TestCase
         ));
     }
 
+    public function test_legacy_achievement_configuration_shows_optional_certificate_upload_by_default(): void
+    {
+        $configuration = new \App\Models\UnitConfiguration([
+            'achievement_settings' => [
+                'levels' => ['Nasional'],
+            ],
+        ]);
+
+        $this->assertSame(
+            \App\Models\UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
+            $configuration->achievementCertificateMode(),
+        );
+    }
+
     public function test_required_achievement_certificate_is_private_preserved_and_replaced_safely(): void
     {
         [$unit, $staff, $registration, $pathway, $applicant] = $this->fixture();

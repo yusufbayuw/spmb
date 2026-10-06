@@ -98,12 +98,12 @@ class UnitConfiguration extends Model
         $mode = (string) data_get(
             $this->achievement_settings,
             'certificate_mode',
-            self::ACHIEVEMENT_CERTIFICATE_MODE_NONE,
+            self::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
         );
 
         return array_key_exists($mode, self::ACHIEVEMENT_CERTIFICATE_MODES)
             ? $mode
-            : self::ACHIEVEMENT_CERTIFICATE_MODE_NONE;
+            : self::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL;
     }
 
     /** @return list<array{key:string,active:bool}> */
