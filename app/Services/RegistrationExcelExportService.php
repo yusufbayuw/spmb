@@ -228,7 +228,7 @@ class RegistrationExcelExportService
                 $registration->status ?: '-',
                 $this->validationStatusLabel($registration->data_validation_status),
                 $registration->registrant_type === 'self' ? 'Calon peserta sendiri' : 'Orang tua / wali',
-                $this->relationshipLabel($registration->registrant_relationship),
+                $this->relationshipLabel($registration->registrant_relationship, $configuration),
                 $registration->nik,
                 $registration->full_name,
                 $registration->nickname ?: '-',
@@ -422,15 +422,24 @@ class RegistrationExcelExportService
         };
     }
 
-    private function relationshipLabel(?string $relationship): string
+    private function relationshipLabel(?string $relationship, ?UnitConfiguration $configuration = null): string
     {
+        if (blank($relationship)) {
+            return '-';
+        }
+
+        if ($configuration) {
+            return $configuration->registrantRelationshipOptions($relationship)[$relationship]
+                ?? $relationship;
+        }
+
         return match ($relationship) {
             'father' => 'Ayah',
             'mother' => 'Ibu',
             'guardian' => 'Wali',
             'self' => 'Diri Sendiri',
             'other' => 'Lainnya',
-            default => $relationship ?: '-',
+            default => $relationship,
         };
     }
 
