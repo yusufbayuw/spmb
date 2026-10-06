@@ -58,16 +58,19 @@ class ContinuationCandidateMatcher
             return null;
         }
 
-        $matches = ContinuationCandidate::query()
+        $academicYear = $this->normalizeAcademicYear($opening->academic_year);
+
+        return ContinuationCandidate::query()
             ->matchable()
             ->where('unit_id', $opening->unit_id)
-            ->where('academic_year', $opening->academic_year)
             ->where('nik', $nik)
             ->whereDate('birth_date', $birthDate)
-            ->limit(2)
-            ->get();
-
-        return $matches->count() === 1 ? $matches->first() : null;
+            ->orderByDesc('imported_at')
+            ->orderByDesc('id')
+            ->get()
+            ->first(fn (ContinuationCandidate $candidate): bool =>
+                $this->normalizeAcademicYear($candidate->academic_year) === $academicYear
+            );
     }
 
     /** @return array<string, mixed> */
@@ -117,6 +120,19 @@ class ContinuationCandidateMatcher
                 'matched_at' => now(),
             ],
         );
+    }
+
+    private function normalizeAcademicYear(mixed $value): string
+    {
+        $value = trim((string) $value);
+        $value = str_replace(['–', '—', '-'], '/', $value);
+        $value = preg_replace('/\s+/u', '', $value) ?? $value;
+
+        if (preg_match('/^(\d{4})\/(\d{4})$/', $value, $matches)) {
+            return $matches[1].'/'.$matches[2];
+        }
+
+        return $value;
     }
 
     private function normalizeNik(mixed $value): ?string

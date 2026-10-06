@@ -179,6 +179,127 @@ class ContinuationCandidateTest extends TestCase
             ->assertSet('data.parentInfo.mother_name', 'Ibu Terusan');
     }
 
+    public function test_imported_continuation_data_prefills_real_applicant_form_end_to_end(): void
+    {
+        $this->seed(ShieldSeeder::class);
+
+        $unit = Unit::create([
+            'name' => 'SMP Terusan E2E',
+            'code' => 'SMP-E2E',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 0,
+            'status' => 'open',
+        ]);
+        RegistrationPathway::create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+
+        $importer = User::factory()->create();
+        $path = tempnam(sys_get_temp_dir(), 'continuation_e2e_').'.csv';
+        file_put_contents($path, implode("\n", [
+            'Nama,NIK,Tanggal Lahir,Sekolah Asal,JK,Tempat Lahir,Alamat,Data Ayah,,Data Ibu,',
+            ',,,,,,,,Nama,NIK,Nama,NIK',
+            'Siswa E2E,3273010101010011,2014-01-01 00:00:00,SD E2E,L,Bandung,Jl. Contoh,Ayah E2E,3273010101010012,Ibu E2E,3273010101010013',
+        ]));
+
+        try {
+            $result = app(ContinuationCandidateImportService::class)->import(
+                $path,
+                $unit->id,
+                '2027 - 2028',
+                $importer->id,
+                'terusan-e2e.csv',
+            );
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(1, $result['created']);
+        $this->assertSame(0, $result['skipped']);
+        $this->assertSame('2027/2028', ContinuationCandidate::query()->value('academic_year'));
+
+        $applicant = User::factory()->create(['role' => 'user', 'is_active' => true]);
+        $applicant->assignRole('pendaftar');
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $page = Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        // Reverse the usual order too: date first, then NIK.
+        $page
+            ->set('data.birth_date', '2014-01-01')
+            ->set('data.nik', '3273010101010011')
+            ->assertSet('data.full_name', 'Siswa E2E')
+            ->assertSet('data.gender', 'L')
+            ->assertSet('data.birth_place', 'Bandung')
+            ->assertSet('data.home_address', 'Jl. Contoh')
+            ->assertSet('data.previous_school', 'SD E2E')
+            ->assertSet('data.parentInfo.father_name', 'Ayah E2E')
+            ->assertSet('data.parentInfo.mother_name', 'Ibu E2E');
+    }
+
+    public function test_matcher_uses_latest_active_duplicate_instead_of_failing_silently(): void
+    {
+        $unit = Unit::create([
+            'name' => 'SMP Duplikat Terusan',
+            'code' => 'SMP-DUP',
+            'is_active' => true,
+        ]);
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 0,
+            'status' => 'open',
+        ]);
+
+        ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027/2028',
+            'source_school_name' => 'SD Lama',
+            'source_key' => hash('sha256', 'duplicate-old'),
+            'nik' => '3273010101010015',
+            'birth_date' => '2014-01-01',
+            'full_name' => 'Nama Lama',
+            'prefill_data' => ['full_name' => 'Nama Lama'],
+            'is_active' => true,
+            'imported_at' => now()->subDay(),
+        ]);
+
+        $latest = ContinuationCandidate::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2027 / 2028',
+            'source_school_name' => 'SD Baru',
+            'source_key' => hash('sha256', 'duplicate-new'),
+            'nik' => '3273010101010015',
+            'birth_date' => '2014-01-01',
+            'full_name' => 'Nama Baru',
+            'prefill_data' => ['full_name' => 'Nama Baru'],
+            'is_active' => true,
+            'imported_at' => now(),
+        ]);
+
+        $matched = app(ContinuationCandidateMatcher::class)->match(
+            $opening->uuid,
+            '3273010101010015',
+            '2014-01-01',
+        );
+
+        $this->assertTrue($matched?->is($latest));
+    }
+
     public function test_import_does_not_silently_keep_unmatchable_continuation_rows(): void
     {
         $unit = Unit::create([

@@ -163,7 +163,13 @@ class ContinuationCandidateImportService
             return null;
         }
 
-        $sourceSchool = $this->string($this->value($raw, ['sekolah asal', 'asal sekolah', 'sekolah']));
+        $sourceSchool = $this->string($this->value($raw, [
+            'sekolah asal',
+            'asal sekolah',
+            'nama sekolah',
+            'sekolah sebelumnya',
+            'sekolah',
+        ]));
         if (! $sourceSchool) {
             throw ValidationException::withMessages(['source_school_name' => 'Sekolah Asal wajib tersedia.']);
         }
@@ -208,6 +214,7 @@ class ContinuationCandidateImportService
             'parentInfo.mother_occupation' => $this->string($this->value($raw, ['data ibu pekerjaan'])),
         ], fn (mixed $value): bool => ! blank($value));
 
+        $academicYear = $this->academicYear($academicYear);
         $sourceKey = $this->sourceKey($unitId, $academicYear, $nik, $birthDate, $nisn, $nipd, $fullName, $sourceSchool, $raw);
 
         return [
@@ -338,7 +345,15 @@ class ContinuationCandidateImportService
             return null;
         }
 
-        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'd.m.Y'] as $format) {
+        foreach ([
+            'Y-m-d',
+            'd/m/Y',
+            'd-m-Y',
+            'd.m.Y',
+            'Y-m-d H:i:s',
+            'd/m/Y H:i:s',
+            'd-m-Y H:i:s',
+        ] as $format) {
             $date = \DateTimeImmutable::createFromFormat('!'.$format, $value);
             if ($date && $date->format($format) === $value) {
                 return $date->format('Y-m-d');
@@ -346,6 +361,15 @@ class ContinuationCandidateImportService
         }
 
         return null;
+    }
+
+    private function academicYear(string $value): string
+    {
+        $value = trim($value);
+        $value = str_replace(['–', '—', '-'], '/', $value);
+        $value = preg_replace('/\s+/u', '', $value) ?? $value;
+
+        return $value;
     }
 
     private function gender(mixed $value): ?string

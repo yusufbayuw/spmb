@@ -53,7 +53,7 @@ class RegistrationResource extends Resource
                             modifyRuleUsing: fn (Unique $rule, Forms\Get $get): Unique => $rule
                                 ->where('registration_opening_id', RegistrationOpening::query()->where('uuid', $get('registration_opening_uuid'))->value('id')),
                         )
-                        ->live(onBlur: true)
+                        ->live(debounce: 400)
                         ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, \Livewire\Component $livewire): void {
                             if (method_exists($livewire, 'applyContinuationPrefill')) {
                                 $livewire->applyContinuationPrefill($get, $set);
