@@ -373,9 +373,20 @@ class CreateRegistration extends CreateRecord
         $data['registration_pathway_id'] = $pathway->id;
         $data['unit_id'] = $opening->unit_id;
         $data['unit_configuration_id'] = $configuration->id;
-        $data['registrant_relationship'] = ($data['registrant_type'] ?? 'parent') === 'self'
-            ? 'self'
-            : ($data['registrant_relationship'] ?? null);
+
+        if (($data['registrant_type'] ?? 'parent') === 'self') {
+            $data['registrant_relationship'] = 'self';
+        } else {
+            $relationship = (string) ($data['registrant_relationship'] ?? '');
+
+            if (! array_key_exists($relationship, $configuration->registrantRelationshipOptions())) {
+                throw ValidationException::withMessages([
+                    'registrant_relationship' => 'Pilih hubungan pendaftar yang tersedia untuk unit tujuan.',
+                ]);
+            }
+
+            $data['registrant_relationship'] = $relationship;
+        }
         $data['status'] = 'submitted';
         $data['current_stage'] = 'data_validation';
         $data['data_validation_status'] = 'pending';

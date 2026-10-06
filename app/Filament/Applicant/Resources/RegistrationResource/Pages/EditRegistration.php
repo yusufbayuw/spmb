@@ -92,9 +92,22 @@ class EditRegistration extends EditRecord
         );
         unset($data['academic_scores'], $data['achievements']);
 
-        $data['registrant_relationship'] = ($data['registrant_type'] ?? 'parent') === 'self'
-            ? 'self'
-            : ($data['registrant_relationship'] ?? null);
+        if (($data['registrant_type'] ?? 'parent') === 'self') {
+            $data['registrant_relationship'] = 'self';
+        } else {
+            $relationship = (string) ($data['registrant_relationship'] ?? '');
+            $allowedRelationships = $this->record->configuration
+                ?->registrantRelationshipOptions($this->record->registrant_relationship)
+                ?? [];
+
+            if (! array_key_exists($relationship, $allowedRelationships)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'registrant_relationship' => 'Pilih hubungan pendaftar yang tersedia untuk unit tujuan.',
+                ]);
+            }
+
+            $data['registrant_relationship'] = $relationship;
+        }
         unset($data['registration_opening_uuid'], $data['registration_pathway_uuid'], $data['unit_uuid'], $data['unit_configuration_uuid']);
 
         if (($this->record->data_validation_status ?? null) === 'revision') {

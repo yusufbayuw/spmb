@@ -182,6 +182,50 @@ class UnitConfigurationTest extends TestCase
         $this->assertTrue($configuredForm->hasActiveRegionFields($saved));
     }
 
+    public function test_admin_unit_can_configure_registrant_relationship_options(): void
+    {
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm([
+                'registrant_relationship_options' => [
+                    ['key' => 'father', 'label' => 'Ayah'],
+                    ['key' => 'mother', 'label' => 'Ibu'],
+                    ['key' => 'relationship_sibling', 'label' => 'Kakak'],
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $draft = UnitConfiguration::query()
+            ->where('unit_id', $unit->id)
+            ->where('status', 'draft')
+            ->firstOrFail();
+
+        $this->assertSame([
+            'father' => 'Ayah',
+            'mother' => 'Ibu',
+            'relationship_sibling' => 'Kakak',
+        ], $draft->registrantRelationshipOptions());
+    }
+
+    public function test_removed_relationship_option_does_not_hide_legacy_registration_value(): void
+    {
+        $configuration = new UnitConfiguration([
+            'registrant_relationship_options' => [
+                ['key' => 'father', 'label' => 'Ayah'],
+            ],
+        ]);
+
+        $this->assertSame([
+            'father' => 'Ayah',
+            'guardian' => 'Wali',
+        ], $configuration->registrantRelationshipOptions('guardian'));
+    }
+
     public function test_admin_can_save_all_required_builtin_policy_from_unit_settings(): void
     {
         [$unit, $staff] = $this->fixture();

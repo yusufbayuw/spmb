@@ -480,6 +480,26 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->addable(false)
                     ->deletable(false)
                     ->itemLabel(fn (array $state): string => $this->formLayoutOptions()[$state['key'] ?? ''] ?? 'Bagian formulir'),
+                Forms\Components\Repeater::make('registrant_relationship_options')
+                    ->label('Opsi Hubungan dengan Calon Peserta Didik')
+                    ->helperText('Atur pilihan yang muncul ketika pendaftaran dilakukan oleh Orang Tua / Wali. Label dapat diubah, opsi dapat ditambah/dihapus, dan urutannya mengikuti drag & drop.')
+                    ->default(UnitConfiguration::defaultRegistrantRelationshipOptions())
+                    ->schema([
+                        Forms\Components\Hidden::make('key')
+                            ->default(fn (): string => 'relationship_'.strtolower(Str::random(12)))
+                            ->required(),
+                        Forms\Components\TextInput::make('label')
+                            ->label('Nama Hubungan')
+                            ->placeholder('Contoh: Kakak, Kakek/Nenek, Paman/Bibi')
+                            ->required()
+                            ->maxLength(100),
+                    ])
+                    ->minItems(1)
+                    ->maxItems(30)
+                    ->reorderable()
+                    ->addActionLabel('Tambahkan opsi hubungan')
+                    ->itemLabel(fn (array $state): string => $state['label'] ?? 'Hubungan baru')
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('builtin_field_policy')
                     ->label('Kebijakan Isian Bawaan')
                     ->options(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES)

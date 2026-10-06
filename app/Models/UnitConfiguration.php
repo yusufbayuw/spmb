@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class UnitConfiguration extends Model
@@ -35,6 +36,13 @@ class UnitConfiguration extends Model
         self::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED => 'Wajib',
     ];
 
+    public const DEFAULT_REGISTRANT_RELATIONSHIP_OPTIONS = [
+        ['key' => 'father', 'label' => 'Ayah'],
+        ['key' => 'mother', 'label' => 'Ibu'],
+        ['key' => 'guardian', 'label' => 'Wali'],
+        ['key' => 'other', 'label' => 'Lainnya'],
+    ];
+
     public const APPLICANT_PORTAL_BLOCK_LABELS = [
         'additional_information' => 'Informasi Tambahan',
         'selection_tests' => 'Tes Seleksi',
@@ -55,9 +63,9 @@ class UnitConfiguration extends Model
         'required_documents',
     ];
 
-    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
+    protected $fillable = ['unit_id', 'version', 'status', 'payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'registrant_relationship_options', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements', 'published_at', 'legacy'];
 
-    protected $casts = ['payment_enabled' => 'boolean', 'documents_enabled' => 'boolean', 'tests_enabled' => 'boolean', 'post_announcement_enabled' => 'boolean', 'workflow_stage_labels' => 'array', 'applicant_visible_stages' => 'array', 'applicant_portal_blocks' => 'array', 'registration_number_digits' => 'integer', 'pre_form_consent' => 'array', 'workflow_blocks' => 'array', 'academic_scores_enabled' => 'boolean', 'academic_score_settings' => 'array', 'achievements_enabled' => 'boolean', 'achievement_settings' => 'array', 'fields' => 'array', 'form_groups' => 'array', 'form_layout' => 'array', 'document_requirements' => 'array', 'test_definitions' => 'array', 're_registration_requirements' => 'array', 'published_at' => 'datetime', 'legacy' => 'boolean'];
+    protected $casts = ['payment_enabled' => 'boolean', 'documents_enabled' => 'boolean', 'tests_enabled' => 'boolean', 'post_announcement_enabled' => 'boolean', 'workflow_stage_labels' => 'array', 'applicant_visible_stages' => 'array', 'applicant_portal_blocks' => 'array', 'registration_number_digits' => 'integer', 'pre_form_consent' => 'array', 'workflow_blocks' => 'array', 'registrant_relationship_options' => 'array', 'academic_scores_enabled' => 'boolean', 'academic_score_settings' => 'array', 'achievements_enabled' => 'boolean', 'achievement_settings' => 'array', 'fields' => 'array', 'form_groups' => 'array', 'form_layout' => 'array', 'document_requirements' => 'array', 'test_definitions' => 'array', 're_registration_requirements' => 'array', 'published_at' => 'datetime', 'legacy' => 'boolean'];
 
     protected static function booted(): void
     {
@@ -104,6 +112,70 @@ class UnitConfiguration extends Model
         return array_key_exists($mode, self::ACHIEVEMENT_CERTIFICATE_MODES)
             ? $mode
             : self::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL;
+    }
+
+    /** @return list<array{key:string,label:string}> */
+    public static function defaultRegistrantRelationshipOptions(): array
+    {
+        return self::DEFAULT_REGISTRANT_RELATIONSHIP_OPTIONS;
+    }
+
+    /** @return array<string,string> */
+    public static function defaultRegistrantRelationshipOptionMap(): array
+    {
+        return collect(self::DEFAULT_REGISTRANT_RELATIONSHIP_OPTIONS)
+            ->pluck('label', 'key')
+            ->all();
+    }
+
+    /** @return list<array{key:string,label:string}> */
+    public static function normalizeRegistrantRelationshipOptions(mixed $options): array
+    {
+        $normalized = collect(is_array($options) ? $options : [])
+            ->map(function (mixed $option): ?array {
+                if (! is_array($option)) {
+                    return null;
+                }
+
+                $label = trim((string) ($option['label'] ?? ''));
+                $key = trim((string) ($option['key'] ?? ''));
+
+                if ($label === '') {
+                    return null;
+                }
+
+                if ($key === '') {
+                    $key = 'relationship_'.substr(sha1(mb_strtolower($label)), 0, 12);
+                }
+
+                if (! preg_match('/^[a-z][a-z0-9_]{0,59}$/', $key)) {
+                    return null;
+                }
+
+                return ['key' => $key, 'label' => $label];
+            })
+            ->filter()
+            ->unique('key')
+            ->values()
+            ->all();
+
+        return $normalized !== [] ? $normalized : self::defaultRegistrantRelationshipOptions();
+    }
+
+    /** @return array<string,string> */
+    public function registrantRelationshipOptions(?string $includeValue = null): array
+    {
+        $options = collect(self::normalizeRegistrantRelationshipOptions($this->registrant_relationship_options))
+            ->pluck('label', 'key')
+            ->all();
+
+        if (filled($includeValue) && ! array_key_exists($includeValue, $options)) {
+            $legacyLabels = self::defaultRegistrantRelationshipOptionMap() + ['self' => 'Diri Sendiri'];
+            $options[$includeValue] = $legacyLabels[$includeValue]
+                ?? Str::of($includeValue)->replace('_', ' ')->headline()->toString();
+        }
+
+        return $options;
     }
 
     /** @return list<array{key:string,active:bool}> */

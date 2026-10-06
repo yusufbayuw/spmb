@@ -61,6 +61,7 @@ class UnitConfigurationTransferService
         'pre_form_consent',
         'workflow_blocks',
         'builtin_field_policy',
+        'registrant_relationship_options',
         'academic_scores_enabled',
         'academic_score_settings',
         'achievements_enabled',

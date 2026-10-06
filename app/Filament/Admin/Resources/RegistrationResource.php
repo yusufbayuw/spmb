@@ -8,9 +8,11 @@ use App\Filament\Forms\RegionFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
+use App\Models\UnitConfiguration;
 use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
+use App\Services\UnitConfigurationService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -128,7 +130,23 @@ class RegistrationResource extends Resource
                         ->required()->live(),
                     Forms\Components\Select::make('registrant_relationship')
                         ->label('Hubungan dengan Calon Siswa')
-                        ->options(['father' => 'Ayah', 'mother' => 'Ibu', 'guardian' => 'Wali', 'self' => 'Diri Sendiri', 'other' => 'Lainnya'])
+                        ->options(function (Forms\Get $get, ?Registration $record): array {
+                            $configuration = $record?->configuration;
+
+                            if (! $configuration) {
+                                $unitId = RegistrationOpening::query()
+                                    ->whereKey($get('registration_opening_id'))
+                                    ->value('unit_id')
+                                    ?: $get('unit_id');
+
+                                $configuration = $unitId
+                                    ? app(UnitConfigurationService::class)->current((int) $unitId)
+                                    : null;
+                            }
+
+                            return $configuration?->registrantRelationshipOptions($record?->registrant_relationship)
+                                ?? UnitConfiguration::defaultRegistrantRelationshipOptionMap();
+                        })
                         ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
                     Forms\Components\TextInput::make('registration_number')->label('No. Registrasi')->disabled()->dehydrated(false),
                     Forms\Components\TextInput::make('current_stage')

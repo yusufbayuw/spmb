@@ -61,6 +61,7 @@ class UnitConfigurationService
             'pre_form_consent' => app(RegistrationConsentService::class)->defaultConfiguration($unit),
             'workflow_blocks' => collect(Registration::DEFAULT_WORKFLOW_BLOCKS)->map(fn (string $key): array => ['key' => $key])->all(),
             'builtin_field_policy' => 'system_default',
+            'registrant_relationship_options' => UnitConfiguration::defaultRegistrantRelationshipOptions(),
             'academic_scores_enabled' => false,
             'academic_score_settings' => [
                 'required' => false,
@@ -126,7 +127,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'registrant_relationship_options', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -358,6 +359,9 @@ class UnitConfigurationService
         $data['applicant_card_header_title'] = filled($data['applicant_card_header_title'] ?? null)
             ? trim((string) $data['applicant_card_header_title'])
             : ($unit?->name ?? 'Unit / Institusi');
+        $data['registrant_relationship_options'] = UnitConfiguration::normalizeRegistrantRelationshipOptions(
+            $data['registrant_relationship_options'] ?? null,
+        );
 
         $formGroups = collect(is_array($data['form_groups'] ?? null) ? $data['form_groups'] : [])
             ->filter(fn (mixed $group): bool => is_array($group) && filled($group['key'] ?? null) && filled($group['label'] ?? null))
@@ -599,6 +603,9 @@ class UnitConfigurationService
                 'workflow_blocks' => ['present', 'array', 'size:2'],
                 'workflow_blocks.*.key' => ['required', Rule::in(array_keys(Registration::WORKFLOW_BLOCK_LABELS)), 'distinct'],
                 'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
+                'registrant_relationship_options' => ['required', 'array', 'min:1', 'max:30'],
+                'registrant_relationship_options.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]{0,59}$/', 'distinct'],
+                'registrant_relationship_options.*.label' => ['required', 'string', 'max:100', 'distinct'],
                 'academic_scores_enabled' => ['required', 'boolean'],
                 'academic_score_settings' => ['present', 'array'],
                 'academic_score_settings.required' => ['required', 'boolean'],

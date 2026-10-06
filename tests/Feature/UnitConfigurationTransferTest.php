@@ -89,6 +89,10 @@ class UnitConfigurationTransferTest extends TestCase
                 'participant_card_mode' => UnitConfiguration::PARTICIPANT_CARD_MODE_REGISTRATION_ONLY,
                 'applicant_card_header_label' => 'KARTU PESERTA',
                 'applicant_card_header_title' => 'SMP Sumber 2026',
+                'registrant_relationship_options' => [
+                    ['key' => 'father', 'label' => 'Ayah'],
+                    ['key' => 'relationship_sibling', 'label' => 'Kakak'],
+                ],
                 'legacy' => false,
             ],
         ));
@@ -150,6 +154,16 @@ class UnitConfigurationTransferTest extends TestCase
             'applicant_card_header_label' => 'KARTU PESERTA',
             'applicant_card_header_title' => 'SMP Sumber 2026',
         ]);
+
+        $importedConfiguration = UnitConfiguration::query()
+            ->where('unit_id', $target->id)
+            ->where('status', 'draft')
+            ->firstOrFail();
+
+        $this->assertSame([
+            'father' => 'Ayah',
+            'relationship_sibling' => 'Kakak',
+        ], $importedConfiguration->registrantRelationshipOptions());
     }
 
     public function test_admin_unit_only_sees_its_own_unit_in_configuration_pages(): void

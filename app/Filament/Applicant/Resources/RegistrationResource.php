@@ -115,7 +115,9 @@ class RegistrationResource extends Resource
                         ->live(),
                     Forms\Components\Select::make('registrant_relationship')
                         ->label('Hubungan dengan calon peserta didik')
-                        ->options(['father' => 'Ayah', 'mother' => 'Ibu', 'guardian' => 'Wali', 'other' => 'Lainnya'])
+                        ->options(fn (?Registration $record): array => static::formConfiguration($form, $record)
+                            ?->registrantRelationshipOptions($record?->registrant_relationship)
+                            ?? UnitConfiguration::defaultRegistrantRelationshipOptionMap())
                         ->required(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent')
                         ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
                 ]),
