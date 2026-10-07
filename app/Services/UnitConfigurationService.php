@@ -38,7 +38,7 @@ class UnitConfigurationService
         foreach ($labels as $key => $label) {
             $documents[] = ['key' => $key, 'label' => $label, 'active' => $key !== 'report_card' || $unit->code !== 'SD', 'required' => $key !== 'supporting_document', 'max_files' => 1, 'formats' => $key === 'photo' ? ['jpg', 'png'] : ['pdf', 'jpg', 'png'], 'instructions' => '', 'template_path' => null];
         }
-        $tests = $unit->admissionTests()->where('is_active', true)->get()->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score']))->all();
+        $tests = $unit->admissionTests()->where('is_active', true)->get()->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score']) + ['pathway_uuids' => []])->all();
 
         return [
             'payment_enabled' => true,
@@ -661,6 +661,8 @@ class UnitConfigurationService
                 'document_requirements.*.formats.*' => [Rule::in(['pdf', 'docx', 'jpg', 'png'])], 'document_requirements.*.instructions' => ['nullable', 'string', 'max:2000'],
                 'document_requirements.*.template_path' => ['nullable', 'string'], 'test_definitions' => ['present', 'array'],
                 'test_definitions.*.id' => ['required', 'integer', 'distinct'],
+                'test_definitions.*.pathway_uuids' => ['present', 'array'],
+                'test_definitions.*.pathway_uuids.*' => ['uuid', 'distinct'],
                 're_registration_requirements' => ['present', 'array', 'max:100'],
                 're_registration_requirements.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'max:60', 'distinct'],
                 're_registration_requirements.*.label' => ['required', 'string', 'max:150'],
@@ -774,6 +776,10 @@ class UnitConfigurationService
 
             $pathwayUuids = collect($validated['academic_score_settings']['pathway_uuids'] ?? [])
                 ->merge($validated['achievement_settings']['pathway_uuids'] ?? [])
+                ->merge(
+                    collect($validated['test_definitions'] ?? [])
+                        ->flatMap(fn (array $definition): array => $definition['pathway_uuids'] ?? []),
+                )
                 ->filter()
                 ->unique()
                 ->values();
@@ -785,7 +791,7 @@ class UnitConfigurationService
 
                 if ($matchingPathways !== $pathwayUuids->count()) {
                     throw ValidationException::withMessages([
-                        'configuration' => 'Jalur yang dipilih untuk Nilai/Prestasi harus berasal dari unit yang sama.',
+                        'configuration' => 'Jalur yang dipilih untuk Nilai/Prestasi/Tes harus berasal dari unit yang sama.',
                     ]);
                 }
             }
