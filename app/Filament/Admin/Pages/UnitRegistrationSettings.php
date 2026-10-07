@@ -94,7 +94,12 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [],
         );
         $data['test_definitions'] = collect($data['test_definitions'] ?? [])
-            ->map(fn (array $definition): array => ['uuid' => AdmissionTest::query()->whereKey($definition['id'] ?? null)->value('uuid')])
+            ->map(fn (array $definition): array => [
+                'uuid' => AdmissionTest::query()->whereKey($definition['id'] ?? null)->value('uuid'),
+                'pathway_uuids' => array_values(array_filter(
+                    is_array($definition['pathway_uuids'] ?? null) ? $definition['pathway_uuids'] : [],
+                )),
+            ])
             ->filter(fn (array $definition): bool => filled($definition['uuid']))
             ->values()
             ->all();
@@ -821,6 +826,13 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                                     ->modalHeading('Buat Tes Baru')
                                     ->modalWidth(MaxWidth::ThreeExtraLarge))
                                 ->required(),
+                            Forms\Components\Select::make('pathway_uuids')
+                                ->label('Aktif pada Jalur')
+                                ->helperText('Kosongkan untuk mengaktifkan tes ini pada semua jalur pendaftaran unit.')
+                                ->multiple()
+                                ->searchable()
+                                ->preload()
+                                ->options(fn (): array => $this->pathwayOptions()),
                         ])
                         ->extraItemActions([
                             Action::make('manageSessions')
@@ -945,6 +957,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->where('unit_id', $configuration->unit_id)
                     ->where('uuid', $definition['uuid'] ?? null)
                     ->value('id'),
+                'pathway_uuids' => array_values(array_filter(
+                    is_array($definition['pathway_uuids'] ?? null) ? $definition['pathway_uuids'] : [],
+                )),
             ])
             ->all();
 
@@ -1003,7 +1018,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get()
-            ->map(fn (AdmissionTest $test): array => ['uuid' => $test->uuid])
+            ->map(fn (AdmissionTest $test): array => ['uuid' => $test->uuid, 'pathway_uuids' => []])
             ->values()
             ->all();
     }
