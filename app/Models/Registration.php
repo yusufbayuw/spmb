@@ -402,7 +402,21 @@ class Registration extends Model
             return [];
         }
 
-        return array_values(array_filter($this->configuration->test_definitions, fn (array $test): bool => empty($test['study_program_id']) || (int) $test['study_program_id'] === (int) $this->opening?->study_program_id));
+        $pathwayUuid = $this->pathway?->uuid
+            ?? RegistrationPathway::query()->whereKey($this->registration_pathway_id)->value('uuid');
+
+        return array_values(array_filter($this->configuration->test_definitions, function (array $test) use ($pathwayUuid): bool {
+            $matchesProgram = empty($test['study_program_id'])
+                || (int) $test['study_program_id'] === (int) $this->opening?->study_program_id;
+
+            $pathwayUuids = is_array($test['pathway_uuids'] ?? null)
+                ? array_values(array_filter($test['pathway_uuids']))
+                : [];
+            $matchesPathway = $pathwayUuids === []
+                || (filled($pathwayUuid) && in_array($pathwayUuid, $pathwayUuids, true));
+
+            return $matchesProgram && $matchesPathway;
+        }));
     }
 
     public function documentRequirements(): array

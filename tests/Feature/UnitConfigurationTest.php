@@ -1109,6 +1109,69 @@ class UnitConfigurationTest extends TestCase
         $this->assertSame('007', $created->rw);
     }
 
+    public function test_each_test_can_be_limited_to_selected_registration_pathways(): void
+    {
+        [$unit, $staff, $registration] = $this->fixture();
+
+        $regular = RegistrationPathway::factory()->create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+        $achievement = RegistrationPathway::factory()->create([
+            'unit_id' => $unit->id,
+            'name' => 'Prestasi',
+            'is_active' => true,
+        ]);
+
+        $generalTest = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Umum',
+            'code' => 'GENERAL',
+            'sort_order' => 1,
+            'is_required' => true,
+            'is_active' => true,
+            'result_type' => 'score',
+        ]);
+        $achievementTest = AdmissionTest::create([
+            'unit_id' => $unit->id,
+            'name' => 'Tes Prestasi',
+            'code' => 'ACH',
+            'sort_order' => 2,
+            'is_required' => true,
+            'is_active' => true,
+            'result_type' => 'score',
+        ]);
+
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['tests_enabled'] = true;
+        $data['test_definitions'] = [
+            ['id' => $generalTest->id, 'pathway_uuids' => []],
+            ['id' => $achievementTest->id, 'pathway_uuids' => [$achievement->uuid]],
+        ];
+        $configuration = $service->save($draft, $staff, $data, true);
+
+        $registration->update([
+            'unit_configuration_id' => $configuration->id,
+            'registration_pathway_id' => $regular->id,
+        ]);
+        $registration->unsetRelation('configuration')->unsetRelation('pathway');
+
+        $this->assertSame(
+            [$generalTest->id],
+            collect($registration->fresh(['configuration', 'pathway'])->configuredTests())->pluck('id')->all(),
+        );
+
+        $registration->update(['registration_pathway_id' => $achievement->id]);
+
+        $this->assertSame(
+            [$generalTest->id, $achievementTest->id],
+            collect($registration->fresh(['configuration', 'pathway'])->configuredTests())->pluck('id')->all(),
+        );
+    }
+
     public function test_admin_can_end_workflow_after_tests_and_customize_applicant_progress_and_message(): void
     {
         [$unit, $staff, $registration, $parent] = $this->fixture();
