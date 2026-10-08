@@ -11,19 +11,21 @@ abstract class ShieldResourcePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasOperationalUnitAccess()
+        return $user->is_active
+            && $user->hasOperationalUnitAccess()
             && $user->can('view_any_'.static::KEY);
     }
 
     public function view(User $user, Model $record): bool
     {
-        return $user->hasOperationalUnitAccess()
+        return app(\App\Services\UnitRecordAccess::class)->allows($user, $record)
             && $user->can('view_'.static::KEY);
     }
 
     public function create(User $user): bool
     {
-        return $user->hasOperationalUnitAccess()
+        return $user->is_active
+            && $user->hasOperationalUnitAccess()
             && $user->can('create_'.static::KEY)
             && app(\App\Services\CertificationAccessService::class)
                 ->allowsResourceMutation($user, static::KEY, 'create');
@@ -31,7 +33,7 @@ abstract class ShieldResourcePolicy
 
     public function update(User $user, Model $record): bool
     {
-        return $user->hasOperationalUnitAccess()
+        return app(\App\Services\UnitRecordAccess::class)->allows($user, $record)
             && $user->can('update_'.static::KEY)
             && app(\App\Services\CertificationAccessService::class)
                 ->allowsResourceMutation($user, static::KEY, 'update');
@@ -48,7 +50,7 @@ abstract class ShieldResourcePolicy
 
     public function replicate(User $user, Model $record): bool
     {
-        return $user->hasOperationalUnitAccess()
+        return app(\App\Services\UnitRecordAccess::class)->allows($user, $record)
             && $user->can('replicate_'.static::KEY)
             && app(\App\Services\CertificationAccessService::class)
                 ->allowsResourceMutation($user, static::KEY, 'replicate');
@@ -56,7 +58,8 @@ abstract class ShieldResourcePolicy
 
     public function reorder(User $user): bool
     {
-        return $user->hasOperationalUnitAccess()
+        return $user->is_active
+            && $user->hasOperationalUnitAccess()
             && $user->can('reorder_'.static::KEY)
             && app(\App\Services\CertificationAccessService::class)
                 ->allowsResourceMutation($user, static::KEY, 'reorder');
