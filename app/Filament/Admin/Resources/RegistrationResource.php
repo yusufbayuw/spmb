@@ -20,6 +20,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\Rules\Unique;
 
 class RegistrationResource extends Resource
@@ -339,6 +340,29 @@ class RegistrationResource extends Resource
                         Notification::make()->title('Pendaftaran diaktifkan kembali')->success()->send();
                     }),
                 Tables\Actions\EditAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('archiveCompleted')
+                        ->label('Arsipkan pendaftaran selesai')
+                        ->icon('heroicon-o-archive-box')
+                        ->requiresConfirmation()
+                        ->authorize('update_registration')
+                        ->action(function (Collection $records): void {
+                            $archived = 0;
+                            $skipped = 0;
+                            foreach ($records as $record) {
+                                if ($record->lifecycle_status === 'archived' || ($record->current_stage !== 'completed' && $record->isOperational()) || ! auth()->user()?->can('update', $record)) {
+                                    $skipped++;
+                                    continue;
+                                }
+                                $record->changeLifecycle('archived', auth()->user(), $record->lifecycle_reason ?: 'Diarsipkan secara massal setelah proses selesai.');
+                                $archived++;
+                            }
+                            Notification::make()->title("{$archived} pendaftaran diarsipkan; {$skipped} dilewati")->success()->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ]);
     }
 
