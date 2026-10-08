@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/laravel",
     "type": "project",
-    "description": "SPMB Taruna Bakti built with Laravel and Filament.",
+    "description": "White-label admissions management platform built with Laravel and Filament.",
     "keywords": ["laravel", "filament", "spmb"],
     "license": "MIT",
     "require": {
