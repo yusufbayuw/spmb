@@ -251,6 +251,61 @@ Aturan:
 
 CI memiliki regression test yang memeriksa agar deployment-specific branding tidak kembali masuk ke source repository.
 
+## Data Lifecycle dan Bulk Action (Status Implementasi)
+
+SPMB memisahkan **konfigurasi** dari **data operasional**. Konfigurasi yang harus dipertahankan saat pembersihan meliputi unit, profil dan branding, program studi, jalur, pembukaan pendaftaran, tahun ajaran/gelombang, kuota, biaya, formulir, workflow, definisi dan jadwal tes, role/permission, serta pengaturan aplikasi. Akun staf juga dipertahankan.
+
+### Bulk action Filament
+
+- **Pendaftaran:** pilih beberapa baris melalui checkbox, kemudian **Arsipkan pendaftaran selesai**. Aksi meminta konfirmasi, memeriksa status dan otorisasi tiap record, lalu melaporkan jumlah berhasil/dilewati. Arsip bukan penghapusan permanen.
+- **Pool Virtual Account:** pilih beberapa baris lalu **Batalkan VA tersedia**. Hanya VA berstatus `available`, tanpa `registration_id` dan tanpa pembayaran yang diproses. VA assigned/paid tidak dibatalkan melalui aksi ini.
+- Bulk action untuk resource lain (dokumen, pembayaran, tes, seleksi, daftar ulang) **belum diimplementasikan secara menyeluruh**.
+
+### Reset development — status parsial, jangan eksekusi
+
+**Penting:** Perintah reset saat ini masih implementasi awal. Belum mencakup seluruh relasi/tabel operasional, file privat, dan queue; belum diuji end-to-end. **Jangan jalankan `spmb:reset-operational --execute` pada database yang bernilai penting.**
+
+Perintah yang tersedia:
+
+```bash
+# Pratinjau ringkas jumlah pendaftar, pembayaran, dan VA
+php artisan spmb:dev-reset-preview
+
+# Pratinjau tabel operasional yang ada pada allowlist
+php artisan spmb:reset-operational
+
+# Ada tetapi BELUM direkomendasikan untuk dijalankan:
+# php artisan spmb:reset-operational --execute
+```
+
+Kedua perintah reset menolak `APP_ENV=production`. Namun, `APP_ENV` non-production **tidak menjamin** database terhubung ke server non-production. Verifikasi `DB_HOST`, `DB_DATABASE`, backup, serta seluruh relasi dan VA terlebih dahulu. Perintah reset saat ini menolak eksekusi jika ditemukan VA assigned/paid, tidak menonaktifkan foreign key, dan tidak menghapus konfigurasi secara sengaja. Kegagalan relasi harus ditangani melalui perbaikan kode, **bukan** dengan menonaktifkan constraint.
+
+Pool VA adalah identitas yang mungkin diterbitkan bank: jangan menghapus atau mengembalikan VA paid/assigned menjadi available tanpa rekonsiliasi dan kepastian aturan bank. Pembayaran dan bukti pembayaran nyata tidak boleh dianggap data demo hanya berdasarkan `APP_ENV`.
+
+### Hardening password staf
+
+```bash
+# Preview jumlah akun staf
+php artisan spmb:harden-staff-passwords
+
+# Rotasi password setelah konfirmasi (non-production saja)
+php artisan spmb:harden-staff-passwords --execute
+```
+
+Aksi ini mencakup `super_admin`, `admin_unit`, dan `tu`; setiap password diganti dengan nilai acak berbeda, remember token diperbarui, token pemulihan lama dihapus, dan sesi **database** staf dicabut. Tidak ada password baru yang ditampilkan: staf harus menggunakan alur pemulihan password. Jika `SESSION_DRIVER` memakai Redis/file, sesi pada driver tersebut belum otomatis dicabut oleh perintah ini. Pastikan mekanisme pemulihan email berfungsi sebelum menjalankan rotasi.
+
+### Pergantian tahun ajaran
+
+Pembukaan pendaftaran menyimpan `academic_year` dan `wave`. **Arsip tahun lama, bukan hapus**, terutama saat daftar ulang tahun sebelumnya masih berjalan. Pembukaan tahun baru sebaiknya dibuat sebagai draft dengan konfigurasi yang ditinjau ulang, bukan menimpa record historis. Wizard rollover otomatis dan master tahun ajaran khusus **belum tersedia**; jangan menganggap reset development sebagai prosedur pergantian tahun.
+
+### Checklist sebelum operasi destruktif
+
+1. Pastikan environment, koneksi database, dan identitas deployment yang dituju.
+2. Backup database **dan** file privat; uji pemulihan backup.
+3. Rekonsiliasi VA, pembayaran, kuitansi, serta antrean notifikasi.
+4. Jalankan preview; evaluasi data yang akan terhapus dan konfigurasi yang harus tetap ada.
+5. Lakukan eksekusi hanya setelah dependensi, cakupan file, dan pengujian reset diselesaikan.
+
 ## Testing
 
 Jalankan:
