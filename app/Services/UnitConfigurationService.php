@@ -492,6 +492,16 @@ class UnitConfigurationService
 
         $data['form_layout'] = array_map(fn (string $key): array => ['key' => $key], $configuredLayout);
 
+        // Older editors and stored configurations may omit pathway_uuids.
+        // An omitted scope means the test applies to every registration pathway.
+        if (is_array($data['test_definitions'] ?? null)) {
+            foreach ($data['test_definitions'] as $index => $definition) {
+                if (is_array($definition) && ! array_key_exists('pathway_uuids', $definition)) {
+                    $data['test_definitions'][$index]['pathway_uuids'] = [];
+                }
+            }
+        }
+
         return $data;
     }
 
