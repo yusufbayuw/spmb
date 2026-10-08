@@ -140,10 +140,17 @@ class AuditTrail
         );
     }
 
+    /**
+     * Mask personal data in model snapshots, explicit audit events and metadata.
+     * Identifiers such as registration_id and unit_id are retained for traceability.
+     */
     private function sanitize(array $values): array
     {
         foreach ($values as $key => $value) {
-            if (in_array((string) $key, self::MASKED_KEYS, true)) {
+            $name = strtolower((string) $key);
+
+            if (in_array($name, self::MASKED_KEYS, true)
+                || preg_match('/(?:^|_)(?:nik|nisn|npwp|name|email|phone|mobile|whatsapp|address|birth|religion|guardian|father|mother|password|secret|token|credential|custom_answers|medical|income|file_path|proof_path|original_name|notes?|description|ip_address|user_agent)(?:_|$)/', $name)) {
                 $values[$key] = '[REDACTED]';
 
                 continue;
