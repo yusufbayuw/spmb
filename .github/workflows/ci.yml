@@ -3,20 +3,21 @@ name: SPMB CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
+# CI validates committed dependencies and never pushes to the repository.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  test-and-sync-lock:
+  test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -31,22 +32,14 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Resolve Composer dependencies
-        run: composer update --with-all-dependencies --no-interaction --prefer-dist --no-scripts
+      - name: Validate Composer definition and lockfile
+        run: composer validate --no-check-publish
 
-      - name: Sync composer.lock
-        run: |
-          if ! git diff --quiet -- composer.lock; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add composer.lock
-            git commit -m "chore: sync composer lock"
-            git pull --rebase origin main
-            git push origin HEAD:main
-          fi
+      - name: Install Composer dependencies from lockfile
+        run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+      - name: PHP syntax check
+        run: find app database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
 
       - name: Build frontend
         run: |
