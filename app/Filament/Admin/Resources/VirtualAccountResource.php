@@ -86,8 +86,8 @@ class VirtualAccountResource extends Resource
                     ->action(fn (VirtualAccount $record) => $record->update(['status' => 'cancelled'])),
             ])
             ->bulkActions([
-                Tables\\Actions\\BulkActionGroup::make([
-                    Tables\\Actions\\BulkAction::make('cancelAvailable')
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('cancelAvailable')
                         ->label('Batalkan VA tersedia')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
