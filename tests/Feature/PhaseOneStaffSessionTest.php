@@ -25,6 +25,22 @@ class PhaseOneStaffSessionTest extends TestCase
             ->assertRedirect(route('login'));
     }
 
+    public function test_rotation_changes_staff_password_and_invalidates_previous_session_generation(): void
+    {
+        Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
+        $staff = User::factory()->create(['auth_version' => 0]);
+        $staff->assignRole('tu');
+        $previousHash = $staff->password;
+
+        $this->artisan('spmb:harden-staff-passwords', ['--execute' => true])
+            ->expectsConfirmation('Rotate all staff passwords, revoke sessions, and require password recovery?', 'yes')
+            ->assertExitCode(0);
+
+        $staff->refresh();
+        $this->assertNotSame($previousHash, $staff->password);
+        $this->assertSame(1, $staff->auth_version);
+    }
+
     public function test_password_rotation_command_defaults_to_preview(): void
     {
         Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
