@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Admin\Pages\Auth\Login;
 use App\Filament\Support\LocalLoginBackgrounds;
 use App\Http\Middleware\RedirectLegacyPanelLogin;
+use App\Http\Middleware\EnsureCurrentStaffSession;
 use App\Services\AppBrandingService;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
@@ -55,6 +56,6 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('components.panel-body-end'),
             )
             ->middleware([EncryptCookies::class,AddQueuedCookiesToResponse::class,StartSession::class,RedirectLegacyPanelLogin::class,AuthenticateSession::class,ShareErrorsFromSession::class,VerifyCsrfToken::class,SubstituteBindings::class,DisableBladeIconComponents::class,DispatchServingFilamentEvent::class])
-            ->authMiddleware([Authenticate::class]);
+            ->authMiddleware([Authenticate::class,EnsureCurrentStaffSession::class]);
     }
 }
