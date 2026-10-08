@@ -205,8 +205,9 @@ class ResetOperationalData extends Command
     {
         return User::query()
             ->where(function ($query): void {
-                $query->whereIn('role', ['pendaftar', 'user'])
-                    ->orWhereHas('roles', fn ($roles) => $roles->where('name', 'pendaftar'));
+                $query->where('role', 'pendaftar')
+                    ->orWhereHas('roles', fn ($roles) => $roles->where('name', 'pendaftar'))
+                    ->orWhere(fn ($legacy) => $legacy->where('role', 'user')->whereHas('registrations'));
             })
             ->whereNotIn('role', ['super_admin', 'admin_unit', 'tu'])
             ->whereDoesntHave('roles', fn ($roles) => $roles->whereIn('name', ['super_admin', 'admin_unit', 'tu']))
