@@ -8,6 +8,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Filament\Notifications\Notification;
 
 class VirtualAccountResource extends Resource
 {
@@ -82,6 +84,35 @@ class VirtualAccountResource extends Resource
                     ->requiresConfirmation()
                     ->visible(fn (VirtualAccount $record): bool => $record->status === 'available' && auth()->user()?->can('update_virtualaccount'))
                     ->action(fn (VirtualAccount $record) => $record->update(['status' => 'cancelled'])),
+            ])
+            ->bulkActions([
+                Tables\\Actions\\BulkActionGroup::make([
+                    Tables\\Actions\\BulkAction::make('cancelAvailable')
+                        ->label('Batalkan VA tersedia')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalDescription('Hanya VA yang belum ditugaskan dan tidak memiliki pembayaran yang dibatalkan. VA bertransaksi tetap dilindungi.')
+                        ->authorize('update_virtualaccount')
+                        ->action(function (Collection $records): void {
+                            $cancelled = 0;
+                            $skipped = 0;
+                            foreach ($records as $record) {
+                                $changed = VirtualAccount::query()
+                                    ->whereKey($record->getKey())
+                                    ->where('status', 'available')
+                                    ->whereNull('registration_id')
+                                    ->whereDoesntHave('payment')
+                                    ->update(['status' => 'cancelled']);
+                                $changed ? $cancelled++ : $skipped++;
+                            }
+                            Notification::make()
+                                ->title("{$cancelled} VA dibatalkan; {$skipped} dilewati")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ]);
     }
 
