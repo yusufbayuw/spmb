@@ -114,6 +114,10 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(Login::class, function (Login $event): void {
             if ($event->user instanceof User) {
+                if ($event->user->hasAnyRole(['super_admin', 'admin_unit', 'tu'])) {
+                    session()->put('spmb_staff_auth_version', (int) $event->user->auth_version);
+                }
+
                 app(AuditTrail::class)->record(
                     'auth.login',
                     $event->user,
