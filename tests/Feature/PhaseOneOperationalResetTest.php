@@ -40,6 +40,7 @@ class PhaseOneOperationalResetTest extends TestCase
         Storage::fake(ApplicantFileStorage::LEGACY_PUBLIC_DISK);
 
         [$unit, $opening, $applicant, $registration] = $this->fixture();
+        $unrelatedUser = User::factory()->create(['role' => 'user']);
         $path = 'documents/'.$registration->id.'/file.pdf';
         Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($path, '%PDF-1.4 example');
 
@@ -72,9 +73,21 @@ class PhaseOneOperationalResetTest extends TestCase
 
         $this->assertDatabaseMissing('registrations', ['id' => $registration->id]);
         $this->assertDatabaseMissing('users', ['id' => $applicant->id]);
+        $this->assertDatabaseHas('users', ['id' => $unrelatedUser->id]);
         $this->assertDatabaseHas('registration_openings', ['id' => $opening->id]);
         $this->assertDatabaseHas('units', ['id' => $unit->id]);
         Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertMissing($path);
+    }
+
+    public function test_production_configuration_blocks_reset_even_in_testing_runtime(): void
+    {
+        [$unit, $opening, $applicant, $registration] = $this->fixture();
+        config()->set('app.env', 'production');
+
+        $this->artisan('spmb:reset-operational')->assertExitCode(1);
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
+        $this->assertDatabaseHas('registration_openings', ['id' => $opening->id]);
     }
 
     private function fixture(): array
