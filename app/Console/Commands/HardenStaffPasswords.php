@@ -21,7 +21,7 @@ class HardenStaffPasswords extends Command
             return self::FAILURE;
         }
 
-        $staff = User::query()->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['super_admin', 'admin_unit', 'tu']))->get();
+        $staff = User::query()->where(fn ($query) => $query->whereIn('role', ['super_admin', 'admin_unit', 'tu'])->orWhereHas('roles', fn ($roles) => $roles->whereIn('name', ['super_admin', 'admin_unit', 'tu'])))->get();
         $this->components->info("{$staff->count()} administrator/TU accounts would be rotated.");
         if (! $this->option('execute')) {
             $this->line('Dry run only. Add --execute to rotate passwords and revoke database sessions.');
