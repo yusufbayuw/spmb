@@ -17,6 +17,7 @@ use App\Http\Controllers\PublicUnitAdmissionsController;
 use App\Http\Controllers\RegistrationPrintController;
 use App\Http\Controllers\StartRegistrationController;
 use App\Http\Middleware\EnsureApplicantEmailIsVerified;
+use App\Http\Middleware\EnsureCurrentStaffSession;
 use App\Http\Middleware\ValidateApplicantEmailVerificationSignature;
 use App\Services\PortalDestinationService;
 use Filament\Http\Middleware\SetUpPanel;
@@ -75,7 +76,7 @@ Route::middleware(['auth', 'throttle:30,1'])
             ->name('subscriptions.destroy');
     });
 
-Route::middleware(['auth', EnsureApplicantEmailIsVerified::class])->group(function () {
+Route::middleware(['auth', EnsureCurrentStaffSession::class, EnsureApplicantEmailIsVerified::class])->group(function () {
     Route::get('/files/applicant/documents/{document}', [PrivateApplicantFileController::class, 'document'])
         ->whereUuid('document')
         ->name('files.applicant.documents.show');
