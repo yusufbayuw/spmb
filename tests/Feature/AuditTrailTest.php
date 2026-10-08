@@ -76,6 +76,35 @@ class AuditTrailTest extends TestCase
         $this->assertStringNotContainsString('new-secret-password', json_encode($log->new_values));
     }
 
+    public function test_personal_data_is_redacted_from_nested_audit_payloads(): void
+    {
+        $unit = Unit::create(['name' => 'Unit Privacy', 'code' => 'PRIVACY', 'is_active' => true]);
+        $registration = $this->registration($unit);
+
+        $registration->update([
+            'full_name' => 'Private Participant',
+            'home_address' => 'Private Street',
+            'data_validation_status' => 'revision',
+        ]);
+
+        $log = AuditLog::query()->where('event', 'registration.updated')->latest('id')->firstOrFail();
+
+        $this->assertSame('[REDACTED]', $log->new_values['full_name']);
+        $this->assertSame('[REDACTED]', $log->new_values['home_address']);
+        $this->assertSame('revision', $log->new_values['data_validation_status']);
+
+        app(\App\Services\AuditTrail::class)->record(
+            'privacy.test',
+            metadata: ['email' => 'private@example.test', 'nested' => ['nik' => 'private-id'], 'unit_id' => $unit->id],
+        );
+
+        $metadata = AuditLog::query()->where('event', 'privacy.test')->latest('id')->firstOrFail()->metadata;
+
+        $this->assertSame('[REDACTED]', $metadata['email']);
+        $this->assertSame('[REDACTED]', $metadata['nested']['nik']);
+        $this->assertSame($unit->id, $metadata['unit_id']);
+    }
+
     public function test_audit_log_cannot_be_updated_or_deleted_through_model(): void
     {
         $unit = Unit::create(['name' => 'SMP', 'code' => 'SMP', 'is_active' => true]);
