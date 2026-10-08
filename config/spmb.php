@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'reset' => [
+        // SHA-256 fingerprint from spmb:reset-operational preview. Never set on production.
+        'allowed_target' => env('SPMB_RESET_ALLOWED_TARGET'),
+    ],
+
     'operations' => [
         'mode' => env('SPMB_MODE_OPS', 'MIXED'),
     ],
