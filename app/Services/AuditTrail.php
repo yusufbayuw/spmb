@@ -144,6 +144,12 @@ class AuditTrail
      * Mask personal data in model snapshots, explicit audit events and metadata.
      * Identifiers such as registration_id and unit_id are retained for traceability.
      */
+    /** Public entry point for explicitly approved historical-log remediation. */
+    public function redactPayload(array $values): array
+    {
+        return $this->sanitize($values);
+    }
+
     private function sanitize(array $values): array
     {
         foreach ($values as $key => $value) {
