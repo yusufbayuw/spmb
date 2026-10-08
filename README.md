@@ -261,38 +261,53 @@ SPMB memisahkan **konfigurasi** dari **data operasional**. Konfigurasi yang haru
 - **Pool Virtual Account:** pilih beberapa baris lalu **Batalkan VA tersedia**. Hanya VA berstatus `available`, tanpa `registration_id` dan tanpa pembayaran yang diproses. VA assigned/paid tidak dibatalkan melalui aksi ini.
 - Bulk action untuk resource lain (dokumen, pembayaran, tes, seleksi, daftar ulang) **belum diimplementasikan secara menyeluruh**.
 
-### Reset development — status parsial, jangan eksekusi
+### Reset development — konfigurasi dipertahankan
 
-**Penting:** Perintah reset saat ini masih implementasi awal. Belum mencakup seluruh relasi/tabel operasional, file privat, dan queue; belum diuji end-to-end. **Jangan jalankan `spmb:reset-operational --execute` pada database yang bernilai penting.**
+**Perintah ini khusus pengembangan/testing, bukan prosedur penggantian tahun ajaran atau pembersihan production.** Reset menghapus data operasional penerimaan dan akun pendaftar yang cocok, tetapi menjaga unit, profil, jalur, pembukaan pendaftaran, kuota, definisi/sesi tes, konfigurasi workflow, role/permission, akun staf, dan pool VA. Verifikasi pembayaran tetap **manual oleh Admin Unit/TU berdasarkan bukti transfer**, bukan callback bank.
 
-Perintah yang tersedia:
+**Pengaman reset:**
+
+- Menolak `APP_ENV=production`.
+- Memerlukan fingerprint koneksi database yang sama pada `SPMB_RESET_ALLOWED_TARGET` (konfigurasi server) dan argumen `--target`.
+- Menolak VA berstatus `assigned`/`paid` atau masih memiliki `registration_id`. Jangan memutihkan atau mendaur ulang VA riil.
+- Memerlukan konfirmasi operator interaktif dan pernyataan bahwa backup database **serta file privat** sudah diuji pemulihannya.
+- Menghapus tabel operasional berdasarkan allowlist tanpa menonaktifkan foreign key; perubahan database menggunakan transaksi.
+- Menghitung hash tabel konfigurasi dan snapshot akun staf, lalu membatalkan transaksi jika berubah.
+- Menyimpan manifest file privat di storage lokal sehingga cleanup dapat dilanjutkan jika terputus.
 
 ```bash
-# Pratinjau ringkas jumlah pendaftar, pembayaran, dan VA
-php artisan spmb:dev-reset-preview
-
-# Pratinjau tabel operasional yang ada pada allowlist
+# Preview; tampilkan fingerprint database beserta jumlah baris
 php artisan spmb:reset-operational
 
-# Ada tetapi BELUM direkomendasikan untuk dijalankan:
-# php artisan spmb:reset-operational --execute
+# Di .env lingkungan non-production yang sudah diverifikasi:
+# SPMB_RESET_ALLOWED_TARGET=<fingerprint-dari-preview>
+# php artisan config:clear
+
+# HANYA setelah verifikasi target, backup+restore test, dan pemeriksaan VA:
+php artisan spmb:reset-operational --execute \
+  --target=<fingerprint-dari-preview> --backup-confirmed
+
+# Jika database sudah di-commit tetapi cleanup file terputus:
+php artisan spmb:reset-operational --cleanup-manifest=reset-manifests/<nama-file>.json
 ```
 
-Kedua perintah reset menolak `APP_ENV=production`. Namun, `APP_ENV` non-production **tidak menjamin** database terhubung ke server non-production. Verifikasi `DB_HOST`, `DB_DATABASE`, backup, serta seluruh relasi dan VA terlebih dahulu. Perintah reset saat ini menolak eksekusi jika ditemukan VA assigned/paid, tidak menonaktifkan foreign key, dan tidak menghapus konfigurasi secara sengaja. Kegagalan relasi harus ditangani melalui perbaikan kode, **bukan** dengan menonaktifkan constraint.
+**Jangan gunakan `--execute` pada data berharga atau ketika VA riil pernah dipakai.** Periksa rencana penghapusan, data pelatihan/sertifikasi yang dimiliki akun pendaftar, hasil CI, serta backup terlebih dahulu. Versi saat ini belum merupakan pengganti backup operator maupun sistem rekonsiliasi bank. Perintah `spmb:dev-reset-preview` tetap tersedia sebagai ringkasan awal non-destruktif.
 
-Pool VA adalah identitas yang mungkin diterbitkan bank: jangan menghapus atau mengembalikan VA paid/assigned menjadi available tanpa rekonsiliasi dan kepastian aturan bank. Pembayaran dan bukti pembayaran nyata tidak boleh dianggap data demo hanya berdasarkan `APP_ENV`.
-
-### Hardening password staf
+### Hardening password dan sesi staf
 
 ```bash
-# Preview jumlah akun staf
 php artisan spmb:harden-staff-passwords
-
-# Rotasi password setelah konfirmasi (non-production saja)
 php artisan spmb:harden-staff-passwords --execute
 ```
 
-Aksi ini mencakup `super_admin`, `admin_unit`, dan `tu`; setiap password diganti dengan nilai acak berbeda, remember token diperbarui, token pemulihan lama dihapus, dan sesi **database** staf dicabut. Tidak ada password baru yang ditampilkan: staf harus menggunakan alur pemulihan password. Jika `SESSION_DRIVER` memakai Redis/file, sesi pada driver tersebut belum otomatis dicabut oleh perintah ini. Pastikan mekanisme pemulihan email berfungsi sebelum menjalankan rotasi.
+Aksi non-production ini mempertahankan akun `super_admin`, `admin_unit`, dan `tu`, menghasilkan hash password acak berbeda untuk setiap akun, mengubah remember token, membatalkan token reset lama, serta mencabut sesi database lama. Kolom `auth_version` dan middleware sesi admin juga menolak sesi Redis/file generasi lama pada permintaan berikutnya setelah rotasi. Password baru tidak ditampilkan; **pastikan pemulihan email berfungsi sebelum rotasi**.
+
+### Keamanan akses, audit dan CI
+
+- Policy melakukan pemeriksaan unit pada record selain pemeriksaan role/permission; resource yang tidak terkait penerimaan tetap menggunakan aturan akses khususnya.
+- Data pribadi pada payload audit baru (misalnya nama, NIK, email, alamat, informasi keluarga, teks bebas) disamarkan. Audit historis memerlukan peninjauan/penanganan tersendiri; jangan menganggap log lama otomatis dibersihkan.
+- GitHub CI menggunakan `composer install` dari lockfile dan permission `contents: read`. Upgrade dependency harus melalui perubahan kode yang ditinjau, bukan CI melakukan push otomatis.
+- Jalankan tes pada SQLite dan pemeriksaan database yang sejenis dengan deployment sebenarnya; verifikasi restore backup serta prosedur operator tetap wajib.
 
 ### Pergantian tahun ajaran
 
