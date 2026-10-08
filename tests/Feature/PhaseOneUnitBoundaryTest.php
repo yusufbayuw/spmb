@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\UnitRecordAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Spatie\Permission\Models\Role;
 
 class PhaseOneUnitBoundaryTest extends TestCase
 {
@@ -18,6 +19,7 @@ class PhaseOneUnitBoundaryTest extends TestCase
         $one = Unit::create(['name' => 'One', 'code' => 'ONE', 'is_active' => true]);
         $two = Unit::create(['name' => 'Two', 'code' => 'TWO', 'is_active' => true]);
         $staff = User::factory()->create(['unit_id' => $one->id, 'is_active' => true]);
+        Role::firstOrCreate(['name' => 'admin_unit', 'guard_name' => 'web']);
         $staff->assignRole('admin_unit');
         $access = app(UnitRecordAccess::class);
 
