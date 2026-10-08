@@ -37,6 +37,7 @@ class HardenStaffPasswords extends Command
                 $user->forceFill([
                     'password' => Hash::make(Str::random(96)),
                     'remember_token' => Str::random(60),
+                    'auth_version' => (int) $user->auth_version + 1,
                 ])->save();
             }
 
@@ -46,7 +47,7 @@ class HardenStaffPasswords extends Command
             }
         });
 
-        $this->components->warn('Passwords rotated. Staff must use password recovery. Invalidate Redis/file sessions separately if configured.');
+        $this->components->warn('Passwords rotated; previous sessions are revoked by credential generation checks on authenticated routes. Staff must use password recovery.');
         return self::SUCCESS;
     }
 }
