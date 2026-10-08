@@ -966,7 +966,9 @@ class UnitConfigurationService
             if ($tests->count() !== count($validated['test_definitions'])) {
                 throw ValidationException::withMessages(['test_definitions' => 'Tes tidak sesuai unit.']);
             }
-            $validated['test_definitions'] = $tests->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score']))->all();
+            $testScopes = collect($validated['test_definitions'])->keyBy('id');
+            $validated['test_definitions'] = $tests->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score'])
+                + ['pathway_uuids' => $testScopes->get($test->id)['pathway_uuids'] ?? []])->all();
             if ($publish) {
                 if ($validated['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
                     && (! $validated['tests_enabled'] || ! $tests->contains('is_required', true))) {
