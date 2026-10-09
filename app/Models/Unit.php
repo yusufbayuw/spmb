@@ -50,10 +50,12 @@ class Unit extends Model
         'public_address',
         'logo_path',
         'is_active',
+        'allow_admin_unit_registration_purge',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'allow_admin_unit_registration_purge' => 'boolean',
         'pre_registration_items' => 'array',
     ];
 
