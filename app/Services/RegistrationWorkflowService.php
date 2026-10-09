@@ -354,7 +354,29 @@ class RegistrationWorkflowService
                 ->with(['configuration', 'opening', 'unit'])
                 ->lockForUpdate()
                 ->findOrFail($lockedPayment->registration_id);
+            // Enforce authorization at the workflow boundary as well as in
+            // Filament actions: callers outside the UI must not bypass it.
+            abort_unless(
+                $staff->is_active
+                    && $staff->can('verify_payment_payment')
+                    && app(UnitRecordAccess::class)->allows($staff, $lockedPayment),
+                403
+            );
             $registration->assertCurrentStage('payment_verification');
+
+            // Prevent stale/replayed verification calls from mutating a
+            // payment that is no longer awaiting staff review.
+            if ($lockedPayment->status !== 'paid') {
+                throw ValidationException::withMessages([
+                    'payment' => 'Hanya bukti pembayaran yang menunggu verifikasi dapat diproses.',
+                ]);
+            }
+
+            if (! $approved && blank($reason)) {
+                throw ValidationException::withMessages([
+                    'reason' => 'Alasan penolakan wajib diisi.',
+                ]);
+            }
 
             if ($approved) {
                 $lockedPayment->update([
