@@ -266,8 +266,8 @@ class RegistrationSupplementalDataTest extends TestCase
     {
         $this->seed(ShieldSeeder::class);
         $unit = Unit::create(['name' => 'SMP Test', 'code' => 'SMP', 'institution_type' => 'school', 'is_active' => true]);
-        $staff = User::factory()->create(['role' => 'tu', 'unit_id' => $unit->id, 'is_active' => true]);
-        $staff->assignRole('tu');
+        $staff = User::factory()->create(['role' => 'admin_unit', 'unit_id' => $unit->id, 'is_active' => true]);
+        $staff->assignRole('admin_unit');
         $applicant = User::factory()->create(['is_active' => true]);
         $applicant->assignRole('pendaftar');
         $opening = RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
