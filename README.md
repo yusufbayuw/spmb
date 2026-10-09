@@ -302,6 +302,12 @@ php artisan spmb:harden-staff-passwords --execute
 
 Aksi non-production ini mempertahankan akun `super_admin`, `admin_unit`, dan `tu`, menghasilkan hash password acak berbeda untuk setiap akun, mengubah remember token, membatalkan token reset lama, serta mencabut sesi database lama. Kolom `auth_version` dan middleware sesi admin juga menolak sesi Redis/file generasi lama pada permintaan berikutnya setelah rotasi. Password baru tidak ditampilkan; **pastikan pemulihan email berfungsi sebelum rotasi**.
 
+### Panduan validasi Fase 1.1
+
+Panduan UAT dan verifikasi keamanan pada staging tersedia di [docs/PHASE_1_1_VALIDATION.md](docs/PHASE_1_1_VALIDATION.md). Semua checklist operasional bersifat manual dan tidak dianggap selesai hanya karena GitHub Actions berstatus hijau.
+
+Untuk memeriksa jejak audit lama tanpa perubahan: `php artisan spmb:audit:review`. Sanitasi payload JSON lama memerlukan backup yang teruji, keputusan retensi, dan perintah `php artisan spmb:audit:review --execute --backup-confirmed` dengan konfirmasi interaktif. Teks bebas, path, IP dan backup lama perlu diperiksa terpisah.
+
 ### Keamanan akses, audit dan CI
 
 - Policy melakukan pemeriksaan unit pada record selain pemeriksaan role/permission; resource yang tidak terkait penerimaan tetap menggunakan aturan akses khususnya.
