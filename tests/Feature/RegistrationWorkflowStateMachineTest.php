@@ -19,6 +19,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class RegistrationWorkflowStateMachineTest extends TestCase
@@ -428,6 +430,9 @@ class RegistrationWorkflowStateMachineTest extends TestCase
         $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
         $applicant = User::factory()->create(['role' => 'user', 'is_active' => true, 'email' => 'parent@example.test']);
         $staff = User::factory()->create(['role' => 'admin', 'is_active' => true, 'unit_id' => $unit->id]);
+        $role = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        $role->givePermissionTo(Permission::findOrCreate('verify_payment_payment', 'web'));
+        $staff->assignRole($role);
 
         $opening = RegistrationOpening::create([
             'unit_id' => $unit->id,
