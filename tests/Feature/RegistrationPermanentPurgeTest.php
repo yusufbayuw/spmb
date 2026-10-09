@@ -56,6 +56,7 @@ class RegistrationPermanentPurgeTest extends TestCase
             'file_path' => 'documents/'.$registration->id.'/proof.pdf',
             'original_name' => 'proof.pdf',
             'file_type' => 'pdf',
+            'file_size' => 1024,
             'is_verified' => false,
         ]);
 
