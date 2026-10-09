@@ -70,12 +70,12 @@ class ReleasePreflight extends Command
         $add('applicant_storage', $privateSafe,
             'Applicant-private storage is separate from the public disk and cannot be served directly.');
 
-        $add('session', ! $live || (! in_array(config('session.driver'), ['array', 'null'], true)
+        $add('session', ! $live || (filled(config('session.driver')) && ! in_array(config('session.driver'), ['array', 'null'], true)
             && config('session.secure') === true),
             'Persistent sessions and secure cookies are configured.', $live);
-        $add('queue', ! $live || ! in_array(config('queue.default'), ['sync', 'null'], true),
+        $add('queue', ! $live || (filled(config('queue.default')) && ! in_array(config('queue.default'), ['sync', 'null'], true)),
             'Background jobs use a persistent queue connection.', $live);
-        $add('mail', ! $live || (! in_array(config('mail.default'), ['log', 'array'], true)
+        $add('mail', ! $live || (filled(config('mail.default')) && ! in_array(config('mail.default'), ['log', 'array'], true)
             && ! in_array(config('mail.from.address'), [null, '', 'hello@example.com'], true)),
             'A delivery-capable mailer and non-placeholder sender are configured.', $live);
         $add('reset_locked', ! $production || blank(config('spmb.reset.allowed_target')),
