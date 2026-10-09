@@ -50,7 +50,8 @@ class PhaseOneAuthorizationRegressionTest extends TestCase
     {
         $own = Unit::create(['name' => 'Unit 1', 'code' => 'UNIT-1', 'is_active' => true]);
         $foreign = Unit::create(['name' => 'Unit 2', 'code' => 'UNIT-2', 'is_active' => true]);
-        Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
+        $tuRole = Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
+        $tuRole->givePermissionTo(Permission::findOrCreate('record_result_admissiontestresult', 'web'));
         Role::firstOrCreate(['name' => 'admin_unit', 'guard_name' => 'web']);
 
         $tu = User::factory()->create(['unit_id' => $own->id, 'role' => 'tu', 'is_active' => true]);
@@ -59,6 +60,8 @@ class PhaseOneAuthorizationRegressionTest extends TestCase
         $admin->assignRole('admin_unit');
 
         $this->assertFalse(Gate::forUser($tu)->allows('configureRegistration', $own));
+        $this->assertTrue(Gate::forUser($tu)->allows('manageTestOperations', $own));
+        $this->assertFalse(Gate::forUser($tu)->allows('manageTestOperations', $foreign));
         $this->assertFalse(Gate::forUser($tu)->allows('configureRegistration', $foreign));
         $this->assertTrue(Gate::forUser($admin)->allows('configureRegistration', $own));
         $this->assertFalse(Gate::forUser($admin)->allows('configureRegistration', $foreign));
