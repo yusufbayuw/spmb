@@ -20,7 +20,7 @@ class PhaseOneAuthorizationRegressionTest extends TestCase
     public function test_unit_staff_cannot_view_foreign_registration_or_payment_by_record_policy(): void
     {
         $own = Unit::create(['name' => 'Own School', 'code' => 'OWN-SEC', 'is_active' => true]);
-        $foreign = Unit::create(['name' => 'Foreign School', 'code' => 'FOREIGN-SEC', 'is_active' => true]);
+        $foreign = Unit::create(['name' => 'Foreign School', 'code' => 'FOR-SEC', 'is_active' => true]);
 
         $role = Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
         foreach (['view_registration', 'view_payment', 'update_registration', 'update_payment'] as $name) {
