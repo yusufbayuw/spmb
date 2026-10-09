@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
+use App\Filament\Admin\Support\RegistrationPurgeActions;
 use App\Filament\Forms\RegionFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -340,6 +341,7 @@ class RegistrationResource extends Resource
                         Notification::make()->title('Pendaftaran diaktifkan kembali')->success()->send();
                     }),
                 Tables\Actions\EditAction::make(),
+                RegistrationPurgeActions::table(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
