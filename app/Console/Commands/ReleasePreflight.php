@@ -46,8 +46,15 @@ class ReleasePreflight extends Command
             ];
         };
 
-        $add('environment', ! $live || config('app.env') === $profile,
-            'APP_ENV matches the selected deployment profile.', $live);
+        $environment = (string) config('app.env');
+        // Never permit --profile=development to bypass deployment checks
+        // when the application actually runs on staging or production.
+        $environmentMatches = $live
+            ? $environment === $profile
+            : in_array($environment, ['local', 'testing', 'development'], true);
+
+        $add('environment', $environmentMatches,
+            'APP_ENV matches the selected deployment profile.');
         $add('application_key', filled(config('app.key')), 'Application encryption key is configured.');
         $add('debug', ! $live || config('app.debug') === false,
             'Debug mode is disabled on staging/production.', $live);
