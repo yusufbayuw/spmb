@@ -81,6 +81,30 @@ class ReleasePreflightTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_development_profile_cannot_bypass_production_checks(): void
+    {
+        config()->set([
+            'app.env' => 'production',
+            'app.key' => 'base64:'.base64_encode(str_repeat('f', 32)),
+            'app.debug' => true,
+        ]);
+
+        $this->artisan('spmb:release:preflight', ['--profile' => 'development'])
+            ->assertExitCode(1);
+    }
+
+    public function test_staging_profile_cannot_be_claimed_on_production(): void
+    {
+        config()->set([
+            'app.env' => 'production',
+            'app.key' => 'base64:'.base64_encode(str_repeat('g', 32)),
+            'app.debug' => false,
+        ]);
+
+        $this->artisan('spmb:release:preflight', ['--profile' => 'staging'])
+            ->assertExitCode(1);
+    }
+
     public function test_preflight_rejects_publicly_served_applicant_storage(): void
     {
         config()->set([
