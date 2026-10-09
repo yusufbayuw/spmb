@@ -10,6 +10,29 @@ The business decision for Virtual Accounts is **manual verification of uploaded
 proof of transfer by authorized Admin Unit / TU staff**. No automatic bank
 confirmation, bank API integration, or callback is required in Phase 1.
 
+## Read-only deployment preflight
+
+After deploying the exact commit into a **separate staging environment**, run:
+
+```bash
+php artisan spmb:release:preflight --profile=staging
+php artisan spmb:release:preflight --profile=staging --json
+```
+
+For a planned production deployment, use `--profile=production` on the
+intended production host **before activating the release**. The command
+performs read-only checks: application key and debug configuration, HTTPS,
+private applicant storage, secure sessions, background queue driver, mail
+configuration, migration status, database connectivity, production reset
+lockout, and upload scanner settings. It prints no credentials or personal
+data and cannot send a test email, start a worker, or verify backup integrity.
+
+A nonzero exit code **blocks approval**, but a zero exit code means only
+that automatic checks passed. The manual checklist below remains mandatory.
+Operational values (email delivery, queue supervision, backup restoration,
+UAT with actual roles and manual transfer-proof verification) still require
+human evidence.
+
 ## Automated gates
 
 - [ ] GitHub Actions on the exact release commit is green (Laravel suite and MySQL 8 integration).
