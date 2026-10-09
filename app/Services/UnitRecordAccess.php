@@ -28,9 +28,9 @@ class UnitRecordAccess
 
         $unitId = $this->unitId($record);
 
-        // null means a record type unrelated to unit-scoped admissions.
-        // All recognized admissions records fail closed when their owner is missing.
-        return $unitId === null || ($unitId > 0 && $unitId === (int) $actor->unit_id);
+        // Unknown or ownerless records must fail closed. Global resources
+        // need a dedicated policy, not an implicit tenant bypass.
+        return $unitId !== null && $unitId > 0 && $unitId === (int) $actor->unit_id;
     }
 
     private function unitId(Model $record): ?int
@@ -91,8 +91,7 @@ class UnitRecordAccess
             return $units->count() === 1 ? (int) $units->first() : 0;
         }
 
-        // Training/certification and other globally scoped resources continue
-        // to follow their dedicated permissions and access services.
+        // A newly added table cannot inherit access accidentally.
         return null;
     }
 }
