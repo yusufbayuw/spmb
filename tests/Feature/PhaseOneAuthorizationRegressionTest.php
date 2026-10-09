@@ -7,6 +7,9 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\RegistrationWorkflowService;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
@@ -65,6 +68,49 @@ class PhaseOneAuthorizationRegressionTest extends TestCase
         $this->assertFalse(Gate::forUser($tu)->allows('configureRegistration', $foreign));
         $this->assertTrue(Gate::forUser($admin)->allows('configureRegistration', $own));
         $this->assertFalse(Gate::forUser($admin)->allows('configureRegistration', $foreign));
+    }
+
+    public function test_payment_verification_service_rejects_cross_unit_staff(): void
+    {
+        $own = Unit::create(['name' => 'Verifier Unit', 'code' => 'VERIFY-OWN', 'is_active' => true]);
+        $foreign = Unit::create(['name' => 'Payment Unit', 'code' => 'VERIFY-OTHER', 'is_active' => true]);
+        $role = Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
+        $role->givePermissionTo(Permission::findOrCreate('verify_payment_payment', 'web'));
+        $staff = User::factory()->create(['unit_id' => $own->id, 'role' => 'tu', 'is_active' => true]);
+        $staff->assignRole($role);
+        $registration = $this->registration($foreign, User::factory()->create(), '3273010101010091');
+        $registration->update(['current_stage' => 'payment_verification', 'status' => 'payment_uploaded']);
+        $payment = Payment::create(['registration_id' => $registration->id, 'status' => 'paid', 'amount' => 100000]);
+
+        try {
+            app(RegistrationWorkflowService::class)->verifyPayment($payment, $staff, true);
+            $this->fail('Cross-unit payment verification must be denied.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+
+        $this->assertSame('paid', $payment->fresh()->status);
+    }
+
+    public function test_payment_verification_service_rejects_replayed_verification(): void
+    {
+        $unit = Unit::create(['name' => 'Verifier Unit', 'code' => 'VERIFY-REPLAY', 'is_active' => true]);
+        $role = Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
+        $role->givePermissionTo(Permission::findOrCreate('verify_payment_payment', 'web'));
+        $staff = User::factory()->create(['unit_id' => $unit->id, 'role' => 'tu', 'is_active' => true]);
+        $staff->assignRole($role);
+        $registration = $this->registration($unit, User::factory()->create(), '3273010101010092');
+        $registration->update(['current_stage' => 'payment_verification', 'status' => 'payment_uploaded']);
+        $payment = Payment::create(['registration_id' => $registration->id, 'status' => 'verified', 'amount' => 100000]);
+
+        try {
+            app(RegistrationWorkflowService::class)->verifyPayment($payment, $staff, true);
+            $this->fail('Replayed payment verification must be denied.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('payment', $exception->errors());
+        }
+
+        $this->assertSame('verified', $payment->fresh()->status);
     }
 
     private function registration(Unit $unit, User $applicant, string $nik): Registration
