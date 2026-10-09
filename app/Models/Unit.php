@@ -50,16 +50,29 @@ class Unit extends Model
         'public_address',
         'logo_path',
         'is_active',
+        'allow_admin_unit_registration_purge',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'allow_admin_unit_registration_purge' => 'boolean',
         'pre_registration_items' => 'array',
     ];
 
     protected static function booted(): void
     {
         static::saving(function (Unit $unit): void {
+            // Even a forged Filament payload cannot delegate the dangerous
+            // purge permission: only the central Super Admin may change it.
+            if ($unit->exists
+                && $unit->isDirty('allow_admin_unit_registration_purge')
+                && auth()->check()
+                && ! auth()->user()->isAdmin()) {
+                throw ValidationException::withMessages([
+                    'allow_admin_unit_registration_purge' => 'Hanya Super Admin yang dapat mengubah izin hapus permanen.',
+                ]);
+            }
+
             $unit->institution_type ??= 'school';
 
             if (! SpmbOperationalMode::allowsInstitutionType($unit->institution_type)) {

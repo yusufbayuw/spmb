@@ -12,6 +12,15 @@ class EditUnit extends EditRecord
 
     protected static string $resource = UnitResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (! auth()->user()?->isAdmin()) {
+            unset($data['allow_admin_unit_registration_purge']);
+        }
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [];

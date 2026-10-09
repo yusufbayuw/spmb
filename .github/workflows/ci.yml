@@ -117,7 +117,8 @@ jobs:
             tests/Feature/PhaseOneAuthorizationRegressionTest.php \
             tests/Feature/PhaseOneHistoricalAuditTest.php \
             tests/Feature/ReleasePreflightTest.php \
-            tests/Feature/AuditTrailTest.php
+            tests/Feature/AuditTrailTest.php \
+            tests/Feature/RegistrationPermanentPurgeTest.php
 
       # Synthetic environment only: this does NOT contact real staging
       # services, send email, start queue workers, or validate backups.

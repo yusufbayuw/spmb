@@ -84,6 +84,16 @@ class UnitResource extends Resource
                         ->rows(4)
                         ->columnSpanFull(),
                 ]),
+            Forms\Components\Section::make('Izin Penghapusan Permanen')
+                ->description('Hanya Super Admin. Saat aktif, Admin Unit terkait boleh menghapus permanen satu pendaftaran beserta data turunannya setelah konfirmasi dampak. TU tidak pernah mendapat akses ini.')
+                ->schema([
+                    Forms\Components\Toggle::make('allow_admin_unit_registration_purge')
+                        ->label('Izinkan Admin Unit melakukan hapus permanen')
+                        ->default(false)
+                        ->dehydrated(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                        ->helperText('Default NONAKTIF. Penghapusan tidak dapat dibatalkan, jejak audit tetap dipertahankan.'),
+                ])
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
             Forms\Components\Section::make('Informasi Publik & Helpdesk')
                 ->description('Informasi ini dapat ditampilkan pada portal penerimaan publik. Pada mode HIGHER_EDUCATION, portal hanya memakai kontak unit ini tanpa fallback ke kontak yayasan. Kosongkan field yang tidak ingin dipublikasikan.')
                 ->columns(['default' => 1, 'md' => 2])

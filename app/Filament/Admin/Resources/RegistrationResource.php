@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
+use App\Filament\Admin\Support\RegistrationPurgeActions;
 use App\Filament\Forms\RegionFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -340,6 +341,7 @@ class RegistrationResource extends Resource
                         Notification::make()->title('Pendaftaran diaktifkan kembali')->success()->send();
                     }),
                 Tables\Actions\EditAction::make(),
+                RegistrationPurgeActions::table(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -378,7 +380,11 @@ class RegistrationResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
+            // Super Admin must also be able to resolve records from units
+            // that have since been deactivated; unit staff stays scoped to
+            // operational units and their own records.
+            ->when(! (auth()->user()?->isAdmin() ?? false),
+                fn (Builder $builder): Builder => $builder->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational()))
             ->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway', 'configuration', 'academicScores', 'achievements', 'consent.configuration']);
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
