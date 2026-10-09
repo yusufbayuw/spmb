@@ -118,3 +118,28 @@ jobs:
             tests/Feature/PhaseOneHistoricalAuditTest.php \
             tests/Feature/ReleasePreflightTest.php \
             tests/Feature/AuditTrailTest.php
+
+      # Synthetic environment only: this does NOT contact real staging
+      # services, send email, start queue workers, or validate backups.
+      - name: Rehearse staging release preflight (isolated CI database)
+        env:
+          APP_ENV: staging
+          APP_DEBUG: 'false'
+          APP_URL: https://staging.example.test
+          SESSION_DRIVER: database
+          SESSION_SECURE_COOKIE: 'true'
+          QUEUE_CONNECTION: database
+          MAIL_MAILER: smtp
+          MAIL_FROM_ADDRESS: noreply@example.test
+          SPMB_UPLOAD_REQUIRE_MALWARE_SCAN: 'true'
+          SPMB_RESET_ALLOWED_TARGET: ''
+        run: |
+          set -o pipefail
+          php artisan spmb:release:preflight --profile=staging --json | tee staging-preflight.json
+
+      - name: Upload synthetic preflight report
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-preflight-synthetic
+          path: staging-preflight.json
+          retention-days: 14
