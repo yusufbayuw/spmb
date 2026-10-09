@@ -58,7 +58,7 @@ class CurrentApplicationSeederTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $university = Unit::where('institution_type', 'university')->firstOrFail();
-        $staff = User::where('email', 'tu.pt@example.test')->firstOrFail();
+        $staff = User::where('email', 'admin.pt@example.test')->firstOrFail();
         RegistrationOpening::where('unit_id', $university->id)->update(['registration_fee' => 0]);
         $service = app(UnitConfigurationService::class);
         $draft = $service->draft($university, $staff);
