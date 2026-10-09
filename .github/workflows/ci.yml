@@ -116,4 +116,5 @@ jobs:
             tests/Feature/PhaseOneOperationalResetTest.php \
             tests/Feature/PhaseOneAuthorizationRegressionTest.php \
             tests/Feature/PhaseOneHistoricalAuditTest.php \
+            tests/Feature/ReleasePreflightTest.php \
             tests/Feature/AuditTrailTest.php
