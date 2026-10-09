@@ -285,6 +285,27 @@ class ResetOperationalData extends Command
             }
         }
 
+        // A participant may abandon an upload before its path is saved in
+        // the database. Include only participant-owned directories, never
+        // blindly empty the private storage disk or configuration templates.
+        $scopedDirectories = [];
+        foreach ($this->applicantUsers()->pluck('id') as $userId) {
+            $scopedDirectories[] = 'pre-registration/'.(int) $userId;
+        }
+        foreach (DB::table('registrations')->pluck('id') as $registrationId) {
+            foreach (['documents', 'payments', 're-registration'] as $category) {
+                $scopedDirectories[] = $category.'/'.(int) $registrationId;
+            }
+        }
+
+        foreach ([ApplicantFileStorage::PRIVATE_DISK, ApplicantFileStorage::LEGACY_PUBLIC_DISK] as $disk) {
+            foreach ($scopedDirectories as $directory) {
+                foreach (Storage::disk($disk)->allFiles($directory) as $file) {
+                    $this->findPaths($file, $paths);
+                }
+            }
+        }
+
         return array_values(array_unique($paths));
     }
 
@@ -343,6 +364,13 @@ class ResetOperationalData extends Command
 
             try {
                 $storage->delete($file);
+                // Some filesystem drivers return false rather than throwing.
+                foreach ([ApplicantFileStorage::PRIVATE_DISK, ApplicantFileStorage::LEGACY_PUBLIC_DISK] as $diskName) {
+                    if (Storage::disk($diskName)->exists($file)) {
+                        $remaining[] = $file;
+                        break;
+                    }
+                }
             } catch (Throwable) {
                 $remaining[] = $file;
             }
