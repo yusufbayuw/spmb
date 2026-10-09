@@ -72,8 +72,8 @@ class PhaseOneAuthorizationRegressionTest extends TestCase
 
     public function test_payment_verification_service_rejects_cross_unit_staff(): void
     {
-        $own = Unit::create(['name' => 'Verifier Unit', 'code' => 'VERIFY-OWN', 'is_active' => true]);
-        $foreign = Unit::create(['name' => 'Payment Unit', 'code' => 'VERIFY-OTHER', 'is_active' => true]);
+        $own = Unit::create(['name' => 'Verifier Unit', 'code' => 'VFY-OWN', 'is_active' => true]);
+        $foreign = Unit::create(['name' => 'Payment Unit', 'code' => 'VFY-OTH', 'is_active' => true]);
         $role = Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
         $role->givePermissionTo(Permission::findOrCreate('verify_payment_payment', 'web'));
         $staff = User::factory()->create(['unit_id' => $own->id, 'role' => 'tu', 'is_active' => true]);
@@ -94,7 +94,7 @@ class PhaseOneAuthorizationRegressionTest extends TestCase
 
     public function test_payment_verification_service_rejects_replayed_verification(): void
     {
-        $unit = Unit::create(['name' => 'Verifier Unit', 'code' => 'VERIFY-REPLAY', 'is_active' => true]);
+        $unit = Unit::create(['name' => 'Verifier Unit', 'code' => 'VFY-RPL', 'is_active' => true]);
         $role = Role::firstOrCreate(['name' => 'tu', 'guard_name' => 'web']);
         $role->givePermissionTo(Permission::findOrCreate('verify_payment_payment', 'web'));
         $staff = User::factory()->create(['unit_id' => $unit->id, 'role' => 'tu', 'is_active' => true]);
