@@ -63,6 +63,24 @@ class ReleasePreflightTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_staging_preflight_rejects_missing_queue_mail_and_session_drivers(): void
+    {
+        config()->set([
+            'app.env' => 'staging',
+            'app.key' => 'base64:'.base64_encode(str_repeat('e', 32)),
+            'app.debug' => false,
+            'app.url' => 'https://staging.example.test',
+            'session.driver' => null,
+            'session.secure' => true,
+            'queue.default' => null,
+            'mail.default' => null,
+            'mail.from.address' => 'noreply@example.test',
+        ]);
+
+        $this->artisan('spmb:release:preflight', ['--profile' => 'staging'])
+            ->assertExitCode(1);
+    }
+
     public function test_preflight_rejects_publicly_served_applicant_storage(): void
     {
         config()->set([
