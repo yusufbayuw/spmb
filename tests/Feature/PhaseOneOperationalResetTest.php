@@ -7,6 +7,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\VirtualAccount;
 use App\Services\ApplicantFileStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,10 @@ class PhaseOneOperationalResetTest extends TestCase
         $unrelatedUser = User::factory()->create(['role' => 'user']);
         $path = 'documents/'.$registration->id.'/file.pdf';
         Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($path, '%PDF-1.4 example');
+        $abandoned = 'pre-registration/'.$applicant->id.'/unfinished.pdf';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($abandoned, '%PDF-1.4 example');
+        $unrelated = 'documents/99999/untouched.pdf';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($unrelated, '%PDF-1.4 example');
 
         Document::create([
             'registration_id' => $registration->id,
@@ -77,6 +82,26 @@ class PhaseOneOperationalResetTest extends TestCase
         $this->assertDatabaseHas('registration_openings', ['id' => $opening->id]);
         $this->assertDatabaseHas('units', ['id' => $unit->id]);
         Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertMissing($path);
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertMissing($abandoned);
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertExists($unrelated);
+    }
+
+    public function test_assigned_va_blocks_reset_and_keeps_all_data(): void
+    {
+        [$unit, $opening, $applicant, $registration] = $this->fixture();
+
+        VirtualAccount::create([
+            'unit_id' => $unit->id,
+            'bank' => 'TEST',
+            'va_number' => 'TEST-ASSIGNED-001',
+            'status' => 'assigned',
+            'registration_id' => $registration->id,
+        ]);
+
+        $this->artisan('spmb:reset-operational')->assertExitCode(1);
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
+        $this->assertDatabaseHas('registration_openings', ['id' => $opening->id]);
+        $this->assertDatabaseHas('virtual_accounts', ['registration_id' => $registration->id]);
     }
 
     public function test_production_configuration_blocks_reset_even_in_testing_runtime(): void
