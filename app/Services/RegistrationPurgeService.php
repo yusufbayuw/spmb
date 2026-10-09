@@ -150,7 +150,7 @@ class RegistrationPurgeService
         $prepared = false;
 
         try {
-            DB::transaction(function () use ($record, $actor, $fingerprint, $manifestPath, &$prepared): void {
+            DB::transaction(function () use ($record, $actor, $fingerprint, $manifestPath, $reason, &$prepared): void {
                 $registration = Registration::query()
                     ->whereKey($record->getKey())
                     ->lockForUpdate()
@@ -213,7 +213,7 @@ class RegistrationPurgeService
                         ),
                         'virtual_accounts_cancelled' => $snapshot['virtual_accounts'],
                         'private_files_to_delete' => count($snapshot['files']),
-                        'reason' => '[REDACTED]',
+                        'reason_sha256' => hash('sha256', trim($reason)),
                     ],
                     actor: $actor,
                     unitId: $snapshot['unit_id'],
@@ -314,6 +314,12 @@ class RegistrationPurgeService
 
         if ($registrationId <= 0 || ! in_array($data['status'] ?? '', ['prepared', 'pending', 'complete'], true)) {
             throw new RuntimeException('Manifest penghapusan tidak sah.');
+        }
+
+        // If a process crashed after writing the manifest but before database
+        // commit, its files must remain untouched.
+        if (DB::table('registrations')->where('id', $registrationId)->exists()) {
+            throw new RuntimeException('Pendaftaran masih ada; pembersihan berkas ditolak.');
         }
 
         if (($data['status'] ?? '') === 'complete') {
