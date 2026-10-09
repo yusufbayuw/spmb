@@ -20,7 +20,7 @@ class UnitPolicy extends ShieldResourcePolicy
             && ($user->isAdmin()
                 || ($user->isTU()
                     && (int) $user->unit_id === (int) $unit->id
-                    && $user->can('record_result_admissiontestresult')));
+                    && ($user->isAdminUnit() || $user->can('record_result_admissiontestresult'))));
     }
 
     public function configureRegistration(User $user, Unit $unit): bool
