@@ -20,6 +20,11 @@ class CreateRegistrationOpening extends CreateRecord
             $data['unit_id'] = auth()->user()->unit_id;
         }
 
+        // TU can operate openings but cannot change applicant-facing statistics.
+        if (! (auth()->user()?->isAdmin() || auth()->user()?->isAdminUnit())) {
+            unset($data['show_total_applicants'], $data['show_verified_applicants']);
+        }
+
         if (($data['status'] ?? 'draft') === 'open') {
             $data['opened_at'] = now();
         }
