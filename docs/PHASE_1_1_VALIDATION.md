@@ -33,6 +33,47 @@ Operational values (email delivery, queue supervision, backup restoration,
 UAT with actual roles and manual transfer-proof verification) still require
 human evidence.
 
+## CI staging rehearsal versus real staging
+
+The `mysql-integration` CI job additionally runs the read-only staging
+preflight against its **ephemeral, synthetic MySQL database** and stores the
+JSON output as the `staging-preflight-synthetic` GitHub Actions artifact
+(retained for 14 days). The rehearsal uses synthetic HTTPS, SMTP and scanner
+settings. It verifies application configuration behavior and migration status
+only; it **does not** verify real SMTP delivery, ClamAV execution, private-file
+backup restoration, actual queue workers, an internet-facing HTTPS endpoint,
+or user acceptance tests. A green CI artifact is not a staging go-live
+approval.
+
+Keep the CI artifact and the **separate real staging preflight output**
+attached to the release acceptance record. Never paste environment secrets
+or identifiable applicant data into GitHub issues or CI artifacts.
+
+## Queue and scheduler operator checks
+
+The application uses named `emails` and `notifications` queues in addition
+to the default queue. A worker consuming only the default queue does **not**
+process those named queues. Verify the supervisor-managed worker processes
+the configured names, for example:
+
+```bash
+# Example only: verify your deployment's queue driver and retry_after.
+php artisan queue:work --queue=emails,notifications,default \
+  --sleep=3 --tries=3 --timeout=60 --max-time=3600
+
+# Read-only operational inspection:
+php artisan queue:failed
+php artisan schedule:list
+```
+
+Use an external process supervisor to restart workers; do not run a second
+unmanaged worker alongside production. Worker `--timeout` must be **shorter**
+than the queue connection's `retry_after` (90 seconds by default) to reduce
+duplicate processing. Verify the deployment has a scheduler trigger (typically
+`* * * * * php artisan schedule:run` under the correct application user),
+and inspect its real scheduler logs. The preflight command cannot certify that
+a worker or cron is actually alive.
+
 ## Automated gates
 
 - [ ] GitHub Actions on the exact release commit is green (Laravel suite and MySQL 8 integration).
