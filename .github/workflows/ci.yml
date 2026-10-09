@@ -114,4 +114,6 @@ jobs:
             tests/Feature/PhaseOneUnitBoundaryTest.php \
             tests/Feature/PhaseOneStaffSessionTest.php \
             tests/Feature/PhaseOneOperationalResetTest.php \
+            tests/Feature/PhaseOneAuthorizationRegressionTest.php \
+            tests/Feature/PhaseOneHistoricalAuditTest.php \
             tests/Feature/AuditTrailTest.php
