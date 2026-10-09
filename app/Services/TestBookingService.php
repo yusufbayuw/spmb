@@ -107,7 +107,7 @@ class TestBookingService
         }
 
         $registration = Registration::query()->findOrFail($result->registration_id);
-        app(UnitConfigurationService::class)->authorize($actor, (int) $registration->unit_id);
+        \Illuminate\Support\Facades\Gate::forUser($actor)->authorize('manageTestOperations', $registration->unit);
 
         return DB::transaction(function () use ($result, $session, $actor, $reason): TestBooking {
             $this->lockUnit((int) Registration::query()->whereKey($result->registration_id)->value('unit_id'));
@@ -238,7 +238,7 @@ class TestBookingService
     public function saveSession(?TestSession $session, array $data, User $actor): TestSession
     {
         $test = AdmissionTest::findOrFail($session?->admission_test_id ?? $data['admission_test_id']);
-        app(UnitConfigurationService::class)->authorize($actor, (int) $test->unit_id);
+        \Illuminate\Support\Facades\Gate::forUser($actor)->authorize('manageTestOperations', $test->unit);
         $data['admission_test_id'] = $test->id;
         if (empty($data['booking_closes_at']) && ! empty($data['starts_at'])) {
             $data['booking_closes_at'] = Carbon::parse($data['starts_at'])->subDay()->toDateTimeString();
