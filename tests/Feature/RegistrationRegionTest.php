@@ -100,11 +100,11 @@ class RegistrationRegionTest extends TestCase
             'is_active' => true,
         ]);
         $staff = User::factory()->create([
-            'role' => 'tu',
+            'role' => 'admin_unit',
             'unit_id' => $unit->id,
             'is_active' => true,
         ]);
-        $staff->assignRole('tu');
+        $staff->assignRole('admin_unit');
         $parent = User::factory()->create(['is_active' => true]);
         $parent->assignRole('pendaftar');
         $opening = RegistrationOpening::create([
