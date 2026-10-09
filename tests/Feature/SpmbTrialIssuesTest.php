@@ -320,8 +320,8 @@ class SpmbTrialIssuesTest extends TestCase
         $unit = Unit::create(['name' => 'Sekolah '.$code, 'code' => $code, 'institution_type' => 'school', 'is_active' => true]);
         $parent = User::factory()->create(['is_active' => true]);
         $parent->assignRole('pendaftar');
-        $staff = User::factory()->create(['role' => 'tu', 'is_active' => true, 'unit_id' => $unit->id]);
-        $staff->assignRole('tu');
+        $staff = User::factory()->create(['role' => 'admin_unit', 'is_active' => true, 'unit_id' => $unit->id]);
+        $staff->assignRole('admin_unit');
         $opening = RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open']);
         $registration = Registration::create([
             'user_id' => $parent->id, 'unit_id' => $unit->id, 'registration_opening_id' => $opening->id,
