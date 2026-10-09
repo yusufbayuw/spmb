@@ -52,7 +52,7 @@ class RegistrationPermanentPurgeTest extends TestCase
         $this->addPaymentAndReceipt($registration);
         Document::create([
             'registration_id' => $registration->id,
-            'type' => 'other',
+            'type' => 'supporting_document',
             'file_path' => 'documents/'.$registration->id.'/proof.pdf',
             'original_name' => 'proof.pdf',
             'file_type' => 'pdf',
