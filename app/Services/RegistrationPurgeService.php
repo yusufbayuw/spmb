@@ -57,7 +57,10 @@ class RegistrationPurgeService
             return false;
         }
 
-        return (bool) $registration->unit?->allow_admin_unit_registration_purge;
+        // Always read the current setting, never an eager-loaded/stale Unit relation.
+        return (bool) \App\Models\Unit::query()
+            ->whereKey($registration->unit_id)
+            ->value('allow_admin_unit_registration_purge');
     }
 
     public function authorize(User $actor, Registration $registration): void
@@ -198,7 +201,10 @@ class RegistrationPurgeService
                         : $query->where('registration_id', $id)->delete();
                 }
 
-                $registration->delete();
+                // The global Eloquent deleted observer writes audit_logs with
+                // an FK to this now-missing registration. Use a targeted SQL
+                // delete and record the privileged purge explicitly below.
+                DB::table('registrations')->where('id', $id)->delete();
 
                 // Historic audit rows remain immutable and their foreign key
                 // becomes NULL. Store only non-PII identifiers and counts.
