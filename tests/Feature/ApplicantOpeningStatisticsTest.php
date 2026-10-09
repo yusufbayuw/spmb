@@ -88,7 +88,7 @@ class ApplicantOpeningStatisticsTest extends TestCase
             ->assertSee('Data Terverifikasi');
 
         $this->actingAs($this->applicant());
-        Livewire::test(RegistrationStatus::class, ['registration' => $registration->uuid])
+        $this->get(RegistrationStatus::getUrl(['registration' => $registration->uuid]))
             ->assertNotFound();
     }
 
