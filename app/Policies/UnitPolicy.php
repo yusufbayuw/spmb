@@ -13,6 +13,6 @@ class UnitPolicy extends ShieldResourcePolicy
     {
         return $user->is_active
             && $unit->isOperational()
-            && ($user->isAdmin() || ($user->isTU() && (int) $user->unit_id === $unit->id));
+            && ($user->isAdmin() || ($user->isAdminUnit() && (int) $user->unit_id === (int) $unit->id));
     }
 }
