@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\RegistrationResource\Pages;
 
 use App\Filament\Admin\Resources\RegistrationResource;
+use App\Filament\Admin\Support\RegistrationPurgeActions;
 use App\Filament\RedirectsToResourceIndex;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
@@ -29,7 +30,8 @@ class EditRegistration extends EditRecord
                 ->visible(fn (): bool => RegistrationResource::canViewApplicantCard($this->record))
                 ->url(fn (): string => route('registration.card', $this->record))
                 ->openUrlInNewTab(),
-            Actions\DeleteAction::make(),
+            RegistrationPurgeActions::page()
+                ->after(fn () => $this->redirect(RegistrationResource::getUrl('index'))),
         ];
     }
 
