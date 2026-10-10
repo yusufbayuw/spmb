@@ -108,6 +108,20 @@ class RegistrationOpeningResource extends Resource
                         ->rows(3)
                         ->columnSpanFull(),
                 ]),
+            Forms\Components\Section::make('Statistik Pendaftaran di Portal Pendaftar')
+                ->description('Opsional untuk gelombang/program studi ini. Hanya pendaftaran aktif pada pembukaan ini yang dihitung. Data terverifikasi berarti data pendaftaran telah divalidasi, bukan pembayaran yang telah disetujui.')
+                ->schema([
+                    Forms\Components\Toggle::make('show_total_applicants')
+                        ->label('Tampilkan jumlah pendaftar')
+                        ->helperText('Tampilkan total pendaftar aktif pada kartu pembukaan dan halaman status pendaftar.')
+                        ->default(false),
+                    Forms\Components\Toggle::make('show_verified_applicants')
+                        ->label('Tampilkan jumlah pendaftar terverifikasi')
+                        ->helperText('Menghitung pendaftar aktif dengan validasi data berstatus Valid.')
+                        ->default(false),
+                ])
+                ->columns(['default' => 1, 'md' => 2])
+                ->visible(fn (): bool => (bool) (auth()->user()?->isAdmin() || auth()->user()?->isAdminUnit())),
         ]);
     }
 

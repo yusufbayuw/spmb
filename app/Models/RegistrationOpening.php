@@ -40,10 +40,14 @@ class RegistrationOpening extends Model
         'paused_by',
         'archived_at',
         'created_by',
+        'show_total_applicants',
+        'show_verified_applicants',
     ];
 
     protected $casts = [
         'registration_fee' => 'decimal:2',
+        'show_total_applicants' => 'boolean',
+        'show_verified_applicants' => 'boolean',
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
         'paused_at' => 'datetime',
@@ -168,6 +172,19 @@ class RegistrationOpening extends Model
     public function selectionBatches(): HasMany
     {
         return $this->hasMany(SelectionBatch::class);
+    }
+
+    /** Count only active registrations belonging to this exact opening. */
+    public function scopeWithApplicantStatistics(Builder $query): Builder
+    {
+        return $query->withCount([
+            'registrations as applicant_total_count' => fn (Builder $registrations): Builder => $registrations
+                ->where('lifecycle_status', 'active'),
+            // Data validation (not payment verification) is the definition here.
+            'registrations as applicant_verified_count' => fn (Builder $registrations): Builder => $registrations
+                ->where('lifecycle_status', 'active')
+                ->where('data_validation_status', 'valid'),
+        ]);
     }
 
     public function scopeForOperationalMode(Builder $query): Builder
