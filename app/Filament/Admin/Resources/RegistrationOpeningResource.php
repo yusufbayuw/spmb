@@ -212,6 +212,25 @@ class RegistrationOpeningResource extends Resource
                         $record->archive();
                         Notification::make()->title('Pembukaan diarsipkan')->success()->send();
                     }),
+                Tables\Actions\Action::make('deleteTotal')
+                    ->label('Hapus Total')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->visible(fn (RegistrationOpening $record): bool => auth()->user() !== null
+                        && $record->unit !== null
+                        && app(\App\Services\ControlledDeletionService::class)->allowed(auth()->user(), $record->unit, 'opening'))
+                    ->modalHeading('Hapus gelombang permanen?')
+                    ->modalDescription(fn (RegistrationOpening $record): string => app(\App\Services\ControlledDeletionService::class)->openingImpact($record))
+                    ->form([
+                        Forms\Components\Textarea::make('reason')->label('Alasan penghapusan')->required(),
+                        Forms\Components\TextInput::make('confirmation')->label('Ketik HAPUS')->required()->rule('in:HAPUS'),
+                    ])
+                    ->action(function (RegistrationOpening $record, array $data): void {
+                        app(\App\Services\ControlledDeletionService::class)->deleteOpening(
+                            $record, auth()->user(), $data['reason'], $data['confirmation']
+                        );
+                        Notification::make()->title('Gelombang kosong dihapus permanen')->success()->send();
+                    }),
                 Tables\Actions\EditAction::make(),
             ]);
     }
