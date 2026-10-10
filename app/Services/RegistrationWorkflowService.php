@@ -243,7 +243,7 @@ class RegistrationWorkflowService
         });
 
         if ($payment && $assignedNow) {
-            SendVirtualAccountMail::dispatch($payment->id);
+            app(RegistrationEmailDeliveryService::class)->queueAutomaticVirtualAccount($payment);
             $this->notifications->virtualAccountIssued($payment);
         } elseif (! $payment) {
             $this->notifications->virtualAccountPoolEmpty($registration->fresh());
@@ -310,7 +310,7 @@ class RegistrationWorkflowService
             return $payment->fresh(['registration.user', 'registration.unit']);
         });
 
-        SendVirtualAccountMail::dispatch($payment->id);
+        app(RegistrationEmailDeliveryService::class)->queueAutomaticVirtualAccount($payment);
         $this->notifications->virtualAccountIssued($payment);
 
         return $payment;
@@ -1268,7 +1268,7 @@ class RegistrationWorkflowService
         }
 
         $freshAnnouncement = $announcement->fresh(['registration.user']);
-        SendAnnouncementPublishedMail::dispatch($freshAnnouncement->id);
+        app(RegistrationEmailDeliveryService::class)->queueAutomaticAnnouncement($freshAnnouncement);
 
         $this->notifications->workflowEvent(
             $freshRegistration->fresh(),
@@ -1430,7 +1430,7 @@ class RegistrationWorkflowService
             app(AdmissionDecisionService::class)->publishWaitingList($publishedRegistration);
         }
 
-        SendAnnouncementPublishedMail::dispatch($announcement->id);
+        app(RegistrationEmailDeliveryService::class)->queueAutomaticAnnouncement($announcement);
         $this->notifications->announcementPublished($announcement);
 
         return $announcement;

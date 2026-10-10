@@ -12,6 +12,8 @@ use App\Models\UnitConfiguration;
 use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
+use App\Services\RegistrationEmailDeliveryService;
+use App\Models\MailDeliveryAttempt;
 use App\Services\UnitConfigurationService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -316,6 +318,50 @@ class RegistrationResource extends Resource
                             ? Notification::make()->title('VA berhasil di-assign; email masuk queue')->success()->send()
                             : Notification::make()->title('Pool VA unit kosong')->body('Upload nomor VA terlebih dahulu pada menu Pool Virtual Account.')->warning()->send();
                     }),
+                Tables\Actions\Action::make('resendEmail')
+                    ->label('Kirim Ulang Email')
+                    ->icon('heroicon-o-envelope')
+                    ->color('info')
+                    ->visible(fn (Registration $record): bool => auth()->user() !== null
+                        && app(RegistrationEmailDeliveryService::class)->canManage(auth()->user(), $record)
+                        && app(RegistrationEmailDeliveryService::class)->availableTypes($record) !== [])
+                    ->modalHeading('Kirim ulang email pendaftaran')
+                    ->modalDescription('Mengirim ulang informasi yang sudah sah, tanpa mengubah tahap pendaftaran, nomor VA, ataupun hasil seleksi.')
+                    ->form([
+                        Forms\Components\Select::make('type')
+                            ->label('Jenis email')
+                            ->options(fn (Registration $record): array => app(RegistrationEmailDeliveryService::class)->availableTypes($record))
+                            ->required(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan pengiriman ulang')
+                            ->required()
+                            ->maxLength(500),
+                    ])
+                    ->action(function (Registration $record, array $data): void {
+                        app(RegistrationEmailDeliveryService::class)->resend(
+                            $record, auth()->user(), $data['type'], $data['reason']
+                        );
+
+                        Notification::make()
+                            ->title('Permintaan pengiriman ulang diproses')
+                            ->body('Periksa Riwayat Email untuk memantau antrean dan hasil pengiriman.')
+                            ->success()->send();
+                    }),
+                Tables\Actions\Action::make('emailHistory')
+                    ->label('Riwayat Email')
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->visible(fn (Registration $record): bool => auth()->user() !== null
+                        && app(RegistrationEmailDeliveryService::class)->canManage(auth()->user(), $record))
+                    ->modalHeading('Riwayat Pengiriman Email')
+                    ->modalContent(fn (Registration $record) => view('filament.admin.registration-email-history', [
+                        'attempts' => MailDeliveryAttempt::query()
+                            ->with('requester')
+                            ->where('registration_id', $record->id)
+                            ->latest('id')->limit(20)->get(),
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup'),
                 Tables\Actions\Action::make('cancel')
                     ->label('Batalkan')->icon('heroicon-o-x-circle')->color('danger')
                     ->visible(fn (Registration $record): bool => $record->isOperational() && $record->current_stage !== 'completed' && (auth()->user()?->can('update_registration') ?? false))
