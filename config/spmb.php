@@ -39,6 +39,8 @@ return [
 
     'mail' => [
         'queue' => env('SPMB_MAIL_QUEUE', 'emails'),
+        'automatic_reminders_enabled' => (bool) env('SPMB_AUTOMATIC_REMINDERS_ENABLED', false),
+        'reminder_interval_hours' => (int) env('SPMB_REMINDER_INTERVAL_HOURS', 48),
     ],
 
     'notifications' => [

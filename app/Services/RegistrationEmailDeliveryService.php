@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Jobs\SendAnnouncementPublishedMail;
 use App\Jobs\SendApplicantVerificationMail;
 use App\Jobs\SendVirtualAccountMail;
+use App\Jobs\SendRegistrationActionReminder;
+use App\Jobs\SendApplicantPasswordResetMail;
+use App\Models\AdmissionOffer;
 use App\Models\Announcement;
 use App\Models\MailDeliveryAttempt;
 use App\Models\Payment;
@@ -32,11 +35,11 @@ class RegistrationEmailDeliveryService
     /** @return array<string, string> */
     public function availableTypes(Registration $registration): array
     {
-        $registration->loadMissing(['user', 'latestPayment', 'announcement']);
+        $registration->loadMissing(['user', 'latestPayment', 'announcement', 'admissionOffer']);
 
         $options = [];
 
-        if ($registration->user?->is_active && ! $registration->user->hasVerifiedEmail()) {
+        if ($registration->user?->is_active && ! $registration->user->hasAnyRole(['super_admin', 'admin_unit', 'tu']) && ! $registration->user->hasVerifiedEmail()) {
             $options['verification'] = MailDeliveryAttempt::TYPES['verification'];
         }
 
@@ -50,6 +53,30 @@ class RegistrationEmailDeliveryService
 
         if ($registration->announcement?->status === 'published') {
             $options['announcement'] = MailDeliveryAttempt::TYPES['announcement'];
+        }
+
+        if ($registration->user?->is_active && $registration->user->hasRole('pendaftar')) {
+            $options['password_reset'] = MailDeliveryAttempt::TYPES['password_reset'];
+        }
+
+        if ($registration->current_stage === 'data_validation' && $registration->data_validation_status === 'revision'
+            || in_array($registration->current_stage, ['documents', 'document_verification'], true)
+                && $registration->documents()->whereNotNull('rejection_reason')->exists()) {
+            $options['revision_reminder'] = MailDeliveryAttempt::TYPES['revision_reminder'];
+        }
+
+        if ($registration->current_stage === 'payment' && $payment
+            && in_array($payment->status, ['pending', 'rejected'], true) && blank($payment->proof_path)) {
+            $options['payment_reminder'] = MailDeliveryAttempt::TYPES['payment_reminder'];
+        }
+
+        if ($registration->current_stage === 'tests') {
+            $options['test_reminder'] = MailDeliveryAttempt::TYPES['test_reminder'];
+        }
+
+        $offer = $registration->admissionOffer;
+        if ($offer && $offer->status === 'offered' && $offer->expires_at?->isFuture()) {
+            $options['offer_reminder'] = MailDeliveryAttempt::TYPES['offer_reminder'];
         }
 
         return $options;
@@ -71,7 +98,7 @@ class RegistrationEmailDeliveryService
         // requests from passing the same cooldown/quota checks.
         $attempt = DB::transaction(function () use ($registration, $actor, $type, $reason): MailDeliveryAttempt {
             $locked = Registration::query()
-                ->with(['user', 'unit', 'latestPayment', 'announcement'])
+                ->with(['user', 'unit', 'latestPayment', 'announcement', 'admissionOffer'])
                 ->whereKey($registration->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -122,6 +149,8 @@ class RegistrationEmailDeliveryService
                 'verification' => $locked->user_id,
                 'virtual_account' => $locked->latestPayment->id,
                 'announcement' => $locked->announcement->id,
+                'password_reset' => $locked->user_id,
+                'revision_reminder', 'payment_reminder', 'test_reminder', 'offer_reminder' => $locked->id,
             };
 
             $attempt = MailDeliveryAttempt::query()->create([
@@ -156,6 +185,9 @@ class RegistrationEmailDeliveryService
                 'verification' => SendApplicantVerificationMail::dispatch($attempt->source_id, $attempt->id),
                 'virtual_account' => SendVirtualAccountMail::dispatch($attempt->source_id, $attempt->id),
                 'announcement' => SendAnnouncementPublishedMail::dispatch($attempt->source_id, $attempt->id),
+                'password_reset' => SendApplicantPasswordResetMail::dispatch($attempt->source_id, $attempt->id),
+                'revision_reminder', 'payment_reminder', 'test_reminder', 'offer_reminder' =>
+                    SendRegistrationActionReminder::dispatch($attempt->source_id, $attempt->id),
             };
         } catch (Throwable $exception) {
             $this->markFailed($attempt->id, $exception->getMessage());
@@ -163,6 +195,115 @@ class RegistrationEmailDeliveryService
         }
 
         return $attempt->fresh();
+    }
+
+    /**
+     * A pre-registration account has no trustworthy unit boundary unless its
+     * unit is assigned explicitly. Unassigned accounts require Super Admin.
+     */
+    public function canRecoverAccount(User $actor, User $applicant): bool
+    {
+        return $actor->is_active && $applicant->is_active
+            && $applicant->hasRole('pendaftar')
+            && ! $applicant->hasAnyRole(['super_admin', 'admin_unit', 'tu'])
+            && ! $applicant->registrations()->exists()
+            && ($actor->isAdmin() || ($actor->isAdminUnit()
+                && $actor->unit_id !== null
+                && (int) $actor->unit_id === (int) $applicant->unit_id));
+    }
+
+    public function recoverAccount(User $applicant, User $actor, string $type, string $reason): MailDeliveryAttempt
+    {
+        abort_unless($this->canRecoverAccount($actor, $applicant), 403);
+        if (! in_array($type, ['verification', 'password_reset'], true)
+            || ($type === 'verification' && $applicant->hasVerifiedEmail())) {
+            throw ValidationException::withMessages(['type' => 'Jenis pemulihan tidak tersedia.']);
+        }
+        if (blank(trim($reason)) || mb_strlen($reason) > 500) {
+            throw ValidationException::withMessages(['reason' => 'Alasan wajib diisi (maksimal 500 karakter).']);
+        }
+
+        $attempt = DB::transaction(function () use ($applicant, $actor, $type, $reason): MailDeliveryAttempt {
+            $locked = User::query()->lockForUpdate()->findOrFail($applicant->id);
+            abort_unless($this->canRecoverAccount($actor->fresh(), $locked), 403);
+            $last = MailDeliveryAttempt::query()->whereNull('registration_id')
+                ->where('source_id', $locked->id)->where('type', $type)->latest('id')->first();
+            if ($last && $last->created_at->greaterThan(now()->subMinutes(2))) {
+                throw ValidationException::withMessages(['type' => 'Tunggu dua menit sebelum mengirim lagi.']);
+            }
+            if (MailDeliveryAttempt::query()->whereNull('registration_id')
+                ->where('source_id', $locked->id)->where('type', $type)
+                ->where('origin', 'manual')->where('created_at', '>=', now()->subDay())->count() >= 5) {
+                throw ValidationException::withMessages(['type' => 'Batas pemulihan harian tercapai.']);
+            }
+            $attempt = MailDeliveryAttempt::query()->create([
+                'unit_id' => $locked->unit_id,
+                'registration_id' => null,
+                'requested_by' => $actor->id,
+                'type' => $type,
+                'origin' => 'manual',
+                'status' => 'queued',
+                'source_id' => $locked->id,
+                'recipient_email' => $locked->email,
+                'reason' => trim($reason),
+            ]);
+            app(AuditTrail::class)->record('mail.account_recovery_requested', $locked, actor: $actor,
+                metadata: ['delivery_attempt_id' => $attempt->id, 'mail_type' => $type],
+                description: 'Pemulihan komunikasi akun sebelum pendaftaran');
+            return $attempt;
+        }, 5);
+        try {
+            if ($type === 'verification') {
+                SendApplicantVerificationMail::dispatch($applicant->id, $attempt->id);
+            } else {
+                SendApplicantPasswordResetMail::dispatch($applicant->id, $attempt->id);
+            }
+        } catch (Throwable $e) {
+            $this->markFailed($attempt->id, $e->getMessage());
+            throw $e;
+        }
+        return $attempt;
+    }
+
+    /** Scheduling is opt-in and cannot bypass the same eligibility checks. */
+    public function scheduleReminder(Registration $registration, string $type): ?MailDeliveryAttempt
+    {
+        if (! in_array($type, ['revision_reminder', 'payment_reminder', 'test_reminder', 'offer_reminder'], true)) {
+            return null;
+        }
+        $attempt = DB::transaction(function () use ($registration, $type): ?MailDeliveryAttempt {
+            $locked = Registration::query()->with(['user', 'latestPayment', 'announcement', 'admissionOffer'])
+                ->whereKey($registration->id)->lockForUpdate()->first();
+            if (! $locked?->isOperational() || ! array_key_exists($type, $this->availableTypes($locked))
+                || ! $locked->user?->is_active) {
+                return null;
+            }
+            $interval = max(24, (int) config('spmb.mail.reminder_interval_hours', 48));
+            if (MailDeliveryAttempt::query()->where('registration_id', $locked->id)
+                ->where('type', $type)->where('created_at', '>=', now()->subHours($interval))->exists()) {
+                return null;
+            }
+            return MailDeliveryAttempt::query()->create([
+                'unit_id' => $locked->unit_id, 'registration_id' => $locked->id,
+                'type' => $type, 'origin' => 'automatic', 'status' => 'queued',
+                'source_id' => $locked->id, 'recipient_email' => $locked->user->email,
+            ]);
+        }, 5);
+        if ($attempt) {
+            try {
+                SendRegistrationActionReminder::dispatch($registration->id, $attempt->id);
+            } catch (Throwable $e) {
+                $this->markFailed($attempt->id, $e->getMessage());
+                throw $e;
+            }
+        }
+        return $attempt;
+    }
+
+    public function markAttempted(int $id): void
+    {
+        MailDeliveryAttempt::query()->whereKey($id)->where('status', 'queued')
+            ->increment('attempt_count', 1, ['last_attempted_at' => now()]);
     }
 
     public function queueAutomaticVirtualAccount(Payment $payment): void

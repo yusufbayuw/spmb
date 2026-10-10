@@ -13,6 +13,7 @@ use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
 use App\Services\RegistrationEmailDeliveryService;
+use App\Services\ApplicantEmailCorrectionService;
 use App\Models\MailDeliveryAttempt;
 use App\Services\UnitConfigurationService;
 use Filament\Forms;
@@ -345,6 +346,30 @@ class RegistrationResource extends Resource
                         Notification::make()
                             ->title('Permintaan pengiriman ulang diproses')
                             ->body('Periksa Riwayat Email untuk memantau antrean dan hasil pengiriman.')
+                            ->success()->send();
+                    }),
+                Tables\Actions\Action::make('correctApplicantEmail')
+                    ->label('Koreksi Email Akun')
+                    ->icon('heroicon-o-shield-check')
+                    ->color('warning')
+                    ->visible(fn (Registration $record): bool => auth()->user() !== null
+                        && app(RegistrationEmailDeliveryService::class)->canManage(auth()->user(), $record)
+                        && $record->user?->hasRole('pendaftar'))
+                    ->modalHeading('Koreksi email dengan verifikasi identitas')
+                    ->modalDescription('Email akun tidak berubah sampai pendaftar masuk dan menyetujui tautan di alamat baru.')
+                    ->form([
+                        Forms\Components\TextInput::make('nik')->label('NIK sesuai data pendaftaran')->required(),
+                        Forms\Components\DatePicker::make('birth_date')->label('Tanggal lahir')->native(false)->required(),
+                        Forms\Components\TextInput::make('new_email')->label('Email baru')->email()->required()->maxLength(254),
+                        Forms\Components\Textarea::make('reason')->label('Catatan verifikasi identitas')->required()->maxLength(500),
+                    ])
+                    ->requiresConfirmation()
+                    ->action(function (Registration $record, array $data): void {
+                        app(ApplicantEmailCorrectionService::class)->request(
+                            $record, auth()->user(), $data['new_email'], $data['nik'], $data['birth_date'], $data['reason']
+                        );
+                        Notification::make()->title('Persetujuan dikirim ke email baru')
+                            ->body('Pendaftar harus masuk dan mengonfirmasi sebelum alamat diubah.')
                             ->success()->send();
                     }),
                 Tables\Actions\Action::make('emailHistory')

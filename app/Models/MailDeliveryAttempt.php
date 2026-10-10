@@ -10,6 +10,12 @@ class MailDeliveryAttempt extends Model
         'verification' => 'Verifikasi Email',
         'virtual_account' => 'Informasi Virtual Account',
         'announcement' => 'Pengumuman Penerimaan',
+        'password_reset' => 'Pemulihan Kata Sandi',
+        'revision_reminder' => 'Pengingat Revisi Berkas/Data',
+        'payment_reminder' => 'Pengingat Unggah Bukti Pembayaran',
+        'test_reminder' => 'Pengingat Jadwal atau Konfirmasi Tes',
+        'offer_reminder' => 'Pengingat Konfirmasi Penerimaan',
+        'email_change' => 'Konfirmasi Koreksi Email',
     ];
 
     protected $guarded = ['id'];
@@ -17,6 +23,7 @@ class MailDeliveryAttempt extends Model
     protected $casts = [
         'sent_at' => 'datetime',
         'failed_at' => 'datetime',
+        'last_attempted_at' => 'datetime',
     ];
 
     public function registration()

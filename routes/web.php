@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdmissionOfferController;
 use App\Http\Controllers\AdmissionQrCodeController;
 use App\Http\Controllers\Auth\ApplicantEmailVerificationController;
+use App\Http\Controllers\Auth\ConfirmApplicantEmailChangeController;
 use App\Http\Controllers\BrandMediaController;
 use App\Http\Controllers\CertificateVerificationController;
 use App\Http\Controllers\HomeController;
@@ -54,6 +55,11 @@ Route::get('/verifikasi/sertifikat/{certificate}/qr.svg', [CertificateVerificati
 Route::get('/verifikasi/sertifikat/{certificate}/artifact.pdf', [CertificateVerificationController::class, 'pdf'])
     ->whereUuid('certificate')
     ->name('certificates.pdf');
+
+Route::get('/pendaftar/email-change/confirm/{emailChange}', ConfirmApplicantEmailChangeController::class)
+    ->middleware(['auth', ValidateApplicantEmailVerificationSignature::class, 'throttle:6,1'])
+    ->whereUuid('emailChange')
+    ->name('applicant.email-change.confirm');
 
 Route::get('/pendaftar/email-verification/uuid-verify/{user}/{hash}', ApplicantEmailVerificationController::class)
     ->middleware(['auth', ValidateApplicantEmailVerificationSignature::class, 'throttle:6,1'])
