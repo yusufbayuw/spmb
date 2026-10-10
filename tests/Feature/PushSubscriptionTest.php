@@ -27,7 +27,7 @@ class PushSubscriptionTest extends TestCase
 
     public function test_user_can_register_multiple_devices_and_update_an_existing_endpoint(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['is_active' => true]);
 
         $this->actingAs($user)
             ->getJson(route('push.vapid-public-key'))
@@ -59,8 +59,8 @@ class PushSubscriptionTest extends TestCase
 
     public function test_endpoint_moves_to_current_user_and_unsubscribe_only_removes_owned_endpoint(): void
     {
-        $firstUser = User::factory()->create();
-        $secondUser = User::factory()->create();
+        $firstUser = User::factory()->create(['is_active' => true]);
+        $secondUser = User::factory()->create(['is_active' => true]);
         $payload = $this->payload('shared-device');
 
         $this->actingAs($firstUser)
@@ -98,7 +98,7 @@ class PushSubscriptionTest extends TestCase
 
     public function test_subscription_payload_is_validated(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->create(['is_active' => true]))
             ->postJson(route('push.subscriptions.store'), [
                 'endpoint' => 'not-a-url',
                 'keys' => [],
@@ -117,16 +117,47 @@ class PushSubscriptionTest extends TestCase
     {
         config()->set('webpush.vapid.public_key', null);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->create(['is_active' => true]))
             ->getJson(route('push.vapid-public-key'))
             ->assertStatus(503);
+    }
+
+    public function test_rejects_internal_arbitrary_or_insecure_push_hosts(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        foreach ([
+            'http://fcm.googleapis.com/subscriptions/demo',
+            'https://127.0.0.1/push',
+            'https://localhost/push',
+            'https://push.attacker.example/push',
+            'https://fcm.googleapis.com:8443/push',
+        ] as $endpoint) {
+            $data = $this->payload('malicious');
+            $data['endpoint'] = $endpoint;
+            $this->actingAs($user)->postJson(route('push.subscriptions.store'), $data)
+                ->assertUnprocessable()->assertJsonValidationErrors('endpoint');
+        }
+        $this->assertDatabaseCount('push_subscriptions', 0);
+    }
+
+    public function test_inactive_user_cannot_change_push_devices_or_fetch_key(): void
+    {
+        $user = User::factory()->create(['is_active' => false]);
+
+        $this->actingAs($user)->getJson(route('push.vapid-public-key'))->assertForbidden();
+        $this->actingAs($user)->postJson(route('push.subscriptions.store'), $this->payload('inactive'))
+            ->assertForbidden();
+        $this->actingAs($user)->deleteJson(route('push.subscriptions.destroy'), [
+            'endpoint' => $this->payload('inactive')['endpoint'],
+        ])->assertForbidden();
+        $this->assertDatabaseCount('push_subscriptions', 0);
     }
 
     /** @return array<string, mixed> */
     private function payload(string $device): array
     {
         return [
-            'endpoint' => "https://push.example.test/subscriptions/{$device}",
+            'endpoint' => "https://fcm.googleapis.com/subscriptions/{$device}",
             'keys' => [
                 'p256dh' => "public-key-{$device}",
                 'auth' => "auth-token-{$device}",

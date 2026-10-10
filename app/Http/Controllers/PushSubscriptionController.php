@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PushEndpointPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -10,6 +11,7 @@ class PushSubscriptionController extends Controller
 {
     public function publicKey(): JsonResponse
     {
+        abort_unless(auth()->user()?->is_active, 403);
         $publicKey = config('webpush.vapid.public_key');
 
         abort_if(blank($publicKey), 503, 'Web Push belum dikonfigurasi.');
@@ -19,8 +21,13 @@ class PushSubscriptionController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->is_active, 403);
         $data = $request->validate([
-            'endpoint' => ['required', 'url:http,https', 'max:1024'],
+            'endpoint' => ['required', 'url:https', 'max:1024', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! app(PushEndpointPolicy::class)->allows((string) $value)) {
+                    $fail('Endpoint push harus HTTPS dan menggunakan penyedia push tepercaya.');
+                }
+            }],
             'keys' => ['required', 'array'],
             'keys.p256dh' => ['required', 'string', 'max:512'],
             'keys.auth' => ['required', 'string', 'max:512'],
@@ -39,6 +46,7 @@ class PushSubscriptionController extends Controller
 
     public function destroy(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->is_active, 403);
         $data = $request->validate([
             'endpoint' => ['required', 'url:http,https', 'max:1024'],
         ]);

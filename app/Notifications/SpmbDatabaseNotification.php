@@ -7,12 +7,19 @@ use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
 class SpmbDatabaseNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+
+    /**
+     * Stable across queue retries even if Laravel regenerates Notification::id.
+     * Do not use the event name as a dedupe key: genuine repeated events are distinct.
+     */
+    public string $deliveryUuid;
 
     public int $tries = 5;
 
@@ -31,6 +38,7 @@ class SpmbDatabaseNotification extends Notification implements ShouldQueue
         public ?string $unitUuid = null,
         public array $metadata = [],
     ) {
+        $this->deliveryUuid = (string) Str::uuid();
         $this->onQueue((string) config('spmb.notifications.queue', 'notifications'));
         $this->afterCommit();
     }

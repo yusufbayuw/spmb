@@ -43,6 +43,16 @@ return [
         'reminder_interval_hours' => (int) env('SPMB_REMINDER_INTERVAL_HOURS', 48),
     ],
 
+    'readiness' => [
+        'release_sha' => env('SPMB_RELEASE_SHA', ''),
+        'probes_enabled' => (bool) env('SPMB_READINESS_PROBES_ENABLED', false),
+        // HTTPS-only Web Push services. Override only after reviewing provider egress.
+        'push_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env(
+            'SPMB_PUSH_ALLOWED_HOSTS',
+            'fcm.googleapis.com,updates.push.services.mozilla.com,*.push.apple.com,web.push.apple.com,*.notify.windows.com,*.wns.windows.com'
+        ))))),
+    ],
+
     'notifications' => [
         'queue' => env('SPMB_NOTIFICATION_QUEUE', 'notifications'),
         'polling' => env('SPMB_NOTIFICATION_POLLING', '15s'),
