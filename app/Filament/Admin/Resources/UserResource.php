@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Services\RegistrationEmailDeliveryService;
+use Filament\Notifications\Notification;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -63,6 +65,26 @@ class UserResource extends Resource
                 Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
             ])
             ->actions([
+                Tables\Actions\Action::make('recoverApplicantAccount')
+                    ->label('Pemulihan Email Akun')
+                    ->icon('heroicon-o-envelope')
+                    ->color('info')
+                    ->visible(fn (User $record): bool => auth()->user() !== null
+                        && app(RegistrationEmailDeliveryService::class)->canRecoverAccount(auth()->user(), $record))
+                    ->form([
+                        Forms\Components\Select::make('type')->label('Jenis email')->required()->options(
+                            fn (User $record): array => $record->hasVerifiedEmail()
+                                ? ['password_reset' => 'Reset Password']
+                                : ['verification' => 'Verifikasi Email', 'password_reset' => 'Reset Password']
+                        ),
+                        Forms\Components\Textarea::make('reason')->label('Alasan')->required()->maxLength(500),
+                    ])
+                    ->action(function (User $record, array $data): void {
+                        app(RegistrationEmailDeliveryService::class)->recoverAccount(
+                            $record, auth()->user(), $data['type'], $data['reason']
+                        );
+                        Notification::make()->title('Pemulihan diantrekan')->success()->send();
+                    }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ]);
