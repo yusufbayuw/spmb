@@ -339,6 +339,33 @@ class RegistrationResource extends Resource
                         $record->changeLifecycle('active', auth()->user());
                         Notification::make()->title('Pendaftaran diaktifkan kembali')->success()->send();
                     }),
+                Tables\Actions\Action::make('deleteTotal')
+                    ->label('Hapus Total')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->visible(fn (Registration $record): bool => auth()->user() !== null
+                        && $record->unit !== null
+                        && app(\App\Services\ControlledDeletionService::class)->allowed(auth()->user(), $record->unit, 'registration'))
+                    ->modalHeading(fn (Registration $record): string => 'Hapus total pendaftaran '.$record->full_name.'?')
+                    ->modalDescription(fn (Registration $record): string => app(\App\Services\ControlledDeletionService::class)->registrationImpact($record))
+                    ->form([
+                        Forms\Components\Textarea::make('reason')->label('Alasan penghapusan')->required(),
+                        Forms\Components\TextInput::make('confirmation')
+                            ->label('Ketik HAPUS untuk melanjutkan')
+                            ->required()
+                            ->rule('in:HAPUS'),
+                    ])
+                    ->action(function (Registration $record, array $data): void {
+                        $result = app(\App\Services\ControlledDeletionService::class)->deleteRegistration(
+                            $record, auth()->user(), $data['reason'], $data['confirmation']
+                        );
+                        Notification::make()
+                            ->title('Data pendaftar dihapus permanen')
+                            ->body($result['file_errors'] > 0
+                                ? 'Data berhasil dihapus, tetapi sebagian file membutuhkan pembersihan manual.'
+                                : 'Penghapusan tercatat dalam audit.')
+                            ->success()->send();
+                    }),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

@@ -50,10 +50,16 @@ class Unit extends Model
         'public_address',
         'logo_path',
         'is_active',
+        'allow_admin_unit_registration_deletion',
+        'allow_admin_unit_va_deletion',
+        'allow_admin_unit_opening_deletion',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'allow_admin_unit_registration_deletion' => 'boolean',
+        'allow_admin_unit_va_deletion' => 'boolean',
+        'allow_admin_unit_opening_deletion' => 'boolean',
         'pre_registration_items' => 'array',
     ];
 

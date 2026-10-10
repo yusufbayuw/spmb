@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\VirtualAccountResource\Pages;
 use App\Models\VirtualAccount;
 use Filament\Resources\Resource;
+use Filament\Forms;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -84,6 +85,28 @@ class VirtualAccountResource extends Resource
                     ->requiresConfirmation()
                     ->visible(fn (VirtualAccount $record): bool => $record->status === 'available' && auth()->user()?->can('update_virtualaccount'))
                     ->action(fn (VirtualAccount $record) => $record->update(['status' => 'cancelled'])),
+                Tables\Actions\Action::make('deleteTotal')
+                    ->label('Hapus Total')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->visible(fn (VirtualAccount $record): bool => auth()->user() !== null
+                        && $record->unit !== null
+                        && app(\App\Services\ControlledDeletionService::class)->allowed(auth()->user(), $record->unit, 'virtual_account')
+                        && in_array($record->status, ['available', 'cancelled'], true)
+                        && $record->registration_id === null && $record->assigned_at === null
+                        && ! $record->payment()->exists())
+                    ->modalHeading('Hapus nomor VA permanen?')
+                    ->modalDescription(fn (VirtualAccount $record): string => app(\App\Services\ControlledDeletionService::class)->vaImpact($record))
+                    ->form([
+                        Forms\Components\Textarea::make('reason')->label('Alasan penghapusan')->required(),
+                        Forms\Components\TextInput::make('confirmation')->label('Ketik HAPUS')->required()->rule('in:HAPUS'),
+                    ])
+                    ->action(function (VirtualAccount $record, array $data): void {
+                        app(\App\Services\ControlledDeletionService::class)->deleteVirtualAccount(
+                            $record, auth()->user(), $data['reason'], $data['confirmation']
+                        );
+                        Notification::make()->title('VA kosong dihapus permanen')->success()->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
