@@ -12,7 +12,8 @@ class ProductionReadinessService
 {
     /**
      * Manual checks cannot be proved by PHP. Evidence is scoped to deployment
-     * and exact release; deploying a new SHA invalidates all prior approvals.
+     * rather than source-code commits. Manual approvals remain visible after
+     * copy-paste upgrades; operational checks are re-evaluated on every visit.
      */
     public const MANUAL = [
         'backup_restore' => ['Pemulihan backup database & file privat', 'Cadangkan dan pulihkan pada server terisolasi; cocokkan data, dokumen, dan hak akses.', 'Backup'],
@@ -41,11 +42,12 @@ class ProductionReadinessService
         'staging_isolation' => ['Isolasi staging-production', 'Validasi database, APP_KEY, session, cache prefix, storage, alamat email uji, dan isolasi queue.', 'Release'],
     ];
 
-    public function release(): string
+    public function auditScope(): string
     {
-        $sha = trim((string) config('spmb.readiness.release_sha', ''));
-
-        return preg_match('/^[0-9a-f]{40}$/i', $sha) ? strtolower($sha) : '';
+        // Database compatibility: existing tables still use release_sha.
+        // The sentinel is intentionally installation-scoped, not a Git SHA.
+        // There is no dependency on Git or a manually maintained .env version.
+        return 'installation';
     }
 
     public function deploymentId(): string
@@ -57,7 +59,7 @@ class ProductionReadinessService
     public function report(): array
     {
         $environment = (string) config('app.env');
-        $release = $this->release();
+        $release = $this->auditScope();
         $checks = [];
 
         $add = static function (string $id, string $category, bool $ok, string $message, bool $warning = false) use (&$checks): void {
@@ -77,7 +79,8 @@ class ProductionReadinessService
         };
 
         $add('environment', 'Konfigurasi', $environment === 'production', 'APP_ENV harus production untuk keputusan production.');
-        $add('release_sha', 'Release', $release !== '', 'SPMB_RELEASE_SHA wajib berisi SHA commit Git 40 karakter yang dideploy.');
+        $add('audit_scope', 'Release', true,
+            'Audit menggunakan identitas instalasi. Tidak perlu Git, SHA atau hash file kode.');
         $add('app_key', 'Konfigurasi', filled(config('app.key')), 'APP_KEY harus terpasang dan tetap konsisten.');
         $add('debug', 'Konfigurasi', config('app.debug') === false, 'APP_DEBUG wajib false.');
         $add('https', 'Keamanan', str_starts_with((string) config('app.url'), 'https://'), 'APP_URL harus https://.');
@@ -169,7 +172,7 @@ class ProductionReadinessService
         }
 
         $attestations = [];
-        if ($release !== '' && $db && $probe(fn () => Schema::hasTable('production_readiness_attestations'))) {
+        if ($db && $probe(fn () => Schema::hasTable('production_readiness_attestations'))) {
             try {
                 $attestations = DB::table('production_readiness_attestations')
                     ->where('deployment_id', $this->deploymentId())->where('release_sha', $release)
@@ -193,12 +196,13 @@ class ProductionReadinessService
         $fail = $counts['fail'] ?? 0;
         $pendingCount = $counts['pending'] ?? 0;
         $warning = $counts['warning'] ?? 0;
-        $ready = $fail === 0 && $pendingCount === 0 && $warning === 0 && $environment === 'production' && $release !== '';
+        $ready = $fail === 0 && $pendingCount === 0 && $warning === 0 && $environment === 'production';
 
         return [
             'status' => $ready ? 'ready_for_review' : 'not_ready',
             'environment' => $environment,
             'release_sha' => $release,
+            'audit_scope' => 'installation',
             'checks' => $checks, 'failures' => $fail, 'pending' => $pendingCount,
             'warnings' => $warning, 'passes' => $counts['pass'] ?? 0,
             'generated_at' => now()->toIso8601String(),
@@ -217,10 +221,7 @@ class ProductionReadinessService
         if ($status === 'pass' && mb_strlen($evidence) < 20 || mb_strlen($evidence) > 2000) {
             throw \Illuminate\Validation\ValidationException::withMessages(['evidence' => 'Untuk lulus, isi bukti minimal 20 dan maksimal 2000 karakter.']);
         }
-        $release = $this->release();
-        if ($release === '') {
-            throw \Illuminate\Validation\ValidationException::withMessages(['release' => 'Isi SPMB_RELEASE_SHA valid sebelum memberi persetujuan.']);
-        }
+        $release = $this->auditScope();
 
         DB::table('production_readiness_attestations')->updateOrInsert(
             ['deployment_id' => $this->deploymentId(), 'release_sha' => $release, 'check_id' => $checkId],
