@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\AnnouncementPublishedMail;
 use App\Models\Announcement;
+use App\Services\RegistrationEmailDeliveryService;
 use App\Services\AuditTrail;
 use App\Services\SpmbNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,7 +19,7 @@ class SendAnnouncementPublishedMail implements ShouldQueue
     public int $tries = 5;
     public int $timeout = 45;
 
-    public function __construct(public int $announcementId)
+    public function __construct(public int $announcementId, public ?int $deliveryAttemptId = null)
     {
         $this->onQueue((string) config('spmb.mail.queue', 'emails'));
         $this->afterCommit();
@@ -32,7 +33,23 @@ class SendAnnouncementPublishedMail implements ShouldQueue
     public function handle(AuditTrail $audit): void
     {
         $announcement = Announcement::query()->with('registration.user')->findOrFail($this->announcementId);
-        Mail::to($announcement->registration->user->email)->send(new AnnouncementPublishedMail($announcement));
+        $recipient = $announcement->registration->user->email;
+        if ($this->deliveryAttemptId !== null && ! app(RegistrationEmailDeliveryService::class)->destinationMatches($this->deliveryAttemptId, $recipient)) {
+            app(RegistrationEmailDeliveryService::class)->markSkipped($this->deliveryAttemptId);
+            return;
+        }
+
+        if ($this->deliveryAttemptId !== null
+            && \App\Models\MailDeliveryAttempt::query()->whereKey($this->deliveryAttemptId)->where('origin', 'manual')->exists()
+            && $announcement->status !== 'published') {
+            app(RegistrationEmailDeliveryService::class)->markSkipped($this->deliveryAttemptId);
+            return;
+        }
+
+        Mail::to($recipient)->send(new AnnouncementPublishedMail($announcement));
+        if ($this->deliveryAttemptId !== null) {
+            app(RegistrationEmailDeliveryService::class)->markSent($this->deliveryAttemptId);
+        }
 
         $announcement->update(['email_sent_at' => now()]);
 
@@ -47,6 +64,9 @@ class SendAnnouncementPublishedMail implements ShouldQueue
     public function failed(?Throwable $exception): void
     {
         $announcement = Announcement::query()->with('registration')->find($this->announcementId);
+        if ($this->deliveryAttemptId !== null) {
+            app(RegistrationEmailDeliveryService::class)->markFailed($this->deliveryAttemptId, $exception?->getMessage() ?: 'Unknown queue failure');
+        }
         $message = $exception?->getMessage() ?: 'Unknown queue failure';
 
         app(AuditTrail::class)->record(
