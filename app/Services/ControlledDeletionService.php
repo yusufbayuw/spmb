@@ -118,7 +118,10 @@ class ControlledDeletionService
 
             // Other dependent records use FK cascades. RESTRICT references are
             // left intact and will roll back this entire transaction if present.
-            $locked->delete();
+            // Delete via query builder: Eloquent's global deleted observer would
+            // try to write a second audit record referencing a deleted parent.
+            // The explicit audit event above survives via nullOnDelete FK.
+            DB::table('registrations')->where('id', $locked->id)->delete();
 
             return $paths;
         });
@@ -160,7 +163,7 @@ class ControlledDeletionService
                 actor: $actor,
                 description: 'VA kosong dihapus permanen oleh petugas berwenang',
             );
-            $locked->delete();
+            DB::table($locked->getTable())->where('id', $locked->id)->delete();
         });
     }
 
@@ -188,7 +191,7 @@ class ControlledDeletionService
                 actor: $actor,
                 description: 'Gelombang kosong dihapus permanen oleh petugas berwenang',
             );
-            $locked->delete();
+            DB::table($locked->getTable())->where('id', $locked->id)->delete();
         });
     }
 
