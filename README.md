@@ -4,6 +4,10 @@ Platform penerimaan peserta didik dan mahasiswa berbasis Laravel dan Filament.
 
 Repository ini bersifat **white-label**. Identitas institusi, nama portal, kontak, alamat, logo, unit pendidikan, program studi, dan data operasional tidak boleh di-hard-code ke source code. Setiap deployment mengatur identitasnya melalui environment/configuration dan data aplikasi.
 
+## Navigasi dokumentasi
+
+[Instalasi lokal](#instalasi-lokal) · [Deployment production](#production-deployment) · [Queue dan scheduler](#queue-dan-scheduler) · [Operasional email](#notification-delivery-manager) · [Profil staf](#profil-dan-keamanan-akun) · [Lifecycle data](#data-lifecycle-dan-bulk-action-status-implementasi) · [Testing](#testing)
+
 ## Cakupan
 
 SPMB mendukung tiga profil operasional:
@@ -21,8 +25,10 @@ Role utama:
 
 Aplikasi menggunakan satu autentikasi utama pada `/login`, kemudian mengarahkan user berdasarkan role:
 
-- staf → `/admin`
-- pendaftar → `/pendaftar`
+- staf → `/admin` (profil mandiri: `/admin/profile`);
+- pendaftar → `/pendaftar` (profil mandiri: `/pendaftar/profile`).
+
+Rute lama `/profile` mengarahkan pengguna ke profil panel yang sesuai. Kewenangan tetap mengikuti role, unit, serta status aktif akun.
 
 ## Fitur Utama
 
@@ -53,7 +59,11 @@ Aplikasi menggunakan satu autentikasi utama pada `/login`, kemudian mengarahkan 
 - dokumen/printable;
 - pengaturan informasi publik dan helpdesk;
 - account consent serta consent proses pendaftaran;
-- mode K12, perguruan tinggi, dan mixed.
+- mode K12, perguruan tinggi, dan mixed;
+- profil staf dan perubahan password mandiri yang aman;
+- pengiriman ulang email dan pemulihan akses pendaftar;
+- pengingat tindakan tertunda dan koreksi email yang harus dikonfirmasi pendaftar;
+- monitoring pengiriman, pencatatan retry, serta penghapusan data yang terkendali.
 
 ## Teknologi
 
@@ -187,15 +197,117 @@ pada database production.
 
 Menjalankan `php artisan db:seed --force` pada production hanya menjalankan reference seeder melalui `DatabaseSeeder`; demo data tidak dibuat.
 
-## Queue
+## Queue dan Scheduler
 
-Contoh worker:
+Contoh worker (sesuaikan path binary PHP dan driver queue dengan deployment):
 
 ```bash
 php artisan queue:work --queue=emails,notifications,default --sleep=3 --tries=5 --timeout=120
 ```
 
-Pastikan queue worker dikelola oleh Supervisor/systemd atau process manager yang sesuai.
+Email SPMB berjalan di queue `emails` (job maksimal 5 percobaan dengan jeda bertahap). Notifikasi database/Web Push menggunakan queue `notifications`. Jalankan worker di bawah Supervisor/systemd atau process manager lain dan pastikan **semua nama queue di atas benar-benar dikonsumsi**. Dispatch berhasil belum berarti email diterima pengguna.
+
+Diagnostik:
+
+```bash
+php artisan queue:failed
+php artisan schedule:list
+```
+
+Laravel Scheduler juga harus dijalankan **setiap menit** oleh cron (contoh; gunakan pengguna aplikasi):
+
+```cron
+* * * * * cd /path/to/spmb && /path/to/php artisan schedule:run >> /dev/null 2>&1
+```
+
+Jangan memasang scheduler ganda. Scheduler juga menangani tugas lain, termasuk pemeriksaan penawaran penerimaan kedaluwarsa.
+
+### Pengingat otomatis: opt-in
+
+Fitur pengingat otomatis **nonaktif secara default**, sehingga deployment tidak tiba-tiba mengirim pesan massal. Untuk mengaktifkan setelah pengujian:
+
+```dotenv
+SPMB_AUTOMATIC_REMINDERS_ENABLED=true
+SPMB_REMINDER_INTERVAL_HOURS=48
+```
+
+Perbarui cache konfigurasi (`php artisan config:cache`) dan periksa `php artisan schedule:list`. Jika aktif, `spmb:remind-pending-actions --execute` berjalan setiap hari pada **09.00 menurut timezone aplikasi** (default `Asia/Jakarta`). Pengingat untuk jenis yang sama pada pendaftaran yang sama dibatasi interval minimal, default 48 jam; job mengecek ulang syarat pengiriman sebelum mengirim.
+
+```bash
+# Pratinjau (tanpa mengirim), hanya ketika fitur diaktifkan:
+php artisan spmb:remind-pending-actions
+
+# Mengantrekan email nyata; gunakan hanya setelah pemeriksaan:
+php artisan spmb:remind-pending-actions --execute
+```
+
+Jika `SPMB_AUTOMATIC_REMINDERS_ENABLED=false`, kedua perintah tidak mengirim email. **Pengiriman manual** di halaman Pendaftaran tetap berfungsi tanpa mengaktifkan scheduler pengingat.
+
+## Notification Delivery Manager
+
+[PR #18](https://github.com/yusufbayuw/spmb/pull/18) memperkenalkan pengiriman ulang; [PR #20](https://github.com/yusufbayuw/spmb/pull/20) melengkapinya dengan pemulihan akun, pengingat tindakan tertunda, koreksi email, dan monitoring. Prinsip utama: **memulihkan komunikasi tanpa mem-bypass workflow pendaftaran, pembayaran, atau seleksi**.
+
+### Menu Admin
+
+| Lokasi | Fungsi |
+| --- | --- |
+| **Pendaftaran → Kirim Ulang Email** (aksi pada baris) | Pilih jenis email yang masih relevan, masukkan alasan, lalu antrekan |
+| **Pendaftaran → Riwayat Email** | Periksa hingga 20 catatan terbaru untuk satu pendaftaran |
+| **Pendaftaran → Koreksi Email Akun** | Ajukan alamat email baru setelah verifikasi identitas; tunggu persetujuan pemilik akun |
+| **Sistem & Akses → Pengiriman Email** | Monitoring dan filter lintas pendaftar berdasarkan status/jenis |
+| **Sistem & Akses → Pemulihan Akun** | Bantuan verifikasi/reset akun pendaftar yang belum membuat pendaftaran |
+
+Rute monitoring: `/admin/notification-delivery-center`; rute bantuan pra-pendaftaran: `/admin/applicant-account-recovery`. Untuk peserta yang **sudah mempunyai pendaftaran**, gunakan aksi di menu **Pendaftaran**.
+
+### Jenis pengiriman ulang
+
+| Jenis email | Syarat atau perilaku |
+| --- | --- |
+| Verifikasi akun | Akun aktif, email belum diverifikasi; tautan signed baru dan memiliki kedaluwarsa |
+| Informasi Virtual Account | Masih tahap pembayaran, VA existing, pembayaran berstatus relevan; **tidak menciptakan VA/Payment baru** |
+| Pengumuman | Pengumuman berstatus `published`; keputusan/hasil bisnis tidak diterbitkan ulang |
+| Reset password | Menggunakan mekanisme broker Laravel, tanpa memperlihatkan token/password kepada petugas |
+| Pengingat revisi | Data masih harus diperbaiki atau berkas ditolak pada tahap yang sesuai |
+| Pengingat bukti pembayaran | Masih tahap pembayaran, bukti transfer belum diunggah |
+| Pengingat tahapan tes | Masih tahap tes; peserta diminta mengecek jadwal/konfirmasi pada portal |
+| Pengingat penawaran | Penawaran `offered` dan belum kedaluwarsa |
+
+Pilihan jenis email muncul menurut **kondisi terkini**, bukan semua opsi untuk semua pendaftaran. Worker memeriksa ulang penerima dan status proses saat job berjalan. Pengiriman email ulang tidak membuat nomor VA, pembayaran, atau keputusan seleksi baru. Verifikasi pembayaran tetap **manual berdasarkan bukti transfer**.
+
+### Hak akses
+
+- **Super Admin** dapat menangani semua unit dan bantuan akun pra-pendaftaran yang belum ditetapkan ke unit.
+- **Admin Unit** hanya dapat menangani pendaftar pada unit sendiri. Akun pra-pendaftaran harus sudah memiliki `unit_id` yang sama; jika tidak ada, hanya Super Admin yang dapat membantu.
+- **TU** tidak dapat memakai aksi kirim ulang, koreksi email, pemulihan akun, ataupun dashboard monitoring ini.
+- **Pendaftar** tetap dapat mengelola akunnya di portal; staf tidak melihat/mengambil alih token, tidak menandai verifikasi akun secara paksa, dan tidak bisa melompati tahap pendaftaran.
+
+Jangan memberikan hak akses resource **Pengguna** secara luas hanya demi pemulihan akun. Admin Unit memakai halaman bantuan khusus yang memeriksa kepemilikan unit pada server.
+
+### Koreksi email dengan persetujuan pemilik akun
+
+1. Petugas membuka **Pendaftaran → Koreksi Email Akun**, memverifikasi identitas terhadap **NIK dan tanggal lahir** pendaftaran, mengisi email baru serta alasan.
+2. Server membuat permintaan `pending`, mencatat audit, lalu mengantrekan tautan **bertanda tangan** ke email **baru**, berlaku **30 menit**. Email akun yang lama **belum berubah**.
+3. Pemilik akun harus **login sebagai pendaftar** dan membuka tautan tersebut. Server mengecek akun, kedaluwarsa, status permintaan, email lama, serta keunikan email baru sebelum memperbarui alamat.
+4. Setelah disetujui, email baru ditandai terverifikasi. Tautan lama/yang digantikan tidak dapat digunakan kembali. Akun yang terhubung lintas unit membutuhkan Super Admin untuk mengajukan perubahan.
+
+Pemeriksaan NIK dan tanggal lahir pada aplikasi **bukan pengganti prosedur verifikasi identitas institusi**. Petugas tetap harus mengikuti SOP dan tidak menuliskan NIK/token ke catatan alasan maupun tiket bantuan.
+
+### Status, batas frekuensi, dan monitoring
+
+Tabel `mail_delivery_attempts` mencatat jenis, peminta, penerima, asal otomatis/manual, alasan, status, jumlah percobaan job (`attempt_count`), serta waktu. Status yang ditampilkan:
+
+| Status | Arti |
+| --- | --- |
+| `queued` | Pengiriman dalam antrean |
+| `sent` | Pesan **diserahkan ke server email**, bukan kepastian terkirim ke inbox atau dibaca |
+| `failed` | Proses gagal setelah retry atau dispatch gagal |
+| `skipped` | Dilewati karena penerima/kondisi bisnis sudah berubah |
+
+Untuk pengiriman manual: alasan wajib (maksimum **500 karakter**), cooldown **2 menit** per jenis, maksimal **5 kali per jenis/per pendaftaran dalam 24 jam**, serta perlindungan ketika email masih antre selama **15 menit**. Permintaan bantuan akun sebelum pendaftaran juga memiliki pembatasan frekuensi.
+
+Dashboard menampilkan jumlah antrean, antrean **lebih dari 15 menit**, gagal, dan status diserahkan ke email server selama 24 jam terakhir. Riwayat dipaginasi (25 catatan/halaman), dengan filter jenis/status dan **pembatasan per unit**. Jumlah `attempt_count` adalah usaha menjalankan job, **bukan** jumlah pembukaan email atau bukti penerimaan pengguna.
+
+Jika email dilaporkan tidak diterima: cek riwayat dan status, lalu konfigurasi `MAIL_*`, worker `emails`, antrean gagal, alamat penerima, dan log provider email. Jangan mengirim ulang saat antrean lama masih aktif. Status `sent` tidak dapat digunakan sebagai bukti pesan sudah sampai di inbox.
 
 ## PWA dan Web Push
 
