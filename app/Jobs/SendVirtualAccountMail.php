@@ -32,6 +32,9 @@ class SendVirtualAccountMail implements ShouldQueue
 
     public function handle(AuditTrail $audit): void
     {
+        if ($this->deliveryAttemptId !== null) {
+            app(RegistrationEmailDeliveryService::class)->markAttempted($this->deliveryAttemptId);
+        }
         $payment = Payment::query()->with(['registration.user', 'registration.unit'])->findOrFail($this->paymentId);
         $recipient = $payment->registration->user->email;
         if ($this->deliveryAttemptId !== null && ! app(RegistrationEmailDeliveryService::class)->destinationMatches($this->deliveryAttemptId, $recipient)) {

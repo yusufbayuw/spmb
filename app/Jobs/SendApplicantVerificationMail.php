@@ -33,6 +33,9 @@ class SendApplicantVerificationMail implements ShouldQueue
 
     public function handle(RegistrationEmailDeliveryService $deliveries, AuditTrail $audit): void
     {
+        if ($this->deliveryAttemptId !== null) {
+            app(RegistrationEmailDeliveryService::class)->markAttempted($this->deliveryAttemptId);
+        }
         $user = User::query()->findOrFail($this->userId);
 
         if (! $user->is_active || $user->hasVerifiedEmail()

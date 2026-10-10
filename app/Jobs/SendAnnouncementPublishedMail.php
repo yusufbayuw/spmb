@@ -32,6 +32,9 @@ class SendAnnouncementPublishedMail implements ShouldQueue
 
     public function handle(AuditTrail $audit): void
     {
+        if ($this->deliveryAttemptId !== null) {
+            app(RegistrationEmailDeliveryService::class)->markAttempted($this->deliveryAttemptId);
+        }
         $announcement = Announcement::query()->with('registration.user')->findOrFail($this->announcementId);
         $recipient = $announcement->registration->user->email;
         if ($this->deliveryAttemptId !== null && ! app(RegistrationEmailDeliveryService::class)->destinationMatches($this->deliveryAttemptId, $recipient)) {
