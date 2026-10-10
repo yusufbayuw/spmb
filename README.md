@@ -352,6 +352,27 @@ Aplikasi memakai satu session untuk:
 
 Karena itu cookie session selalu menggunakan path root `/`. Jangan mempersempit cookie hanya ke salah satu panel.
 
+## Profil dan keamanan akun
+
+**Profil staf mandiri ([PR #19](https://github.com/yusufbayuw/spmb/pull/19)):** Super Admin, Admin Unit, dan TU dapat membuka `/admin/profile` atau menu akun Filament. Staf dapat:
+
+- memperbarui **nama**;
+- melihat **username, email, role, dan unit** secara read-only;
+- mengganti password setelah mengisi **password saat ini**, password baru, dan konfirmasi password (dengan aturan validasi Laravel).
+
+Profil mandiri **tidak boleh mengubah email, username, role, unit, maupun status aktif**. Rotasi password menaikkan `auth_version` dan mengganti `remember_token` untuk menolak sesi staf lama, tetapi mempertahankan sesi yang berhasil melakukan perubahan. Login terpadu menyimpan generasi sesi staf terkini sehingga akun yang pernah mengganti password tetap dapat login normal.
+
+Profil pendaftar ada di `/pendaftar/profile`. Bantuan pemulihan password oleh Admin Unit memakai token broker Laravel yang dikirim **langsung kepada pendaftar**; petugas tidak melihat token dan tidak dapat menentukan password pendaftar.
+
+### Hardening password dan sesi staf
+
+```bash
+php artisan spmb:harden-staff-passwords
+php artisan spmb:harden-staff-passwords --execute
+```
+
+Aksi non-production ini mempertahankan akun `super_admin`, `admin_unit`, dan `tu`, menghasilkan hash password acak berbeda untuk setiap akun, mengubah remember token, membatalkan token reset lama, serta mencabut sesi database lama. Kolom `auth_version` dan middleware sesi admin juga menolak sesi Redis/file generasi lama pada permintaan berikutnya setelah rotasi. Password baru tidak ditampilkan; **pastikan pemulihan email berfungsi sebelum rotasi**.
+
 ## White-label dari Panel Admin
 
 Super Admin dapat mengatur identitas global melalui **Sistem & Akses → White-label Aplikasi** tanpa akses server. Nama portal, nama organisasi, logo, kontak, alamat, jam layanan, dan warna tema PWA disimpan di database.
@@ -427,27 +448,6 @@ php artisan spmb:reset-operational --cleanup-manifest=reset-manifests/<nama-file
 ```
 
 **Jangan gunakan `--execute` pada data berharga atau ketika VA riil pernah dipakai.** Periksa rencana penghapusan, data pelatihan/sertifikasi yang dimiliki akun pendaftar, hasil CI, serta backup terlebih dahulu. Versi saat ini belum merupakan pengganti backup operator maupun sistem rekonsiliasi bank. Perintah `spmb:dev-reset-preview` tetap tersedia sebagai ringkasan awal non-destruktif.
-
-### Profil dan keamanan akun
-
-**Profil staf mandiri ([PR #19](https://github.com/yusufbayuw/spmb/pull/19)):** Super Admin, Admin Unit, dan TU dapat membuka `/admin/profile` atau menu akun Filament. Staf dapat:
-
-- memperbarui **nama**;
-- melihat **username, email, role, dan unit** secara read-only;
-- mengganti password setelah mengisi **password saat ini**, password baru, dan konfirmasi password (dengan aturan validasi Laravel).
-
-Profil mandiri **tidak boleh mengubah email, username, role, unit, maupun status aktif**. Rotasi password menaikkan `auth_version` dan mengganti `remember_token` untuk menolak sesi staf lama, tetapi mempertahankan sesi yang berhasil melakukan perubahan. Login terpadu menyimpan generasi sesi staf terkini sehingga akun yang pernah mengganti password tetap dapat login normal.
-
-Profil pendaftar ada di `/pendaftar/profile`. Bantuan pemulihan password oleh Admin Unit memakai token broker Laravel yang dikirim **langsung kepada pendaftar**; petugas tidak melihat token dan tidak dapat menentukan password pendaftar.
-
-### Hardening password dan sesi staf
-
-```bash
-php artisan spmb:harden-staff-passwords
-php artisan spmb:harden-staff-passwords --execute
-```
-
-Aksi non-production ini mempertahankan akun `super_admin`, `admin_unit`, dan `tu`, menghasilkan hash password acak berbeda untuk setiap akun, mengubah remember token, membatalkan token reset lama, serta mencabut sesi database lama. Kolom `auth_version` dan middleware sesi admin juga menolak sesi Redis/file generasi lama pada permintaan berikutnya setelah rotasi. Password baru tidak ditampilkan; **pastikan pemulihan email berfungsi sebelum rotasi**.
 
 ### Panduan validasi Fase 1.1
 
