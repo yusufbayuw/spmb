@@ -31,6 +31,22 @@ class ProductionNotificationIntegrationTest extends TestCase
         $this->assertNotNull($user->notifications()->first()->id);
     }
 
+    public function test_one_notification_to_two_accounts_is_idempotent_per_recipient(): void
+    {
+        $first = User::factory()->create(['is_active' => true]);
+        $second = User::factory()->create(['is_active' => true]);
+        $notification = new SpmbDatabaseNotification(
+            event: 'multi-recipient', category: 'workflow', title: 'Konfirmasi'
+        );
+
+        Notification::sendNow([$first, $second], $notification, ['database']);
+        Notification::sendNow([$first, $second], $notification, ['database']);
+
+        $this->assertSame(1, $first->notifications()->count());
+        $this->assertSame(1, $second->notifications()->count());
+        $this->assertNotEquals($first->notifications()->first()->id, $second->notifications()->first()->id);
+    }
+
     public function test_notification_and_push_database_schema_is_present(): void
     {
         $this->assertTrue(Schema::hasTable('notifications'));

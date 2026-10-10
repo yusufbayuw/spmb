@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Notifications\SpmbDatabaseNotification;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Notifications\Notification;
+use Ramsey\Uuid\Uuid;
 
 class IdempotentDatabaseChannel extends DatabaseChannel
 {
@@ -16,7 +17,11 @@ class IdempotentDatabaseChannel extends DatabaseChannel
         // retried. The dedicated delivery UUID is created once per event and
         // serialized with the queued notification, preventing duplicate rows.
         if ($notification instanceof SpmbDatabaseNotification) {
-            $payload['id'] = $notification->deliveryUuid;
+            // A single Laravel notification may target multiple recipients.
+            // Generate a stable *per recipient* UUID, never the same PK for all.
+            $payload['id'] = Uuid::uuid5(Uuid::NAMESPACE_URL,
+                $notification->deliveryUuid.'|'.$notifiable->getMorphClass().'|'.$notifiable->getKey()
+            )->toString();
         }
 
         return $notifiable->routeNotificationFor('database', $notification)->createOrFirst(['id' => $payload['id']], $payload);
