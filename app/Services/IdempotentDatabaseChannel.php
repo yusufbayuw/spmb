@@ -22,6 +22,8 @@ class IdempotentDatabaseChannel extends DatabaseChannel
             $payload['id'] = Uuid::uuid5(Uuid::NAMESPACE_URL,
                 $notification->deliveryUuid.'|'.$notifiable->getMorphClass().'|'.$notifiable->getKey()
             )->toString();
+            // Preserve the prior contract for callers inspecting notification->id.
+            $notification->id = $payload['id'];
         }
 
         return $notifiable->routeNotificationFor('database', $notification)->createOrFirst(['id' => $payload['id']], $payload);
