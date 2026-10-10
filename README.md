@@ -177,21 +177,25 @@ Akun demo memakai domain `example.test` dan password demo hanya untuk local/test
 
 ## Audit Siap Production (Super Admin)
 
-Sebelum membuka pendaftaran pada server production, gunakan **Sistem & Akses → Audit Siap Production** (`/admin/production-readiness-center`). Dashboard ini berisi pemeriksaan otomatis, bukti manual per release SHA, monitoring scheduler/queue, inspeksi database notification, VAPID/PWA, serta snapshot audit historis. **Semua pemeriksaan yang gagal, diperingatkan, atau belum memiliki bukti berarti NO-GO.**
+Sebelum membuka pendaftaran pada server production, gunakan **Sistem & Akses → Audit Siap Production** (`/admin/production-readiness-center`). Dashboard ini berisi pemeriksaan otomatis, bukti manual per instalasi, monitoring scheduler/queue, inspeksi database notification, VAPID/PWA, serta snapshot audit historis. **Semua pemeriksaan yang gagal, diperingatkan, atau belum memiliki bukti berarti NO-GO.**
 
-Baca SOP lengkap: **[Audit Kesiapan Production](docs/PRODUCTION_READINESS_AUDIT.md)**. Aktifkan `SPMB_READINESS_PROBES_ENABLED=true` hanya setelah konfigurasi cron, queue, cache, dan worker siap, serta isi `SPMB_RELEASE_SHA` dengan SHA commit yang benar-benar dideploy. Pemeriksaan otomatis tidak dapat menggantikan UAT SMTP, tes Web Push pada perangkat nyata, pemeriksaan sertifikat TLS, uji beban, dan backup-restore.
+Baca SOP lengkap: **[Audit Kesiapan Production](docs/PRODUCTION_READINESS_AUDIT.md)**. Aktifkan `SPMB_READINESS_PROBES_ENABLED=true` hanya setelah konfigurasi cron, queue, cache, dan worker siap, tanpa perlu mengatur `SPMB_RELEASE_SHA` atau menjalankan Git di server. Pemeriksaan otomatis tidak dapat menggantikan UAT SMTP, tes Web Push pada perangkat nyata, pemeriksaan sertifikat TLS, uji beban, dan backup-restore.
 
 ## Production Deployment
 
-Deployment existing cukup melakukan upgrade schema/code tanpa menghapus data:
+Deployment existing cukup melakukan upgrade schema/code tanpa menghapus data. **Untuk deploy copy-paste**, salin seluruh kode aplikasi yang sudah diuji, termasuk `public/build`/aset frontend dan file migrasi terbaru. Pertahankan `.env`, `storage`, `bootstrap/cache` (jangan menimpa state runtime) dan dokumen pendaftar di server; jangan salin database staging ke production.
+
+Kemudian jalankan dari direktori aplikasi (gunakan PHP yang sesuai):
 
 ```bash
-git pull origin main
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan optimize:clear
 php artisan config:cache
+php artisan queue:restart
 ```
+
+Jika deploy menggunakan Git, `git pull origin main` boleh dilakukan sebelum perintah di atas, tetapi **tidak wajib**. Periksa kelengkapan file yang disalin dan jalankan audit GUI setelah deployment.
 
 **Migrasi baru untuk fitur komunikasi** (dijalankan otomatis oleh `migrate --force`):
 

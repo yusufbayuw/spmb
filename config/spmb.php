@@ -44,7 +44,6 @@ return [
     ],
 
     'readiness' => [
-        'release_sha' => env('SPMB_RELEASE_SHA', ''),
         'probes_enabled' => (bool) env('SPMB_READINESS_PROBES_ENABLED', false),
         // HTTPS-only Web Push services. Override only after reviewing provider egress.
         'push_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env(

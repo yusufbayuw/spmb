@@ -8,7 +8,7 @@
                     <x-filament::badge color="danger">BELUM SIAP PRODUCTION</x-filament::badge>
                 @endif
                 <span class="text-sm">Environment: <strong>{{ $report['environment'] }}</strong></span>
-                <span class="text-sm">Release SHA: <code>{{ $report['release_sha'] ?: 'BELUM DIATUR' }}</code></span>
+                <span class="text-sm">Lingkup audit: <strong>Instalasi ini</strong></span>
             </div>
 
             <div class="grid gap-3 md:grid-cols-4">
@@ -21,7 +21,7 @@
             <p class="text-sm text-gray-600 dark:text-gray-300">
                 Pemeriksaan otomatis bersifat read-only. Belum dapat membuktikan kualitas inbox email, keamanan TLS dari sisi pengguna,
                 restore backup, push di perangkat nyata, atau audit penetrasi. Semua pemeriksaan manual harus disertai bukti.
-                Bukti manual hanya berlaku untuk SHA rilis dan deployment yang sama.
+                Bukti manual melekat pada instalasi ini. Setelah perubahan besar, tinjau ulang bukti yang sudah lama; cek otomatis selalu diperbarui.
             </p>
 
             <x-filament::button wire:click="saveSnapshot" icon="heroicon-o-document-check">
@@ -82,14 +82,14 @@
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
                 <thead><tr class="border-b dark:border-gray-700">
-                    <th class="p-2">Waktu</th><th class="p-2">SHA Rilis</th><th class="p-2">Status</th>
+                    <th class="p-2">Waktu</th><th class="p-2">Lingkup</th><th class="p-2">Status</th>
                     <th class="p-2">Gagal</th><th class="p-2">Peringatan</th><th class="p-2">Manual tertunda</th>
                 </tr></thead>
                 <tbody>
                     @forelse ($history as $item)
                         <tr class="border-b dark:border-gray-700">
                             <td class="p-2">{{ $item->created_at }}</td>
-                            <td class="p-2"><code>{{ $item->release_sha ?: '-' }}</code></td>
+                            <td class="p-2"><code>{{ $item->release_sha === 'installation' ? 'Instalasi' : 'Arsip SHA lama' }}</code></td>
                             <td class="p-2">{{ $item->status }}</td>
                             <td class="p-2">{{ $item->failed_count }}</td>
                             <td class="p-2">{{ $item->warning_count }}</td>

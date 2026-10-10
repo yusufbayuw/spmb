@@ -9,7 +9,7 @@ sementara bukti fisik dan end-to-end wajib dikonfirmasi manusia.
 
 - **Super Admin aktif**: satu-satunya role yang boleh membuka dashboard, mengisi bukti, dan menyimpan snapshot.
 - **Admin Unit, TU, pendaftar**: tidak dapat mengakses dashboard ataupun melakukan perubahan audit.
-- **Lulus**: pemeriksaan otomatis pada runtime saat itu berhasil atau bukti manual disetujui untuk SHA rilis saat ini.
+- **Lulus**: pemeriksaan otomatis pada runtime saat itu berhasil atau bukti manual disetujui untuk instalasi ini.
 - **Gagal**: harus diperbaiki sebelum masuk production; detail yang sensitif disembunyikan.
 - **Peringatan**: tidak otomatis dinyatakan aman; perlu tindakan sebelum semua cek dapat lulus.
 - **Belum diverifikasi**: tidak dihitung lulus; bukti manual masih dibutuhkan.
@@ -28,10 +28,9 @@ menyimpan **bukti pemeriksaan** dan **snapshot historis** (tersimpan di database
 4. Gunakan driver persistent untuk session dan queue (Redis/database), bukan `sync` atau `array` di production.
 5. Konfigurasikan SMTP nyata, `MAIL_FROM_ADDRESS` yang valid, SPF, DKIM dan DMARC.
 6. Tetapkan VAPID public/private yang benar dan jangan mengganti kunci pada setiap deployment.
-7. Terapkan environment berikut, menggunakan **SHA rilis yang benar-benar terpasang di server**, bukan SHA branch lokal:
+7. Terapkan pengaturan operasional berikut; tidak perlu Git, `git rev-parse`, atau `SPMB_RELEASE_SHA`:
 
 ```dotenv
-SPMB_RELEASE_SHA=<40-character-commit-sha-deployed>
 SPMB_READINESS_PROBES_ENABLED=true
 SPMB_MAIL_QUEUE=emails
 SPMB_NOTIFICATION_QUEUE=notifications
@@ -44,8 +43,11 @@ SPMB_AUTOMATIC_REMINDERS_ENABLED=false
 11. Gunakan `php artisan spmb:release:preflight --profile=production --json` sebagai pemeriksaan CLI tambahan.
 12. Cek `php artisan queue:failed` dan `php artisan schedule:list`. Jangan menghapus job gagal tanpa root-cause analysis.
 
-Kunci `SPMB_RELEASE_SHA` digunakan untuk menautkan audit manual ke deployment dan rilis tertentu.
-Setiap perubahan SHA harus menjalani checklist manual baru. `SPMB_READINESS_PROBES_ENABLED`
+Bukti manual melekat pada instalasi aplikasi berdasarkan identitas deployment, bukan SHA kode.
+Copy-paste kode **tidak menghapus atau mengulang** persetujuan yang masih relevan. Setelah perubahan signifikan
+pada infrastruktur, keamanan, atau workflow, Super Admin perlu memeriksa ulang bukti terkait.
+Pemeriksaan fungsi otomatis tetap dijalankan ulang setiap kali dashboard dibuka.
+`SPMB_READINESS_PROBES_ENABLED`
 adalah **opt-in** (default `false`), memasukkan job kecil pada queue email dan notifikasi
 setiap 5 menit serta menyimpan heartbeat ke cache. Bila cron, cache, queue, worker, atau probe tidak
 berfungsi, dashboard akan gagal pada pemeriksaan liveness. Menyalakan probe memerlukan scheduler aktif.
@@ -56,7 +58,7 @@ Klasifikasi di dashboard:
 
 | Kategori | Pemeriksaan |
 | --- | --- |
-| Release | SHA rilis Git 40 karakter |
+| Release | Identitas instalasi audit (tanpa ketergantungan Git atau SHA) |
 | Konfigurasi | environment production, APP_KEY, DEBUG off, sesi persistent, queue non-sync |
 | Keamanan | HTTPS, cookie secure/HTTP-only/SameSite, reset development disabled, storage privat |
 | Email | mailer nyata, sender non-demo, antrean tertahan dan gagal dalam 24 jam |
@@ -129,7 +131,7 @@ di UI — bukti lengkapnya tidak perlu disalin ke database aplikasi.
 6. Review dengan pemilik sistem, operator infrastruktur, keamanan, dan pemilik bisnis.
 7. Beri keputusan go/no-go melalui proses persetujuan institusi di luar sistem. Dashboard tidak
    menerapkan perubahan deployment dan tidak dapat mem-bypass persetujuan manusia.
-8. Jika rilis berubah, ulangi checklist: bukti yang diberikan untuk SHA lama tidak otomatis sah.
+8. Jika kode berubah lewat copy-paste, pemeriksaan otomatis langsung menilai kondisi runtime baru. Validasi ulang secara manual setiap bukti yang terdampak perubahan tersebut; audit lama tidak otomatis dihapus.
 
 ## 6. Kriteria produksi dan sisa risiko
 
@@ -138,7 +140,7 @@ worker tidak hidup, SMTP belum diuji, push belum diuji pada perangkat yang ditar
 atau isolasi staging-production tidak terbukti.
 
 **Candidate / Go for human review:** seluruh pemeriksaan otomatis dan checklist manual lulus,
-bukti ada, SHA rilis cocok, backup-restore teruji, dan operator memiliki rollback/monitoring.
+bukti masih relevan, backup-restore teruji, dan operator memiliki rollback/monitoring.
 Tetap perlu persetujuan institusi serta pengawasan aktif setelah deployment.
 
 **Tidak pernah dijanjikan**: aplikasi tanpa bug, pasti tidak dapat diretas, 100% delivery email,

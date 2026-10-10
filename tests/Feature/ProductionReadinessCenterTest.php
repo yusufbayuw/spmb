@@ -40,7 +40,7 @@ class ProductionReadinessCenterTest extends TestCase
     public function test_read_only_report_does_not_create_or_mutate_application_records(): void
     {
         $service = app(ProductionReadinessService::class);
-        config()->set('spmb.readiness.release_sha', '');
+        // Copy-paste deployment requires no release SHA or Git directory.
         $before = DB::table('production_readiness_attestations')->count();
         $snapshotCount = DB::table('production_readiness_snapshots')->count();
 
@@ -53,19 +53,14 @@ class ProductionReadinessCenterTest extends TestCase
         $this->assertSame($snapshotCount, DB::table('production_readiness_snapshots')->count());
     }
 
-    public function test_manual_approval_requires_release_identity_and_evidence(): void
+    public function test_manual_audit_evidence_persists_across_copy_paste_deployments(): void
     {
         $service = app(ProductionReadinessService::class);
         $admin = $this->staff('super_admin');
 
-        try {
-            $service->attest($admin, 'backup_restore', 'pass', 'Sudah dites pada server terisolasi');
-            $this->fail('Release SHA wajib ditentukan.');
-        } catch (\Illuminate\Validation\ValidationException $exception) {
-            $this->assertArrayHasKey('release', $exception->errors());
-        }
+        $this->assertSame('installation', $service->auditScope());
+        $this->assertSame('installation', $service->report()['audit_scope']);
 
-        config()->set('spmb.readiness.release_sha', str_repeat('a', 40));
         try {
             $service->attest($admin, 'backup_restore', 'pass', 'OK');
             $this->fail('Bukti singkat tidak cukup.');
@@ -73,25 +68,26 @@ class ProductionReadinessCenterTest extends TestCase
             $this->assertArrayHasKey('evidence', $exception->errors());
         }
 
-        $service->attest($admin, 'backup_restore', 'pass', 'Tiket DR-2026-10: diuji restore backup yang benar.');
+        $service->attest($admin, 'backup_restore', 'pass', 'Tiket DR-2026-10: restore file dan database berhasil.');
         $this->assertDatabaseHas('production_readiness_attestations', [
-            'release_sha' => str_repeat('a', 40), 'check_id' => 'backup_restore',
+            'release_sha' => 'installation', 'check_id' => 'backup_restore',
             'status' => 'pass', 'reviewed_by' => $admin->id,
         ]);
+        $report = $service->report();
+        $this->assertSame('pass', collect($report['checks'])->firstWhere('id', 'backup_restore')['status']);
 
-        $r1 = $service->report();
-        $this->assertSame('pass', collect($r1['checks'])->firstWhere('id', 'backup_restore')['status']);
-
-        // Exact release identity is required: old approvals do not carry to a new build.
+        // Even a stale SHA left in the old .env no longer affects readiness.
+        config()->set('spmb.readiness.release_sha', str_repeat('a', 40));
+        $this->assertSame('pass', collect($service->report()['checks'])->firstWhere('id', 'backup_restore')['status']);
         config()->set('spmb.readiness.release_sha', str_repeat('b', 40));
-        $r2 = $service->report();
-        $this->assertSame('pending', collect($r2['checks'])->firstWhere('id', 'backup_restore')['status']);
-        $this->assertSame('not_ready', $r2['status']);
+        $this->assertSame('pass', collect($service->report()['checks'])->firstWhere('id', 'backup_restore')['status']);
+
+        $service->attest($admin, 'backup_restore', 'pending', 'Perlu periksa ulang setelah perubahan penting.');
+        $this->assertSame('pending', collect($service->report()['checks'])->firstWhere('id', 'backup_restore')['status']);
     }
 
     public function test_staff_cannot_create_attestations_or_snapshot_and_snapshot_is_audited(): void
     {
-        config()->set('spmb.readiness.release_sha', str_repeat('a', 40));
         $service = app(ProductionReadinessService::class);
 
         $tu = $this->staff('tu');
@@ -106,7 +102,7 @@ class ProductionReadinessCenterTest extends TestCase
 
         $this->assertSame('not_ready', $report['status']);
         $this->assertDatabaseHas('production_readiness_snapshots', [
-            'release_sha' => str_repeat('a', 40), 'status' => 'not_ready',
+            'release_sha' => 'installation', 'status' => 'not_ready',
             'created_by' => $admin->id,
         ]);
         $this->assertDatabaseHas('audit_logs', ['event' => 'release.readiness_snapshot']);
