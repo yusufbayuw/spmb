@@ -118,6 +118,21 @@ class UnitResource extends Resource
                         ->rows(3)
                         ->columnSpanFull(),
                 ]),
+            Forms\Components\Section::make('Izin Hapus Total oleh Admin Unit')
+                ->description('Hanya Super Admin dapat mengaktifkan izin per unit ini. Default OFF. Hapus Total tetap ditolak untuk data yang sudah terkait transaksi, VA terpasang, seleksi, atau gelombang dengan pendaftar. Semua tindakan dicatat dalam audit.')
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->schema([
+                    Forms\Components\Toggle::make('allow_admin_unit_registration_deletion')
+                        ->label('Izinkan Admin Unit menghapus permanen data pendaftar yang memenuhi syarat')
+                        ->helperText('TU tidak mendapat hak hapus. Akun login pendaftar tetap dipertahankan.')
+                        ->default(false),
+                    Forms\Components\Toggle::make('allow_admin_unit_va_deletion')
+                        ->label('Izinkan Admin Unit menghapus VA kosong yang belum ditugaskan')
+                        ->default(false),
+                    Forms\Components\Toggle::make('allow_admin_unit_opening_deletion')
+                        ->label('Izinkan Admin Unit menghapus gelombang yang benar-benar kosong')
+                        ->default(false),
+                ]),
         ]);
     }
 
