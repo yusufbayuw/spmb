@@ -122,11 +122,29 @@ class PushSubscriptionTest extends TestCase
             ->assertStatus(503);
     }
 
+    public function test_rejects_internal_arbitrary_or_insecure_push_hosts(): void
+    {
+        $user = User::factory()->create();
+        foreach ([
+            'http://fcm.googleapis.com/subscriptions/demo',
+            'https://127.0.0.1/push',
+            'https://localhost/push',
+            'https://push.attacker.example/push',
+            'https://fcm.googleapis.com:8443/push',
+        ] as $endpoint) {
+            $data = $this->payload('malicious');
+            $data['endpoint'] = $endpoint;
+            $this->actingAs($user)->postJson(route('push.subscriptions.store'), $data)
+                ->assertUnprocessable()->assertJsonValidationErrors('endpoint');
+        }
+        $this->assertDatabaseCount('push_subscriptions', 0);
+    }
+
     /** @return array<string, mixed> */
     private function payload(string $device): array
     {
         return [
-            'endpoint' => "https://push.example.test/subscriptions/{$device}",
+            'endpoint' => "https://fcm.googleapis.com/subscriptions/{$device}",
             'keys' => [
                 'p256dh' => "public-key-{$device}",
                 'auth' => "auth-token-{$device}",
