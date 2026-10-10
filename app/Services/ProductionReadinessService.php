@@ -221,8 +221,9 @@ class ProductionReadinessService
         if ($status === 'pass' && mb_strlen($evidence) < 20 || mb_strlen($evidence) > 2000) {
             throw \Illuminate\Validation\ValidationException::withMessages(['evidence' => 'Untuk lulus, isi bukti minimal 20 dan maksimal 2000 karakter.']);
         }
-        $release = $this->release();
-         DB::table('production_readiness_attestations')->updateOrInsert(
+        $release = $this->auditScope();
+
+        DB::table('production_readiness_attestations')->updateOrInsert(
             ['deployment_id' => $this->deploymentId(), 'release_sha' => $release, 'check_id' => $checkId],
             ['status' => $status, 'evidence' => $evidence, 'reviewed_by' => $actor->id,
                 'reviewed_at' => now(), 'updated_at' => now(), 'created_at' => now()]
