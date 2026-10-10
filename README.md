@@ -175,6 +175,12 @@ Akun demo memakai domain `example.test` dan password demo hanya untuk local/test
 
 **Jangan menggunakan akun demo pada production.**
 
+## Audit Siap Production (Super Admin)
+
+Sebelum membuka pendaftaran pada server production, gunakan **Sistem & Akses → Audit Siap Production** (`/admin/production-readiness-center`). Dashboard ini berisi pemeriksaan otomatis, bukti manual per release SHA, monitoring scheduler/queue, inspeksi database notification, VAPID/PWA, serta snapshot audit historis. **Semua pemeriksaan yang gagal, diperingatkan, atau belum memiliki bukti berarti NO-GO.**
+
+Baca SOP lengkap: **[Audit Kesiapan Production](docs/PRODUCTION_READINESS_AUDIT.md)**. Aktifkan `SPMB_READINESS_PROBES_ENABLED=true` hanya setelah konfigurasi cron, queue, cache, dan worker siap, serta isi `SPMB_RELEASE_SHA` dengan SHA commit yang benar-benar dideploy. Pemeriksaan otomatis tidak dapat menggantikan UAT SMTP, tes Web Push pada perangkat nyata, pemeriksaan sertifikat TLS, uji beban, dan backup-restore.
+
 ## Production Deployment
 
 Deployment existing cukup melakukan upgrade schema/code tanpa menghapus data:
