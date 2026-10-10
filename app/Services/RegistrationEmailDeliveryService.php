@@ -39,7 +39,7 @@ class RegistrationEmailDeliveryService
 
         $options = [];
 
-        if ($registration->user?->is_active && $registration->user->hasRole('pendaftar') && ! $registration->user->hasVerifiedEmail()) {
+        if ($registration->user?->is_active && ! $registration->user->hasAnyRole(['super_admin', 'admin_unit', 'tu']) && ! $registration->user->hasVerifiedEmail()) {
             $options['verification'] = MailDeliveryAttempt::TYPES['verification'];
         }
 
