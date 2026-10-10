@@ -112,6 +112,14 @@ class UnifiedLoginController extends Controller
 
         $request->session()->regenerate();
 
+        // New staff sessions must match the generation checked by
+        // EnsureCurrentStaffSession, including after a password rotation.
+        if ($user->hasAnyRole(['super_admin', 'admin_unit', 'tu'])) {
+            $request->session()->put('spmb_staff_auth_version', (int) $user->auth_version);
+        } else {
+            $request->session()->forget('spmb_staff_auth_version');
+        }
+
         $intended = $request->session()->get('url.intended');
 
         if (! $destinations->intendedUrlIsAllowed(

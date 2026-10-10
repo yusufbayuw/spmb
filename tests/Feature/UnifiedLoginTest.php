@@ -44,12 +44,32 @@ class UnifiedLoginTest extends TestCase
         foreach (['super_admin', 'admin_unit', 'tu'] as $role) {
             $user = $this->userWithRole($role);
             $this->assertSame('/admin', $resolver->pathFor($user));
-            $this->assertSame('/admin', $resolver->profilePathFor($user));
+            $this->assertSame('/admin/profile', $resolver->profilePathFor($user));
         }
 
         $applicant = $this->userWithRole('pendaftar');
         $this->assertSame('/pendaftar', $resolver->pathFor($applicant));
         $this->assertSame('/pendaftar/profile', $resolver->profilePathFor($applicant));
+    }
+
+    public function test_staff_login_populates_auth_version_for_rotated_credentials(): void
+    {
+        $staff = $this->userWithRole('tu', [
+            'username' => 'rotated.tu',
+            'password' => Hash::make('CurrentPassword123!'),
+            'auth_version' => 3,
+        ]);
+
+        $this->get('/login')->assertOk();
+
+        $this->post('/login', [
+            'email' => 'rotated.tu',
+            'password' => 'CurrentPassword123!',
+            'captcha' => $this->captchaAnswer(),
+        ])->assertRedirect('/admin')->assertSessionHas('spmb_staff_auth_version', 3);
+
+        $this->get('/admin')->assertOk();
+        $this->assertAuthenticatedAs($staff);
     }
 
     public function test_staff_role_wins_for_a_dual_role_account(): void

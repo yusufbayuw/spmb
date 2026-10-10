@@ -26,7 +26,7 @@ class PortalDestinationService
     public function profilePathFor(User $user): ?string
     {
         return match ($this->pathFor($user)) {
-            '/admin' => '/admin',
+            '/admin' => '/admin/profile',
             '/pendaftar' => '/pendaftar/profile',
             default => null,
         };

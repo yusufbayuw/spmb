@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Admin\Pages\Auth\Login;
+use App\Filament\Admin\Pages\Auth\StaffProfile;
 use App\Filament\Support\LocalLoginBackgrounds;
 use App\Http\Middleware\RedirectLegacyPanelLogin;
 use App\Http\Middleware\EnsureCurrentStaffSession;
@@ -32,6 +33,7 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()->id('admin')->path('admin')->login(Login::class)
+            ->profile(StaffProfile::class, isSimple: false)
             ->brandName(fn (): string => app(AppBrandingService::class)->portalName())
             ->brandLogo(fn (): ?string => app(AppBrandingService::class)->logoUrl())
             ->brandLogoHeight('2.5rem')
