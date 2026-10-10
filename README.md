@@ -187,6 +187,16 @@ php artisan optimize:clear
 php artisan config:cache
 ```
 
+**Migrasi baru untuk fitur komunikasi** (dijalankan otomatis oleh `migrate --force`):
+
+- `2026_10_10_130000_create_mail_delivery_attempts_table.php` — riwayat pengiriman email;
+- `2026_10_10_180000_extend_mail_delivery_tracking.php` — jumlah dan waktu percobaan job;
+- `2026_10_10_181000_create_pending_applicant_email_changes.php` — permintaan koreksi email yang menunggu persetujuan.
+
+Sebelum upgrade, lakukan backup database dan file privat. Jalankan **migrasi sebelum menyalakan worker versi baru**, pastikan `APP_URL` menunjukkan alamat publik yang benar (untuk tautan signed), dan konfigurasi `MAIL_*` menggunakan SMTP/transport yang dapat mengirim. Verifikasi worker dan scheduler sebelum melakukan UAT end-to-end.
+
+**Merge GitHub tidak otomatis melakukan deployment ke server.**
+
 Jangan menjalankan:
 
 ```bash
@@ -373,6 +383,19 @@ SPMB memisahkan **konfigurasi** dari **data operasional**. Konfigurasi yang haru
 - **Pool Virtual Account:** pilih beberapa baris lalu **Batalkan VA tersedia**. Hanya VA berstatus `available`, tanpa `registration_id` dan tanpa pembayaran yang diproses. VA assigned/paid tidak dibatalkan melalui aksi ini.
 - Bulk action untuk resource lain (dokumen, pembayaran, tes, seleksi, daftar ulang) **belum diimplementasikan secara menyeluruh**.
 
+### Hapus Total terkendali (production)
+
+Aksi **Hapus Total** untuk data yang benar-benar memenuhi syarat sudah tersedia selain reset development. Ini bukan tombol penghapusan bebas:
+
+- **Super Admin:** dapat meminta penghapusan sepanjang seluruh pemeriksaan integritas dan keamanan lolos.
+- **Admin Unit:** Super Admin terlebih dahulu harus menyalakan toggle terpisah per unit pada **Unit → Izin Hapus Total oleh Admin Unit** untuk **pendaftaran**, **VA**, atau **pembukaan/gelombang**. Semua toggle **default OFF**.
+- **TU:** tidak memiliki hak Hapus Total.
+- **Pendaftaran:** ditolak jika sudah terkait pembayaran, VA, tes/seleksi, pengumuman, penawaran, nomor resmi, atau tahap lanjutan lain yang dilindungi. Akun login pendaftar dan pengaturan unit tidak ikut dihapus.
+- **VA:** hanya yang belum pernah ditugaskan, tidak terkait pembayaran, dan berstatus tersedia/dibatalkan.
+- **Pembukaan/gelombang:** hanya yang kosong dari pendaftar dan dependensi terlarang.
+
+UI menampilkan ringkasan dampak. Penghapusan meminta **alasan** dan konfirmasi literal **`HAPUS`**, dilindungi oleh pemeriksaan transaksi/database dan audit. Flag kewenangan **tidak mengabaikan syarat data**. Pastikan backup dapat dipulihkan sebelum operasi permanen.
+
 ### Reset development — konfigurasi dipertahankan
 
 **Perintah ini khusus pengembangan/testing, bukan prosedur penggantian tahun ajaran atau pembersihan production.** Reset menghapus data operasional penerimaan dan akun pendaftar yang cocok, tetapi menjaga unit, profil, jalur, pembukaan pendaftaran, kuota, definisi/sesi tes, konfigurasi workflow, role/permission, akun staf, dan pool VA. Verifikasi pembayaran tetap **manual oleh Admin Unit/TU berdasarkan bukti transfer**, bukan callback bank.
@@ -404,6 +427,18 @@ php artisan spmb:reset-operational --cleanup-manifest=reset-manifests/<nama-file
 ```
 
 **Jangan gunakan `--execute` pada data berharga atau ketika VA riil pernah dipakai.** Periksa rencana penghapusan, data pelatihan/sertifikasi yang dimiliki akun pendaftar, hasil CI, serta backup terlebih dahulu. Versi saat ini belum merupakan pengganti backup operator maupun sistem rekonsiliasi bank. Perintah `spmb:dev-reset-preview` tetap tersedia sebagai ringkasan awal non-destruktif.
+
+### Profil dan keamanan akun
+
+**Profil staf mandiri ([PR #19](https://github.com/yusufbayuw/spmb/pull/19)):** Super Admin, Admin Unit, dan TU dapat membuka `/admin/profile` atau menu akun Filament. Staf dapat:
+
+- memperbarui **nama**;
+- melihat **username, email, role, dan unit** secara read-only;
+- mengganti password setelah mengisi **password saat ini**, password baru, dan konfirmasi password (dengan aturan validasi Laravel).
+
+Profil mandiri **tidak boleh mengubah email, username, role, unit, maupun status aktif**. Rotasi password menaikkan `auth_version` dan mengganti `remember_token` untuk menolak sesi staf lama, tetapi mempertahankan sesi yang berhasil melakukan perubahan. Login terpadu menyimpan generasi sesi staf terkini sehingga akun yang pernah mengganti password tetap dapat login normal.
+
+Profil pendaftar ada di `/pendaftar/profile`. Bantuan pemulihan password oleh Admin Unit memakai token broker Laravel yang dikirim **langsung kepada pendaftar**; petugas tidak melihat token dan tidak dapat menentukan password pendaftar.
 
 ### Hardening password dan sesi staf
 
@@ -447,7 +482,15 @@ Jalankan:
 php artisan test
 ```
 
-CI juga menjalankan dependency resolution, frontend build, migration, seeding untuk testing, dan full test suite.
+CI juga menjalankan dependency resolution, frontend build, migration, seeding untuk testing, dan full test suite. Regresi utama untuk pengembangan terbaru:
+
+```bash
+php artisan test --filter=RegistrationEmailDeliveryTest
+php artisan test --filter=NotificationDeliveryManagerTest
+php artisan test --filter=StaffProfileTest
+```
+
+Tes mencakup isolasi unit, pembatasan kirim ulang, syarat VA/pengumuman, reset password tanpa mengambil alih akun, identitas/konfirmasi email baru, pengingat ketika kondisi berubah, serta akses monitoring. CI hijau **tidak menggantikan** UAT SMTP nyata, pengujian scheduler/worker, validasi keamanan provider email, dan restore backup pada staging.
 
 ## Keamanan
 
@@ -459,7 +502,11 @@ Beberapa prinsip yang diterapkan:
 - PWA tidak cache halaman authenticated;
 - role dan permission dipisahkan dengan Spatie Permission;
 - consent disimpan sebagai snapshot audit;
-- Web Push bersifat opt-in per perangkat.
+- Web Push bersifat opt-in per perangkat;
+- Admin Unit hanya boleh memperbaiki komunikasi untuk unit sendiri, tidak dapat melewati tahap pendaftaran;
+- koreksi email membutuhkan verifikasi identitas dan konfirmasi dari pemilik akun;
+- token reset password tidak ditampilkan kepada petugas;
+- pekerjaan di queue memvalidasi ulang tujuan email dan kondisi workflow.
 
 ## Struktur Portal
 
@@ -472,7 +519,12 @@ Public
 └── /login
         │
         ├── staff      → /admin
+        │   ├── /admin/profile
+        │   ├── /admin/registrations (Kirim Ulang Email / Koreksi Email)
+        │   ├── /admin/notification-delivery-center
+        │   └── /admin/applicant-account-recovery
         └── pendaftar  → /pendaftar
+            └── /pendaftar/profile
 ```
 
 Panel admin dan pendaftar tetap terpisah walaupun menggunakan satu gateway login.
