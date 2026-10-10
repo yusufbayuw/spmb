@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <x-filament::section>
-        <div class="grid gap-4 sm:grid-cols-4">
+        <div class="grid gap-4 md:grid-cols-4">
             <div><p class="text-sm text-gray-500">Dalam antrean</p><strong class="text-2xl">{{ $queuedCount }}</strong></div>
             <div><p class="text-sm text-gray-500">Antrean lebih dari 15 menit</p><strong class="text-2xl text-warning-600">{{ $stuckCount }}</strong></div>
             <div><p class="text-sm text-gray-500">Gagal</p><strong class="text-2xl text-danger-600">{{ $failedCount }}</strong></div>
