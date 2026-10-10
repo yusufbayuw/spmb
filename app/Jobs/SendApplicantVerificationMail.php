@@ -9,7 +9,7 @@ use App\Services\AuditTrail;
 use App\Services\RegistrationEmailDeliveryService;
 use App\Services\SpmbNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Queueable;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Notification;
 use Throwable;
 
