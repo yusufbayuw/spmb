@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#2563eb">
-    <title>{{ $status }} — {{ $title }} | {{ config('spmb.portal.name', 'SPMB') }}</title>
+    <title>{{ $status }} — {{ $title }} | {{ app(\App\Services\AdmissionTerminology::class)->portalName() }}</title>
     <style>
         :root {
             color-scheme: light dark;
@@ -201,9 +201,9 @@
 </head>
 <body>
     <main class="shell">
-        <div class="brand" aria-label="{{ config('spmb.portal.name', 'SPMB') }}">
+        <div class="brand" aria-label="{{ app(\App\Services\AdmissionTerminology::class)->portalName() }}">
             <span class="brand-mark" aria-hidden="true">TB</span>
-            <span>{{ config('spmb.portal.name', 'SPMB') }}</span>
+            <span>{{ app(\App\Services\AdmissionTerminology::class)->portalName() }}</span>
         </div>
 
         <section class="card" aria-labelledby="error-title">

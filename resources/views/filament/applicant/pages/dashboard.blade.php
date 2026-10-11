@@ -27,7 +27,7 @@
                     </div>
                     <h3 class="mt-4 text-base font-semibold text-gray-950 dark:text-white">Belum ada pendaftaran</h3>
                     <p class="mx-auto mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-                        Pilih pembukaan SPMB sekolah atau PMB perguruan tinggi yang tersedia. Unit/institusi dan program studi akan mengikuti pilihan tersebut.
+                        {{ app(\App\Services\AdmissionTerminology::class)->applicantOpeningDescription() }}
                     </p>
                     <div class="mt-7 sm:mt-8">
                         <x-filament::button

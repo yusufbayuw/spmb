@@ -23,7 +23,7 @@
         <button class="button" onclick="window.print()">Cetak Halaman</button>
     </div>
     <main class="sheet">
-        <div class="eyebrow">{{ $portalName }}</div><h1>Bukti Kelulusan Sertifikasi SPMB</h1>
+        <div class="eyebrow">{{ $portalName }}</div><h1>Bukti Kelulusan Sertifikasi {{ app(\App\Services\AdmissionTerminology::class)->portalName() }}</h1>
         <p class="muted">Identitas penerima, program, versi, dan nilai pada dokumen ini merupakan snapshot saat sertifikat diterbitkan.</p>
 
         <div style="margin-top:36px">
@@ -56,7 +56,7 @@
         </div>
 
         @if ($status === 'revoked')
-            <p class="muted" style="margin-top:12px">Sertifikat ini telah dicabut oleh penerbit. Hubungi pengelola SPMB jika diperlukan verifikasi administratif lebih lanjut.</p>
+            <p class="muted" style="margin-top:12px">Sertifikat ini telah dicabut oleh penerbit. Hubungi pengelola {{ app(\App\Services\AdmissionTerminology::class)->portalName() }} jika diperlukan verifikasi administratif lebih lanjut.</p>
         @endif
 
         <div class="footer">

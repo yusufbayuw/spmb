@@ -1,11 +1,11 @@
 <x-mail::layout>
 <x-slot:header>
 <x-mail::header :url="config('app.url')">
-{{ config('spmb.portal.name', config('app.name', 'SPMB')) }}
+{{ app(\App\Services\AdmissionTerminology::class)->portalName() }}
 </x-mail::header>
 </x-slot>
 
-# Virtual Account Pendaftaran SPMB
+# {{ app(\App\Services\AdmissionTerminology::class)->virtualAccountSubject() }}
 
 Yth. {{ $payment->registration->user->name }},
 
@@ -24,15 +24,15 @@ Nominal: **Rp {{ number_format((float) $payment->amount, 0, ',', '.') }}**
 Setelah pembayaran dilakukan, unggah bukti pembayaran melalui dashboard agar dapat diperiksa oleh petugas.
 
 <x-mail::button :url="url('/pendaftar')">
-Buka Dashboard SPMB
+{{ app(\App\Services\AdmissionTerminology::class)->dashboardButton() }}
 </x-mail::button>
 
 Hormat kami,<br>
-{{ config('spmb.portal.name', config('app.name', 'SPMB')) }}
+{{ app(\App\Services\AdmissionTerminology::class)->portalName() }}
 
 <x-slot:footer>
 <x-mail::footer>
-© {{ date('Y') }} {{ config('spmb.portal.name', config('app.name', 'SPMB')) }}. Seluruh hak cipta dilindungi.
+© {{ date('Y') }} {{ app(\App\Services\AdmissionTerminology::class)->portalName() }}. Seluruh hak cipta dilindungi.
 </x-mail::footer>
 </x-slot>
 </x-mail::layout>

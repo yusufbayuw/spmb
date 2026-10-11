@@ -1,7 +1,7 @@
 @extends('layouts.admissions')
 
 @php
-    $pageTitle = 'Penerimaan '.$unit->name.' | '.config('spmb.portal.name', 'SPMB');
+    $pageTitle = 'Penerimaan '.$unit->name.' | '.app(\App\Services\AdmissionTerminology::class)->portalName();
     $pageDescription = 'Halaman resmi penerimaan '.$unit->name.'. Lihat pendaftaran yang sedang dibuka, jadwal berikutnya, biaya, dan bantuan pendaftaran.';
     $shareUrl = route('admissions.unit', ['unit' => $unit->code]);
     $qrUrl = route('admissions.unit.qr', ['unit' => $unit->code]);
