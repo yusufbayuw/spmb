@@ -388,7 +388,7 @@ class RegistrationExcelExportService
         $sheet->setName('Info Export');
         $this->setWidths($sheet, [28, 60]);
 
-        $writer->addRow(Row::fromValues(['EXPORT DATA PENDAFTARAN SPMB'], $titleStyle));
+        $writer->addRow(Row::fromValues(['EXPORT DATA PENDAFTARAN '.\App\Support\AdmissionTerminology::label()], $titleStyle));
         $writer->addRow(Row::fromValues([]));
         $writer->addRow(Row::fromValues(['Informasi', 'Nilai'], $sectionStyle));
         $writer->addRow(Row::fromValues(['Dibuat pada', now()->timezone(config('app.timezone'))->format('d/m/Y H:i:s')]));
