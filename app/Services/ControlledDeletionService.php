@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
@@ -34,6 +35,84 @@ class ControlledDeletionService
             && (bool) $unit->getAttribute(self::FLAGS[$kind]);
     }
 
+    /** @return list<string> */
+    public function registrationBlockers(Registration $registration): array
+    {
+        $blockers = [];
+
+        foreach ([
+            'test_bookings' => 'booking tes',
+            'admission_test_results' => 'hasil tes',
+            'selections' => 'seleksi',
+            'announcements' => 'pengumuman',
+            'admission_offers' => 'penawaran penerimaan',
+            're_registration_items' => 'daftar ulang',
+        ] as $table => $label) {
+            if (DB::table($table)->where('registration_id', $registration->id)->exists()) {
+                $blockers[] = 'Masih ada '.$label.'.';
+            }
+        }
+
+        if (filled($registration->payment_verified_at)) {
+            $blockers[] = 'Pembayaran sudah diverifikasi.';
+        }
+
+        if (filled($registration->accepted_at) || filled($registration->enrolled_at)
+            || filled($registration->re_registration_completed_at)
+            || in_array($registration->status, ['accepted', 'rejected', 'waiting_list', 'confirmed', 'enrolled'], true)
+            || in_array($registration->current_stage, [
+                'selection', 'announcement', 'waiting_list', 'admission_offer',
+                're_registration', 'enrollment', 'completed',
+            ], true)) {
+            $blockers[] = 'Pendaftaran sudah masuk tahap keputusan resmi atau daftar ulang.';
+        }
+
+        if ($registration->documents()->where(function ($query): void {
+            $query->where('type', 'payment_proof')->orWhere('requirement_key', 'payment_proof');
+        })->exists()) {
+            $blockers[] = 'Bukti transfer masih tersimpan sebagai dokumen.';
+        }
+
+        $payments = Payment::query()->where('registration_id', $registration->id)->get();
+
+        if ($payments->isNotEmpty()
+            && DB::table('payment_receipts')->whereIn('payment_id', $payments->pluck('id'))->exists()) {
+            $blockers[] = 'Kuitansi pembayaran sudah diterbitkan.';
+        }
+
+        foreach ($payments as $payment) {
+            if ($payment->status !== 'pending'
+                || filled($payment->payment_date)
+                || filled($payment->verified_at)
+                || filled($payment->verified_by)
+                || filled($payment->proof_path)
+                || filled($payment->proof_uploaded_at)
+                || filled($payment->proof_sha256)
+                || filled($payment->proof_original_name)) {
+                $blockers[] = 'Pembayaran memiliki transaksi atau bukti yang harus dipertahankan.';
+                break;
+            }
+        }
+
+        foreach (VirtualAccount::query()->where('registration_id', $registration->id)->get() as $va) {
+            if (! in_array($va->status, ['available', 'assigned', 'expired', 'cancelled'], true)) {
+                $blockers[] = 'Status VA tidak aman untuk dilepaskan.';
+                break;
+            }
+
+            if (Payment::query()->where('virtual_account_id', $va->id)
+                ->where(function ($query) use ($registration): void {
+                    $query->where('registration_id', '!=', $registration->id)
+                        ->orWhereNull('registration_id');
+                })->exists()) {
+                $blockers[] = 'VA masih direferensikan pembayaran lain.';
+                break;
+            }
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
     public function registrationImpact(Registration $registration): string
     {
         $counts = [
@@ -42,14 +121,21 @@ class ControlledDeletionService
             'nilai' => $registration->academicScores()->count(),
             'prestasi' => $registration->achievements()->count(),
             'persetujuan' => DB::table('registration_consents')->where('registration_id', $registration->id)->count(),
-            'pembayaran' => $registration->payments()->count(),
+            'pembayaran pending' => $registration->payments()->where('status', 'pending')->count(),
             'VA tertaut' => VirtualAccount::query()->where('registration_id', $registration->id)->count(),
         ];
 
-        return 'Hapus permanen data pendaftaran dan seluruh data turunannya yang diperbolehkan. '
-            .collect($counts)->map(fn (int $count, string $label): string => "{$label}: {$count}")->implode('; ')
-            .'. Akun login pendaftar dan konfigurasi unit tidak ikut dihapus. '
-            .'Jika ada pembayaran, VA tertaut, tes/seleksi, atau hasil penerimaan, proses akan ditolak.';
+        $message = 'Relasi: '.collect($counts)
+            ->map(fn (int $count, string $label): string => "{$label}: {$count}")
+            ->implode('; ')
+            .'. Tagihan pending tanpa bukti dihapus otomatis, VA tertaut ditutup dan tidak digunakan ulang. '
+            .'Akun login, konfigurasi unit, dan jejak audit dipertahankan.';
+
+        $blockers = $this->registrationBlockers($registration);
+
+        return $message.($blockers === []
+            ? ' Status: dapat dihapus setelah konfirmasi.'
+            : ' BLOKIR: '.implode(' ', $blockers));
     }
 
     public function vaImpact(VirtualAccount $va): string
