@@ -15,7 +15,7 @@ class PwaManifestController extends Controller
             'id' => '/',
             'name' => $name,
             'short_name' => mb_substr($name, 0, 24),
-            'description' => 'Portal penerimaan peserta didik dan mahasiswa.',
+            'description' => \App\Support\AdmissionTerminology::manifestDescription(),
             'lang' => 'id-ID',
             'dir' => 'ltr',
             'start_url' => '/dashboard',
