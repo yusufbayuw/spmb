@@ -15,7 +15,7 @@ class CertificationCenter extends Page
     protected static ?string $navigationLabel = 'Sertifikasi Saya';
     protected static ?string $navigationGroup = 'Training & Sertifikasi';
     protected static ?int $navigationSort = 2;
-    protected static ?string $title = 'Pusat Sertifikasi SPMB';
+    protected static ?string $title = 'Pusat Sertifikasi';
     protected static string $view = 'filament.admin.pages.certification-center';
 
     public ?string $attemptUuid = null;
