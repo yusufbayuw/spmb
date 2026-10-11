@@ -17,7 +17,7 @@ class PracticalSandbox extends Page
     protected static ?string $navigationLabel = 'Ujian Praktik';
     protected static ?string $navigationGroup = 'Training & Sertifikasi';
     protected static ?int $navigationSort = 3;
-    protected static ?string $title = 'Practical Sandbox SPMB';
+    protected static ?string $title = 'Practical Sandbox';
     protected static string $view = 'filament.admin.pages.practical-sandbox';
 
     public ?string $runUuid = null;
