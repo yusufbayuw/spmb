@@ -3,7 +3,7 @@
         <button type="button" class="spmb-pwa-onboarding__close" data-pwa-dismiss aria-label="Tutup">&times;</button>
 
         <div class="spmb-pwa-onboarding__content">
-            <strong>Gunakan SPMB sebagai aplikasi</strong>
+            <strong>Gunakan {{ \App\Support\AdmissionTerminology::label() }} sebagai aplikasi</strong>
             <span data-pwa-status>Memeriksa dukungan perangkat…</span>
         </div>
 
