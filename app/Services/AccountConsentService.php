@@ -17,7 +17,7 @@ class AccountConsentService
      */
     public function defaults(): array
     {
-        return [
+        return $this->presentFields([
             'terms_title' => 'Ketentuan Penggunaan Platform SPMB',
             'terms_content' => <<<'HTML'
 <p>Dengan membuat dan menggunakan akun pada Platform SPMB, pengguna memahami dan menyetujui ketentuan berikut:</p>
@@ -44,7 +44,7 @@ HTML,
             'required_confirmation_text' => 'Saya menyetujui Ketentuan Penggunaan dan telah membaca Kebijakan Privasi Platform SPMB.',
             'marketing_enabled' => true,
             'marketing_text' => 'Saya bersedia menerima informasi program, kegiatan, dan promosi melalui email/WhatsApp. Persetujuan ini bersifat opsional.',
-        ];
+        ]);
     }
 
     public function current(): AccountConsentPolicy
@@ -150,6 +150,37 @@ HTML,
         return $policy->fresh();
     }
 
+    /**
+     * Presentation-only wording; published policies are never overwritten.
+     * New consent snapshots capture exactly the mode-correct wording shown
+     * during signup, preserving legally significant historical snapshots.
+     */
+    public function displayed(AccountConsentPolicy $policy, string $field): string
+    {
+        return $this->presentField($field, (string) $policy->getAttribute($field));
+    }
+
+    private function presentFields(array $fields): array
+    {
+        foreach ([
+            'terms_title', 'terms_content', 'privacy_title', 'privacy_content',
+            'required_confirmation_text', 'marketing_text',
+        ] as $field) {
+            if (isset($fields[$field]) && is_string($fields[$field])) {
+                $fields[$field] = $this->presentField($field, $fields[$field]);
+            }
+        }
+
+        return $fields;
+    }
+
+    private function presentField(string $field, string $value): string
+    {
+        return in_array($field, ['terms_content', 'privacy_content'], true)
+            ? \App\Support\AdmissionTerminology::visibleHtml($value)
+            : \App\Support\AdmissionTerminology::visibleText($value);
+    }
+
     public function recordSignupConsents(
         User $user,
         AccountConsentPolicy $policy,
@@ -166,19 +197,19 @@ HTML,
         }
 
         $acceptedAt = now();
-        $confirmation = (string) $policy->required_confirmation_text;
+        $confirmation = $this->displayed($policy, 'required_confirmation_text');
 
         $rows = [
             [
                 'type' => 'terms_of_service',
-                'title' => (string) $policy->terms_title,
-                'content' => (string) $policy->terms_content,
+                'title' => $this->displayed($policy, 'terms_title'),
+                'content' => $this->displayed($policy, 'terms_content'),
                 'confirmation' => $confirmation,
             ],
             [
                 'type' => 'privacy_policy',
-                'title' => (string) $policy->privacy_title,
-                'content' => (string) $policy->privacy_content,
+                'title' => $this->displayed($policy, 'privacy_title'),
+                'content' => $this->displayed($policy, 'privacy_content'),
                 'confirmation' => $confirmation,
             ],
         ];
@@ -187,7 +218,7 @@ HTML,
             $rows[] = [
                 'type' => 'marketing_consent',
                 'title' => 'Persetujuan Informasi & Promosi',
-                'content' => (string) $policy->marketing_text,
+                'content' => $this->displayed($policy, 'marketing_text'),
                 'confirmation' => (string) $policy->marketing_text,
             ];
         }
