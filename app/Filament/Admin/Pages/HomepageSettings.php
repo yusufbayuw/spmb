@@ -70,6 +70,13 @@ class HomepageSettings extends Page implements Forms\Contracts\HasForms
             $settings = new AppSetting([
                 'portal_name' => app(\App\Services\AdmissionTerminology::class)->portalName(),
                 'organization_name' => (string) ($effective['foundation_name'] ?: 'Institusi Pendidikan'),
+                'website_url' => $effective['foundation_website'] ?? null,
+                'email' => $effective['foundation_email'] ?? null,
+                'phone' => $effective['foundation_phone'] ?? null,
+                'whatsapp' => $effective['foundation_whatsapp'] ?? null,
+                'address' => $effective['foundation_address'] ?? null,
+                'service_hours' => $effective['service_hours'] ?? null,
+                'logo_path' => $effective['logo_path'] ?? null,
                 'theme_color' => (string) ($effective['theme_color'] ?: '#2563eb'),
             ]);
         }
