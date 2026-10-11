@@ -7,6 +7,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Support\SpmbOperationalMode;
+use App\Support\YouTubeTutorial;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -86,6 +87,15 @@ class HomeController extends Controller
 
         $headlineAcademicYear = $academicYears->count() === 1 ? $academicYears->first() : null;
         $operationalProfile = SpmbOperationalMode::profile();
+        $tutorialUnits = Unit::query()
+            ->operational()
+            ->whereNotNull('registration_tutorial_url')
+            ->where('registration_tutorial_url', '!=', '')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (Unit $unit): bool => YouTubeTutorial::videoId($unit->registration_tutorial_url) !== null)
+            ->values();
+
         $helpdeskUnits = collect();
 
         if (SpmbOperationalMode::isHigherEducation()) {
@@ -113,6 +123,7 @@ class HomeController extends Controller
             'selectedLevelCode',
             'operationalProfile',
             'helpdeskUnits',
+            'tutorialUnits',
         ));
     }
 
