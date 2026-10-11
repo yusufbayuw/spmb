@@ -558,3 +558,10 @@ Layanan `App\Services\AdmissionTerminology` menjadi sumber istilah untuk judul, 
 Ganti mode tanpa mengubah class, tabel, route, permission, event, atau flow bisnis pembayaran/VA/seleksi. Kebijakan yang telah dipublikasikan, consent yang ditandatangani, pengumuman kustom, pesan historis dan audit **tidak ditulis ulang**. Periksa dan terbitkan versi kebijakan/teks kustom yang sesuai jika mode diubah pada instalasi yang memiliki data lama. Default legal untuk publikasi baru mengikuti mode.
 
 Setelah mengubah `.env`, jalankan `php artisan optimize:clear` dan restart worker queue agar proses panjang menggunakan konfigurasi baru. Jalankan `php artisan test --filter=AdmissionTerminologyTest` serta `php artisan test --filter=AppBrandingSettingsTest`.
+
+
+### CMS Homepage Lite (Super Admin)
+
+Panel **Admin → Informasi Publik → Pengaturan Halaman Utama** mengatur visibilitas delapan blok halaman `/`: Pendaftaran yang Dibuka, Pendaftaran Saya, Jadwal Mendatang, Video Tutorial, Cara Mendaftar, Persiapan Pendaftaran, Tentang Penerimaan, dan Bantuan & Helpdesk. Semua blok aktif secara default, termasuk instalasi lama; blok tanpa data tetap mengikuti kondisi tampilan existing.
+
+Toggle hanya menyembunyikan blok homepage dan tautan navigasi yang menuju bagian nonaktif, **bukan** menonaktifkan route, data, VA, pembayaran, atau proses seleksi. Pengaturan disimpan pada JSON `app_settings.homepage_blocks`. Jalankan `php artisan migrate --force` setelah deploy. Akses CMS hanya Super Admin; informasi publik per unit tetap di **Profil Penerimaan**.
