@@ -57,12 +57,20 @@ class AdmissionTerminologyTest extends TestCase
                 $terms->documentFooter(),
                 $terms->paymentDescription(),
                 $terms->notificationFallback(),
-                $terms->applicantOpeningDescription(),
             ] as $surface) {
                 $this->assertStringContainsString($label, $surface);
                 if ($forbidden !== null) {
                     $this->assertDoesNotMatchRegularExpression('/(?<![A-Za-z])'.preg_quote($forbidden, '/').'(?![A-Za-z])/u', $surface);
                 }
+            }
+
+            $openingDescription = $terms->applicantOpeningDescription();
+            if ($mode === SpmbOperationalMode::MIXED) {
+                $this->assertStringContainsString('SPMB', $openingDescription);
+                $this->assertStringContainsString('PMB', $openingDescription);
+            } else {
+                $this->assertStringContainsString($label, $openingDescription);
+                $this->assertDoesNotMatchRegularExpression('/(?<![A-Za-z])'.preg_quote($forbidden, '/').'(?![A-Za-z])/u', $openingDescription);
             }
         }
     }
