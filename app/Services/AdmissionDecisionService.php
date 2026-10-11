@@ -113,7 +113,7 @@ class AdmissionDecisionService
                 if ($targetStage === 'announcement') {
                     $registration->announcement()->firstOrCreate(
                         ['registration_id' => $registration->id],
-                        ['status' => 'draft', 'title' => 'Pengumuman Hasil SPMB'],
+                        ['status' => 'draft', 'title' => 'Pengumuman Hasil '.\App\Support\AdmissionTerminology::label()],
                     );
                 }
 
