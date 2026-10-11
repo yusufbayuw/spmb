@@ -419,6 +419,7 @@ class RegistrationResource extends Resource
                         && app(\App\Services\ControlledDeletionService::class)->allowed(auth()->user(), $record->unit, 'registration'))
                     ->modalHeading(fn (Registration $record): string => 'Hapus total pendaftaran '.$record->full_name.'?')
                     ->modalDescription(fn (Registration $record): string => app(\App\Services\ControlledDeletionService::class)->registrationImpact($record))
+                    ->modalSubmitActionLabel('Hapus Total')
                     ->form([
                         Forms\Components\Textarea::make('reason')->label('Alasan penghapusan')->required(),
                         Forms\Components\TextInput::make('confirmation')
@@ -427,14 +428,26 @@ class RegistrationResource extends Resource
                             ->rule('in:HAPUS'),
                     ])
                     ->action(function (Registration $record, array $data): void {
-                        $result = app(\App\Services\ControlledDeletionService::class)->deleteRegistration(
-                            $record, auth()->user(), $data['reason'], $data['confirmation']
-                        );
+                        try {
+                            $result = app(\App\Services\ControlledDeletionService::class)->deleteRegistration(
+                                $record, auth()->user(), $data['reason'], $data['confirmation']
+                            );
+                        } catch (\Illuminate\Validation\ValidationException $exception) {
+                            Notification::make()
+                                ->title('Hapus Total ditolak')
+                                ->body(collect($exception->errors())->flatten()->implode(' '))
+                                ->danger()
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
+
                         Notification::make()
                             ->title('Data pendaftar dihapus permanen')
                             ->body($result['file_errors'] > 0
-                                ? 'Data berhasil dihapus, tetapi sebagian file membutuhkan pembersihan manual.'
-                                : 'Penghapusan tercatat dalam audit.')
+                                ? 'Data terhapus, tetapi beberapa file perlu dibersihkan manual.'
+                                : 'Penghapusan berhasil dan tercatat dalam audit. VA tertaut dinonaktifkan.')
                             ->success()->send();
                     }),
                 Tables\Actions\EditAction::make(),
