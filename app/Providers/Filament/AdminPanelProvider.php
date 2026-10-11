@@ -50,7 +50,7 @@ class AdminPanelProvider extends PanelProvider
                 FilamentBackgroundsPlugin::make()
                     ->imageProvider(LocalLoginBackgrounds::make('images/login-admin')),
             ])
-            ->navigationGroups(['Pendaftaran','Pasca-Pengumuman','Laporan','Informasi Publik','Konfigurasi SPMB','Training & Sertifikasi','Sistem & Akses'])
+            ->navigationGroups(['Pendaftaran','Pasca-Pengumuman','Laporan','Informasi Publik','Konfigurasi Penerimaan','Training & Sertifikasi','Sistem & Akses'])
             ->sidebarCollapsibleOnDesktop()
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('pwa.meta'))
             ->renderHook(
