@@ -817,7 +817,7 @@ class RegistrationWorkflowService
                     ['registration_id' => $lockedRegistration->id],
                     [
                         'status' => 'draft',
-                        'title' => 'Pengumuman Hasil SPMB',
+                        'title' => 'Pengumuman Hasil '.\App\Support\AdmissionTerminology::label(),
                     ],
                 );
             }
@@ -1008,7 +1008,7 @@ class RegistrationWorkflowService
 
                         Announcement::firstOrCreate(
                             ['registration_id' => $registration->id],
-                            ['status' => 'draft', 'title' => 'Pengumuman Hasil SPMB'],
+                            ['status' => 'draft', 'title' => 'Pengumuman Hasil '.\App\Support\AdmissionTerminology::label()],
                         );
 
                         $registration->transitionTo('announcement');
@@ -1393,7 +1393,7 @@ class RegistrationWorkflowService
                 ['registration_id' => $lockedRegistration->id],
                 [
                     'status' => 'published',
-                    'title' => $title ?: 'Pengumuman Hasil SPMB',
+                    'title' => $title ?: 'Pengumuman Hasil '.\App\Support\AdmissionTerminology::label(),
                     'message' => $message,
                     'published_by' => $staff->id,
                     'published_at' => now(),
