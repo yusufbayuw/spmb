@@ -294,7 +294,7 @@ class UnitConfigurationTransferService
     {
         if (($payload['format'] ?? null) !== self::FORMAT) {
             throw ValidationException::withMessages([
-                'import_file' => 'Berkas bukan hasil ekspor konfigurasi SPMB yang didukung.',
+                'import_file' => 'Berkas bukan hasil ekspor konfigurasi pendaftaran yang didukung.',
             ]);
         }
 
