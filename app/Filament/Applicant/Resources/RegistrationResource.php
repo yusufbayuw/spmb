@@ -254,7 +254,7 @@ class RegistrationResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->emptyStateHeading('Belum ada pendaftaran')
-            ->emptyStateDescription('Pilih pembukaan SPMB sekolah atau PMB program studi yang tersedia.')
+            ->emptyStateDescription('Pilih pembukaan '.\App\Support\AdmissionTerminology::label().' yang tersedia.')
             ->emptyStateIcon('heroicon-o-user-plus')
             ->emptyStateActions([
                 Tables\Actions\Action::make('chooseOpening')->label('Pilih Pendaftaran')->icon('heroicon-o-calendar-days')->url(RegistrationOpenings::getUrl()),
