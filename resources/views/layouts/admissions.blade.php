@@ -32,6 +32,7 @@
     $logoUrl = app(\App\Services\AppBrandingService::class)->logoUrl();
     $isStaff = auth()->check() && auth()->user()->hasAnyRole(['super_admin', 'admin_unit', 'tu']);
     $dashboardUrl = $isStaff ? url('/admin') : url('/pendaftar');
+    $homepageBlocks = $homepageBlocks ?? app(\App\Services\HomepageSectionService::class)->visibility();
 @endphp
 <body class="min-h-screen bg-white text-slate-950 antialiased">
     <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
@@ -47,9 +48,15 @@
             </a>
 
             <div class="hidden items-center gap-7 lg:flex">
+                @if ($homepageBlocks['registration'])
                 <a href="{{ route('home') }}#pendaftaran" class="text-sm font-semibold text-slate-600 transition hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-4">Pendaftaran</a>
+                @endif
+                @if ($homepageBlocks['steps'])
                 <a href="{{ route('home') }}#cara-mendaftar" class="text-sm font-semibold text-slate-600 transition hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-4">Cara Mendaftar</a>
+                @endif
+                @if ($homepageBlocks['helpdesk'])
                 <a href="{{ route('home') }}#bantuan" class="text-sm font-semibold text-slate-600 transition hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-4">Bantuan</a>
+                @endif
             </div>
 
             <div class="hidden items-center gap-2 sm:flex">
@@ -68,9 +75,15 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
                 </summary>
                 <div class="absolute right-0 mt-3 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl shadow-slate-900/10">
+                    @if ($homepageBlocks['registration'])
                     <a href="{{ route('home') }}#pendaftaran" class="block rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Pendaftaran</a>
+                    @endif
+                    @if ($homepageBlocks['steps'])
                     <a href="{{ route('home') }}#cara-mendaftar" class="block rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cara Mendaftar</a>
+                    @endif
+                    @if ($homepageBlocks['helpdesk'])
                     <a href="{{ route('home') }}#bantuan" class="block rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Bantuan</a>
+                    @endif
                     <div class="my-2 border-t border-slate-200"></div>
                     @auth
                         <a href="{{ $dashboardUrl }}" class="block rounded-xl bg-blue-700 px-4 py-3 text-center text-sm font-bold text-white">{{ $isStaff ? 'Buka Panel Admin' : 'Buka Dashboard' }}</a>
@@ -97,9 +110,15 @@
                 @endif
             </div>
             <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-slate-600">
+                @if ($homepageBlocks['registration'])
                 <a href="{{ route('home') }}#pendaftaran" class="hover:text-blue-700">Pendaftaran</a>
+                @endif
+                @if ($homepageBlocks['steps'])
                 <a href="{{ route('home') }}#cara-mendaftar" class="hover:text-blue-700">Cara Mendaftar</a>
+                @endif
+                @if ($homepageBlocks['helpdesk'])
                 <a href="{{ route('home') }}#bantuan" class="hover:text-blue-700">Bantuan</a>
+                @endif
                 @if (filled($portal['foundation_website'] ?? null))
                     <a href="{{ $portal['foundation_website'] }}" rel="noopener noreferrer" class="hover:text-blue-700">Website Yayasan</a>
                 @endif

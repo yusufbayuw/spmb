@@ -23,6 +23,7 @@ class AppSetting extends Model
         'certification_enforcement_mode',
         'certification_expiry_reminder_days',
         'certificate_artifact_enabled',
+        'homepage_blocks',
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class AppSetting extends Model
         'training_require_module_mastery' => 'boolean',
         'certification_expiry_reminder_days' => 'array',
         'certificate_artifact_enabled' => 'boolean',
+        'homepage_blocks' => 'array',
     ];
 
     protected static function booted(): void

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\EducationLevel;
+use App\Services\HomepageSectionService;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
@@ -114,7 +115,10 @@ class HomeController extends Controller
             }
         }
 
+        $homepageBlocks = app(HomepageSectionService::class)->visibility();
+
         return view('welcome', compact(
+            'homepageBlocks',
             'educationLevels',
             'openOfferings',
             'upcomingOfferings',

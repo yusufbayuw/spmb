@@ -11,6 +11,7 @@
 @section('description'){{ $operationalProfile['page_description'] }}@endsection
 
 @section('content')
+    @if ($homepageBlocks['registration'])
     <section id="pendaftaran" class="scroll-mt-24 border-b border-slate-200 bg-white py-10 sm:py-12">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="max-w-3xl">
@@ -36,13 +37,17 @@
                 <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
                     <h2 class="text-xl font-extrabold text-slate-950">Belum ada pendaftaran yang sedang dibuka</h2>
                     <p class="mx-auto mt-2 max-w-xl text-sm leading-7 text-slate-600">Saat ini belum tersedia pembukaan aktif untuk pilihan Anda. Periksa jadwal yang akan datang atau hubungi panitia penerimaan bila membutuhkan informasi lebih lanjut.</p>
+                    @if ($homepageBlocks['helpdesk'])
                     <a href="#bantuan" class="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Hubungi Panitia</a>
+                    @endif
                 </div>
             @endif
         </div>
     </section>
 
-    @if (auth()->check() && auth()->user()->isUser() && $registrationPreviews->isNotEmpty())
+    @endif
+
+    @if ($homepageBlocks['my_registrations'] && auth()->check() && auth()->user()->isUser() && $registrationPreviews->isNotEmpty())
         <section class="border-b border-slate-200 bg-slate-50 py-12">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -70,7 +75,7 @@
         </section>
     @endif
 
-    @if ($upcomingOfferings->isNotEmpty())
+    @if ($homepageBlocks['upcoming'] && $upcomingOfferings->isNotEmpty())
         <section class="border-b border-slate-200 bg-slate-50 py-16">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="max-w-3xl">
@@ -86,7 +91,7 @@
         </section>
     @endif
 
-    @if ($tutorialUnits->isNotEmpty())
+    @if ($homepageBlocks['tutorials'] && $tutorialUnits->isNotEmpty())
         <section class="bg-white py-16 sm:py-20" aria-labelledby="tutorial-pendaftaran-title">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="max-w-3xl">
@@ -124,6 +129,7 @@
         </section>
     @endif
 
+    @if ($homepageBlocks['steps'])
     <section id="cara-mendaftar" class="scroll-mt-24 border-y border-slate-200 bg-slate-50 py-16 sm:py-20">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="max-w-3xl">
@@ -147,6 +153,9 @@
         </div>
     </section>
 
+    @endif
+
+    @if ($homepageBlocks['preparation'])
     <section class="bg-white py-16 sm:py-20">
         <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-8">
             <div>
@@ -170,6 +179,9 @@
         </div>
     </section>
 
+    @endif
+
+    @if ($homepageBlocks['scope'])
     <section class="bg-slate-950 py-16 text-white">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="max-w-3xl">
@@ -183,6 +195,9 @@
         </div>
     </section>
 
+    @endif
+
+    @if ($homepageBlocks['helpdesk'])
     <section id="bantuan" class="scroll-mt-24 bg-slate-50 py-16 sm:py-20">
         <div class="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
             <div>
@@ -209,4 +224,5 @@
             @endif
         </div>
     </section>
+    @endif
 @endsection
