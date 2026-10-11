@@ -5,7 +5,7 @@
 </x-mail::header>
 </x-slot>
 
-# {{ $announcement->title ?: 'Pengumuman Hasil SPMB' }}
+# {{ \App\Support\AdmissionTerminology::visibleText($announcement->title ?: 'Pengumuman Hasil '.\App\Support\AdmissionTerminology::label()) }}
 
 Yth. {{ $announcement->registration->user->name }},
 
@@ -18,7 +18,7 @@ Hasil seleksi untuk calon peserta **{{ $announcement->registration->full_name }}
 Silakan masuk ke dashboard untuk melihat hasil dan tindak lanjut secara lengkap.
 
 <x-mail::button :url="url('/pendaftar')">
-Buka Dashboard SPMB
+Buka Dashboard {{ \App\Support\AdmissionTerminology::label() }}
 </x-mail::button>
 
 Hormat kami,<br>
