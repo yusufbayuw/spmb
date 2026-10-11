@@ -41,6 +41,19 @@ final class AdmissionTerminology
         ) ?? $text;
     }
 
+    /**
+     * Translate visible HTML text nodes only. Never rewrite HTML attributes,
+     * links or markup in configured/legal content.
+     */
+    public static function visibleHtml(string $html): string
+    {
+        return preg_replace_callback(
+            '/(?<=>)[^<>]+(?=<)/u',
+            fn (array $match): string => self::visibleText($match[0]),
+            $html,
+        ) ?? $html;
+    }
+
     public static function processName(): string
     {
         return match (SpmbOperationalMode::mode()) {
