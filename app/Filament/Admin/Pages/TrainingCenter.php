@@ -21,7 +21,7 @@ class TrainingCenter extends Page
     protected static ?string $navigationLabel = 'Training Saya';
     protected static ?string $navigationGroup = 'Training & Sertifikasi';
     protected static ?int $navigationSort = 1;
-    protected static ?string $title = 'Pusat Training SPMB';
+    protected static ?string $title = 'Pusat Training';
     protected static string $view = 'filament.admin.pages.training-center';
 
     public ?string $assessmentAttemptUuid = null;
