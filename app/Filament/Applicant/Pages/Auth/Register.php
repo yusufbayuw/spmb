@@ -42,7 +42,7 @@ class Register extends BaseRegister
                 ->schema([
                     Forms\Components\Checkbox::make('account_consent_accepted')
                         ->label(new HtmlString(
-                            e((string) $policy->required_confirmation_text)
+                            e(app(AccountConsentService::class)->displayed($policy, 'required_confirmation_text'))
                             .' <span class="text-gray-500">('
                             .'<a class="font-medium text-primary-600 underline" href="'.e(route('legal.terms')).'" target="_blank" rel="noopener noreferrer">Ketentuan Penggunaan</a>'
                             .' · '
@@ -55,7 +55,7 @@ class Register extends BaseRegister
                             'accepted' => 'Anda harus menyetujui Ketentuan Penggunaan dan membaca Kebijakan Privasi untuk membuat akun.',
                         ]),
                     Forms\Components\Checkbox::make('marketing_consent')
-                        ->label((string) $policy->marketing_text)
+                        ->label(app(AccountConsentService::class)->displayed($policy, 'marketing_text'))
                         ->visible((bool) $policy->marketing_enabled),
                 ])
                 ->compact(),
