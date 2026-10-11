@@ -21,7 +21,12 @@ class AdmissionTestResource extends Resource
 
     protected static ?string $navigationLabel = 'Konfigurasi Tes';
 
-    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+    protected static ?string $navigationGroup = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return app(\App\Services\AdmissionTerminology::class)->configurationNavigation();
+    }
 
     protected static ?int $navigationSort = 7;
 
