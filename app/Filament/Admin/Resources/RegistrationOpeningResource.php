@@ -27,7 +27,7 @@ class RegistrationOpeningResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pembukaan Pendaftaran';
 
-    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+    protected static ?string $navigationGroup = 'Konfigurasi Penerimaan';
 
     protected static ?int $navigationSort = 3;
 
