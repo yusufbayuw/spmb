@@ -157,32 +157,19 @@ class ControlledDeletionService
     public function deleteRegistration(Registration $registration, User $actor, string $reason, string $confirmation): array
     {
         $this->confirm($reason, $confirmation);
+
         $paths = DB::transaction(function () use ($registration, $actor, $reason): array {
             $locked = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $unit = Unit::query()->lockForUpdate()->findOrFail($locked->unit_id);
             abort_unless($this->allowed($actor, $unit, 'registration'), 403);
 
-            $blockedTables = [
-                'payments', 'test_bookings', 'admission_test_results', 'selections',
-                'announcements', 'admission_offers', 're_registration_items',
-            ];
-            foreach ($blockedTables as $table) {
-                if (DB::table($table)->where('registration_id', $locked->id)->exists()) {
-                    throw ValidationException::withMessages([
-                        'delete' => 'Pendaftaran memiliki relasi operasional/keuangan pada '.$table.'. Arsipkan atau batalkan, jangan hapus permanen.',
-                    ]);
-                }
-            }
+            // Lock dependencies and recheck the same blockers shown in the modal.
+            $payments = Payment::query()->where('registration_id', $locked->id)->lockForUpdate()->get();
+            $accounts = VirtualAccount::query()->where('registration_id', $locked->id)->lockForUpdate()->get();
 
-            if (VirtualAccount::query()->where('registration_id', $locked->id)->exists()
-                || filled($locked->registration_number)
-                || filled($locked->payment_verified_at)
-                || filled($locked->applicant_card_issued_at)
-                || filled($locked->enrolled_at)
-                || filled($locked->accepted_at)) {
-                throw ValidationException::withMessages([
-                    'delete' => 'Pendaftaran sudah memiliki VA, nomor resmi, atau keputusan lanjutan. Hapus permanen ditolak.',
-                ]);
+            $blockers = $this->registrationBlockers($locked);
+            if ($blockers !== []) {
+                throw ValidationException::withMessages(['delete' => implode(' ', $blockers)]);
             }
 
             $paths = array_values(array_unique(array_filter([
@@ -190,23 +177,59 @@ class ControlledDeletionService
                 ...$locked->achievements()->pluck('certificate_path')->all(),
             ])));
 
-            // Consent has RESTRICT foreign keys: remove only the consent attached
-            // to this registration, never other consents of the same applicant.
+            // At this point payments may only be untouched pending bills:
+            // no transfers, proof uploads, verification or issued receipts.
+            foreach ($payments as $payment) {
+                app(AuditTrail::class)->record(
+                    'payment.unused_pending_removed',
+                    $payment,
+                    metadata: ['reason' => trim($reason), 'registration_uuid' => $locked->uuid],
+                    actor: $actor,
+                    description: 'Tagihan pending tanpa transaksi dibersihkan saat penghapusan pendaftaran',
+                );
+            }
+
+            if ($payments->isNotEmpty()) {
+                DB::table('payments')->whereIn('id', $payments->pluck('id'))->delete();
+            }
+
+            // Retain allocated VA numbers and assignment history. Never reset
+            // their status to available when their registration is deleted.
+            foreach ($accounts as $account) {
+                app(AuditTrail::class)->record(
+                    'virtual_account.retired_after_registration_deletion',
+                    $account,
+                    metadata: ['reason' => trim($reason), 'registration_uuid' => $locked->uuid],
+                    actor: $actor,
+                    description: 'VA dibatalkan permanen setelah pendaftaran dihapus',
+                );
+
+                DB::table('virtual_accounts')->where('id', $account->id)->update([
+                    'status' => 'cancelled',
+                    'registration_id' => null,
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // RESTRICT consent FK: remove the individual registration consent
+            // only. The applicant's other consents and user account survive.
             DB::table('registration_consents')->where('registration_id', $locked->id)->delete();
 
             app(AuditTrail::class)->record(
                 'registration.permanently_deleted',
                 $locked,
-                metadata: ['reason' => trim($reason), 'registration_uuid' => $locked->uuid],
+                metadata: [
+                    'reason' => trim($reason),
+                    'registration_uuid' => $locked->uuid,
+                    'removed_pending_payments' => $payments->count(),
+                    'retired_virtual_accounts' => $accounts->count(),
+                ],
                 actor: $actor,
                 description: 'Pendaftaran dihapus permanen oleh petugas berwenang',
             );
 
-            // Other dependent records use FK cascades. RESTRICT references are
-            // left intact and will roll back this entire transaction if present.
-            // Delete via query builder: Eloquent's global deleted observer would
-            // try to write a second audit record referencing a deleted parent.
-            // The explicit audit event above survives via nullOnDelete FK.
+            // Dependent parent/score/document rows use FK cascade. Avoid a
+            // second model observer audit pointing at the deleted record.
             DB::table('registrations')->where('id', $locked->id)->delete();
 
             return $paths;
