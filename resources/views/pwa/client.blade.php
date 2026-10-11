@@ -3,7 +3,7 @@
         <button type="button" class="spmb-pwa-onboarding__close" data-pwa-dismiss aria-label="Tutup">&times;</button>
 
         <div class="spmb-pwa-onboarding__content">
-            <strong>Gunakan SPMB sebagai aplikasi</strong>
+            <strong>Gunakan {{ app(\App\Services\AdmissionTerminology::class)->portalName() }} sebagai aplikasi</strong>
             <span data-pwa-status>Memeriksa dukungan perangkat…</span>
         </div>
 
@@ -26,7 +26,7 @@
         'subscribeUrl' => route('push.subscriptions.store', absolute: false),
         'unsubscribeUrl' => route('push.subscriptions.destroy', absolute: false),
         'serviceWorkerUrl' => '/sw.js',
-        'appName' => config('spmb.portal.name', 'SPMB'),
+        'appName' => app(\App\Services\AdmissionTerminology::class)->portalName(),
     ];
 @endphp
 

@@ -200,7 +200,7 @@
         <text x="710" y="558" fill="#45637f" font-size="15">Diterbitkan</text>
         <text x="710" y="586" fill="#0f274d" font-size="21" font-weight="800">{{ $card['issuedDate'] }}</text>
         <line x1="710" y1="600" x2="954" y2="600" stroke="#7ca6cb" stroke-width="1.5"/>
-        <text x="710" y="624" fill="#0f274d" font-size="16" font-weight="700">Panitia SPMB</text>
+        <text x="710" y="624" fill="#0f274d" font-size="16" font-weight="700">{{ app(\App\Services\AdmissionTerminology::class)->committee() }}</text>
     </g>
 
     <rect x="8" y="8" width="995" height="622" rx="30" fill="none" stroke="#2b79bd" stroke-width="3"/>

@@ -92,7 +92,7 @@
             @php($programs = $this->programs())
 
             <x-filament::section>
-                <x-slot name="heading">Sertifikasi Kompetensi SPMB</x-slot>
+                <x-slot name="heading">Sertifikasi Kompetensi {{ app(\App\Services\AdmissionTerminology::class)->portalName() }}</x-slot>
                 <x-slot name="description">
                     Training memberi eligibility. Setiap attempt memakai snapshot immutable sehingga perubahan bank soal atau konfigurasi tidak mengubah attempt yang sudah dimulai.
                 </x-slot>
