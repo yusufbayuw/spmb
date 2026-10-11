@@ -42,7 +42,7 @@ class AccountConsentSettings extends Page implements Forms\Contracts\HasForms
         return $form
             ->schema([
                 Forms\Components\Section::make('Ketentuan Penggunaan')
-                    ->description('Berlaku global saat seseorang membuat akun SPMB. Ini berbeda dari persetujuan pemrosesan data pada formulir pendaftaran unit.')
+                    ->description('Berlaku global saat seseorang membuat akun pendaftar. Ini berbeda dari persetujuan pemrosesan data pada formulir pendaftaran unit.')
                     ->schema([
                         Forms\Components\TextInput::make('terms_title')->label('Judul')->required()->maxLength(180),
                         Forms\Components\RichEditor::make('terms_content')
