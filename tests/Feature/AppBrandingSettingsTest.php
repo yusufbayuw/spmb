@@ -19,18 +19,20 @@ class AppBrandingSettingsTest extends TestCase
     public function test_environment_values_remain_fallback_until_database_settings_exist(): void
     {
         config()->set('spmb.portal.name', 'Portal Dari Env');
+        config()->set('spmb.operations.mode', 'K12');
         config()->set('spmb.portal.foundation_name', 'Institusi Dari Env');
 
         $service = app(AppBrandingService::class);
         $service->refresh();
 
         $this->assertNull($service->settings());
-        $this->assertSame('Portal Dari Env', $service->portalName());
+        $this->assertSame('SPMB', $service->portalName());
         $this->assertSame('Institusi Dari Env', $service->organizationName());
     }
 
     public function test_super_admin_can_save_global_white_label_settings_and_manifest_uses_them(): void
     {
+        config()->set('spmb.operations.mode', 'HIGHER_EDUCATION');
         $this->seed(ShieldSeeder::class);
 
         $admin = User::factory()->create([
@@ -67,12 +69,12 @@ class AppBrandingSettingsTest extends TestCase
         $service = app(AppBrandingService::class);
         $service->refresh();
 
-        $this->assertSame('Portal Penerimaan Contoh', $service->portalName());
+        $this->assertSame('PMB', $service->portalName());
         $this->assertSame('Institusi Contoh', $service->organizationName());
 
         $this->get('/manifest.webmanifest')
             ->assertOk()
-            ->assertJsonPath('name', 'Portal Penerimaan Contoh')
+            ->assertJsonPath('name', 'PMB')
             ->assertJsonPath('theme_color', '#123456');
     }
 

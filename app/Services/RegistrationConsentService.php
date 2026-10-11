@@ -293,6 +293,7 @@ class RegistrationConsentService
         $values = [
             'unit_name' => (string) ($opening->unit?->name ?: 'Unit Pendidikan'),
             'academic_year' => (string) ($opening->academic_year ?: ''),
+            'admission_brand' => app(AdmissionTerminology::class)->portalName(),
             'wave' => (string) ($opening->wave ?: ''),
             'participant_label' => $opening->unit?->isHigherEducation() ? 'calon mahasiswa' : 'calon murid',
         ];
@@ -315,12 +316,12 @@ class RegistrationConsentService
         return <<<'HTML'
 <p><strong>FORMULIR PERSETUJUAN DATA PRIBADI CALON MURID</strong></p>
 <ol>
-<li>Kami selaku orang tua/wali memberikan persetujuan kepada {{ unit_name }} untuk mengumpulkan dan memproses Data Pribadi kami dan {{ participant_label }}, termasuk nama lengkap, alamat, nomor kontak, data orang tua/wali, data sekolah, data akademik, serta data lain yang diperlukan dalam proses pendaftaran SPMB.</li>
-<li>{{ unit_name }} akan menyimpan Data Pribadi orang tua/wali dan {{ participant_label }} selama diperlukan untuk proses SPMB, administrasi penerimaan, dan kebutuhan penyelenggaraan pendidikan sesuai dengan ketentuan yang berlaku.</li>
+<li>Kami selaku orang tua/wali memberikan persetujuan kepada {{ unit_name }} untuk mengumpulkan dan memproses Data Pribadi kami dan {{ participant_label }}, termasuk nama lengkap, alamat, nomor kontak, data orang tua/wali, data sekolah, data akademik, serta data lain yang diperlukan dalam proses pendaftaran {{ admission_brand }}.</li>
+<li>{{ unit_name }} akan menyimpan Data Pribadi orang tua/wali dan {{ participant_label }} selama diperlukan untuk proses {{ admission_brand }}, administrasi penerimaan, dan kebutuhan penyelenggaraan pendidikan sesuai dengan ketentuan yang berlaku.</li>
 <li>{{ unit_name }} berkomitmen menjaga keamanan, kerahasiaan, dan hak {{ participant_label }} serta orang tua/wali sebagai subjek Data Pribadi sesuai dengan Undang-Undang No. 27 Tahun 2022 tentang Pelindungan Data Pribadi dan kebijakan internal sekolah.</li>
-<li>Dalam rangka pelaksanaan SPMB, Data Pribadi dapat diproses oleh pihak ketiga yang ditunjuk oleh {{ unit_name }}, seperti penyedia sistem pendaftaran atau layanan tes/asesmen, sepanjang diperlukan untuk pelaksanaan SPMB dan sesuai dengan tujuan yang telah diinformasikan.</li>
+<li>Dalam rangka pelaksanaan {{ admission_brand }}, Data Pribadi dapat diproses oleh pihak ketiga yang ditunjuk oleh {{ unit_name }}, seperti penyedia sistem pendaftaran atau layanan tes/asesmen, sepanjang diperlukan untuk pelaksanaan {{ admission_brand }} dan sesuai dengan tujuan yang telah diinformasikan.</li>
 <li>Apabila {{ unit_name }} akan memproses Data Pribadi untuk tujuan yang berbeda dari yang tercantum dalam persetujuan ini, sekolah akan memberikan informasi dan meminta persetujuan sesuai dengan ketentuan yang berlaku.</li>
-<li>Kami menyatakan bahwa seluruh Data Pribadi dan informasi yang diberikan dalam formulir pendaftaran SPMB adalah benar, lengkap, dan terkini.</li>
+<li>Kami menyatakan bahwa seluruh Data Pribadi dan informasi yang diberikan dalam formulir pendaftaran {{ admission_brand }} adalah benar, lengkap, dan terkini.</li>
 </ol>
 HTML;
     }
@@ -330,11 +331,11 @@ HTML;
         return <<<'HTML'
 <p><strong>PERSETUJUAN PRIVASI DAN PEMROSESAN DATA PRIBADI</strong></p>
 <ol>
-<li>Saya/Kami sebagai pendaftar atau orang tua/wali memberikan persetujuan kepada {{ unit_name }} untuk mengumpulkan dan memproses Data Pribadi yang diperlukan dalam proses SPMB {{ academic_year }}.</li>
+<li>Saya/Kami sebagai pendaftar atau orang tua/wali memberikan persetujuan kepada {{ unit_name }} untuk mengumpulkan dan memproses Data Pribadi yang diperlukan dalam proses {{ admission_brand }} {{ academic_year }}.</li>
 <li>Data yang dapat diproses meliputi identitas {{ participant_label }}, data orang tua/wali, alamat dan kontak, riwayat pendidikan, data akademik, dokumen pendukung, hasil asesmen, serta data lain yang secara wajar diperlukan untuk penerimaan peserta didik/mahasiswa.</li>
 <li>Data digunakan untuk pendaftaran, verifikasi, komunikasi, pembayaran bila berlaku, seleksi, pengumuman hasil, administrasi penerimaan, dan penyelenggaraan pendidikan sesuai kebutuhan serta ketentuan yang berlaku.</li>
 <li>{{ unit_name }} akan menyimpan Data Pribadi selama diperlukan untuk tujuan tersebut dan menerapkan langkah yang wajar untuk menjaga keamanan serta kerahasiaannya.</li>
-<li>Dalam pelaksanaan SPMB, Data Pribadi dapat diproses oleh penyedia sistem, pembayaran, komunikasi, tes/asesmen, atau pihak ketiga lain yang ditunjuk sepanjang diperlukan untuk tujuan yang telah diinformasikan.</li>
+<li>Dalam pelaksanaan {{ admission_brand }}, Data Pribadi dapat diproses oleh penyedia sistem, pembayaran, komunikasi, tes/asesmen, atau pihak ketiga lain yang ditunjuk sepanjang diperlukan untuk tujuan yang telah diinformasikan.</li>
 <li>Apabila terdapat tujuan pemrosesan baru yang memerlukan persetujuan tambahan, {{ unit_name }} akan memberikan informasi dan meminta persetujuan sesuai ketentuan yang berlaku.</li>
 <li>Saya/Kami memahami hak sebagai subjek Data Pribadi sesuai Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi dan ketentuan lain yang berlaku.</li>
 <li>Saya/Kami menyatakan bahwa data dan informasi yang diberikan dalam formulir pendaftaran adalah benar, lengkap, dan terkini.</li>

@@ -154,7 +154,7 @@ class AppBrandingSettings extends Page implements Forms\Contracts\HasForms
 
         Notification::make()
             ->title('White-label aplikasi tersimpan')
-            ->body('Branding global sekarang menggunakan konfigurasi dari panel admin pusat.')
+            ->body('Nama institusi, logo, dan kontak mengikuti pengaturan ini; identitas portal penerimaan mengikuti SPMB_MODE_OPS.')
             ->success()
             ->send();
 

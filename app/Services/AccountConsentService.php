@@ -18,30 +18,30 @@ class AccountConsentService
     public function defaults(): array
     {
         return [
-            'terms_title' => 'Ketentuan Penggunaan Platform SPMB',
+            'terms_title' => 'Ketentuan Penggunaan Platform '.app(AdmissionTerminology::class)->portalName(),
             'terms_content' => <<<'HTML'
-<p>Dengan membuat dan menggunakan akun pada Platform SPMB, pengguna memahami dan menyetujui ketentuan berikut:</p>
+<p>Dengan membuat dan menggunakan akun pada Platform Penerimaan, pengguna memahami dan menyetujui ketentuan berikut:</p>
 <ol>
-<li>Akun digunakan untuk mengakses layanan penerimaan peserta didik/mahasiswa dan fitur terkait yang tersedia pada Platform SPMB.</li>
+<li>Akun digunakan untuk mengakses layanan penerimaan peserta didik/mahasiswa dan fitur terkait yang tersedia pada Platform Penerimaan.</li>
 <li>Pengguna bertanggung jawab memberikan informasi akun yang benar, menjaga kerahasiaan kredensial, dan segera mengamankan akun apabila mengetahui adanya penggunaan tanpa izin.</li>
 <li>Pengguna tidak diperkenankan menyalahgunakan platform, mengganggu layanan, mencoba memperoleh akses yang tidak berwenang, atau menggunakan akun untuk tindakan yang bertentangan dengan ketentuan yang berlaku.</li>
-<li>Pembuatan akun tidak dengan sendirinya berarti pendaftaran pada suatu unit telah diterima. Setiap proses SPMB tetap mengikuti pembukaan, persyaratan, tahapan, dan keputusan pada unit/program yang dipilih.</li>
-<li>Fitur, tampilan, dan mekanisme layanan dapat diperbarui untuk menjaga keamanan, keandalan, dan kebutuhan operasional SPMB.</li>
+<li>Pembuatan akun tidak dengan sendirinya berarti pendaftaran pada suatu unit telah diterima. Setiap proses penerimaan tetap mengikuti pembukaan, persyaratan, tahapan, dan keputusan pada unit/program yang dipilih.</li>
+<li>Fitur, tampilan, dan mekanisme layanan dapat diperbarui untuk menjaga keamanan, keandalan, dan kebutuhan operasional penerimaan.</li>
 </ol>
 HTML,
-            'privacy_title' => 'Kebijakan Privasi Platform SPMB',
+            'privacy_title' => 'Kebijakan Privasi Platform '.app(AdmissionTerminology::class)->portalName(),
             'privacy_content' => <<<'HTML'
-<p>Platform SPMB memproses Data Pribadi yang diperlukan untuk menyediakan dan mengamankan akun pengguna.</p>
+<p>Platform Penerimaan memproses Data Pribadi yang diperlukan untuk menyediakan dan mengamankan akun pengguna.</p>
 <ol>
 <li>Data akun dapat meliputi nama, alamat email, nomor telepon apabila diberikan, informasi autentikasi, serta data teknis yang secara wajar diperlukan untuk keamanan dan operasional layanan.</li>
 <li>Data tersebut digunakan untuk membuat dan mengelola akun, autentikasi, verifikasi, pemulihan akun, komunikasi layanan, keamanan sistem, pencatatan aktivitas yang relevan, dan dukungan operasional.</li>
 <li>Data dapat diproses oleh penyedia layanan teknologi yang membantu pengoperasian platform sepanjang diperlukan untuk layanan yang telah diinformasikan.</li>
 <li>Data disimpan selama diperlukan untuk tujuan layanan, keamanan, pemenuhan kewajiban yang berlaku, serta penanganan hak pengguna sebagai subjek Data Pribadi.</li>
 <li>Pengelolaan Data Pribadi memperhatikan ketentuan yang berlaku, termasuk Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi.</li>
-<li>Persetujuan akun ini berbeda dari persetujuan pemrosesan data SPMB. Saat pengguna memilih pembukaan pendaftaran tertentu, sistem dapat meminta persetujuan tambahan yang spesifik terhadap unit, calon peserta, dan proses pendaftaran tersebut.</li>
+<li>Persetujuan akun ini berbeda dari persetujuan pemrosesan data pendaftaran. Saat pengguna memilih pembukaan pendaftaran tertentu, sistem dapat meminta persetujuan tambahan yang spesifik terhadap unit, calon peserta, dan proses pendaftaran tersebut.</li>
 </ol>
 HTML,
-            'required_confirmation_text' => 'Saya menyetujui Ketentuan Penggunaan dan telah membaca Kebijakan Privasi Platform SPMB.',
+            'required_confirmation_text' => 'Saya menyetujui Ketentuan Penggunaan dan telah membaca Kebijakan Privasi Platform '.app(AdmissionTerminology::class)->portalName().'.',
             'marketing_enabled' => true,
             'marketing_text' => 'Saya bersedia menerima informasi program, kegiatan, dan promosi melalui email/WhatsApp. Persetujuan ini bersifat opsional.',
         ];
