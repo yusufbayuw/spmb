@@ -9,6 +9,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class ControlledDeletionService
@@ -269,6 +270,10 @@ class ControlledDeletionService
             ]);
         }
 
+        // Abort if a newer application version adds a foreign-key dependency
+        // that this privileged path has not explicitly reviewed.
+        $this->assertKnownTestDeletionDependencies();
+
         $paths = DB::transaction(function () use ($registration, $actor, $reason): array {
             $locked = Registration::query()->lockForUpdate()->findOrFail($registration->id);
             $unit = Unit::query()->lockForUpdate()->findOrFail($locked->unit_id);
@@ -305,6 +310,8 @@ class ControlledDeletionService
                     ->where('registration_id', $locked->id)->pluck('file_path')->all(),
             ];
             $paths = array_values(array_unique(array_filter($attachmentPaths)));
+
+            $this->assertSafeTestFilePaths($paths);
 
             // Persist non-PII evidence of what was removed. Raw names, NIK,
             // proof contents, credentials, and receipt details are NOT logged.
@@ -447,6 +454,57 @@ class ControlledDeletionService
             );
             DB::table($locked->getTable())->where('id', $locked->id)->delete();
         });
+    }
+
+    /**
+     * Fail closed when future migrations add relations whose cascade/cleanup
+     * semantics have not been explicitly reviewed for this operation.
+     */
+    private function assertKnownTestDeletionDependencies(): void
+    {
+        $deletedTables = [
+            'registrations', 'payments', 'payment_receipts', 'test_bookings',
+            're_registration_items', 'admission_offers', 'registration_consents',
+            'documents', 'parent_infos', 'registration_achievements',
+            'registration_academic_scores', 'admission_test_results',
+            'selections', 'announcements', 'continuation_registration_links',
+        ];
+        $supportedReferencingTables = [
+            ...$deletedTables, 'virtual_accounts', 'audit_logs',
+            'mail_delivery_attempts', 'pending_applicant_email_changes',
+        ];
+
+        foreach (Schema::getTables() as $tableInfo) {
+            $table = $tableInfo['name'] ?? null;
+
+            if (! is_string($table)) {
+                continue;
+            }
+
+            foreach (Schema::getForeignKeys($table) as $foreignKey) {
+                if (in_array($foreignKey['foreign_table'] ?? null, $deletedTables, true)
+                    && ! in_array($table, $supportedReferencingTables, true)) {
+                    throw ValidationException::withMessages([
+                        'delete' => "Penghapusan diblokir: tabel {$table} memiliki relasi baru yang perlu ditinjau.",
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function assertSafeTestFilePaths(array $paths): void
+    {
+        foreach ($paths as $path) {
+            if (! is_string($path) || $path === ''
+                || str_starts_with($path, '/')
+                || str_contains($path, '..')
+                || str_contains($path, '\\')
+                || preg_match('/[\x00-\x1f]/', $path)) {
+                throw ValidationException::withMessages([
+                    'delete' => 'Ditemukan path berkas tidak aman; penghapusan dibatalkan.',
+                ]);
+            }
+        }
     }
 
     private function confirm(string $reason, string $confirmation): void
