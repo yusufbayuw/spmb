@@ -312,6 +312,7 @@ class ControlledDeletionService
             $paths = array_values(array_unique(array_filter($attachmentPaths)));
 
             $this->assertSafeTestFilePaths($paths);
+            $this->assertTestFilesNotShared($paths, $locked->id);
 
             // Persist non-PII evidence of what was removed. Raw names, NIK,
             // proof contents, credentials, and receipt details are NOT logged.
@@ -488,6 +489,27 @@ class ControlledDeletionService
                         'delete' => "Penghapusan diblokir: tabel {$table} memiliki relasi baru yang perlu ditinjau.",
                     ]);
                 }
+            }
+        }
+    }
+
+    /**
+     * Uploaded file paths must not be shared with another registration: an
+     * operator may delete only files owned exclusively by the selected record.
+     */
+    private function assertTestFilesNotShared(array $paths, int $registrationId): void
+    {
+        foreach ([
+            'documents' => 'file_path',
+            'registration_achievements' => 'certificate_path',
+            'payments' => 'proof_path',
+            're_registration_items' => 'file_path',
+        ] as $table => $column) {
+            if ($paths !== [] && DB::table($table)->whereIn($column, $paths)
+                ->where('registration_id', '!=', $registrationId)->exists()) {
+                throw ValidationException::withMessages([
+                    'delete' => 'Berkas juga terhubung ke pendaftaran lain. Penghapusan data uji dibatalkan.',
+                ]);
             }
         }
     }
