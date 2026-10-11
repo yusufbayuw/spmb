@@ -182,6 +182,78 @@ class UnitConfigurationTest extends TestCase
         $this->assertTrue($configuredForm->hasActiveRegionFields($saved));
     }
 
+    public function test_nisn_is_optional_under_all_required_policy_unless_explicitly_required(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $form = app(ConfiguredRegistrationForm::class);
+
+        $this->assertContains('nisn', ConfiguredRegistrationForm::BUILTIN_FIELDS);
+        $this->assertSame('NISN', ConfiguredRegistrationForm::fieldLabels()['nisn']);
+        $this->assertSame(
+            ['active' => true, 'required' => false, 'overridden' => false],
+            $form->builtinFieldState($draft, 'nisn'),
+        );
+
+        $data['builtin_field_policy'] = 'all_required';
+        $saved = $service->save($draft, $staff, $data);
+
+        $this->assertSame(
+            ['active' => true, 'required' => false, 'overridden' => false],
+            $form->builtinFieldState($saved, 'nisn'),
+        );
+
+        $data = $saved->toArray();
+        $data['fields'][] = [
+            'key' => 'nisn',
+            'label' => 'NISN',
+            'type' => 'text',
+            'active' => true,
+            'required' => true,
+        ];
+        $saved = $service->save($saved, $staff, $data);
+        $this->assertSame(
+            ['active' => true, 'required' => true, 'overridden' => true],
+            $form->builtinFieldState($saved, 'nisn'),
+        );
+    }
+
+    public function test_applicant_can_save_optional_nisn_with_leading_zero_and_invalid_nisn_is_rejected(): void
+    {
+        [$unit, $staff, $registration, $parent] = $this->fixture();
+        $pathway = RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+        app(UnitConfigurationService::class)->initialize($unit);
+
+        $this->actingAs($parent);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+        $page = Livewire::withQueryParams(['opening' => $registration->opening->uuid])
+            ->test(CreateRegistration::class)
+            ->setActionData(['accepted' => true])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'self',
+                'full_name' => 'Peserta NISN',
+                'nik' => '3273010101010097',
+                'nisn' => '12345',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu'],
+            ]);
+
+        $page->call('create')->assertHasFormErrors(['nisn' => 'digits']);
+        $page->fillForm(['nisn' => '0012345678'])->call('create')->assertHasNoFormErrors();
+        $this->assertDatabaseHas('registrations', [
+            'nik' => '3273010101010097',
+            'nisn' => '0012345678',
+        ]);
+    }
+
     public function test_admin_unit_can_configure_registrant_relationship_options(): void
     {
         [$unit, $staff] = $this->fixture();

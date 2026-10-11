@@ -139,6 +139,7 @@ class ContinuationCandidateTest extends TestCase
             'nik' => '3273010101010009',
             'birth_date' => '2014-01-01',
             'full_name' => 'Siswa Terusan Form',
+            'nisn' => '0012345678',
             'prefill_data' => [
                 'full_name' => 'Siswa Terusan Form',
                 'gender' => 'L',
@@ -173,6 +174,7 @@ class ContinuationCandidateTest extends TestCase
             ->set('data.nik', '3273010101010009')
             ->set('data.birth_date', '2014-01-01')
             ->assertSet('data.full_name', 'Siswa Terusan Form')
+            ->assertSet('data.nisn', '0012345678')
             ->assertSet('data.gender', 'L')
             ->assertSet('data.birth_place', 'Bandung')
             ->assertSet('data.previous_school', 'SD Asal Form')
