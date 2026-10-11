@@ -48,7 +48,7 @@ class SendApplicantEmailChangeConfirmation implements ShouldQueue
         $relative = URL::temporarySignedRoute('applicant.email-change.confirm', $change->expires_at,
             ['emailChange' => $change->uuid], absolute: false);
         $link = rtrim((string) config('app.url'), '/').'/'.ltrim($relative, '/');
-        $body = "Permintaan koreksi alamat email akun SPMB.\n\n"
+        $body = "Permintaan koreksi alamat email akun ".\App\Support\AdmissionTerminology::label().".\n\n"
             ."Untuk menyetujui, masuk dengan akun pendaftar Anda lalu buka tautan ini sebelum kedaluwarsa:\n{$link}\n\n"
             ."Jika tidak mengajukan perubahan ini, abaikan pesan dan hubungi unit penerimaan.\n\n"
             .config('spmb.portal.name', 'SPMB');
