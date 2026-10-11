@@ -34,6 +34,11 @@ class HomepageSettingsTest extends TestCase
         $admin = User::factory()->create(['role' => 'super_admin', 'is_active' => true]);
         $admin->assignRole('super_admin');
 
+        // Saving homepage settings must not erase the pre-existing env branding.
+        config()->set('spmb.portal.foundation_name', 'Yayasan Dari Env');
+        config()->set('spmb.portal.foundation_phone', '0227654321');
+        app(\App\Services\AppBrandingService::class)->refresh();
+
         $this->actingAs($admin);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
@@ -46,7 +51,10 @@ class HomepageSettingsTest extends TestCase
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame($blocks, AppSetting::query()->firstOrFail()->homepage_blocks);
+        $settings = AppSetting::query()->firstOrFail();
+        $this->assertSame($blocks, $settings->homepage_blocks);
+        $this->assertSame('Yayasan Dari Env', $settings->organization_name);
+        $this->assertSame('0227654321', $settings->phone);
 
         $this->get('/')
             ->assertOk()
