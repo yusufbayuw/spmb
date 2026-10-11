@@ -421,17 +421,39 @@ class RegistrationResource extends Resource
                     ->modalDescription(fn (Registration $record): string => app(\App\Services\ControlledDeletionService::class)->registrationImpact($record))
                     ->modalSubmitActionLabel('Hapus Total')
                     ->form([
-                        Forms\Components\Textarea::make('reason')->label('Alasan penghapusan')->required(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan penghapusan')
+                            ->required(),
+                        Forms\Components\Checkbox::make('force_test_data')
+                            ->label('Mode Data Uji (khusus Super Admin)')
+                            ->helperText('Saya telah memeriksa bahwa SELURUH transaksi, bukti pembayaran, kuitansi, dan hasil seleksi untuk pendaftaran ini hanyalah data uji. Pembersihan ini permanen dan tidak dapat dibatalkan.')
+                            ->default(false)
+                            ->live()
+                            ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
+                        Forms\Components\Placeholder::make('test_data_notice')
+                            ->label('Konsekuensi mode data uji')
+                            ->content('Relasi termasuk tes, seleksi, kuitansi dan pembayaran akan dihapus bersamaan. Bukti pembayaran dan berkas akan dibersihkan; VA disimpan agar tidak dapat digunakan ulang. Jangan gunakan untuk transaksi bank sungguhan.')
+                            ->visible(fn (Forms\Get $get): bool => (bool) $get('force_test_data')),
                         Forms\Components\TextInput::make('confirmation')
-                            ->label('Ketik HAPUS untuk melanjutkan')
+                            ->label(fn (Forms\Get $get): string => $get('force_test_data')
+                                ? 'Ketik HAPUS DATA UJI untuk melanjutkan'
+                                : 'Ketik HAPUS untuk melanjutkan')
                             ->required()
-                            ->rule('in:HAPUS'),
+                            ->rule(fn (Forms\Get $get): string => $get('force_test_data')
+                                ? 'in:HAPUS DATA UJI'
+                                : 'in:HAPUS'),
                     ])
                     ->action(function (Registration $record, array $data): void {
+                        $forceTest = (bool) ($data['force_test_data'] ?? false);
+                        $deletion = app(\App\Services\ControlledDeletionService::class);
                         try {
-                            $result = app(\App\Services\ControlledDeletionService::class)->deleteRegistration(
-                                $record, auth()->user(), $data['reason'], $data['confirmation']
-                            );
+                            $result = $forceTest
+                                ? $deletion->deleteTestRegistration(
+                                    $record, auth()->user(), $data['reason'], $data['confirmation'], true
+                                )
+                                : $deletion->deleteRegistration(
+                                    $record, auth()->user(), $data['reason'], $data['confirmation']
+                                );
                         } catch (\Illuminate\Validation\ValidationException $exception) {
                             Notification::make()
                                 ->title('Hapus Total ditolak')
@@ -444,10 +466,10 @@ class RegistrationResource extends Resource
                         }
 
                         Notification::make()
-                            ->title('Data pendaftar dihapus permanen')
+                            ->title($forceTest ? 'Data uji dibersihkan permanen' : 'Data pendaftar dihapus permanen')
                             ->body($result['file_errors'] > 0
-                                ? 'Data terhapus, tetapi beberapa file perlu dibersihkan manual.'
-                                : 'Penghapusan berhasil dan tercatat dalam audit. VA tertaut dinonaktifkan.')
+                                ? 'Data database terhapus, tetapi beberapa file perlu dibersihkan manual.'
+                                : 'Penghapusan berhasil, relasi ditangani dan tercatat dalam audit.')
                             ->success()->send();
                     }),
                 Tables\Actions\EditAction::make(),
