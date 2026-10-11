@@ -45,6 +45,6 @@ class Dashboard extends BaseDashboard
 
     public function getSubheading(): ?string
     {
-        return 'Pilih pembukaan SPMB sekolah atau PMB perguruan tinggi dan pantau seluruh proses pendaftaran dari satu halaman.';
+        return 'Pilih pembukaan '.\App\Support\AdmissionTerminology::label().' yang tersedia dan pantau proses pendaftaran dari satu halaman.';
     }
 }
