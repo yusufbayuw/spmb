@@ -122,7 +122,7 @@ class CertificateArtifactService
 
         $lines = [
             $branding->portalName(),
-            'BUKTI KELULUSAN SERTIFIKASI SPMB',
+            'BUKTI KELULUSAN SERTIFIKASI '.\App\Support\AdmissionTerminology::label(),
             '',
             'Diberikan kepada: '.$certificate->recipientName(),
             'Unit: '.$certificate->recipientUnit(),
