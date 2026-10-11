@@ -21,7 +21,7 @@ class AdmissionQuotaResource extends Resource
 
     protected static ?string $navigationLabel = 'Daya Tampung';
 
-    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+    protected static ?string $navigationGroup = 'Konfigurasi Penerimaan';
 
     protected static ?int $navigationSort = 6;
 
