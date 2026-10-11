@@ -44,7 +44,11 @@ class AdminNavigationFlowTest extends TestCase
     {
         $reflection = new ReflectionClass($class);
 
-        $this->assertSame($group, $class::getNavigationGroup());
+        $expected = $group === '@admission'
+            ? app(\App\Services\AdmissionTerminology::class)->configurationNavigation()
+            : $group;
+
+        $this->assertSame($expected, $class::getNavigationGroup());
         $this->assertSame($sort, $reflection->getStaticPropertyValue('navigationSort'));
     }
 
@@ -204,14 +208,14 @@ class AdminNavigationFlowTest extends TestCase
             'announcements' => [AnnouncementResource::class, 'Pendaftaran', 7],
             're-registration' => [ReRegistrationItemResource::class, 'Pasca-Pengumuman', 1],
             'operational report' => [OperationalReport::class, 'Laporan', 1],
-            'unit registration settings' => [UnitRegistrationSettings::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 1],
-            'pathways' => [RegistrationPathwayResource::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 2],
-            'registration opening' => [RegistrationOpeningResource::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 3],
-            'study programs' => [StudyProgramResource::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 4],
-            'virtual accounts' => [VirtualAccountResource::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 5],
-            'admission quota' => [AdmissionQuotaResource::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 6],
-            'test configuration' => [AdmissionTestResource::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 7],
-            'test sessions' => [TestSessions::class, app(\App\Services\AdmissionTerminology::class)->configurationNavigation(), 8],
+            'unit registration settings' => [UnitRegistrationSettings::class, '@admission', 1],
+            'pathways' => [RegistrationPathwayResource::class, '@admission', 2],
+            'registration opening' => [RegistrationOpeningResource::class, '@admission', 3],
+            'study programs' => [StudyProgramResource::class, '@admission', 4],
+            'virtual accounts' => [VirtualAccountResource::class, '@admission', 5],
+            'admission quota' => [AdmissionQuotaResource::class, '@admission', 6],
+            'test configuration' => [AdmissionTestResource::class, '@admission', 7],
+            'test sessions' => [TestSessions::class, '@admission', 8],
             'units' => [UnitResource::class, 'Sistem & Akses', 1],
             'users' => [UserResource::class, 'Sistem & Akses', 2],
             'parents' => [ParentInfoResource::class, 'Sistem & Akses', 3],
