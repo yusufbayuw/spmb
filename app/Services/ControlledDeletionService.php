@@ -9,6 +9,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class ControlledDeletionService
@@ -248,6 +249,158 @@ class ControlledDeletionService
         return ['file_count' => count($paths), 'file_errors' => count($failedPaths)];
     }
 
+    /**
+     * Exception path for records the Super Admin personally confirms are
+     * synthetic. This does not change normal Hapus Total rules or unit staff
+     * permissions. The attestation is an operator assertion, not evidence
+     * that a bank transfer or issued receipt was fictional.
+     */
+    public function deleteTestRegistration(
+        Registration $registration,
+        User $actor,
+        string $reason,
+        string $confirmation,
+        bool $confirmedTestData
+    ): array {
+        abort_unless($actor->is_active && $actor->isAdmin(), 403);
+
+        if (! $confirmedTestData || $confirmation !== 'HAPUS DATA UJI' || mb_strlen(trim($reason)) < 10) {
+            throw ValidationException::withMessages([
+                'delete' => 'Khusus Super Admin: centang pernyataan data uji, isi alasan minimal 10 karakter, lalu ketik HAPUS DATA UJI.',
+            ]);
+        }
+
+        // Abort if a newer application version adds a foreign-key dependency
+        // that this privileged path has not explicitly reviewed.
+        $this->assertKnownTestDeletionDependencies();
+
+        $paths = DB::transaction(function () use ($registration, $actor, $reason): array {
+            $locked = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $unit = Unit::query()->lockForUpdate()->findOrFail($locked->unit_id);
+            abort_unless($this->allowed($actor, $unit, 'registration'), 403);
+
+            $payments = Payment::query()->where('registration_id', $locked->id)
+                ->lockForUpdate()->get();
+            $accounts = VirtualAccount::query()->where('registration_id', $locked->id)
+                ->lockForUpdate()->get();
+
+            // An unrelated registration must never lose its payment or VA.
+            $foreignAccountPayments = Payment::query()
+                ->whereIn('virtual_account_id', $accounts->pluck('id'))
+                ->where(function ($query) use ($locked): void {
+                    $query->where('registration_id', '!=', $locked->id)
+                        ->orWhereNull('registration_id');
+                })->exists();
+            if ($foreignAccountPayments || $accounts->contains(
+                fn (VirtualAccount $account): bool => (int) $account->unit_id !== (int) $locked->unit_id
+            )) {
+                throw ValidationException::withMessages([
+                    'delete' => 'Ada keterkaitan VA dengan transaksi atau unit lain. Penghapusan data uji ditolak.',
+                ]);
+            }
+
+            $receiptRows = DB::table('payment_receipts')
+                ->whereIn('payment_id', $payments->pluck('id'))->get();
+
+            $attachmentPaths = [
+                ...$locked->documents()->pluck('file_path')->all(),
+                ...$locked->achievements()->pluck('certificate_path')->all(),
+                ...$payments->pluck('proof_path')->all(),
+                ...DB::table('re_registration_items')
+                    ->where('registration_id', $locked->id)->pluck('file_path')->all(),
+            ];
+            $paths = array_values(array_unique(array_filter($attachmentPaths)));
+
+            $this->assertSafeTestFilePaths($paths);
+            $this->assertTestFilesNotShared($paths, $locked->id);
+
+            // Persist non-PII evidence of what was removed. Raw names, NIK,
+            // proof contents, credentials, and receipt details are NOT logged.
+            $paymentSummary = $payments->map(fn (Payment $payment): array => [
+                'payment_id' => $payment->id,
+                'status' => $payment->status,
+                'amount' => $payment->amount,
+                'verified' => filled($payment->verified_at),
+                'has_proof' => filled($payment->proof_path),
+            ])->all();
+            $receiptSummary = $receiptRows->map(fn ($receipt): array => [
+                'receipt_id' => $receipt->id,
+                'payment_id' => $receipt->payment_id,
+                'number' => $receipt->number,
+            ])->all();
+
+            $relationCounts = [];
+            foreach ([
+                'test_bookings',
+                'admission_test_results',
+                'selections',
+                'announcements',
+                'admission_offers',
+                're_registration_items',
+                'registration_consents',
+            ] as $table) {
+                $relationCounts[$table] = DB::table($table)
+                    ->where('registration_id', $locked->id)->count();
+            }
+
+            app(AuditTrail::class)->record(
+                'registration.test_data_forced_deleted',
+                $locked,
+                metadata: [
+                    'reason' => trim($reason),
+                    'operator_attested_test_data' => true,
+                    'registration_uuid' => $locked->uuid,
+                    'unit_id' => $locked->unit_id,
+                    'payment_summary' => $paymentSummary,
+                    'receipt_summary' => $receiptSummary,
+                    'related_counts' => $relationCounts,
+                    'va_ids' => $accounts->pluck('id')->all(),
+                ],
+                actor: $actor,
+                description: 'Super Admin menghapus pendaftaran yang dinyatakan sebagai data uji beserta relasi terkait',
+            );
+
+            // RESTRICT relationships are explicitly removed in dependency order.
+            // The receipt Eloquent model is intentionally immutable; only this
+            // Super-Admin-only, audited test-data cleanup uses query builder.
+            DB::table('payment_receipts')
+                ->whereIn('payment_id', $payments->pluck('id'))->delete();
+            DB::table('payments')->where('registration_id', $locked->id)->delete();
+            DB::table('test_bookings')->where('registration_id', $locked->id)->delete();
+            DB::table('re_registration_items')->where('registration_id', $locked->id)->delete();
+            DB::table('admission_offers')->where('registration_id', $locked->id)->delete();
+            DB::table('registration_consents')->where('registration_id', $locked->id)->delete();
+
+            foreach ($accounts as $account) {
+                // A VA marked paid remains paid as historical evidence;
+                // all other assigned VAs become cancelled, never available.
+                DB::table('virtual_accounts')->where('id', $account->id)->update([
+                    'registration_id' => null,
+                    'status' => $account->status === 'paid' ? 'paid' : 'cancelled',
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // Remaining registration child tables cascade or null on delete.
+            // The applicant login account, unit settings, and audit stay intact.
+            DB::table('registrations')->where('id', $locked->id)->delete();
+
+            return $paths;
+        }, 3);
+
+        $failedPaths = [];
+        foreach ($paths as $path) {
+            try {
+                app(ApplicantFileStorage::class)->delete($path);
+            } catch (\Throwable $exception) {
+                report($exception);
+                $failedPaths[] = $path;
+            }
+        }
+
+        return ['file_count' => count($paths), 'file_errors' => count($failedPaths)];
+    }
+
     public function deleteVirtualAccount(VirtualAccount $va, User $actor, string $reason, string $confirmation): void
     {
         $this->confirm($reason, $confirmation);
@@ -302,6 +455,78 @@ class ControlledDeletionService
             );
             DB::table($locked->getTable())->where('id', $locked->id)->delete();
         });
+    }
+
+    /**
+     * Fail closed when future migrations add relations whose cascade/cleanup
+     * semantics have not been explicitly reviewed for this operation.
+     */
+    private function assertKnownTestDeletionDependencies(): void
+    {
+        $deletedTables = [
+            'registrations', 'payments', 'payment_receipts', 'test_bookings',
+            're_registration_items', 'admission_offers', 'registration_consents',
+            'documents', 'parent_infos', 'registration_achievements',
+            'registration_academic_scores', 'admission_test_results',
+            'selections', 'announcements', 'continuation_registration_links',
+        ];
+        $supportedReferencingTables = [
+            ...$deletedTables, 'virtual_accounts', 'audit_logs',
+            'mail_delivery_attempts', 'pending_applicant_email_changes',
+        ];
+
+        foreach (Schema::getTables() as $tableInfo) {
+            $table = $tableInfo['name'] ?? null;
+
+            if (! is_string($table)) {
+                continue;
+            }
+
+            foreach (Schema::getForeignKeys($table) as $foreignKey) {
+                if (in_array($foreignKey['foreign_table'] ?? null, $deletedTables, true)
+                    && ! in_array($table, $supportedReferencingTables, true)) {
+                    throw ValidationException::withMessages([
+                        'delete' => "Penghapusan diblokir: tabel {$table} memiliki relasi baru yang perlu ditinjau.",
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Uploaded file paths must not be shared with another registration: an
+     * operator may delete only files owned exclusively by the selected record.
+     */
+    private function assertTestFilesNotShared(array $paths, int $registrationId): void
+    {
+        foreach ([
+            'documents' => 'file_path',
+            'registration_achievements' => 'certificate_path',
+            'payments' => 'proof_path',
+            're_registration_items' => 'file_path',
+        ] as $table => $column) {
+            if ($paths !== [] && DB::table($table)->whereIn($column, $paths)
+                ->where('registration_id', '!=', $registrationId)->exists()) {
+                throw ValidationException::withMessages([
+                    'delete' => 'Berkas juga terhubung ke pendaftaran lain. Penghapusan data uji dibatalkan.',
+                ]);
+            }
+        }
+    }
+
+    private function assertSafeTestFilePaths(array $paths): void
+    {
+        foreach ($paths as $path) {
+            if (! is_string($path) || $path === ''
+                || str_starts_with($path, '/')
+                || str_contains($path, '..')
+                || str_contains($path, '\\')
+                || preg_match('/[\x00-\x1f]/', $path)) {
+                throw ValidationException::withMessages([
+                    'delete' => 'Ditemukan path berkas tidak aman; penghapusan dibatalkan.',
+                ]);
+            }
+        }
     }
 
     private function confirm(string $reason, string $confirmation): void
