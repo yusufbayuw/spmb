@@ -90,7 +90,7 @@ class UnitResource extends Resource
                 ->schema([
                     Forms\Components\TextInput::make('public_contact_name')
                         ->label('Nama Helpdesk')
-                        ->placeholder('Panitia SPMB SMA')
+                        ->placeholder(fn (): string => app(\App\Services\AdmissionTerminology::class)->committee())
                         ->maxLength(120),
                     Forms\Components\TextInput::make('public_email')
                         ->label('Email Publik')

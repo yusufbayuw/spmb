@@ -11,6 +11,6 @@
         <div><span class="label">Tanggal verifikasi</span><span class="value">{{ $receipt->details['verified_at'] ?? '—' }}</span></div>
         <div><span class="label">Kuitansi diterbitkan</span><span class="value">{{ $receipt->issued_at->format('d/m/Y H:i') }}</span></div>
     </div>
-    <table><thead><tr><th>Uraian</th><th>Jumlah</th></tr></thead><tbody><tr><td>Biaya pendaftaran SPMB</td><td class="amount">Rp {{ number_format((float) $receipt->details['amount'], 0, ',', '.') }}</td></tr></tbody></table>
+    <table><thead><tr><th>Uraian</th><th>Jumlah</th></tr></thead><tbody><tr><td>{{ app(\App\Services\AdmissionTerminology::class)->paymentDescription() }}</td><td class="amount">Rp {{ number_format((float) $receipt->details['amount'], 0, ',', '.') }}</td></tr></tbody></table>
     <p>Pembayaran telah diverifikasi oleh petugas. Kuitansi ini merupakan bukti pembayaran biaya pendaftaran.</p>
 @endsection

@@ -3,8 +3,8 @@
 @php
     $portal = config('spmb.portal', []);
     $pageTitle = $headlineAcademicYear
-        ? config('spmb.portal.name', 'SPMB').' '.$headlineAcademicYear.' | '.$operationalProfile['portal_label']
-        : config('spmb.portal.name', 'SPMB').' | '.$operationalProfile['portal_label'];
+        ? app(\App\Services\AdmissionTerminology::class)->portalName().' '.$headlineAcademicYear
+        : app(\App\Services\AdmissionTerminology::class)->portalName();
 @endphp
 
 @section('title'){{ $pageTitle }}@endsection
@@ -173,7 +173,7 @@
     <section class="bg-slate-950 py-16 text-white">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="max-w-3xl">
-                <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-300">{{ $portal['foundation_name'] ?? config('spmb.portal.name', 'SPMB') }}</p>
+                <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-300">{{ $portal['foundation_name'] ?? app(\App\Services\AdmissionTerminology::class)->portalName() }}</p>
                 <h2 class="mt-3 text-3xl font-extrabold tracking-tight">{{ $operationalProfile['scope_heading'] }}</h2>
                 <p class="mt-4 text-sm leading-7 text-slate-300">{{ $operationalProfile['scope_description'] }}</p>
                 @if (filled($portal['foundation_website'] ?? null))

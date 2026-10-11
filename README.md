@@ -542,3 +542,19 @@ Panel admin dan pendaftar tetap terpisah walaupun menggunakan satu gateway login
 ## Lisensi
 
 Tentukan lisensi repository sesuai kebijakan pemilik project sebelum distribusi publik.
+
+## Branding penerimaan menurut mode operasional
+
+Konfigurasi `SPMB_MODE_OPS` menggunakan tiga pilihan resmi:
+
+| Mode | Branding portal | Batasan |
+| --- | --- | --- |
+| `K12` | **SPMB** — Seleksi Penerimaan Murid Baru | Tidak menampilkan PMB |
+| `HIGHER_EDUCATION` | **PMB** — Penerimaan Mahasiswa Baru | Tidak menampilkan SPMB |
+| `MIXED` | **SPMB & PMB** | Kedua istilah boleh ditampilkan |
+
+Layanan `App\Services\AdmissionTerminology` menjadi sumber istilah untuk judul, mail, notifikasi, halaman, PWA dan dokumen. `AppBrandingService::portalName()` memprioritaskan identitas penerimaan resmi di atas nama portal dari database; nama institusi, logo, warna dan kontak tetap independen. Nama kustom lama tersimpan sebagai konfigurasi white-label tetapi bukan identitas mode yang ditampilkan.
+
+Ganti mode tanpa mengubah class, tabel, route, permission, event, atau flow bisnis pembayaran/VA/seleksi. Kebijakan yang telah dipublikasikan, consent yang ditandatangani, pengumuman kustom, pesan historis dan audit **tidak ditulis ulang**. Periksa dan terbitkan versi kebijakan/teks kustom yang sesuai jika mode diubah pada instalasi yang memiliki data lama. Default legal untuk publikasi baru mengikuti mode.
+
+Setelah mengubah `.env`, jalankan `php artisan optimize:clear` dan restart worker queue agar proses panjang menggunakan konfigurasi baru. Jalankan `php artisan test --filter=AdmissionTerminologyTest` serta `php artisan test --filter=AppBrandingSettingsTest`.

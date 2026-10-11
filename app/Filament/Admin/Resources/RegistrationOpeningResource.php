@@ -27,7 +27,12 @@ class RegistrationOpeningResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pembukaan Pendaftaran';
 
-    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+    protected static ?string $navigationGroup = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return app(\App\Services\AdmissionTerminology::class)->configurationNavigation();
+    }
 
     protected static ?int $navigationSort = 3;
 

@@ -2,7 +2,7 @@
     <div class="fi-simple-page">
         <section class="grid auto-cols-fr gap-y-6">
             <x-filament-panels::header.simple
-                :heading="'Masuk ke '.config('spmb.portal.name', 'SPMB')"
+                :heading="'Masuk ke '.app(\App\Services\AdmissionTerminology::class)->portalName()"
                 :logo="true"
                 :subheading="null"
             />

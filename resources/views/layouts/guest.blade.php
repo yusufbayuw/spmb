@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('spmb.portal.name', 'SPMB') }}</title>
+        <title>{{ app(\App\Services\AdmissionTerminology::class)->portalName() }}</title>
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
@@ -16,7 +16,7 @@
     <body class="font-sans text-gray-900 antialiased">
         <div class="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-8">
             <div>
-                <a href="/" aria-label="Kembali ke halaman utama SPMB">
+                <a href="/" aria-label="Kembali ke halaman utama {{ app(\App\Services\AdmissionTerminology::class)->portalName() }}">
                     <x-application-logo class="h-20 w-20 fill-current text-gray-500" />
                 </a>
             </div>

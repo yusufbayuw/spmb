@@ -10,7 +10,7 @@
 
             <div class="flex flex-wrap gap-3">
                 <x-filament::button type="button" data-pwa-install-button hidden>
-                    Install SPMB
+                    Install {{ app(\App\Services\AdmissionTerminology::class)->portalName() }}
                 </x-filament::button>
 
                 <x-filament::button type="button" color="success" data-pwa-enable-button hidden>

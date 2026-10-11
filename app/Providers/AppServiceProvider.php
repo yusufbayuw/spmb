@@ -186,7 +186,7 @@ class AppServiceProvider extends ServiceProvider
                     $event->user,
                     'security.email_verified',
                     'Email berhasil diverifikasi',
-                    'Alamat email akun telah terverifikasi. Anda dapat melanjutkan proses SPMB.',
+                    app(\App\Services\AdmissionTerminology::class)->enrollmentNotice(),
                 );
             }
         });

@@ -15,7 +15,7 @@ class VirtualAccountMail extends Mailable
 
     public function build(): self
     {
-        return $this->subject('Virtual Account Pendaftaran SPMB')
+        return $this->subject(app(\App\Services\AdmissionTerminology::class)->virtualAccountSubject())
             ->markdown('emails.virtual-account');
     }
 }

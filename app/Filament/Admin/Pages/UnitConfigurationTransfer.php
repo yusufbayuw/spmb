@@ -23,7 +23,12 @@ class UnitConfigurationTransfer extends Page implements Forms\Contracts\HasForms
 
     protected static ?string $title = 'Ekspor / Impor Konfigurasi Unit';
 
-    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+    protected static ?string $navigationGroup = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return app(\App\Services\AdmissionTerminology::class)->configurationNavigation();
+    }
 
     protected static ?int $navigationSort = 99;
 

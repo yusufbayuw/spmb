@@ -27,9 +27,9 @@ class ApplicantResetPassword extends LaravelResetPassword implements ShouldQueue
     public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Atur Ulang Kata Sandi | '.config('spmb.portal.name', 'SPMB'))
+            ->subject('Atur Ulang Kata Sandi | '.app(\App\Services\AdmissionTerminology::class)->portalName())
             ->markdown('mail.applicant-reset-password', [
-                'applicationName' => config('spmb.portal.name', config('app.name', 'SPMB')),
+                'applicationName' => app(\App\Services\AdmissionTerminology::class)->portalName(),
                 'expiresInMinutes' => (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60),
                 'url' => $this->resetUrl($notifiable),
             ]);

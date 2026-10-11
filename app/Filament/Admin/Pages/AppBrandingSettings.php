@@ -61,10 +61,11 @@ class AppBrandingSettings extends Page implements Forms\Contracts\HasForms
         return $form
             ->schema([
                 Forms\Components\Section::make('Identitas Aplikasi')
-                    ->description('Pengaturan ini menjadi identitas global aplikasi dan mengoverride nilai .env setelah disimpan.')
+                    ->description('Nama institusi, logo, dan kontak menggunakan pengaturan global. Istilah portal penerimaan mengikuti SPMB_MODE_OPS.')
                     ->schema([
                         Forms\Components\TextInput::make('portal_name')
-                            ->label('Nama Portal / Aplikasi')
+                            ->label('Nama Portal Kustom (tersimpan)')
+                            ->helperText('Identitas penerimaan yang ditampilkan mengikuti SPMB_MODE_OPS: SPMB, PMB, atau SPMB & PMB. Nama institusi, logo, dan kontak tetap independen.')
                             ->required()
                             ->maxLength(180),
                         Forms\Components\TextInput::make('organization_name')
@@ -153,7 +154,7 @@ class AppBrandingSettings extends Page implements Forms\Contracts\HasForms
 
         Notification::make()
             ->title('White-label aplikasi tersimpan')
-            ->body('Branding global sekarang menggunakan konfigurasi dari panel admin pusat.')
+            ->body('Nama institusi, logo, dan kontak mengikuti pengaturan ini; identitas portal penerimaan mengikuti SPMB_MODE_OPS.')
             ->success()
             ->send();
 

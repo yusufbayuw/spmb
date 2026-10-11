@@ -33,7 +33,7 @@ class ProductionReadinessService
         'access_roles' => ['RBAC dan anti-IDOR', 'Uji TU, Admin Unit, Super Admin, pendaftar lintas unit termasuk ekspor, file privat, VA, audit.', 'Keamanan'],
         'captcha_limits' => ['Auth/CAPTCHA dan brute-force', 'Uji login, reset password, register, verifikasi email, throttle dan sesi kadaluwarsa.', 'Keamanan'],
         'file_security' => ['Upload dan pemeriksaan malware', 'Uji ekstensi, MIME, pemindaian, izin akses, ukuran, file berbahaya dan file ekspor.', 'Keamanan'],
-        'workflow_uat' => ['SPMB end-to-end seluruh jalur', 'Uji daftar, email, validasi, VA, bukti transfer, verifikasi manual, tes, seleksi, pengumuman, daftar ulang.', 'Bisnis'],
+        'workflow_uat' => ['Uji alur penerimaan end-to-end seluruh jalur', 'Uji daftar, email, validasi, VA, bukti transfer, verifikasi manual, tes, seleksi, pengumuman, daftar ulang.', 'Bisnis'],
         'failure_recovery' => ['Pemulihan workflow terputus', 'Simulasi email gagal, tab ditutup, upload gagal, job tertunda, perubahan status; tidak boleh ada duplikasi Payment/VA.', 'Bisnis'],
         'load_capacity' => ['Uji beban dan performa', 'Uji jumlah pendaftar puncak, antrean, query lambat, Redis, MySQL, CPU/RAM, upload dan batas file.', 'Operasional'],
         'monitoring_alerts' => ['Alerting, log, disk & kapasitas', 'Buktikan alarm error 5xx, queue failed, disk, DB, Redis, backup dan proses PHP/worker.', 'Operasional'],

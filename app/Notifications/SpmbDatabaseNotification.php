@@ -72,7 +72,7 @@ class SpmbDatabaseNotification extends Notification implements ShouldQueue
     public function toDatabase(object $notifiable): array
     {
         $notification = FilamentNotification::make()
-            ->title($this->title)
+            ->title(app(\App\Services\AdmissionTerminology::class)->notificationDisplayTitle($this->title))
             ->body($this->body)
             ->icon($this->icon);
 
@@ -109,8 +109,8 @@ class SpmbDatabaseNotification extends Notification implements ShouldQueue
         $tag = 'spmb-'.substr(hash('sha256', $this->event.'|'.$tagContext), 0, 32);
 
         return (new WebPushMessage)
-            ->title($this->title)
-            ->body($this->body ?: 'Ada pembaruan pada proses SPMB.')
+            ->title(app(\App\Services\AdmissionTerminology::class)->notificationDisplayTitle($this->title))
+            ->body($this->body ?: app(\App\Services\AdmissionTerminology::class)->notificationFallback())
             ->icon(asset('images/pwa/icon-192.png'))
             ->badge(asset('images/pwa/badge-96.png'))
             ->tag($tag)

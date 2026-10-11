@@ -312,7 +312,7 @@ class SpmbNotificationService
             collect([$registration->user]),
             'selection.published',
             'announcement',
-            $announcement->title ?: 'Pengumuman hasil SPMB tersedia',
+            app(AdmissionTerminology::class)->notificationDisplayTitle($announcement->title ?: app(AdmissionTerminology::class)->announcementAvailableTitle()),
             $announcement->message ?: ('Keputusan seleksi: '.($decision ?: 'tersedia').'.'),
             $decision === 'accepted' ? 'success' : ($decision === 'rejected' ? 'danger' : 'warning'),
             'heroicon-o-megaphone',
