@@ -29,12 +29,12 @@ abstract class LegalPolicyPage extends SimplePage
         $kind = $this->policyKind();
 
         $this->heading = $kind === 'terms'
-            ? (string) $policy->terms_title
-            : (string) $policy->privacy_title;
+            ? app(AccountConsentService::class)->displayed($policy, 'terms_title')
+            : app(AccountConsentService::class)->displayed($policy, 'privacy_title');
 
         $rawContent = $kind === 'terms'
-            ? (string) $policy->terms_content
-            : (string) $policy->privacy_content;
+            ? app(AccountConsentService::class)->displayed($policy, 'terms_content')
+            : app(AccountConsentService::class)->displayed($policy, 'privacy_content');
 
         $this->policyContent = $sanitizer->sanitizeHtml($rawContent);
         $this->policyVersion = (int) $policy->version;
