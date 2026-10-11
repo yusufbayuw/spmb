@@ -188,6 +188,36 @@ class ForcedTestRegistrationDeletionTest extends TestCase
         $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
     }
 
+    public function test_shared_document_path_prevents_cleanup_of_other_registration_files(): void
+    {
+        [$registration, $unit, $admin] = $this->makeRegistration();
+        $other = $this->registrationFor($unit);
+        $sharedPath = 'documents/shared.pdf';
+
+        \App\Models\Document::create([
+            'registration_id' => $registration->id,
+            'type' => 'supporting_document', 'file_path' => $sharedPath,
+            'original_name' => 'shared.pdf', 'file_type' => 'pdf', 'file_size' => 5,
+        ]);
+        \App\Models\Document::create([
+            'registration_id' => $other->id,
+            'type' => 'supporting_document', 'file_path' => $sharedPath,
+            'original_name' => 'shared.pdf', 'file_type' => 'pdf', 'file_size' => 5,
+        ]);
+
+        try {
+            app(ControlledDeletionService::class)->deleteTestRegistration(
+                $registration, $admin, 'Ini data tes namun berkas sama', 'HAPUS DATA UJI', true
+            );
+            $this->fail('Shared file must block deletion.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('Berkas', $e->errors()['delete'][0]);
+        }
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
+        $this->assertDatabaseHas('registrations', ['id' => $other->id]);
+    }
+
     private function makeRegistration(): array
     {
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
