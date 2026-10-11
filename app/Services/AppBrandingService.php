@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AppSetting;
+use App\Support\AdmissionTerminology;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -47,7 +48,7 @@ class AppBrandingService
 
         if (! $settings) {
             return [
-                'name' => $fallback['name'] ?? config('app.name', 'SPMB'),
+                'name' => AdmissionTerminology::applicationName($fallback['name'] ?? config('app.name', 'SPMB')),
                 'foundation_name' => $fallback['foundation_name'] ?? config('app.name', 'Institusi Pendidikan'),
                 'foundation_website' => $fallback['foundation_website'] ?? null,
                 'foundation_email' => $fallback['foundation_email'] ?? null,
@@ -61,7 +62,7 @@ class AppBrandingService
         }
 
         return [
-            'name' => $settings->portal_name,
+            'name' => AdmissionTerminology::applicationName($settings->portal_name),
             'foundation_name' => $settings->organization_name,
             'foundation_website' => $settings->website_url,
             'foundation_email' => $settings->email,
@@ -76,7 +77,7 @@ class AppBrandingService
 
     public function portalName(): string
     {
-        return (string) ($this->effective()['name'] ?: 'SPMB');
+        return (string) ($this->effective()['name'] ?: AdmissionTerminology::label());
     }
 
     public function organizationName(): string
