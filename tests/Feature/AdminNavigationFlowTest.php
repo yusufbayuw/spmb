@@ -44,7 +44,7 @@ class AdminNavigationFlowTest extends TestCase
     {
         $reflection = new ReflectionClass($class);
 
-        $this->assertSame($group, $reflection->getStaticPropertyValue('navigationGroup'));
+        $this->assertSame($group, $class::getNavigationGroup());
         $this->assertSame($sort, $reflection->getStaticPropertyValue('navigationSort'));
     }
 
