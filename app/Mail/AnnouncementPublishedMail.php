@@ -15,7 +15,7 @@ class AnnouncementPublishedMail extends Mailable
 
     public function build(): self
     {
-        return $this->subject($this->announcement->title ?: 'Pengumuman SPMB')
+        return $this->subject(app(\App\Services\AdmissionTerminology::class)->announcementDisplayTitle($this->announcement->title))
             ->markdown('emails.announcement-published');
     }
 }

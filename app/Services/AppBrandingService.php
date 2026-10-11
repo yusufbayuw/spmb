@@ -47,7 +47,7 @@ class AppBrandingService
 
         if (! $settings) {
             return [
-                'name' => $fallback['name'] ?? config('app.name', 'SPMB'),
+                'name' => app(AdmissionTerminology::class)->portalName(),
                 'foundation_name' => $fallback['foundation_name'] ?? config('app.name', 'Institusi Pendidikan'),
                 'foundation_website' => $fallback['foundation_website'] ?? null,
                 'foundation_email' => $fallback['foundation_email'] ?? null,
@@ -61,7 +61,7 @@ class AppBrandingService
         }
 
         return [
-            'name' => $settings->portal_name,
+            'name' => app(AdmissionTerminology::class)->portalName(),
             'foundation_name' => $settings->organization_name,
             'foundation_website' => $settings->website_url,
             'foundation_email' => $settings->email,
@@ -76,7 +76,7 @@ class AppBrandingService
 
     public function portalName(): string
     {
-        return (string) ($this->effective()['name'] ?: 'SPMB');
+        return app(AdmissionTerminology::class)->portalName();
     }
 
     public function organizationName(): string
