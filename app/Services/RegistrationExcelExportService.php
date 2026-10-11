@@ -141,6 +141,7 @@ class RegistrationExcelExportService
             'Hubungan Pendaftar',
             'NIK',
             'Nama Lengkap',
+            'NISN',
             'Nama Panggilan',
             'Jenis Kelamin',
             'Agama',
@@ -231,6 +232,7 @@ class RegistrationExcelExportService
                 $this->relationshipLabel($registration->registrant_relationship, $configuration),
                 $registration->nik,
                 $registration->full_name,
+                $registration->nisn ?: '-',
                 $registration->nickname ?: '-',
                 $registration->gender === 'L' ? 'Laki-laki' : ($registration->gender === 'P' ? 'Perempuan' : '-'),
                 $registration->religion ?: '-',
@@ -451,7 +453,7 @@ class RegistrationExcelExportService
                 str_contains($header, 'Alamat') || str_contains($header, 'Catatan') || str_contains($header, 'Keterangan') => 36,
                 str_contains($header, 'Nama Lengkap') || str_contains($header, 'Instansi') || str_contains($header, 'Program Studi') => 28,
                 str_contains($header, 'Email') => 28,
-                str_contains($header, 'Tanggal') || str_contains($header, 'No.') || $header === 'NIK' => 20,
+                str_contains($header, 'Tanggal') || str_contains($header, 'No.') || in_array($header, ['NIK', 'NISN'], true) => 20,
                 default => 18,
             };
 

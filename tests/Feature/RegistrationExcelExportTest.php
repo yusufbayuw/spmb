@@ -98,6 +98,7 @@ class RegistrationExcelExportTest extends TestCase
             'applicant_card_number' => 'KARTU-SMP-001',
             'nik' => '3273010101010001',
             'full_name' => 'Peserta Export',
+            'nisn' => '0012345678',
             'nickname' => 'Peserta',
             'gender' => 'L',
             'birth_place' => 'Bandung',
@@ -178,6 +179,9 @@ class RegistrationExcelExportTest extends TestCase
         $this->assertContains('Persetujuan Data Pribadi', $mainHeaders);
         $this->assertContains('Tanggal Persetujuan', $mainHeaders);
         $this->assertContains('SMP-001', $mainRow);
+        $nisnColumn = array_search('NISN', $mainHeaders, true);
+        $this->assertIsInt($nisnColumn);
+        $this->assertSame('0012345678', $mainRow[$nisnColumn]);
         $this->assertContains('Peserta Export', $mainRow);
         $this->assertContains('Ya', $mainRow);
         $this->assertContains('Memerlukan pendampingan khusus.', $mainRow);

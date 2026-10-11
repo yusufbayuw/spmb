@@ -82,6 +82,7 @@ class ContinuationCandidateMatcher
 
         $fallback = array_filter([
             'full_name' => $candidate->full_name ?: $this->raw($raw, ['nama', 'nama lengkap']),
+            'nisn' => $candidate->nisn,
             'gender' => $this->gender($this->raw($raw, ['jk', 'jenis kelamin'])),
             'religion' => $this->religion($this->raw($raw, ['agama'])),
             'birth_place' => $this->string($this->raw($raw, ['tempat lahir'])),
