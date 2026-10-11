@@ -35,7 +35,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     protected static ?string $title = 'Pengaturan Pendaftaran Unit';
 
-    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+    protected static ?string $navigationGroup = 'Konfigurasi Penerimaan';
 
     protected static ?int $navigationSort = 1;
 
