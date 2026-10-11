@@ -419,6 +419,7 @@ class RegistrationResource extends Resource
                         && app(\App\Services\ControlledDeletionService::class)->allowed(auth()->user(), $record->unit, 'registration'))
                     ->modalHeading(fn (Registration $record): string => 'Hapus total pendaftaran '.$record->full_name.'?')
                     ->modalDescription(fn (Registration $record): string => app(\App\Services\ControlledDeletionService::class)->registrationImpact($record))
+                    ->modalSubmitActionLabel('Hapus Total')
                     ->form([
                         Forms\Components\Textarea::make('reason')->label('Alasan penghapusan')->required(),
                         Forms\Components\TextInput::make('confirmation')
