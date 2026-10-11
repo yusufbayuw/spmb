@@ -15,7 +15,12 @@ class CertificationCenter extends Page
     protected static ?string $navigationLabel = 'Sertifikasi Saya';
     protected static ?string $navigationGroup = 'Training & Sertifikasi';
     protected static ?int $navigationSort = 2;
-    protected static ?string $title = 'Pusat Sertifikasi SPMB';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return 'Pusat Sertifikasi '.app(\App\Services\AdmissionTerminology::class)->portalName();
+    }
     protected static string $view = 'filament.admin.pages.certification-center';
 
     public ?string $attemptUuid = null;
