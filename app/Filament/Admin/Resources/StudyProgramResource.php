@@ -27,7 +27,7 @@ class StudyProgramResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Program Studi';
 
-    protected static ?string $navigationGroup = 'Konfigurasi SPMB';
+    protected static ?string $navigationGroup = 'Konfigurasi Penerimaan';
 
     protected static ?int $navigationSort = 4;
 
