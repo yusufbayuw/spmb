@@ -248,6 +248,151 @@ class ControlledDeletionService
         return ['file_count' => count($paths), 'file_errors' => count($failedPaths)];
     }
 
+    /**
+     * Exception path for records the Super Admin personally confirms are
+     * synthetic. This does not change normal Hapus Total rules or unit staff
+     * permissions. The attestation is an operator assertion, not evidence
+     * that a bank transfer or issued receipt was fictional.
+     */
+    public function deleteTestRegistration(
+        Registration $registration,
+        User $actor,
+        string $reason,
+        string $confirmation,
+        bool $confirmedTestData
+    ): array {
+        abort_unless($actor->is_active && $actor->isAdmin(), 403);
+
+        if (! $confirmedTestData || $confirmation !== 'HAPUS DATA UJI' || mb_strlen(trim($reason)) < 10) {
+            throw ValidationException::withMessages([
+                'delete' => 'Khusus Super Admin: centang pernyataan data uji, isi alasan minimal 10 karakter, lalu ketik HAPUS DATA UJI.',
+            ]);
+        }
+
+        $paths = DB::transaction(function () use ($registration, $actor, $reason): array {
+            $locked = Registration::query()->lockForUpdate()->findOrFail($registration->id);
+            $unit = Unit::query()->lockForUpdate()->findOrFail($locked->unit_id);
+            abort_unless($this->allowed($actor, $unit, 'registration'), 403);
+
+            $payments = Payment::query()->where('registration_id', $locked->id)
+                ->lockForUpdate()->get();
+            $accounts = VirtualAccount::query()->where('registration_id', $locked->id)
+                ->lockForUpdate()->get();
+
+            // An unrelated registration must never lose its payment or VA.
+            $foreignAccountPayments = Payment::query()
+                ->whereIn('virtual_account_id', $accounts->pluck('id'))
+                ->where(function ($query) use ($locked): void {
+                    $query->where('registration_id', '!=', $locked->id)
+                        ->orWhereNull('registration_id');
+                })->exists();
+            if ($foreignAccountPayments || $accounts->contains(
+                fn (VirtualAccount $account): bool => (int) $account->unit_id !== (int) $locked->unit_id
+            )) {
+                throw ValidationException::withMessages([
+                    'delete' => 'Ada keterkaitan VA dengan transaksi atau unit lain. Penghapusan data uji ditolak.',
+                ]);
+            }
+
+            $receiptRows = DB::table('payment_receipts')
+                ->whereIn('payment_id', $payments->pluck('id'))->get();
+
+            $attachmentPaths = [
+                ...$locked->documents()->pluck('file_path')->all(),
+                ...$locked->achievements()->pluck('certificate_path')->all(),
+                ...$payments->pluck('proof_path')->all(),
+                ...DB::table('re_registration_items')
+                    ->where('registration_id', $locked->id)->pluck('file_path')->all(),
+            ];
+            $paths = array_values(array_unique(array_filter($attachmentPaths)));
+
+            // Persist non-PII evidence of what was removed. Raw names, NIK,
+            // proof contents, credentials, and receipt details are NOT logged.
+            $paymentSummary = $payments->map(fn (Payment $payment): array => [
+                'payment_id' => $payment->id,
+                'status' => $payment->status,
+                'amount' => $payment->amount,
+                'verified' => filled($payment->verified_at),
+                'has_proof' => filled($payment->proof_path),
+            ])->all();
+            $receiptSummary = $receiptRows->map(fn ($receipt): array => [
+                'receipt_id' => $receipt->id,
+                'payment_id' => $receipt->payment_id,
+                'number' => $receipt->number,
+            ])->all();
+
+            $relationCounts = [];
+            foreach ([
+                'test_bookings',
+                'admission_test_results',
+                'selections',
+                'announcements',
+                'admission_offers',
+                're_registration_items',
+                'registration_consents',
+            ] as $table) {
+                $relationCounts[$table] = DB::table($table)
+                    ->where('registration_id', $locked->id)->count();
+            }
+
+            app(AuditTrail::class)->record(
+                'registration.test_data_forced_deleted',
+                $locked,
+                metadata: [
+                    'reason' => trim($reason),
+                    'operator_attested_test_data' => true,
+                    'registration_uuid' => $locked->uuid,
+                    'unit_id' => $locked->unit_id,
+                    'payment_summary' => $paymentSummary,
+                    'receipt_summary' => $receiptSummary,
+                    'related_counts' => $relationCounts,
+                    'va_ids' => $accounts->pluck('id')->all(),
+                ],
+                actor: $actor,
+                description: 'Super Admin menghapus pendaftaran yang dinyatakan sebagai data uji beserta relasi terkait',
+            );
+
+            // RESTRICT relationships are explicitly removed in dependency order.
+            // The receipt Eloquent model is intentionally immutable; only this
+            // Super-Admin-only, audited test-data cleanup uses query builder.
+            DB::table('payment_receipts')
+                ->whereIn('payment_id', $payments->pluck('id'))->delete();
+            DB::table('payments')->where('registration_id', $locked->id)->delete();
+            DB::table('test_bookings')->where('registration_id', $locked->id)->delete();
+            DB::table('re_registration_items')->where('registration_id', $locked->id)->delete();
+            DB::table('admission_offers')->where('registration_id', $locked->id)->delete();
+            DB::table('registration_consents')->where('registration_id', $locked->id)->delete();
+
+            foreach ($accounts as $account) {
+                // A VA marked paid remains paid as historical evidence;
+                // all other assigned VAs become cancelled, never available.
+                DB::table('virtual_accounts')->where('id', $account->id)->update([
+                    'registration_id' => null,
+                    'status' => $account->status === 'paid' ? 'paid' : 'cancelled',
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // Remaining registration child tables cascade or null on delete.
+            // The applicant login account, unit settings, and audit stay intact.
+            DB::table('registrations')->where('id', $locked->id)->delete();
+
+            return $paths;
+        }, 3);
+
+        $failedPaths = [];
+        foreach ($paths as $path) {
+            try {
+                app(ApplicantFileStorage::class)->delete($path);
+            } catch (\Throwable $exception) {
+                report($exception);
+                $failedPaths[] = $path;
+            }
+        }
+
+        return ['file_count' => count($paths), 'file_errors' => count($failedPaths)];
+    }
+
     public function deleteVirtualAccount(VirtualAccount $va, User $actor, string $reason, string $confirmation): void
     {
         $this->confirm($reason, $confirmation);
