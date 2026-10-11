@@ -100,9 +100,9 @@ class RegistrationConsentService
 
         $rendered = [
             'enabled' => $configured['enabled'],
-            'title' => strtr($configured['title'], $plainTokens),
-            'content' => strtr($configured['content'], $htmlTokens),
-            'confirmation_text' => strtr($configured['confirmation_text'], $plainTokens),
+            'title' => \App\Support\AdmissionTerminology::visibleText(strtr($configured['title'], $plainTokens)),
+            'content' => \App\Support\AdmissionTerminology::visibleHtml(strtr($configured['content'], $htmlTokens)),
+            'confirmation_text' => \App\Support\AdmissionTerminology::visibleText(strtr($configured['confirmation_text'], $plainTokens)),
         ];
 
         $rendered['content_hash'] = hash('sha256', (string) json_encode([
