@@ -81,12 +81,17 @@ class RegistrationTutorialTest extends TestCase
         $this->actingAs($admin);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
-        Livewire::test(PublicInformationSettings::class)
-            ->set('unitUuid', $other->uuid)
-            ->call('save')
-            ->assertNotFound();
+        try {
+            Livewire::test(PublicInformationSettings::class)
+                ->set('unitUuid', $other->uuid)
+                ->call('save');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            $this->assertNull($other->fresh()->registration_tutorial_url);
 
-        $this->assertNull($other->fresh()->registration_tutorial_url);
+            return;
+        }
+
+        $this->fail('Admin Unit must not be able to edit a different unit.');
     }
 
     public function test_admin_unit_rejects_untrusted_video_url(): void
