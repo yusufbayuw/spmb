@@ -86,24 +86,43 @@
         </section>
     @endif
 
-    <section class="bg-white py-16 sm:py-20">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="max-w-3xl">
-                <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Pilih jenjang</p>
-                <h2 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">{{ $operationalProfile['levels_heading'] }}</h2>
+    @if ($tutorialUnits->isNotEmpty())
+        <section class="bg-white py-16 sm:py-20" aria-labelledby="tutorial-pendaftaran-title">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="max-w-3xl">
+                    <p class="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Panduan Video</p>
+                    <h2 id="tutorial-pendaftaran-title" class="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Video Tutorial Pendaftaran</h2>
+                    <p class="mt-3 text-sm leading-7 text-slate-600">Pelajari cara mendaftar melalui panduan video dari unit pendidikan tujuan Anda.</p>
+                </div>
+                <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($tutorialUnits as $tutorialUnit)
+                        <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                            <div class="aspect-video bg-slate-950">
+                                <iframe
+                                    class="h-full w-full"
+                                    src="{{ \App\Support\YouTubeTutorial::embedUrl($tutorialUnit->registration_tutorial_url) }}"
+                                    title="Tutorial pendaftaran {{ $tutorialUnit->name }}"
+                                    loading="lazy"
+                                    referrerpolicy="strict-origin-when-cross-origin"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowfullscreen
+                                ></iframe>
+                            </div>
+                            <div class="p-5">
+                                <h3 class="text-lg font-extrabold text-slate-950">{{ $tutorialUnit->name }}</h3>
+                                <p class="mt-1 text-sm text-slate-600">Panduan pendaftaran {{ $tutorialUnit->name }}</p>
+                                <a href="{{ \App\Support\YouTubeTutorial::watchUrl($tutorialUnit->registration_tutorial_url) }}"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="mt-4 inline-flex min-h-11 items-center text-sm font-bold text-blue-700 hover:text-blue-800">
+                                    Tonton di YouTube →
+                                </a>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
             </div>
-            <div class="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                @foreach ($educationLevels as $level)
-                    <a href="{{ route('home', ['jenjang' => $level->code]).'#pendaftaran' }}" class="rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50">
-                        <p class="text-xs font-bold text-blue-700">{{ $level->code }}</p>
-                        <p class="mt-2 font-extrabold text-slate-950">{{ $level->name }}</p>
-                        <p class="mt-1 text-xs font-semibold text-slate-500">{{ $level->categoryLabel() }}</p>
-                        <p class="mt-3 text-sm font-bold text-blue-700">Lihat pendaftaran →</p>
-                    </a>
-                @endforeach
-            </div>
-        </div>
-    </section>
+        </section>
+    @endif
 
     <section id="cara-mendaftar" class="scroll-mt-24 border-y border-slate-200 bg-slate-50 py-16 sm:py-20">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

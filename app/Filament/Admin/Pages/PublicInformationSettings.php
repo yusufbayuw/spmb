@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Models\Unit;
+use App\Support\YouTubeTutorial;
+use Illuminate\Support\HtmlString;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -73,6 +75,7 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
             'public_whatsapp' => $unit->public_whatsapp,
             'public_service_hours' => $unit->public_service_hours,
             'public_website_url' => $unit->public_website_url,
+            'registration_tutorial_url' => $unit->registration_tutorial_url,
             'public_address' => $unit->public_address,
         ]);
     }
@@ -152,6 +155,41 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
                     ])
                     ->columns(1)
                     ->collapsible(),
+                Forms\Components\Section::make('Video Tutorial Pendaftaran')
+                    ->description('Opsional. Video hanya muncul di halaman utama jika URL valid dan unit aktif.')
+                    ->schema([
+                        Forms\Components\TextInput::make('registration_tutorial_url')
+                            ->label('URL Video YouTube')
+                            ->placeholder('https://www.youtube.com/watch?v=xxxxxxxxxxx')
+                            ->helperText('Masukkan tautan YouTube, youtu.be, Shorts, atau Live. Kosongkan untuk menyembunyikan kartu tutorial unit.')
+                            ->url()
+                            ->maxLength(255)
+                            ->live(onBlur: true)
+                            ->rule(fn (): \Closure => function (string $attribute, mixed $value, \Closure $fail): void {
+                                if (filled($value) && YouTubeTutorial::videoId((string) $value) === null) {
+                                    $fail('Masukkan URL video YouTube yang valid (HTTPS).');
+                                }
+                            }),
+                        Forms\Components\Placeholder::make('registration_tutorial_preview')
+                            ->label('Pratinjau Video')
+                            ->content(function (Forms\Get $get): HtmlString|string {
+                                $url = YouTubeTutorial::embedUrl($get('registration_tutorial_url'));
+
+                                if (! $url) {
+                                    return 'Masukkan tautan YouTube yang valid untuk melihat video.';
+                                }
+
+                                return new HtmlString(
+                                    '<div class="aspect-video w-full max-w-xl overflow-hidden rounded-xl bg-black">'.
+                                    '<iframe class="h-full w-full" src="'.e($url).'" title="Pratinjau tutorial pendaftaran"'.
+                                    ' loading="lazy" referrerpolicy="strict-origin-when-cross-origin"'.
+                                    ' allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"'.
+                                    ' allowfullscreen></iframe></div>'
+                                );
+                            }),
+                    ])
+                    ->columns(1)
+                    ->collapsible(),
                 Forms\Components\Section::make('Kontak & Helpdesk')
                     ->description('Kontak resmi yang dapat dilihat calon pendaftar.')
                     ->schema([
@@ -215,6 +253,9 @@ class PublicInformationSettings extends Page implements Forms\Contracts\HasForms
             'public_whatsapp' => $data['public_whatsapp'] ?? null,
             'public_service_hours' => $data['public_service_hours'] ?? null,
             'public_website_url' => $data['public_website_url'] ?? null,
+            'registration_tutorial_url' => filled($data['registration_tutorial_url'] ?? null)
+                ? trim((string) $data['registration_tutorial_url'])
+                : null,
             'public_address' => $data['public_address'] ?? null,
         ]);
 

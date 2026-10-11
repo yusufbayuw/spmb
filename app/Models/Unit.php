@@ -47,6 +47,7 @@ class Unit extends Model
         'public_whatsapp',
         'public_service_hours',
         'public_website_url',
+        'registration_tutorial_url',
         'public_address',
         'logo_path',
         'is_active',
