@@ -5,7 +5,7 @@
 </x-mail::header>
 </x-slot>
 
-# Virtual Account Pendaftaran SPMB
+# Virtual Account Pendaftaran {{ \App\Support\AdmissionTerminology::label() }}
 
 Yth. {{ $payment->registration->user->name }},
 
@@ -24,7 +24,7 @@ Nominal: **Rp {{ number_format((float) $payment->amount, 0, ',', '.') }}**
 Setelah pembayaran dilakukan, unggah bukti pembayaran melalui dashboard agar dapat diperiksa oleh petugas.
 
 <x-mail::button :url="url('/pendaftar')">
-Buka Dashboard SPMB
+Buka Dashboard {{ \App\Support\AdmissionTerminology::label() }}
 </x-mail::button>
 
 Hormat kami,<br>
