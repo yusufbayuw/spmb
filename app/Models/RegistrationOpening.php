@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
 use App\Services\UnitConfigurationService;
+use App\Services\RegistrationNumberService;
 use App\Support\SpmbOperationalMode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -102,6 +103,20 @@ class RegistrationOpening extends Model
             if ($opening->opened_at && $opening->closed_at && $opening->closed_at->lessThanOrEqualTo($opening->opened_at)) {
                 throw ValidationException::withMessages([
                     'closed_at' => 'Waktu tutup harus setelah waktu buka.',
+                ]);
+            }
+
+            // A wave-mode opening with issued numbers must keep its original group.
+            // Existing per-unit openings retain their current editing behavior.
+            if ($opening->exists && $opening->isDirty(['unit_id', 'academic_year', 'wave'])
+                && app(RegistrationNumberService::class)->modeForGroup(
+                    (int) $opening->getRawOriginal('unit_id'),
+                    (string) $opening->getRawOriginal('academic_year'),
+                    (string) $opening->getRawOriginal('wave'),
+                ) === RegistrationNumberService::MODE_WAVE
+                && $opening->registrations()->whereNotNull('registration_number')->exists()) {
+                throw ValidationException::withMessages([
+                    'wave' => 'Unit, tahun ajaran, dan gelombang tidak dapat diubah setelah nomor registrasi diterbitkan dalam mode per gelombang.',
                 ]);
             }
 
