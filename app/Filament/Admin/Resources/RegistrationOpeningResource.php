@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\RegistrationOpeningResource\Pages;
 use App\Models\RegistrationOpening;
+use App\Services\RegistrationNumberService;
 use App\Models\StudyProgram;
 use App\Models\Unit;
 use App\Support\SpmbOperationalMode;
@@ -129,6 +130,10 @@ class RegistrationOpeningResource extends Resource
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('academic_year')->label('Tahun')->sortable(),
                 Tables\Columns\TextColumn::make('wave')->label('Gelombang')->searchable(),
+                Tables\Columns\TextColumn::make('numbering_mode')
+                    ->label('Penomoran')
+                    ->getStateUsing(fn (RegistrationOpening $record): string => RegistrationNumberService::MODE_LABELS[app(RegistrationNumberService::class)->modeFor($record)])
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id')->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
@@ -153,6 +158,24 @@ class RegistrationOpeningResource extends Resource
                     ->options(fn (): array => RegistrationOpening::query()->orderByDesc('academic_year')->pluck('academic_year', 'academic_year')->all()),
             ])
             ->actions([
+                Tables\Actions\Action::make('numberingMode')
+                    ->label('Atur Penomoran')
+                    ->icon('heroicon-o-hashtag')
+                    ->color('info')
+                    ->visible(fn (RegistrationOpening $record): bool => static::canEdit($record))
+                    ->modalHeading('Mode Penomoran Registrasi')
+                    ->modalDescription('Pengaturan berlaku untuk seluruh program studi pada unit, tahun ajaran, dan nama gelombang yang sama. Tidak dapat diubah setelah nomor pertama diterbitkan.')
+                    ->form([
+                        Forms\Components\Select::make('mode')
+                            ->label('Mode Penomoran')
+                            ->options(RegistrationNumberService::MODE_LABELS)
+                            ->default(fn (RegistrationOpening $record): string => app(RegistrationNumberService::class)->modeFor($record))
+                            ->required(),
+                    ])
+                    ->action(function (RegistrationOpening $record, array $data): void {
+                        app(RegistrationNumberService::class)->changeMode($record, (string) $data['mode']);
+                        Notification::make()->title('Mode penomoran tersimpan')->success()->send();
+                    }),
                 Tables\Actions\ViewAction::make()
                     ->label('Detail')
                     ->icon('heroicon-o-eye'),

@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources\RegistrationOpeningResource\Pages;
 
 use App\Filament\Admin\Resources\RegistrationOpeningResource;
+use App\Services\RegistrationNumberService;
+use Filament\Forms;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -14,6 +16,22 @@ class ViewRegistrationOpening extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('numberingMode')
+                ->label('Atur Penomoran')
+                ->icon('heroicon-o-hashtag')
+                ->visible(fn (): bool => RegistrationOpeningResource::canEdit($this->record))
+                ->modalDescription('Pengaturan berlaku untuk seluruh program studi pada unit, tahun ajaran, dan nama gelombang yang sama. Perubahan ditolak setelah nomor pertama diterbitkan.')
+                ->form([
+                    Forms\Components\Select::make('mode')
+                        ->label('Mode Penomoran')
+                        ->options(RegistrationNumberService::MODE_LABELS)
+                        ->default(fn (): string => app(RegistrationNumberService::class)->modeFor($this->record))
+                        ->required(),
+                ])
+                ->action(function (array $data): void {
+                    app(RegistrationNumberService::class)->changeMode($this->record, (string) $data['mode']);
+                    Notification::make()->title('Mode penomoran tersimpan')->success()->send();
+                }),
             Actions\Action::make('pause')
                 ->label('Pause Pendaftaran')
                 ->icon('heroicon-o-pause-circle')
