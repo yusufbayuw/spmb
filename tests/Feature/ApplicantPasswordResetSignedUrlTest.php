@@ -104,6 +104,7 @@ class ApplicantPasswordResetSignedUrlTest extends TestCase
         Route::get('/test-signed-reset-isolation', fn () => 'valid')
             ->middleware('signed')
             ->name('tests.signed-reset-isolation');
+        Route::getRoutes()->refreshNameLookups();
         URL::forceRootUrl('https://public.example.test');
 
         $url = URL::signedRoute('tests.signed-reset-isolation');
