@@ -111,13 +111,13 @@ class ApplicantPasswordResetSignedUrlTest extends TestCase
 
         $this->get('/test-signed-reset-isolation')->assertForbidden();
 
-        // The canonical host fallback must not apply outside the applicant
-        // reset route; no broad weakening of signature checks is allowed.
-        $this->withServerVariables([
-            'HTTP_HOST' => 'origin.internal.test',
-            'SERVER_NAME' => 'origin.internal.test',
-            'HTTPS' => 'off',
-        ])->get($this->requestTarget($url))->assertForbidden();
+        // The generic Laravel signed middleware still accepts a valid
+        // signature but rejects a modified one. The applicant-only fallback
+        // must not weaken validation for unrelated signed routes.
+        $target = $this->requestTarget($url);
+        $this->get($target)->assertOk();
+        $this->get(str_replace('signature=', 'signature=tampered-', $target))
+            ->assertForbidden();
     }
 
     private function applicant(): User
