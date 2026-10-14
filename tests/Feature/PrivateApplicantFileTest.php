@@ -75,6 +75,53 @@ class PrivateApplicantFileTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_private_image_head_exposes_preview_metadata_and_download_is_attachment(): void
+    {
+        [$owner, $registration] = $this->registrationForApplicant();
+        $other = $this->applicant();
+
+        $path = 'documents/'.$registration->id.'/foto.png';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put(
+            $path,
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9U9KoXcAAAAASUVORK5CYII='),
+        );
+
+        $document = Document::create([
+            'registration_id' => $registration->id,
+            'type' => 'photo',
+            'file_path' => $path,
+            'original_name' => 'foto.png',
+            'file_type' => 'png',
+            'file_size' => 68,
+        ]);
+
+        $head = $this->actingAs($owner)
+            ->head(route('files.applicant.documents.show', $document))
+            ->assertOk();
+
+        $this->assertStringContainsString(
+            'inline',
+            (string) $head->headers->get('Content-Disposition'),
+        );
+        $this->assertStringContainsString(
+            '.png',
+            (string) $head->headers->get('Content-Disposition'),
+        );
+        $this->assertStringContainsString(
+            'image/png',
+            (string) $head->headers->get('Content-Type'),
+        );
+
+        $this->actingAs($owner)
+            ->get(route('files.applicant.documents.show', ['document' => $document, 'download' => 1]))
+            ->assertOk()
+            ->assertDownload($document->displayFileName());
+
+        $this->actingAs($other)
+            ->head(route('files.applicant.documents.show', $document))
+            ->assertForbidden();
+    }
+
     public function test_achievement_certificate_is_private_and_owner_scoped(): void
     {
         [$owner, $registration] = $this->registrationForApplicant();
