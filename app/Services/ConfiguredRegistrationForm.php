@@ -269,6 +269,45 @@ class ConfiguredRegistrationForm
 
             if ($certificateMode !== UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE) {
                 $achievementFields[] = Hidden::make('certificate_original_name');
+                // Keep private files out of FileUpload hydration, but allow applicants to
+                // inspect a previously saved certificate via its authorized route.
+                $achievementFields[] = Actions::make([
+                    Action::make('view_existing_certificate')
+                        ->label('Lihat Bukti Prestasi Tersimpan')
+                        ->icon('heroicon-o-eye')
+                        ->url(function (?Registration $record, $get): ?string {
+                            if (! $record) {
+                                return null;
+                            }
+
+                            $uuid = $get('uuid');
+                            if (! is_string($uuid) || $uuid === '') {
+                                return null;
+                            }
+
+                            $achievement = $record->achievements()
+                                ->where('uuid', $uuid)
+                                ->whereNotNull('certificate_path')
+                                ->first();
+
+                            return $achievement
+                                ? route('files.applicant.achievements.certificate', $achievement)
+                                : null;
+                        })
+                        ->visible(function (?Registration $record, $get): bool {
+                            if (! $record) {
+                                return false;
+                            }
+
+                            $uuid = $get('uuid');
+
+                            return is_string($uuid) && $uuid !== ''
+                                && $record->achievements()
+                                    ->where('uuid', $uuid)
+                                    ->whereNotNull('certificate_path')
+                                    ->exists();
+                        }),
+                ])->columnSpanFull();
                 $achievementFields[] = FileUpload::make('certificate_path')
                     ->label('Sertifikat / Bukti Prestasi')
                     ->helperText($certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
