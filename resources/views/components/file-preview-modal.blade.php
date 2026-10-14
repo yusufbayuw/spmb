@@ -30,7 +30,7 @@
                 <p data-file-preview-meta class="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400"></p>
 
                 <div class="flex items-center gap-2">
-                    <a data-file-preview-download href="#" class="inline-flex min-h-9 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10">
+                    <a data-file-preview-download href="#" download class="inline-flex min-h-9 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10">
                         Unduh File
                     </a>
                     <button type="button" data-file-preview-close class="inline-flex min-h-9 items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500">
@@ -191,9 +191,95 @@
         return wrapper;
     };
 
-    const openPreview = (url, displayName = null) => {
-        const fileName = displayName || getFileName(url);
-        const extension = getExtension(fileName) || getExtension(getFileName(url));
+
+    // Use authenticated response headers, not link labels: private URLs
+    // normally end in UUIDs or /certificate instead of a file extension.
+    const extensionForMime = (mime) => ({
+        'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+        'image/webp': 'webp', 'image/bmp': 'bmp', 'image/avif': 'avif',
+        'application/pdf': 'pdf', 'video/mp4': 'mp4', 'video/webm': 'webm',
+        'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'text/plain': 'txt',
+        'text/csv': 'csv', 'application/json': 'json',
+    }[mime.toLowerCase()] || '');
+
+    const dispositionFileName = (disposition) => {
+        const encoded = disposition.match(/filename\*\s*=\s*(?:UTF-8'')?([^;]+)/i);
+        if (encoded) {
+            try {
+                return decodeURIComponent(encoded[1].trim().replace(/^["']|["']$/g, ''));
+            } catch (_) { /* Fall back to plain filename. */ }
+        }
+        const plain = disposition.match(/filename\s*=\s*(?:"([^"]+)"|([^;]+))/i);
+        return plain ? (plain[1] || plain[2]).trim() : '';
+    };
+
+    const makeError = (message) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex min-h-full items-center justify-center';
+        const panel = document.createElement('div');
+        panel.className = 'max-w-lg rounded-xl bg-white p-8 text-center text-sm text-gray-700 shadow-sm dark:bg-gray-900 dark:text-gray-200';
+        panel.textContent = message;
+        wrapper.appendChild(panel);
+        return wrapper;
+    };
+
+    let previewRequest = 0;
+
+    const openPreview = async (url, displayName = null) => {
+        const request = ++previewRequest;
+        let fileName = displayName || getFileName(url);
+        let extension = getExtension(fileName) || getExtension(getFileName(url));
+        const parsed = new URL(url, window.location.href);
+        const isPrivate = parsed.origin === window.location.origin && parsed.pathname.includes('/files/applicant/');
+
+        // Preview metadata stays on the same origin; never send private URLs
+        // to a public third-party viewer.
+        emptyContent();
+        content.appendChild(makeError('Memuat pratinjau file...'));
+        title.textContent = fileName;
+        meta.textContent = 'akses terautentikasi';
+        download.href = secureDownloadUrl(url);
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.documentElement.classList.add('overflow-hidden');
+        modal.querySelector('[data-file-preview-close]')?.focus();
+
+        if (isPrivate) {
+            try {
+                const response = await fetch(url, { method: 'HEAD', credentials: 'same-origin', cache: 'no-store' });
+                if (request !== previewRequest) return;
+                if (!response.ok || response.redirected) {
+                    const message = response.status === 404
+                        ? 'File tidak ditemukan di penyimpanan. Hubungi pengelola pendaftaran.'
+                        : response.status === 401 || response.status === 403 || response.redirected
+                            ? 'Akses file ditolak atau sesi sudah berakhir. Silakan masuk kembali.'
+                            : 'File tidak dapat diakses (HTTP ' + response.status + '). Silakan coba lagi.';
+                    emptyContent();
+                    content.appendChild(makeError(message));
+                    return;
+                }
+
+                const serverName = dispositionFileName(response.headers.get('Content-Disposition') || '');
+                const mime = (response.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+
+                if (mime === 'text/html') {
+                    emptyContent();
+                    content.appendChild(makeError('Server mengembalikan halaman HTML, bukan file. Periksa sesi login atau akses file.'));
+                    return;
+                }
+                if (serverName && !getExtension(fileName)) {
+                    fileName = serverName;
+                }
+                extension = getExtension(serverName) || extension || extensionForMime(mime);
+            } catch (_) {
+                // Some intermediaries block HEAD. Download remains available.
+            }
+        }
+
+        if (request === previewRequest) renderPreview(url, fileName, extension);
+    };
+
+    const renderPreview = (url, fileName, extension) => {
 
         emptyContent();
         title.textContent = fileName;
@@ -204,6 +290,12 @@
             const image = document.createElement('img');
             image.src = url;
             image.alt = fileName;
+            image.addEventListener('error', () => {
+                if (image.isConnected) {
+                    emptyContent();
+                    content.appendChild(makeError('Gambar gagal ditampilkan. Anda masih bisa mencoba tombol Unduh File.'));
+                }
+            }, { once: true });
             image.className = 'mx-auto h-full max-h-full max-w-full rounded-xl object-contain shadow-sm';
             content.appendChild(image);
         } else if (extension === 'pdf') {
@@ -246,6 +338,7 @@
     };
 
     const closePreview = () => {
+        previewRequest++;
         modal.classList.add('hidden');
         modal.setAttribute('aria-hidden', 'true');
         document.documentElement.classList.remove('overflow-hidden');
@@ -255,7 +348,7 @@
     document.addEventListener('click', (event) => {
         const link = event.target.closest('a[href]');
 
-        if (!link || link.hasAttribute('download')) {
+        if (!link || link.hasAttribute('download') || link.hasAttribute('data-file-preview-download')) {
             return;
         }
 
@@ -264,6 +357,11 @@
         try {
             parsedUrl = new URL(link.href, window.location.href);
         } catch (_) {
+            return;
+        }
+
+        // Explicit downloads must not re-open the preview modal.
+        if (parsedUrl.pathname.includes('/files/applicant/') && parsedUrl.searchParams.get('download') === '1') {
             return;
         }
 
