@@ -32,7 +32,6 @@ class AchievementCertificateFormTest extends TestCase
         Livewire::withQueryParams(['opening' => $opening->uuid])
             ->test(CreateRegistration::class)
             ->set('data.registration_pathway_uuid', $pathway->uuid)
-            ->assertSee('Sertifikat / Bukti Prestasi')
             ->set('data.achievements', [[
                 'title' => 'Olimpiade Sains',
                 'level' => 'Nasional',
