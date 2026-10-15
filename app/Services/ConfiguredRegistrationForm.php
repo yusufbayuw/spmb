@@ -18,7 +18,9 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Get;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -269,45 +271,36 @@ class ConfiguredRegistrationForm
 
             if ($certificateMode !== UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_NONE) {
                 $achievementFields[] = Hidden::make('certificate_original_name');
-                // Keep private files out of FileUpload hydration, but allow applicants to
-                // inspect a previously saved certificate via its authorized route.
-                $achievementFields[] = Actions::make([
-                    Action::make('view_existing_certificate')
-                        ->label('Lihat Bukti Prestasi Tersimpan')
-                        ->icon('heroicon-o-eye')
-                        ->url(function (?Registration $record, $get): ?string {
-                            if (! $record) {
-                                return null;
-                            }
+                // A nested Action with a $record-dependent visibility callback can be
+                // evaluated while FileUpload refreshes the repeater, before its Action
+                // container has been initialized. Render an ordinary authenticated link
+                // instead: the existing private-file viewer intercepts this URL.
+                $achievementFields[] = Placeholder::make('saved_certificate_link')
+                    ->label('')
+                    ->content(function (?Registration $record, Get $get): HtmlString {
+                        $uuid = $get('uuid');
 
-                            $uuid = $get('uuid');
-                            if (! is_string($uuid) || $uuid === '') {
-                                return null;
-                            }
+                        if (! $record || ! is_string($uuid) || $uuid === '') {
+                            return new HtmlString('');
+                        }
 
-                            $achievement = $record->achievements()
-                                ->where('uuid', $uuid)
-                                ->whereNotNull('certificate_path')
-                                ->first();
+                        $achievement = $record->achievements()
+                            ->where('uuid', $uuid)
+                            ->whereNotNull('certificate_path')
+                            ->first();
 
-                            return $achievement
-                                ? route('files.applicant.achievements.certificate', $achievement)
-                                : null;
-                        })
-                        ->visible(function (?Registration $record, $get): bool {
-                            if (! $record) {
-                                return false;
-                            }
+                        if (! $achievement) {
+                            return new HtmlString('');
+                        }
 
-                            $uuid = $get('uuid');
+                        $url = e(route('files.applicant.achievements.certificate', $achievement));
 
-                            return is_string($uuid) && $uuid !== ''
-                                && $record->achievements()
-                                    ->where('uuid', $uuid)
-                                    ->whereNotNull('certificate_path')
-                                    ->exists();
-                        }),
-                ])->columnSpanFull();
+                        return new HtmlString(
+                            '<a href="'.$url.'" class="inline-flex items-center gap-2 text-sm font-medium text-primary-600 underline hover:text-primary-500 dark:text-primary-400">'
+                            .'Lihat Bukti Prestasi Tersimpan</a>'
+                        );
+                    })
+                    ->columnSpanFull();
                 $achievementFields[] = FileUpload::make('certificate_path')
                     ->label('Sertifikat / Bukti Prestasi')
                     ->helperText($certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
