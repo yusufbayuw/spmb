@@ -9,6 +9,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\UnitConfiguration;
+use App\Services\ConfiguredRegistrationForm;
 use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
@@ -62,7 +63,20 @@ class RegistrationResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Placeholder::make('custom_answers_display')->label('Informasi Tambahan')->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))->columnSpanFull(),
+            Forms\Components\Placeholder::make('custom_answers_display')
+                ->label('Informasi Tambahan Tersimpan')
+                ->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))
+                ->columnSpanFull(),
+            Forms\Components\Section::make('Perbarui Jawaban Tambahan')
+                ->description('Isian mengikuti jenis dan opsi pada versi konfigurasi pendaftaran ini. Dokumen dan field lama yang tidak dikenal tetap ditampilkan di ringkasan, bukan diubah otomatis.')
+                ->schema(fn (?Registration $record): array => $record
+                    ? app(ConfiguredRegistrationForm::class)->staffEditableCustomFields($record)
+                    : [])
+                ->visible(fn (?Registration $record): bool => (bool) ($record?->configuration
+                    && app(ConfiguredRegistrationForm::class)->staffEditableCustomDefinitions($record->configuration) !== []))
+                ->hiddenOn('create')
+                ->columns(['default' => 1, 'md' => 2])
+                ->columnSpanFull(),
             Forms\Components\Placeholder::make('academic_profile_display')
                 ->label('Nilai & Prestasi')
                 ->content(fn (?Registration $record) => view('registration.academic-profile', ['registration' => $record?->loadMissing(['configuration', 'academicScores', 'achievements'])]))
