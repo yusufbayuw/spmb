@@ -524,6 +524,48 @@ class ConfiguredRegistrationForm
             ->helperText($definition['help'] ?? null);
     }
 
+    /**
+     * Only known, non-file custom inputs are editable in the staff registration
+     * form. File answers and unknown legacy types remain read-only so an
+     * unrelated edit cannot overwrite private documents or reinterpret values.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function staffEditableCustomDefinitions(UnitConfiguration $configuration): array
+    {
+        return collect($configuration->fields ?? [])
+            ->filter(static fn (mixed $definition): bool => is_array($definition)
+                && (bool) ($definition['active'] ?? false)
+                && filled($definition['key'] ?? null)
+                && ! in_array($definition['key'], self::BUILTIN_FIELDS, true)
+                && in_array($definition['type'] ?? null, [
+                    'text', 'textarea', 'number', 'date', 'select', 'multiselect', 'boolean',
+                ], true))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Render controls from the pinned registration configuration, not the
+     * latest published version. In particular, a previous single-choice
+     * answer must never turn into a multi-choice editor.
+     *
+     * @return array<int, Field|Group|Placeholder>
+     */
+    public function staffEditableCustomFields(Registration $record): array
+    {
+        $configuration = $record->configuration;
+
+        if (! $configuration) {
+            return [];
+        }
+
+        return array_map(
+            fn (array $definition): Field|Group|Placeholder => $this->field($definition, $configuration),
+            $this->staffEditableCustomDefinitions($configuration),
+        );
+    }
+
     public function field(array $definition, UnitConfiguration $configuration): Field|Group|Placeholder
     {
         $name = 'custom_answers.'.$definition['key'];
