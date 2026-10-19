@@ -303,9 +303,16 @@ class ConfiguredRegistrationForm
                     ->columnSpanFull();
                 $achievementFields[] = FileUpload::make('certificate_path')
                     ->label('Sertifikat / Bukti Prestasi')
+                    ->required(fn (?Registration $record, Get $get): bool =>
+                        $certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
+                        && ! ($record && filled($get('uuid')) && $record->achievements()
+                            ->where('uuid', $get('uuid'))
+                            ->whereNotNull('certificate_path')
+                            ->exists())
+                    )
                     ->helperText($certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
-                        ? 'Wajib. Unggah satu file PDF, JPG, atau PNG. Saat mengedit prestasi yang sudah memiliki bukti, file lama tetap digunakan jika tidak diganti.'
-                        : 'Opsional. Unggah satu file PDF, JPG, atau PNG. Saat mengedit prestasi yang sudah memiliki bukti, file lama tetap digunakan jika tidak diganti.')
+                        ? 'Wajib. File yang tampil baru berhasil diunggah, belum dinyatakan aman. Pemeriksaan keamanan dilakukan saat mengirim/menyimpan formulir. Bukti yang sudah tersimpan tetap berlaku saat revisi jika tidak diganti.'
+                        : 'Opsional. File yang tampil baru berhasil diunggah, belum dinyatakan aman. Pemeriksaan keamanan dilakukan saat mengirim/menyimpan formulir.')
                     ->disk(ApplicantFileStorage::PRIVATE_DISK)
                     ->directory(fn (): string => 'pre-registration/'.auth()->id().'/achievements')
                     ->visibility('private')
