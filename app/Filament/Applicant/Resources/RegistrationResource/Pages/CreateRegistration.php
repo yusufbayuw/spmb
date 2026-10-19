@@ -7,6 +7,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\PausedOpeningApplicantRedirect;
 use App\Services\ContinuationCandidateMatcher;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationRegionService;
@@ -59,6 +60,15 @@ class CreateRegistration extends CreateRecord
             ->with(['unit', 'studyProgram'])
             ->where('uuid', $this->openingUuid)
             ->first();
+
+        if ($opening?->isPaused()) {
+            $target = app(PausedOpeningApplicantRedirect::class)->url($opening, auth()->user());
+            abort_unless($target, 404);
+
+            $this->redirect($target);
+
+            return;
+        }
 
         abort_unless($opening?->isOpen(), 403, 'Pendaftaran ini sedang tidak dibuka.');
 
@@ -442,6 +452,21 @@ class CreateRegistration extends CreateRecord
     {
         return DB::transaction(function () use ($data): Model {
             DB::table('units')->where('id', $data['unit_id'])->update(['id' => DB::raw('id')]);
+
+            // Serialize a last-moment submission with pause/resume updates.
+            // Rechecking inside the transaction prevents a stale open form
+            // from creating a registration after intake has been paused.
+            $opening = RegistrationOpening::query()
+                ->whereKey($data['registration_opening_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if (! $opening?->isOpen()) {
+                throw ValidationException::withMessages([
+                    'registration_opening_uuid' => 'Pendaftaran baru untuk periode ini tidak tersedia.',
+                ]);
+            }
+
             $current = app(UnitConfigurationService::class)->current($data['unit_id']);
             if ($current?->id !== (int) $data['unit_configuration_id']) {
                 Notification::make()->warning()->title('Konfigurasi pendaftaran berubah')->body('Muat ulang halaman untuk menggunakan formulir terbaru sebelum mengirim.')->persistent()->send();
