@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Filament\Applicant\Resources\RegistrationResource;
+use App\Services\PausedOpeningApplicantRedirect;
 use App\Models\RegistrationOpening;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,17 @@ class StartRegistrationController extends Controller
 {
     public function __invoke(Request $request, RegistrationOpening $registrationOpening): RedirectResponse|View
     {
+        // Public cards and details remain hidden. Only owners of already-saved
+        // registrations can follow an old application URL while paused.
+        if ($registrationOpening->isPaused()) {
+            $target = app(PausedOpeningApplicantRedirect::class)
+                ->url($registrationOpening->loadMissing('unit'), $request->user());
+
+            abort_unless($target, 404);
+
+            return redirect()->to($target);
+        }
+
         abort_unless(
             RegistrationOpening::query()
                 ->visibleToApplicants()
