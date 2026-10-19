@@ -206,15 +206,15 @@ class AchievementCertificateFormTest extends TestCase
 
     public function test_supplemental_errors_map_to_real_repeater_keys(): void
     {
-        $rowOne = (string) \Illuminate\Support\\Str::uuid();
-        $rowTwo = (string) \Illuminate\Support\\Str::uuid();
+        $rowOne = (string) \Illuminate\Support\Str::uuid();
+        $rowTwo = (string) \Illuminate\Support\Str::uuid();
 
-        $exception = \Illuminate\Validation\\ValidationException::withMessages([
+        $exception = \Illuminate\Validation\ValidationException::withMessages([
             'items.1.level' => 'Tingkat harus dipilih.',
             'achievements.0.certificate_path' => 'File tidak lolos pemeriksaan keamanan.',
         ]);
 
-        $mapped = \App\Support\\ApplicantAchievementValidationErrors::forForm(
+        $mapped = \App\Support\ApplicantAchievementValidationErrors::forForm(
             $exception,
             [$rowOne => [], $rowTwo => []],
         );
