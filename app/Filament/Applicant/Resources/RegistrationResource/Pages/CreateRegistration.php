@@ -3,6 +3,7 @@
 namespace App\Filament\Applicant\Resources\RegistrationResource\Pages;
 
 use App\Filament\Applicant\Resources\RegistrationResource;
+use App\Support\ApplicantAchievementValidationErrors;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
@@ -413,11 +414,18 @@ class CreateRegistration extends CreateRecord
             $pathway->uuid,
             $data['academic_scores'] ?? [],
         );
-        $this->validatedAchievements = $supplemental->validateAchievements(
-            $configuration,
-            $pathway->uuid,
-            $data['achievements'] ?? [],
-        );
+        try {
+            $this->validatedAchievements = $supplemental->validateAchievements(
+                $configuration,
+                $pathway->uuid,
+                $data['achievements'] ?? [],
+            );
+        } catch (ValidationException $exception) {
+            throw ApplicantAchievementValidationErrors::forForm(
+                $exception,
+                $this->data['achievements'] ?? [],
+            );
+        }
         unset($data['academic_scores'], $data['achievements']);
 
         $data['user_id'] = auth()->id();
