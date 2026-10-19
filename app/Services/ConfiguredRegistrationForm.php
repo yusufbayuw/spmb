@@ -314,6 +314,10 @@ class ConfiguredRegistrationForm
                     ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                     ->maxSize((int) config('spmb.uploads.max_kb', 5120))
                     ->storeFileNamesIn('certificate_original_name')
+                    ->getUploadedFileUsing(
+                        fn (string $file, string|array|null $storedFileNames): ?array => app(PendingAchievementUpload::class)
+                            ->uploadedFile($file, $storedFileNames)
+                    )
                     ->columnSpanFull();
             }
 
