@@ -10,6 +10,7 @@ use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
+use App\Services\PendingAchievementUpload;
 use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
@@ -38,6 +39,68 @@ class AchievementCertificateFormTest extends TestCase
             ]])
             ->assertSee('Sertifikat / Bukti Prestasi')
             ->assertDontSee('Lihat Bukti Prestasi Tersimpan');
+    }
+
+    public function test_three_new_private_certificates_reload_using_authenticated_urls_not_public_storage(): void
+    {
+        [$applicant] = $this->fixture();
+        Storage::fake(ApplicantFileStorage::PRIVATE_DISK);
+
+        $this->actingAs($applicant);
+
+        $uploads = app(PendingAchievementUpload::class);
+        $paths = [
+            'sertifikat-pertama.pdf' => '%PDF-1.4 first',
+            'sertifikat-kedua.pdf' => '%PDF-1.4 second',
+            'sertifikat-ketiga.png' => "\x89PNG\r\n\x1a\n",
+        ];
+
+        $urls = [];
+
+        foreach ($paths as $filename => $contents) {
+            $path = 'pre-registration/'.$applicant->id.'/achievements/'.$filename;
+            Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put($path, $contents);
+
+            $metadata = $uploads->uploadedFile($path, 'Bukti '.$filename);
+
+            $this->assertNotNull($metadata);
+            $this->assertSame('Bukti '.$filename, $metadata['name']);
+            $this->assertSame(strlen($contents), $metadata['size']);
+            $this->assertSame(
+                route('files.applicant.pending-achievement-certificate', ['filename' => $filename]),
+                $metadata['url'],
+            );
+            $this->assertStringNotContainsString('/storage/', $metadata['url']);
+
+            $response = $this->get($metadata['url'])->assertOk();
+            $this->assertStringContainsString(
+                'attachment',
+                (string) $response->headers->get('Content-Disposition'),
+            );
+
+            $urls[] = $metadata['url'];
+            Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->assertExists($path);
+        }
+
+        $this->assertCount(3, $urls);
+        $this->assertNull($uploads->uploadedFile(
+            'pre-registration/99999/achievements/stolen.pdf',
+            null,
+        ));
+
+        $other = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $other->assignRole('pendaftar');
+
+        // Another applicant never gets access to the first applicant's files.
+        $this->actingAs($other)->get($urls[0])->assertNotFound();
+        $this->assertNull($uploads->uploadedFile(
+            'pre-registration/'.$applicant->id.'/achievements/sertifikat-pertama.pdf',
+            null,
+        ));
+
+        $this->actingAs($applicant)
+            ->get(route('files.applicant.pending-achievement-certificate', ['filename' => 'missing.pdf']))
+            ->assertNotFound();
     }
 
     public function test_existing_certificate_remains_viewable_after_repeater_rerender(): void

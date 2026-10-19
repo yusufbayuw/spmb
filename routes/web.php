@@ -94,6 +94,10 @@ Route::middleware(['auth', EnsureCurrentStaffSession::class, EnsureApplicantEmai
         ->whereUuid('achievement')
         ->name('files.applicant.achievements.certificate');
 
+    Route::get('/files/applicant/achievement-upload/{filename}', [PrivateApplicantFileController::class, 'pendingAchievementCertificate'])
+        ->where('filename', '[A-Za-z0-9][A-Za-z0-9._-]*\\.[A-Za-z0-9]+')
+        ->name('files.applicant.pending-achievement-certificate');
+
     Route::get('/files/applicant/payments/{payment}/proof', [PrivateApplicantFileController::class, 'paymentProof'])
         ->whereUuid('payment')
         ->name('files.applicant.payments.proof');

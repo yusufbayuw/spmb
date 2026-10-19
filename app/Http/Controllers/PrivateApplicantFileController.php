@@ -9,6 +9,7 @@ use App\Models\RegistrationAchievement;
 use App\Models\ReRegistrationItem;
 use App\Models\User;
 use App\Services\ApplicantFileStorage;
+use App\Services\PendingAchievementUpload;
 use App\Services\AuditTrail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -110,6 +111,39 @@ class PrivateApplicantFileController extends Controller
             $achievement->certificate_path,
             $achievement->certificateDisplayName(),
         );
+    }
+
+    /**
+     * Reload a newly stored achievement upload for FilePond before a registration
+     * achievement record exists. Only the authenticated applicant's own directory
+     * is addressable; persisted certificates keep using their audited viewer.
+     */
+    public function pendingAchievementCertificate(
+        Request $request,
+        PendingAchievementUpload $uploads,
+    ): BinaryFileResponse {
+        $user = $request->user();
+
+        abort_unless($user?->is_active && $user->isUser(), 403);
+
+        $filename = (string) $request->route('filename');
+        $path = $uploads->pathFor($user, $filename);
+
+        abort_unless($path, 404);
+
+        $disk = app(ApplicantFileStorage::class)->privateDisk();
+
+        abort_unless($disk->exists($path), 404);
+
+        return response()->download($disk->path($path), $filename, [
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => 'sandbox',
+            'Referrer-Policy' => 'no-referrer',
+            'Content-Type' => $uploads->mimeTypeFor($filename),
+        ]);
     }
 
     public function registrationCustomField(
