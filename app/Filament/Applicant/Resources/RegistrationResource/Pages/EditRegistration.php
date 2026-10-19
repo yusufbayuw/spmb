@@ -3,12 +3,14 @@
 namespace App\Filament\Applicant\Resources\RegistrationResource\Pages;
 
 use App\Filament\Applicant\Resources\RegistrationResource;
+use App\Support\ApplicantAchievementValidationErrors;
 use App\Services\ApplicantFileStorage;
 use App\Services\ConfiguredRegistrationForm;
 use App\Services\RegistrationRegionService;
 use App\Services\RegistrationSupplementalDataService;
 use App\Services\SpmbNotificationService;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Validation\ValidationException;
 
 class EditRegistration extends EditRecord
 {
@@ -84,12 +86,19 @@ class EditRegistration extends EditRecord
             $pathway->uuid,
             $data['academic_scores'] ?? [],
         );
-        $this->validatedAchievements = $supplemental->validateAchievements(
-            $this->record->configuration,
-            $pathway->uuid,
-            $data['achievements'] ?? [],
-            $this->record,
-        );
+        try {
+            $this->validatedAchievements = $supplemental->validateAchievements(
+                $this->record->configuration,
+                $pathway->uuid,
+                $data['achievements'] ?? [],
+                $this->record,
+            );
+        } catch (ValidationException $exception) {
+            throw ApplicantAchievementValidationErrors::forForm(
+                $exception,
+                $this->data['achievements'] ?? [],
+            );
+        }
         unset($data['academic_scores'], $data['achievements']);
 
         if (($data['registrant_type'] ?? 'parent') === 'self') {
