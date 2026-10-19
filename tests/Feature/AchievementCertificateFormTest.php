@@ -215,7 +215,17 @@ class AchievementCertificateFormTest extends TestCase
                 'father_name' => 'Ayah Uji',
                 'mother_name' => 'Ibu Uji',
             ],
-            'achievements' => $achievements,
+            // FileUpload keeps an array keyed by FilePond upload IDs until
+            // Filament dehydrates it to a single stored path on submit.
+            'achievements' => array_map(function (array $item): array {
+                if (is_string($item['certificate_path'] ?? null)) {
+                    $item['certificate_path'] = [
+                        (string) \Illuminate\Support\Str::uuid() => $item['certificate_path'],
+                    ];
+                }
+
+                return $item;
+            }, $achievements),
         ];
     }
 
