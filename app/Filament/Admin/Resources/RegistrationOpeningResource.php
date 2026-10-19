@@ -200,7 +200,7 @@ class RegistrationOpeningResource extends Resource
                     ->color('warning')
                     ->requiresConfirmation()
                     ->modalHeading('Pause pembukaan pendaftaran?')
-                    ->modalDescription('Pembukaan akan langsung disembunyikan dari halaman publik, daftar pendaftar, QR, dan link pendaftaran. Data pendaftar yang sudah ada tidak berubah.')
+                    ->modalDescription('Pembukaan disembunyikan dari halaman publik, daftar pembukaan, QR, dan tautan pendaftaran baru. Pendaftar yang sudah memiliki record tetap dapat melanjutkan proses sesuai tahapannya.')
                     ->visible(fn (RegistrationOpening $record): bool => static::canEdit($record)
                         && ! $record->isPaused()
                         && in_array($record->operationalStatus(), ['open', 'scheduled'], true))
@@ -209,7 +209,7 @@ class RegistrationOpeningResource extends Resource
 
                         Notification::make()
                             ->title('Pendaftaran dipause')
-                            ->body('Pembukaan tidak lagi tampil pada seluruh area publik. Data existing tetap aman.')
+                            ->body('Pendaftaran baru dihentikan. Proses pendaftar yang sudah tercatat tetap berjalan.')
                             ->warning()
                             ->send();
                     }),
