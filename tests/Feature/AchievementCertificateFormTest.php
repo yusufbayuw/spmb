@@ -165,18 +165,68 @@ class AchievementCertificateFormTest extends TestCase
         $this->actingAs($applicant);
         Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
 
-        Livewire::withQueryParams(['opening' => $opening->uuid])
+        $page = Livewire::withQueryParams(['opening' => $opening->uuid])
             ->test(CreateRegistration::class)
             ->fillForm($this->registrationFormData($pathway, [[
                 'title' => 'Prestasi dengan sertifikat ditolak',
                 'level' => 'Nasional',
                 'certificate_path' => $path,
                 'certificate_original_name' => 'rejected.pdf',
-            ]], '3273010101010098'))
-            ->call('create')
-            ->assertHasErrors(['achievements.0.certificate_path']);
+            ]], '3273010101010098'));
+
+        $rowKey = array_key_first($page->get('data.achievements'));
+        $page->call('create')
+            ->assertHasErrors(['data.achievements.'.$rowKey.'.certificate_path']);
 
         $this->assertDatabaseMissing('registrations', ['nik' => '3273010101010098']);
+    }
+
+    public function test_required_certificate_reports_inline_error_on_the_actual_repeater_row(): void
+    {
+        [$applicant, $opening, $pathway] = $this->fixture();
+        $this->requireAchievementCertificates($opening, $pathway);
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        $page = Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->fillForm($this->registrationFormData($pathway, [[
+                'title' => 'Prestasi tanpa bukti',
+                'level' => 'Nasional',
+            ]], '3273010101010099'));
+
+        $rowKey = array_key_first($page->get('data.achievements'));
+
+        $page->call('create')
+            ->assertHasErrors(['data.achievements.'.$rowKey.'.certificate_path']);
+
+        $this->assertDatabaseMissing('registrations', ['nik' => '3273010101010099']);
+    }
+
+    public function test_supplemental_errors_map_to_real_repeater_keys(): void
+    {
+        $rowOne = (string) \Illuminate\Support\Str::uuid();
+        $rowTwo = (string) \Illuminate\Support\Str::uuid();
+
+        $exception = \Illuminate\Validation\ValidationException::withMessages([
+            'items.1.level' => 'Tingkat harus dipilih.',
+            'achievements.0.certificate_path' => 'File tidak lolos pemeriksaan keamanan.',
+        ]);
+
+        $mapped = \App\Support\ApplicantAchievementValidationErrors::forForm(
+            $exception,
+            [$rowOne => [], $rowTwo => []],
+        );
+
+        $this->assertSame(
+            'Tingkat harus dipilih.',
+            $mapped->errors()['data.achievements.'.$rowTwo.'.level'][0],
+        );
+        $this->assertSame(
+            'File tidak lolos pemeriksaan keamanan.',
+            $mapped->errors()['data.achievements.'.$rowOne.'.certificate_path'][0],
+        );
     }
 
     private function requireAchievementCertificates(RegistrationOpening $opening, RegistrationPathway $pathway): void

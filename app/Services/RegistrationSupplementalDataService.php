@@ -6,6 +6,7 @@ use App\Models\Registration;
 use App\Models\RegistrationAchievement;
 use App\Models\UnitConfiguration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -167,6 +168,14 @@ class RegistrationSupplementalDataService
                 try {
                     app(ApplicantUploadSecurity::class)->inspect($newPath, ['pdf', 'jpg', 'png']);
                 } catch (ValidationException $exception) {
+                    // Record the rejection without logging applicant document content or
+                    // exposing a private storage path in the application log.
+                    Log::notice('Pemeriksaan keamanan sertifikat prestasi gagal', [
+                        'applicant_id' => $userId,
+                        'certificate_path_hash' => hash('sha256', $newPath),
+                        'reason' => collect($exception->errors())->flatten()->first(),
+                    ]);
+
                     // The upload inspector reports generic `file` errors. Without
                     // mapping them to the achievement, submit silently fails in
                     // the nested Filament form instead of explaining the issue.
