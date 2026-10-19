@@ -164,7 +164,18 @@ class RegistrationSupplementalDataService
                     ]);
                 }
 
-                app(ApplicantUploadSecurity::class)->inspect($newPath, ['pdf', 'jpg', 'png']);
+                try {
+                    app(ApplicantUploadSecurity::class)->inspect($newPath, ['pdf', 'jpg', 'png']);
+                } catch (ValidationException $exception) {
+                    // The upload inspector reports generic `file` errors. Without
+                    // mapping them to the achievement, submit silently fails in
+                    // the nested Filament form instead of explaining the issue.
+                    throw ValidationException::withMessages([
+                        'achievements.'.$index.'.certificate_path' => collect($exception->errors())
+                            ->flatten()
+                            ->first() ?: 'Sertifikat/bukti prestasi gagal diperiksa. Unggah file yang valid.',
+                    ]);
+                }
             }
 
             $certificatePath = $newPath ?: $existing?->certificate_path;
