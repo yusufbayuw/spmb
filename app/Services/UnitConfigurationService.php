@@ -179,6 +179,16 @@ class UnitConfigurationService
             $skipped = 0;
 
             foreach ($registrations as $registration) {
+                // Do not rebind an existing registration to a different custom
+                // question schema. Doing so would reinterpret a scalar answer
+                // from an old single-choice field as a multi-choice array (or
+                // invalidate deleted options) when its form is edited.
+                if ($registration->configuration && $this->customFieldSchemaChanged($registration->configuration, $configuration)) {
+                    $skipped++;
+
+                    continue;
+                }
+
                 if ($this->workflowConfigurationChanged($registration->configuration, $configuration)) {
                     $skipped++;
 
@@ -522,6 +532,32 @@ class UnitConfigurationService
         return $keys($from) !== $keys($to)
             || ($from?->completion_after_stage ?? null) !== ($to->completion_after_stage ?? null)
             || ($from?->participantCardMode() ?? UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH) !== $to->participantCardMode();
+    }
+
+    /**
+     * Custom question semantics are frozen with the registration version.
+     * Labels/help text can be refreshed for presentation, but types, choices
+     * and validation requirements may not be silently migrated.
+     */
+    private function customFieldSchemaChanged(UnitConfiguration $from, UnitConfiguration $to): bool
+    {
+        $schema = static function (UnitConfiguration $configuration): array {
+            return collect($configuration->fields ?? [])
+                ->filter(fn (mixed $field): bool => is_array($field)
+                    && ! in_array($field['key'] ?? null, ConfiguredRegistrationForm::BUILTIN_FIELDS, true))
+                ->mapWithKeys(static fn (array $field): array => [
+                    (string) $field['key'] => collect($field)
+                        ->only([
+                            'type', 'active', 'required', 'options', 'formats',
+                            'boolean_yes_detail_enabled', 'boolean_yes_detail_required',
+                            'boolean_no_detail_enabled', 'boolean_no_detail_required',
+                        ])
+                        ->all(),
+                ])
+                ->all();
+        };
+
+        return $schema($from) !== $schema($to);
     }
 
     private function supplementalConfigurationChanged(?UnitConfiguration $from, UnitConfiguration $to): bool
