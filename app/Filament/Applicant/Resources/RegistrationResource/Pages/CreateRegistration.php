@@ -494,6 +494,26 @@ class CreateRegistration extends CreateRecord
         }, 5);
     }
 
+    protected function onValidationError(ValidationException $exception): void
+    {
+        parent::onValidationError($exception);
+
+        // Some supplementary validation rules are evaluated after Filament has
+        // dehydrated the form (including repeater rows). Their error keys do not
+        // always correspond to a currently rendered field. Never leave an
+        // applicant with a submit button that appears to do nothing.
+        $firstMessage = collect($exception->errors())->flatten()->first();
+
+        Notification::make()
+            ->danger()
+            ->title('Pendaftaran belum dapat dikirim')
+            ->body(is_string($firstMessage) && $firstMessage !== ''
+                ? $firstMessage
+                : 'Periksa kembali seluruh isian dan berkas yang diwajibkan.')
+            ->persistent()
+            ->send();
+    }
+
     protected function getCreateFormAction(): Action
     {
         return parent::getCreateFormAction()->label('Kirim Pendaftaran');
