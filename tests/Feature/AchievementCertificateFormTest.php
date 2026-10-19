@@ -103,6 +103,122 @@ class AchievementCertificateFormTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_submit_with_three_required_private_certificates_creates_registration(): void
+    {
+        [$applicant, $opening, $pathway] = $this->fixture();
+        $this->requireAchievementCertificates($opening, $pathway);
+        Storage::fake(ApplicantFileStorage::PRIVATE_DISK);
+
+        $achievements = [];
+        for ($number = 1; $number <= 3; $number++) {
+            $filename = 'piagam-'.$number.'.pdf';
+            $path = 'pre-registration/'.$applicant->id.'/achievements/'.$filename;
+            Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put(
+                $path,
+                "%PDF-1.4\nPiagam prestasi ke-{$number}\n",
+            );
+
+            $achievements[] = [
+                'title' => 'Prestasi '.$number,
+                'level' => 'Nasional',
+                'certificate_path' => $path,
+                'certificate_original_name' => $filename,
+            ];
+        }
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->fillForm($this->registrationFormData($pathway, $achievements, '3273010101010097'))
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $registration = Registration::query()
+            ->where('nik', '3273010101010097')
+            ->firstOrFail();
+
+        $this->assertSame('submitted', $registration->status);
+        $this->assertCount(3, $registration->achievements);
+        foreach ($achievements as $achievement) {
+            $this->assertTrue($registration->achievements()
+                ->where('certificate_path', $achievement['certificate_path'])
+                ->exists());
+            Storage::disk(ApplicantFileStorage::PRIVATE_DISK)
+                ->assertExists($achievement['certificate_path']);
+        }
+    }
+
+    public function test_rejected_achievement_certificate_reports_a_specific_error_and_never_submits(): void
+    {
+        [$applicant, $opening, $pathway] = $this->fixture();
+        $this->requireAchievementCertificates($opening, $pathway);
+        Storage::fake(ApplicantFileStorage::PRIVATE_DISK);
+
+        $path = 'pre-registration/'.$applicant->id.'/achievements/rejected.pdf';
+        Storage::disk(ApplicantFileStorage::PRIVATE_DISK)->put(
+            $path,
+            "%PDF-1.4\n<script>unsafe content</script>\n",
+        );
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(CreateRegistration::class)
+            ->fillForm($this->registrationFormData($pathway, [[
+                'title' => 'Prestasi dengan sertifikat ditolak',
+                'level' => 'Nasional',
+                'certificate_path' => $path,
+                'certificate_original_name' => 'rejected.pdf',
+            ]], '3273010101010098'))
+            ->call('create')
+            ->assertHasErrors(['achievements.0.certificate_path']);
+
+        $this->assertDatabaseMissing('registrations', ['nik' => '3273010101010098']);
+    }
+
+    private function requireAchievementCertificates(RegistrationOpening $opening, RegistrationPathway $pathway): void
+    {
+        $staff = User::query()->where('unit_id', $opening->unit_id)->firstOrFail();
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($opening->unit, $staff);
+        $configuration = $draft->toArray();
+
+        $configuration['achievements_enabled'] = true;
+        $configuration['achievement_settings'] = [
+            'required' => true,
+            'max_entries' => 3,
+            'levels' => ['Nasional'],
+            'pathway_uuids' => [$pathway->uuid],
+            'certificate_mode' => 'required',
+        ];
+        data_set($configuration, 'pre_form_consent.enabled', false);
+
+        $service->save($draft, $staff, $configuration, true);
+    }
+
+    /** @param array<int, array<string, mixed>> $achievements */
+    private function registrationFormData(RegistrationPathway $pathway, array $achievements, string $nik): array
+    {
+        return [
+            'registration_pathway_uuid' => $pathway->uuid,
+            'registrant_type' => 'self',
+            'full_name' => 'Peserta Uji Prestasi',
+            'nik' => $nik,
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2014-01-01',
+            'home_address' => 'Bandung',
+            'parentInfo' => [
+                'father_name' => 'Ayah Uji',
+                'mother_name' => 'Ibu Uji',
+            ],
+            'achievements' => $achievements,
+        ];
+    }
+
     public function test_existing_certificate_remains_viewable_after_repeater_rerender(): void
     {
         [$applicant, , , $registration] = $this->fixture();
