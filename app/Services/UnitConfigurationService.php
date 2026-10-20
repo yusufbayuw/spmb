@@ -879,6 +879,24 @@ class UnitConfigurationService
                     throw ValidationException::withMessages(['fields' => 'Field pilihan harus memiliki opsi.']);
                 }
 
+                // Existing built-in answers are stored in scalar SQL columns.
+                // They must not be configured as arrays or private file uploads:
+                // those require versioned custom questions backed by JSON.
+                if (in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                    if (in_array($field['key'], ConfiguredRegistrationForm::REGION_FIELDS, true)
+                        && $field['type'] !== 'select') {
+                        throw ValidationException::withMessages([
+                            'fields.'.$fieldIndex.'.type' => 'Field wilayah harus tetap berupa pilihan wilayah.',
+                        ]);
+                    }
+
+                    if (in_array($field['type'], ['multiselect', 'file', 'placeholder'], true)) {
+                        throw ValidationException::withMessages([
+                            'fields.'.$fieldIndex.'.type' => 'Field bawaan menyimpan satu nilai. Gunakan field tambahan untuk pilihan jamak atau unggah dokumen.',
+                        ]);
+                    }
+                }
+
                 if (($field['type'] ?? null) === 'placeholder') {
                     if (in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
                         throw ValidationException::withMessages([
