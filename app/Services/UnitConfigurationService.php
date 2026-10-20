@@ -179,6 +179,15 @@ class UnitConfigurationService
             $skipped = 0;
 
             foreach ($registrations as $registration) {
+                // Never change the field schema of an existing registration, whether
+                // it uses custom questions or configurable built-in fields.
+                // This preserves earlier input types, options and validation.
+                if ($registration->configuration && $this->formFieldSchemaChanged($registration->configuration, $configuration)) {
+                    $skipped++;
+
+                    continue;
+                }
+
                 if ($this->workflowConfigurationChanged($registration->configuration, $configuration)) {
                     $skipped++;
 
@@ -524,6 +533,46 @@ class UnitConfigurationService
             || ($from?->participantCardMode() ?? UnitConfiguration::PARTICIPANT_CARD_MODE_BOTH) !== $to->participantCardMode();
     }
 
+    /**
+     * The configuration attached to a registration defines the semantics of
+     * ALL fields, including built-in ones. Presentation text may change, but
+     * type, options, required/active rules and group mappings cannot be silently
+     * migrated from a single-choice input to a multi-choice input.
+     */
+    private function formFieldSchemaChanged(UnitConfiguration $from, UnitConfiguration $to): bool
+    {
+        $schema = static function (UnitConfiguration $configuration): array {
+            $fields = collect($configuration->fields ?? [])
+                ->filter(static fn (mixed $field): bool => is_array($field) && filled($field['key'] ?? null))
+                ->mapWithKeys(static fn (array $field): array => [
+                    (string) $field['key'] => [
+                        'type' => $field['type'] ?? null,
+                        'active' => (bool) ($field['active'] ?? false),
+                        'required' => (bool) ($field['required'] ?? false),
+                        'options' => array_values($field['options'] ?? []),
+                        'formats' => array_values($field['formats'] ?? []),
+                        'group_key' => $field['group_key'] ?? null,
+                        'boolean_yes_detail_enabled' => (bool) ($field['boolean_yes_detail_enabled'] ?? false),
+                        'boolean_yes_detail_required' => (bool) ($field['boolean_yes_detail_required'] ?? false),
+                        'boolean_no_detail_enabled' => (bool) ($field['boolean_no_detail_enabled'] ?? false),
+                        'boolean_no_detail_required' => (bool) ($field['boolean_no_detail_required'] ?? false),
+                    ],
+                ])
+                ->sortKeys()
+                ->all();
+
+            return [
+                'builtin_field_policy' => $configuration->builtin_field_policy ?? 'system_default',
+                'registrant_relationship_options' => $configuration->registrantRelationshipOptions(),
+                'form_groups' => $configuration->form_groups ?? [],
+                'form_layout' => $configuration->form_layout ?? [],
+                'fields' => $fields,
+            ];
+        };
+
+        return $schema($from) !== $schema($to);
+    }
+
     private function supplementalConfigurationChanged(?UnitConfiguration $from, UnitConfiguration $to): bool
     {
         $fromScoresEnabled = (bool) ($from?->academic_scores_enabled ?? false);
@@ -830,6 +879,24 @@ class UnitConfigurationService
                     && empty($field['options'])
                     && ! in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
                     throw ValidationException::withMessages(['fields' => 'Field pilihan harus memiliki opsi.']);
+                }
+
+                // Existing built-in answers are stored in scalar SQL columns.
+                // They must not be configured as arrays or private file uploads:
+                // those require versioned custom questions backed by JSON.
+                if (in_array($field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)) {
+                    if (in_array($field['key'], ConfiguredRegistrationForm::REGION_FIELDS, true)
+                        && $field['type'] !== 'select') {
+                        throw ValidationException::withMessages([
+                            'fields.'.$fieldIndex.'.type' => 'Field wilayah harus tetap berupa pilihan wilayah.',
+                        ]);
+                    }
+
+                    if (in_array($field['type'], ['multiselect', 'file', 'placeholder'], true)) {
+                        throw ValidationException::withMessages([
+                            'fields.'.$fieldIndex.'.type' => 'Field bawaan menyimpan satu nilai. Gunakan field tambahan untuk pilihan jamak atau unggah dokumen.',
+                        ]);
+                    }
                 }
 
                 if (($field['type'] ?? null) === 'placeholder') {

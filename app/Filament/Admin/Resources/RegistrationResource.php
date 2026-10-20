@@ -9,6 +9,7 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\UnitConfiguration;
+use App\Services\ConfiguredRegistrationForm;
 use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
@@ -62,7 +63,20 @@ class RegistrationResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Placeholder::make('custom_answers_display')->label('Informasi Tambahan')->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))->columnSpanFull(),
+            Forms\Components\Placeholder::make('custom_answers_display')
+                ->label('Informasi Tambahan Tersimpan')
+                ->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))
+                ->columnSpanFull(),
+            Forms\Components\Section::make('Perbarui Jawaban Tambahan')
+                ->description('Isian mengikuti jenis dan opsi pada versi konfigurasi pendaftaran ini. Dokumen dan field lama yang tidak dikenal tetap ditampilkan di ringkasan, bukan diubah otomatis.')
+                ->schema(fn (?Registration $record): array => $record
+                    ? app(ConfiguredRegistrationForm::class)->staffEditableCustomFields($record)
+                    : [])
+                ->visible(fn (?Registration $record): bool => (bool) ($record?->configuration
+                    && app(ConfiguredRegistrationForm::class)->staffEditableCustomDefinitions($record->configuration) !== []))
+                ->hiddenOn('create')
+                ->columns(['default' => 1, 'md' => 2])
+                ->columnSpanFull(),
             Forms\Components\Placeholder::make('academic_profile_display')
                 ->label('Nilai & Prestasi')
                 ->content(fn (?Registration $record) => view('registration.academic-profile', ['registration' => $record?->loadMissing(['configuration', 'academicScores', 'achievements'])]))
@@ -161,7 +175,8 @@ class RegistrationResource extends Resource
 
             Forms\Components\Section::make('Identitas Calon Siswa')
                 ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
-                ->schema([
+                ->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)
+                    ->applyBuiltinOverridesToSchema([
                     Forms\Components\TextInput::make('nik')
                         ->label('NIK')->validationAttribute('NIK')->required()->length(16)
                         ->unique(
@@ -182,12 +197,13 @@ class RegistrationResource extends Resource
                     ...RegionFields::schema(true),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric(),
-                ]),
+                ], $record?->configuration)),
 
             Forms\Components\Section::make('Data Orang Tua')
                 ->description('Data ayah dan ibu dipisahkan agar mudah diperiksa oleh TU.')
                 ->relationship('parentInfo')
-                ->schema(ParentInfoFields::schema()),
+                ->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)
+                    ->applyBuiltinOverridesToSchema(ParentInfoFields::schema(), $record?->configuration)),
 
             Forms\Components\Section::make('Persetujuan Data Pribadi')
                 ->description('Snapshot naskah yang benar-benar disetujui pendaftar. Riwayat ini tidak berubah ketika template pada konfigurasi berikutnya diperbarui.')
