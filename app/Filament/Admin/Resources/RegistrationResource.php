@@ -62,7 +62,7 @@ class RegistrationResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)->applyBuiltinOverridesToSchema([
+        return $form->schema([
             Forms\Components\Placeholder::make('custom_answers_display')
                 ->label('Informasi Tambahan Tersimpan')
                 ->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))
@@ -175,7 +175,8 @@ class RegistrationResource extends Resource
 
             Forms\Components\Section::make('Identitas Calon Siswa')
                 ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
-                ->schema([
+                ->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)
+                    ->applyBuiltinOverridesToSchema([
                     Forms\Components\TextInput::make('nik')
                         ->label('NIK')->validationAttribute('NIK')->required()->length(16)
                         ->unique(
@@ -196,12 +197,13 @@ class RegistrationResource extends Resource
                     ...RegionFields::schema(true),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->columnSpan(['default' => 1, 'md' => 2]),
                     Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric(),
-                ]),
+                ], $record?->configuration)),
 
             Forms\Components\Section::make('Data Orang Tua')
                 ->description('Data ayah dan ibu dipisahkan agar mudah diperiksa oleh TU.')
                 ->relationship('parentInfo')
-                ->schema(ParentInfoFields::schema()),
+                ->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)
+                    ->applyBuiltinOverridesToSchema(ParentInfoFields::schema(), $record?->configuration)),
 
             Forms\Components\Section::make('Persetujuan Data Pribadi')
                 ->description('Snapshot naskah yang benar-benar disetujui pendaftar. Riwayat ini tidak berubah ketika template pada konfigurasi berikutnya diperbarui.')
@@ -247,7 +249,7 @@ class RegistrationResource extends Resource
                         ->columnSpanFull(),
                 ])
                 ->hiddenOn('create'),
-        ], $record?->configuration));
+        ]);
     }
 
     public static function table(Table $table): Table
