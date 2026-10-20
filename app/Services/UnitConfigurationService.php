@@ -179,11 +179,10 @@ class UnitConfigurationService
             $skipped = 0;
 
             foreach ($registrations as $registration) {
-                // Do not rebind an existing registration to a different custom
-                // question schema. Doing so would reinterpret a scalar answer
-                // from an old single-choice field as a multi-choice array (or
-                // invalidate deleted options) when its form is edited.
-                if ($registration->configuration && $this->customFieldSchemaChanged($registration->configuration, $configuration)) {
+                // Never change the field schema of an existing registration, whether
+                // it uses custom questions or configurable built-in fields.
+                // This preserves earlier input types, options and validation.
+                if ($registration->configuration && $this->formFieldSchemaChanged($registration->configuration, $configuration)) {
                     $skipped++;
 
                     continue;
@@ -535,26 +534,38 @@ class UnitConfigurationService
     }
 
     /**
-     * Custom question semantics are frozen with the registration version.
-     * Labels/help text can be refreshed for presentation, but types, choices
-     * and validation requirements may not be silently migrated.
+     * The configuration attached to a registration defines the semantics of
+     * ALL fields, including built-in ones. Presentation text may change, but
+     * type, options, required/active rules and group mappings cannot be silently
+     * migrated from a single-choice input to a multi-choice input.
      */
-    private function customFieldSchemaChanged(UnitConfiguration $from, UnitConfiguration $to): bool
+    private function formFieldSchemaChanged(UnitConfiguration $from, UnitConfiguration $to): bool
     {
         $schema = static function (UnitConfiguration $configuration): array {
-            return collect($configuration->fields ?? [])
-                ->filter(fn (mixed $field): bool => is_array($field)
-                    && ! in_array($field['key'] ?? null, ConfiguredRegistrationForm::BUILTIN_FIELDS, true))
+            $fields = collect($configuration->fields ?? [])
+                ->filter(static fn (mixed $field): bool => is_array($field) && filled($field['key'] ?? null))
                 ->mapWithKeys(static fn (array $field): array => [
-                    (string) $field['key'] => collect($field)
-                        ->only([
-                            'type', 'active', 'required', 'options', 'formats',
-                            'boolean_yes_detail_enabled', 'boolean_yes_detail_required',
-                            'boolean_no_detail_enabled', 'boolean_no_detail_required',
-                        ])
-                        ->all(),
+                    (string) $field['key'] => [
+                        'type' => $field['type'] ?? null,
+                        'active' => (bool) ($field['active'] ?? false),
+                        'required' => (bool) ($field['required'] ?? false),
+                        'options' => array_values($field['options'] ?? []),
+                        'formats' => array_values($field['formats'] ?? []),
+                        'group_key' => $field['group_key'] ?? null,
+                        'boolean_yes_detail_enabled' => (bool) ($field['boolean_yes_detail_enabled'] ?? false),
+                        'boolean_yes_detail_required' => (bool) ($field['boolean_yes_detail_required'] ?? false),
+                        'boolean_no_detail_enabled' => (bool) ($field['boolean_no_detail_enabled'] ?? false),
+                        'boolean_no_detail_required' => (bool) ($field['boolean_no_detail_required'] ?? false),
+                    ],
                 ])
+                ->sortKeys()
                 ->all();
+
+            return [
+                'builtin_field_policy' => $configuration->builtin_field_policy ?? 'system_default',
+                'registrant_relationship_options' => $configuration->registrantRelationshipOptions(),
+                'fields' => $fields,
+            ];
         };
 
         return $schema($from) !== $schema($to);
