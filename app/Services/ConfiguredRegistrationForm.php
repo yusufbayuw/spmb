@@ -111,10 +111,8 @@ class ConfiguredRegistrationForm
                     $definition = $definitions->get($fieldName);
                     $state = $this->builtinFieldState($configuration, $fieldName);
 
-                    if ($definition && in_array($fieldName, ['father_income', 'mother_income'], true)) {
-                        $item = $this->configuredBuiltinField($fieldName, $definition);
-                    } elseif ($definition) {
-                        $item->label($definition['label'])->helperText($definition['help'] ?? null);
+                    if ($definition) {
+                        $item = $this->configuredBuiltinComponent($item, $definition);
                     }
 
                     if ($state['active'] !== null) {
@@ -490,6 +488,102 @@ class ConfiguredRegistrationForm
         return $label === 'Informasi Tambahan'
             ? 'group_additional'
             : 'group_'.substr(sha1(mb_strtolower(trim($label))), 0, 10);
+    }
+
+    /**
+     * Apply the same pinned field version to the staff edit form and the
+     * applicant form. No custom answers or relationship keys are rebuilt.
+     *
+     * @param array<int|string, mixed> $components
+     * @return array<int|string, mixed>
+     */
+    public function applyBuiltinOverridesToSchema(array $components, ?UnitConfiguration $configuration): array
+    {
+        if (! $configuration) {
+            return $components;
+        }
+
+        $definitions = collect($this->presentationFields($configuration))->keyBy('key');
+
+        foreach ($components as $index => $item) {
+            if ($item instanceof Field && in_array($item->getName(), self::BUILTIN_FIELDS, true)) {
+                $name = $item->getName();
+                $definition = $definitions->get($name);
+
+                if ($definition) {
+                    $item = $this->configuredBuiltinComponent($item, $definition);
+                }
+
+                $state = $this->builtinFieldState($configuration, $name);
+
+                if ($state['active'] !== null) {
+                    $item->visible($state['active']);
+                }
+
+                if ($state['required'] !== null) {
+                    $item->required($state['required']);
+                }
+            }
+
+            if (! $item instanceof Field && method_exists($item, 'getChildComponents')) {
+                $children = $item->getChildComponents();
+
+                if ($children) {
+                    $item->schema($this->applyBuiltinOverridesToSchema($children, $configuration));
+                }
+            }
+
+            $components[$index] = $item;
+        }
+
+        return $components;
+    }
+
+    private function configuredBuiltinComponent(Field $original, array $definition): Field
+    {
+        $name = $original->getName();
+        $type = (string) ($definition['type'] ?? '');
+
+        // Region selectors must keep their cascading lookup callbacks.
+        // Other invalid historic field types remain on their native control.
+        if (in_array($name, self::REGION_FIELDS, true)
+            || ! in_array($type, ['text', 'textarea', 'number', 'date', 'select', 'boolean'], true)
+            || ($type === 'select' && empty($definition['options']))) {
+            return $original->label($definition['label'])->helperText($definition['help'] ?? null);
+        }
+
+        $field = $this->configuredBuiltinField($name, $definition);
+
+        // Preserve identity and database-sized constraints when an existing
+        // built-in field changes its presentation component.
+        $maxLengths = [
+            'nisn' => 10, 'nickname' => 50, 'religion' => 50,
+            'phone' => 20, 'email' => 100, 'rt' => 5, 'rw' => 5,
+            'previous_school' => 150,
+            'father_name' => 150, 'mother_name' => 150,
+            'father_nik' => 16, 'mother_nik' => 16,
+            'father_birth_place' => 100, 'mother_birth_place' => 100,
+            'father_education' => 50, 'mother_education' => 50,
+            'father_occupation' => 100, 'mother_occupation' => 100,
+            'father_workplace' => 150, 'mother_workplace' => 150,
+            'father_phone' => 20, 'mother_phone' => 20,
+            'father_email' => 100, 'mother_email' => 100,
+            'father_income' => 100, 'mother_income' => 100,
+        ];
+
+        if ($field instanceof TextInput) {
+            $field->maxLength($maxLengths[$name] ?? 100);
+        }
+
+        if (in_array($name, ['nisn', 'father_nik', 'mother_nik'], true)) {
+            $field->rule($name === 'nisn' ? 'digits:10' : 'digits:16');
+        }
+
+        if ($field instanceof DatePicker && in_array($name, ['father_birth_date', 'mother_birth_date'], true)) {
+            $field->maxDate(now()->subDay());
+        }
+
+        return $field;
     }
 
     private function configuredBuiltinField(string $name, array $definition): Field
