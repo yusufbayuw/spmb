@@ -62,7 +62,7 @@ class RegistrationResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form->schema([
+        return $form->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)->applyBuiltinOverridesToSchema([
             Forms\Components\Placeholder::make('custom_answers_display')
                 ->label('Informasi Tambahan Tersimpan')
                 ->content(fn (?Registration $record) => view('registration.custom-answers', ['registration' => $record]))
@@ -247,7 +247,7 @@ class RegistrationResource extends Resource
                         ->columnSpanFull(),
                 ])
                 ->hiddenOn('create'),
-        ]);
+        ], $record?->configuration));
     }
 
     public static function table(Table $table): Table
