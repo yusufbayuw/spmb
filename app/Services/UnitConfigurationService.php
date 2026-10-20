@@ -564,6 +564,8 @@ class UnitConfigurationService
             return [
                 'builtin_field_policy' => $configuration->builtin_field_policy ?? 'system_default',
                 'registrant_relationship_options' => $configuration->registrantRelationshipOptions(),
+                'form_groups' => $configuration->form_groups ?? [],
+                'form_layout' => $configuration->form_layout ?? [],
                 'fields' => $fields,
             ];
         };
