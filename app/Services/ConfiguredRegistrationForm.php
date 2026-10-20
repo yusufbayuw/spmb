@@ -525,7 +525,10 @@ class ConfiguredRegistrationForm
                 }
             }
 
-            if (! $item instanceof Field && method_exists($item, 'getChildComponents')) {
+            // Plain fields/placeholders/actions have no initialized child
+            // container while the form schema is being built. Traverse only
+            // known layout components that actually own a nested schema.
+            if ($item instanceof Section || $item instanceof Fieldset || $item instanceof Group) {
                 $children = $item->getChildComponents();
 
                 if ($children) {
