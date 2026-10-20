@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Resources\RegistrationResource\Pages\EditRegistration;
+use App\Filament\Forms\ParentInfoFields;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
@@ -13,6 +14,8 @@ use App\Services\UnitConfigurationService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -75,6 +78,53 @@ class PinnedCustomFieldVersionTest extends TestCase
         $this->assertSame($current->id, app(UnitConfigurationService::class)->current($registration->unit_id)->id);
     }
 
+    public function test_builtin_choice_uses_each_registration_version_even_if_custom_fields_are_unchanged(): void
+    {
+        [$registration, $old, $current, $staff] = $this->fixtureWithTwoFormVersions(false);
+
+        $editor = app(ConfiguredRegistrationForm::class);
+
+        $oldParentFields = $editor->applyBuiltinOverridesToSchema(ParentInfoFields::schema(), $old);
+        $oldOccupation = collect($oldParentFields[0]->getChildComponents())->first(
+            fn ($field): bool => $field->getName() === 'father_occupation',
+        );
+        $this->assertInstanceOf(Select::class, $oldOccupation);
+        $this->assertSame(['Guru' => 'Guru', 'Pedagang' => 'Pedagang'], $oldOccupation->getOptions());
+
+        $newParentFields = $editor->applyBuiltinOverridesToSchema(ParentInfoFields::schema(), $current);
+        $newOccupation = collect($newParentFields[0]->getChildComponents())->first(
+            fn ($field): bool => $field->getName() === 'father_occupation',
+        );
+        $this->assertInstanceOf(TextInput::class, $newOccupation);
+
+        $result = app(UnitConfigurationService::class)
+            ->applyCurrentToEligibleActiveRegistrations($registration->unit, $staff);
+
+        $this->assertSame(0, $result['updated']);
+        $this->assertGreaterThanOrEqual(1, $result['skipped']);
+        $this->assertSame($old->id, $registration->fresh()->unit_configuration_id);
+        $this->assertSame('Guru', $registration->fresh()->parentInfo->father_occupation);
+    }
+
+    public function test_builtin_scalar_field_cannot_publish_multi_choice_array_type(): void
+    {
+        [$registration, , , $staff] = $this->fixtureWithTwoFormVersions(false);
+        $service = app(UnitConfigurationService::class);
+        $draft = $service->draft($registration->unit, $staff);
+        $data = $draft->toArray();
+        $index = array_search('father_occupation', array_column($data['fields'], 'key'), true);
+        $this->assertNotFalse($index);
+        $data['fields'][$index]['type'] = 'multiselect';
+        $data['fields'][$index]['options'] = ['Guru', 'Pedagang'];
+
+        try {
+            $service->save($draft, $staff, $data, true);
+            $this->fail('Konfigurasi pilihan jamak untuk kolom bawaan harus ditolak.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('fields.'.$index.'.type', $exception->errors());
+        }
+    }
+
     public function test_staff_can_edit_old_choice_without_touching_private_uploads_or_unknown_answers(): void
     {
         [$registration, $old, , $staff] = $this->fixtureWithTwoFormVersions();
@@ -106,7 +156,7 @@ class PinnedCustomFieldVersionTest extends TestCase
     }
 
     /** @return array{Registration, \App\Models\UnitConfiguration, \App\Models\UnitConfiguration, User} */
-    private function fixtureWithTwoFormVersions(): array
+    private function fixtureWithTwoFormVersions(bool $changeCustom = true): array
     {
         $this->seed(ShieldSeeder::class);
 
@@ -161,6 +211,14 @@ class PinnedCustomFieldVersionTest extends TestCase
                 'group_key' => 'group_additional',
                 'formats' => ['pdf'],
             ],
+            [
+                'key' => 'father_occupation',
+                'label' => 'Pekerjaan Ayah',
+                'type' => 'select',
+                'active' => true,
+                'required' => false,
+                'options' => ['Guru', 'Pedagang'],
+            ],
         ];
         $old = $configurationService->save($draft, $staff, $configData, true);
 
@@ -184,11 +242,23 @@ class PinnedCustomFieldVersionTest extends TestCase
             ],
         ]);
 
+        $registration->parentInfo()->create([
+            'father_name' => 'Ayah Peserta Lama',
+            'mother_name' => 'Ibu Peserta Lama',
+            'father_occupation' => 'Guru',
+        ]);
+
         $draft = $configurationService->draft($unit, $staff);
         $newData = $draft->toArray();
-        $newData['fields'][0]['type'] = 'multiselect';
-        $newData['fields'][0]['label'] = 'Pilihan Baru';
-        $newData['fields'][0]['options'] = ['A', 'B', 'C'];
+
+        if ($changeCustom) {
+            $newData['fields'][0]['type'] = 'multiselect';
+            $newData['fields'][0]['label'] = 'Pilihan Baru';
+            $newData['fields'][0]['options'] = ['A', 'B', 'C'];
+        }
+
+        $newData['fields'][2]['type'] = 'text';
+        $newData['fields'][2]['options'] = [];
         $current = $configurationService->save($draft, $staff, $newData, true);
 
         return [$registration, $old, $current, $staff];
