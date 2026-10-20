@@ -85,7 +85,13 @@ class PinnedCustomFieldVersionTest extends TestCase
         Livewire::test(EditRegistration::class, ['record' => $registration->getRouteKey()])
             ->assertSee('Perbarui Jawaban Tambahan')
             ->assertFormSet(['custom_answers.custom_choice' => 'B'])
-            ->fillForm(['custom_answers.custom_choice' => 'A'])
+            ->fillForm([
+                'custom_answers.custom_choice' => 'A',
+                'parentInfo' => [
+                    'father_name' => 'Ayah Peserta Lama',
+                    'mother_name' => 'Ibu Peserta Lama',
+                ],
+            ])
             ->call('save')
             ->assertHasNoFormErrors();
 
