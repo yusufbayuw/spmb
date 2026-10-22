@@ -46,6 +46,16 @@ class RegistrationStatus extends Page
             ])
             ->where('uuid', $registration)->firstOrFail();
 
+        // Counts are scoped to this applicant's already-authorized opening.
+        // Only query statistics when explicitly enabled by its Admin Unit.
+        $opening = $this->registrationRecord->opening;
+        if ($opening && ($opening->show_total_applicants || $opening->show_verified_applicants)) {
+            $this->registrationRecord->setRelation(
+                'opening',
+                $this->registrationRecord->opening()->withApplicantStatistics()->firstOrFail(),
+            );
+        }
+
         $this->nextAction = app(ApplicantNextActionService::class)->resolve($this->registrationRecord);
     }
 

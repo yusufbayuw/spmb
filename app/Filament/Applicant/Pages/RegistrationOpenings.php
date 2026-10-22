@@ -93,6 +93,7 @@ class RegistrationOpenings extends Page
 
         return RegistrationOpening::query()
             ->select('registration_openings.*')
+            ->withApplicantStatistics()
             ->leftJoin('units', 'units.id', '=', 'registration_openings.unit_id')
             ->leftJoin('education_levels as unit_levels', 'unit_levels.id', '=', 'units.education_level_id')
             ->leftJoin('study_programs', 'study_programs.id', '=', 'registration_openings.study_program_id')
