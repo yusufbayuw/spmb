@@ -682,7 +682,7 @@ class UnitConfigurationService
                 'academic_score_settings.assessments.*.key' => ['required', 'regex:/^[a-z0-9_]+$/', 'distinct', 'max:60'],
                 'academic_score_settings.assessments.*.label' => ['required', 'string', 'max:150'],
                 'academic_score_settings.assessments.*.grade_keys' => ['nullable', 'array', 'max:12'],
-                'academic_score_settings.assessments.*.grade_keys.*' => ['string', 'distinct', 'max:60'],
+                'academic_score_settings.assessments.*.grade_keys.*' => ['string', 'max:60'],
                 'achievements_enabled' => ['required', 'boolean'],
                 'achievement_settings' => ['present', 'array'],
                 'achievement_settings.required' => ['required', 'boolean'],
