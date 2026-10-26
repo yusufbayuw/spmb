@@ -14,6 +14,7 @@ use App\Services\UnitConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use OpenSpout\Reader\XLSX\Reader;
 use Tests\TestCase;
+use ZipArchive;
 
 class RegistrationExcelExportTest extends TestCase
 {
@@ -166,7 +167,7 @@ class RegistrationExcelExportTest extends TestCase
         $sheets = $this->readWorkbook($result['path']);
 
         $this->assertSame(
-            ['Data Pendaftaran', 'Nilai Akademik', 'Prestasi', 'Info Export'],
+            ['Data Pendaftaran', 'Nilai Akademik', 'Rekap Nilai', 'Prestasi', 'Info Export'],
             array_keys($sheets),
         );
 
@@ -197,6 +198,11 @@ class RegistrationExcelExportTest extends TestCase
         $this->assertContains('Rapor Semester 1', $sheets['Nilai Akademik'][1]);
         $this->assertContains(88.5, $sheets['Nilai Akademik'][1]);
 
+        $this->assertContains('Kelas VII', $sheets['Rekap Nilai'][0]);
+        $this->assertContains('Matematika', $sheets['Rekap Nilai'][1]);
+        $this->assertContains('Rapor Semester 1', $sheets['Rekap Nilai'][2]);
+        $this->assertContains(88.5, $sheets['Rekap Nilai'][3]);
+
         $this->assertContains('Juara Olimpiade', $sheets['Prestasi'][1]);
         $this->assertContains('Panitia Test', $sheets['Prestasi'][1]);
 
@@ -207,6 +213,150 @@ class RegistrationExcelExportTest extends TestCase
         $this->assertContains(1, $countRow);
 
         @unlink($result['path']);
+    }
+
+    public function test_score_recap_preserves_historical_labels_and_keeps_one_row_per_registration(): void
+    {
+        $unit = Unit::create([
+            'name' => 'SMP Historis',
+            'code' => 'HIST',
+            'institution_type' => 'school',
+            'is_active' => true,
+        ]);
+        $actor = User::factory()->create([
+            'role' => 'admin_unit',
+            'unit_id' => $unit->id,
+            'is_active' => true,
+        ]);
+
+        $base = app(UnitConfigurationService::class)->defaults($unit);
+        $base['academic_scores_enabled'] = true;
+        $base['academic_score_settings'] = [
+            'required' => false,
+            'min_score' => 0,
+            'max_score' => 100,
+            'pathway_uuids' => [],
+            'grades' => [['key' => 'vii', 'label' => 'Kelas VII']],
+            'subjects' => [['key' => 'mat', 'label' => 'Matematika']],
+            'assessments' => [['key' => 'rapor_s1', 'label' => 'Rapor S1', 'grade_keys' => ['vii']]],
+        ];
+        $old = UnitConfiguration::create(array_merge($base, [
+            'unit_id' => $unit->id,
+            'version' => 1,
+            'status' => 'published',
+            'published_at' => now()->subDay(),
+        ]));
+
+        // The same "mat" key has a new meaning in the newer configuration.
+        $newData = $base;
+        $newData['academic_score_settings']['subjects'] = [
+            ['key' => 'mat', 'label' => 'Matematika Lanjutan'],
+            ['key' => 'ipa', 'label' => 'IPA'],
+        ];
+        $new = UnitConfiguration::create(array_merge($newData, [
+            'unit_id' => $unit->id,
+            'version' => 2,
+            'status' => 'published',
+            'published_at' => now(),
+        ]));
+
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'status' => 'open',
+            'registration_fee' => 0,
+        ]);
+        $pathway = RegistrationPathway::create([
+            'unit_id' => $unit->id,
+            'name' => 'Reguler',
+            'is_active' => true,
+        ]);
+
+        $registrations = [];
+        foreach ([
+            ['SMP-OLD', '3273010101010001', 'Peserta Lama', $old],
+            ['SMP-NEW', '3273010101010002', 'Peserta Baru', $new],
+            ['SMP-EMPTY', '3273010101010003', 'Belum Mengisi', $new],
+        ] as [$number, $nik, $name, $configuration]) {
+            $registrations[] = Registration::create([
+                'user_id' => User::factory()->create()->id,
+                'unit_id' => $unit->id,
+                'unit_configuration_id' => $configuration->id,
+                'registration_opening_id' => $opening->id,
+                'registration_pathway_id' => $pathway->id,
+                'registrant_type' => 'self',
+                'registrant_relationship' => 'self',
+                'registration_number' => $number,
+                'nik' => $nik,
+                'full_name' => $name,
+                'status' => 'submitted',
+                'current_stage' => 'data_validation',
+                'data_validation_status' => 'pending',
+            ]);
+        }
+
+        $registrations[0]->academicScores()->create([
+            'grade_key' => 'vii',
+            'subject_key' => 'mat',
+            'assessment_key' => 'rapor_s1',
+            'score' => 80.5,
+        ]);
+        $registrations[1]->academicScores()->create([
+            'grade_key' => 'vii',
+            'subject_key' => 'mat',
+            'assessment_key' => 'rapor_s1',
+            'score' => 93,
+        ]);
+
+        $result = app(RegistrationExcelExportService::class)->export(
+            Registration::query()->whereIn('id', array_map(
+                static fn (Registration $registration): int => $registration->id,
+                $registrations,
+            ))->orderBy('id'),
+            $actor,
+        );
+
+        try {
+            $sheets = $this->readWorkbook($result['path']);
+            $rows = $sheets['Rekap Nilai'];
+
+            $this->assertCount(6, $rows);
+            $this->assertSame(['SMP-OLD', 'SMP-NEW', 'SMP-EMPTY'], [
+                $rows[3][1],
+                $rows[4][1],
+                $rows[5][1],
+            ]);
+
+            $oldColumn = array_search('Matematika', $rows[1], true);
+            $newColumn = array_search('Matematika Lanjutan', $rows[1], true);
+            $this->assertIsInt($oldColumn);
+            $this->assertIsInt($newColumn);
+            $this->assertNotSame($oldColumn, $newColumn);
+            $this->assertSame(80.5, (float) $rows[3][$oldColumn]);
+            $this->assertTrue(blank($rows[3][$newColumn] ?? null));
+            $this->assertSame(93.0, (float) $rows[4][$newColumn]);
+            $this->assertTrue(blank($rows[4][$oldColumn] ?? null));
+            $this->assertTrue(blank($rows[5][$oldColumn] ?? null));
+            $this->assertTrue(blank($rows[5][$newColumn] ?? null));
+
+            // Multilevel headers are real Excel merges, not merely repeated labels.
+            $zip = new ZipArchive();
+            $this->assertTrue($zip->open($result['path']) === true);
+            try {
+                $sheetXml = $zip->getFromName('xl/worksheets/sheet3.xml');
+                $this->assertIsString($sheetXml);
+                $this->assertStringContainsString('ref="A1:A3"', $sheetXml);
+                $this->assertStringContainsString('ref="F1:H1"', $sheetXml);
+            } finally {
+                $zip->close();
+            }
+
+            // The original detailed sheet is still one row per saved score.
+            $this->assertCount(3, $sheets['Nilai Akademik']);
+        } finally {
+            @unlink($result['path']);
+        }
     }
 
     /**
