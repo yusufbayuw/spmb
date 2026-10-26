@@ -682,7 +682,7 @@ class UnitConfigurationService
                 'academic_score_settings.assessments.*.key' => ['required', 'regex:/^[a-z0-9_]+$/', 'distinct', 'max:60'],
                 'academic_score_settings.assessments.*.label' => ['required', 'string', 'max:150'],
                 'academic_score_settings.assessments.*.grade_keys' => ['nullable', 'array', 'max:12'],
-                'academic_score_settings.assessments.*.grade_keys.*' => ['string', 'distinct', 'max:60'],
+                'academic_score_settings.assessments.*.grade_keys.*' => ['string', 'max:60'],
                 'achievements_enabled' => ['required', 'boolean'],
                 'achievement_settings' => ['present', 'array'],
                 'achievement_settings.required' => ['required', 'boolean'],
@@ -823,6 +823,14 @@ class UnitConfigurationService
 
             $academicGradeKeys = collect($validated['academic_score_settings']['grades'] ?? [])->pluck('key');
             foreach ($validated['academic_score_settings']['assessments'] ?? [] as $assessmentIndex => $assessment) {
+                $gradeKeys = $assessment['grade_keys'] ?? [];
+                if (count($gradeKeys) !== count(array_unique($gradeKeys))) {
+                    throw ValidationException::withMessages([
+                        'academic_score_settings.assessments.'.$assessmentIndex.'.grade_keys'
+                            => 'Kelas/tingkat tidak boleh dipilih lebih dari sekali dalam komponen nilai yang sama.',
+                    ]);
+                }
+
                 $unknownGradeKeys = collect($assessment['grade_keys'] ?? [])->diff($academicGradeKeys);
 
                 if ($unknownGradeKeys->isNotEmpty()) {
