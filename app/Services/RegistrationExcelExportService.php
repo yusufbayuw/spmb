@@ -66,6 +66,7 @@ class RegistrationExcelExportService
 
         $this->writeMainSheet($writer, $query, $customColumns, $configurations, $headerStyle);
         $this->writeAcademicScoresSheet($writer, $query, $configurations, $headerStyle);
+        app(RegistrationAcademicRecapSheet::class)->write($writer, $query, $configurations, $headerStyle);
         $this->writeAchievementsSheet($writer, $query, $headerStyle);
         $this->writeInfoSheet($writer, $actor, $count, $titleStyle, $sectionStyle);
 
