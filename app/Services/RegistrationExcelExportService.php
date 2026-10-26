@@ -66,6 +66,7 @@ class RegistrationExcelExportService
 
         $this->writeMainSheet($writer, $query, $customColumns, $configurations, $headerStyle);
         $this->writeAcademicScoresSheet($writer, $query, $configurations, $headerStyle);
+        $this->writeAcademicSummarySheet($writer, $query, $configurations, $headerStyle, $sectionStyle);
         $this->writeAchievementsSheet($writer, $query, $headerStyle);
         $this->writeInfoSheet($writer, $actor, $count, $titleStyle, $sectionStyle);
 
@@ -344,6 +345,77 @@ class RegistrationExcelExportService
         }
 
         $sheet->setAutoFilter(new AutoFilter(0, 1, 6, max(1, $rowCount + 1)));
+    }
+
+    /**
+     * One registration per row, with three-level headers: grade, subject, assessment.
+     * Include historical configuration versions and stored scores so old values remain exportable.
+     *
+     * @param Collection<int, UnitConfiguration> $configurations
+     */
+    private function writeAcademicSummarySheet(
+        Writer $writer,
+        Builder $query,
+        Collection $configurations,
+        Style $headerStyle,
+        Style $sectionStyle,
+    ): void {
+        $columns = [];
+        $dataQuery = clone $query;
+        $dataQuery->with(['academicScores', 'configuration']);
+
+        foreach ($dataQuery->lazy(500) as $registration) {
+            $configuration = $configurations->get($registration->unit_configuration_id) ?? $registration->configuration;
+            $settings = is_array($configuration?->academic_score_settings) ? $configuration->academic_score_settings : [];
+            $grades = collect($settings['grades'] ?? [])->pluck('label', 'key');
+            $subjects = collect($settings['subjects'] ?? [])->pluck('label', 'key');
+            $assessments = collect($settings['assessments'] ?? [])->pluck('label', 'key');
+
+            foreach ($registration->academicScores as $score) {
+                $key = $registration->unit_id.'|'.$score->grade_key.'|'.$score->subject_key.'|'.$score->assessment_key;
+                $columns[$key] ??= [
+                    'unit' => $registration->unit_id,
+                    'grade' => $score->grade_key,
+                    'subject' => $score->subject_key,
+                    'assessment' => $score->assessment_key,
+                    'labels' => [
+                        $grades[$score->grade_key] ?? $score->grade_key,
+                        $subjects[$score->subject_key] ?? $score->subject_key,
+                        $assessments[$score->assessment_key] ?? $score->assessment_key,
+                    ],
+                ];
+            }
+        }
+
+        $sheet = $writer->addNewSheetAndMakeItCurrent();
+        $sheet->setName('Rekap Nilai');
+        $sheet->setSheetView((new SheetView())->setFreezeRow(4));
+        $identity = ['No. Pendaftaran', 'NIK', 'Nama Lengkap'];
+        foreach ([0, 1, 2] as $level) {
+            $labels = array_map(fn (array $column): string => $column['labels'][$level], array_values($columns));
+            $writer->addRow(Row::fromValues(array_merge($level === 0 ? $identity : ['', '', ''], $labels), $level === 0 ? $headerStyle : $sectionStyle));
+        }
+        $sheet->setColumnWidth(22, 1);
+        $sheet->setColumnWidth(22, 2);
+        $sheet->setColumnWidth(32, 3);
+        foreach (array_keys($columns) as $index) {
+            $sheet->setColumnWidth(22, $index + 4);
+        }
+
+        $rowCount = 0;
+        foreach ($dataQuery->lazy(500) as $registration) {
+            $scores = [];
+            foreach ($registration->academicScores as $score) {
+                $scores[$registration->unit_id.'|'.$score->grade_key.'|'.$score->subject_key.'|'.$score->assessment_key] = (float) $score->score;
+            }
+            $writer->addRow(Row::fromValues(array_merge([
+                $registration->registration_number ?: '-',
+                $registration->nik,
+                $registration->full_name,
+            ], array_map(fn (string $key): ?float => $scores[$key] ?? null, array_keys($columns)))));
+            $rowCount++;
+        }
+        $sheet->setAutoFilter(new AutoFilter(0, 3, max(2, count($columns) + 2), max(3, $rowCount + 3)));
     }
 
     private function writeAchievementsSheet(Writer $writer, Builder $query, Style $headerStyle): void

@@ -166,7 +166,7 @@ class RegistrationExcelExportTest extends TestCase
         $sheets = $this->readWorkbook($result['path']);
 
         $this->assertSame(
-            ['Data Pendaftaran', 'Nilai Akademik', 'Prestasi', 'Info Export'],
+            ['Data Pendaftaran', 'Nilai Akademik', 'Rekap Nilai', 'Prestasi', 'Info Export'],
             array_keys($sheets),
         );
 
@@ -196,6 +196,12 @@ class RegistrationExcelExportTest extends TestCase
         $this->assertContains('Matematika', $sheets['Nilai Akademik'][1]);
         $this->assertContains('Rapor Semester 1', $sheets['Nilai Akademik'][1]);
         $this->assertContains(88.5, $sheets['Nilai Akademik'][1]);
+
+        $this->assertSame(['No. Pendaftaran', 'NIK', 'Nama Lengkap', 'Kelas VII'], $sheets['Rekap Nilai'][0]);
+        $this->assertSame('Matematika', $sheets['Rekap Nilai'][1][3]);
+        $this->assertSame('Rapor Semester 1', $sheets['Rekap Nilai'][2][3]);
+        $this->assertSame('SMP-001', $sheets['Rekap Nilai'][3][0]);
+        $this->assertSame(88.5, $sheets['Rekap Nilai'][3][3]);
 
         $this->assertContains('Juara Olimpiade', $sheets['Prestasi'][1]);
         $this->assertContains('Panitia Test', $sheets['Prestasi'][1]);
