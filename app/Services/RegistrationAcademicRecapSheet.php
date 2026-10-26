@@ -118,19 +118,19 @@ final class RegistrationAcademicRecapSheet
         usort($columns, static fn (array $a, array $b): int => [
             $a['unit_name'],
             $a['unit_id'],
-            $a['grade_label'],
-            $a['grade_key'],
             $a['subject_label'],
             $a['subject_key'],
+            $a['grade_label'],
+            $a['grade_key'],
             $a['assessment_label'],
             $a['assessment_key'],
         ] <=> [
             $b['unit_name'],
             $b['unit_id'],
-            $b['grade_label'],
-            $b['grade_key'],
             $b['subject_label'],
             $b['subject_key'],
+            $b['grade_label'],
+            $b['grade_key'],
             $b['assessment_label'],
             $b['assessment_key'],
         ]);
@@ -148,8 +148,8 @@ final class RegistrationAcademicRecapSheet
         $bottom = array_fill(0, count(self::IDENTITY_HEADERS), null);
         $multiUnit = count($unitIds) > 1;
 
-        $previousGrade = null;
         $previousSubject = null;
+        $previousGrade = null;
         $displayOccurrences = [];
 
         foreach ($columns as $column) {
@@ -163,12 +163,12 @@ final class RegistrationAcademicRecapSheet
         }
 
         foreach ($columns as $column) {
-            $gradeIdentity = $this->gradeIdentity($column);
-            $subjectIdentity = $this->subjectIdentity($column);
-            $top[] = $gradeIdentity !== $previousGrade
-                ? ($multiUnit ? $column['unit_name'].' / ' : '').$column['grade_label']
+            $subjectIdentity = $this->subjectGroupIdentity($column);
+            $gradeIdentity = $this->gradeGroupIdentity($column);
+            $top[] = $subjectIdentity !== $previousSubject
+                ? ($multiUnit ? $column['unit_name'].' / ' : '').$column['subject_label']
                 : null;
-            $middle[] = $subjectIdentity !== $previousSubject ? $column['subject_label'] : null;
+            $middle[] = $gradeIdentity !== $previousGrade ? $column['grade_label'] : null;
 
             $path = json_encode([
                 $column['unit_id'],
@@ -182,8 +182,8 @@ final class RegistrationAcademicRecapSheet
                 ? $column['assessment_label'].' ['.$column['grade_key'].'/'.$column['subject_key'].'/'.$column['assessment_key'].']'
                 : $column['assessment_label'];
 
-            $previousGrade = $gradeIdentity;
             $previousSubject = $subjectIdentity;
+            $previousGrade = $gradeIdentity;
         }
 
         $writer->addRow(Row::fromValues($top, $headerStyle));
@@ -195,40 +195,40 @@ final class RegistrationAcademicRecapSheet
             $writer->getOptions()->mergeCells($index, 1, $index, 3, $sheetIndex);
         }
 
-        $gradeStart = 0;
         $subjectStart = 0;
+        $gradeStart = 0;
         $columnCount = count($columns);
 
         for ($index = 1; $index <= $columnCount; $index++) {
-            $gradeEnd = $index === $columnCount
-                || $this->gradeIdentity($columns[$index]) !== $this->gradeIdentity($columns[$gradeStart]);
             $subjectEnd = $index === $columnCount
-                || $this->subjectIdentity($columns[$index]) !== $this->subjectIdentity($columns[$subjectStart]);
-
-            if ($subjectEnd) {
-                if ($index - $subjectStart > 1) {
-                    $writer->getOptions()->mergeCells(
-                        count(self::IDENTITY_HEADERS) + $subjectStart,
-                        2,
-                        count(self::IDENTITY_HEADERS) + $index - 1,
-                        2,
-                        $sheetIndex,
-                    );
-                }
-                $subjectStart = $index;
-            }
+                || $this->subjectGroupIdentity($columns[$index]) !== $this->subjectGroupIdentity($columns[$subjectStart]);
+            $gradeEnd = $index === $columnCount
+                || $this->gradeGroupIdentity($columns[$index]) !== $this->gradeGroupIdentity($columns[$gradeStart]);
 
             if ($gradeEnd) {
                 if ($index - $gradeStart > 1) {
                     $writer->getOptions()->mergeCells(
                         count(self::IDENTITY_HEADERS) + $gradeStart,
+                        2,
+                        count(self::IDENTITY_HEADERS) + $index - 1,
+                        2,
+                        $sheetIndex,
+                    );
+                }
+                $gradeStart = $index;
+            }
+
+            if ($subjectEnd) {
+                if ($index - $subjectStart > 1) {
+                    $writer->getOptions()->mergeCells(
+                        count(self::IDENTITY_HEADERS) + $subjectStart,
                         1,
                         count(self::IDENTITY_HEADERS) + $index - 1,
                         1,
                         $sheetIndex,
                     );
                 }
-                $gradeStart = $index;
+                $subjectStart = $index;
             }
         }
 
@@ -345,18 +345,18 @@ final class RegistrationAcademicRecapSheet
         ];
     }
 
-    private function gradeIdentity(array $column): string
+    private function subjectGroupIdentity(array $column): string
     {
         return json_encode([
-            $column['unit_id'], $column['grade_key'], $column['grade_label'],
+            $column['unit_id'], $column['subject_key'], $column['subject_label'],
         ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
-    private function subjectIdentity(array $column): string
+    private function gradeGroupIdentity(array $column): string
     {
         return json_encode([
-            $column['unit_id'], $column['grade_key'], $column['grade_label'],
-            $column['subject_key'], $column['subject_label'],
+            $column['unit_id'], $column['subject_key'], $column['subject_label'],
+            $column['grade_key'], $column['grade_label'],
         ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 }

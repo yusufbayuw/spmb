@@ -198,8 +198,8 @@ class RegistrationExcelExportTest extends TestCase
         $this->assertContains('Rapor Semester 1', $sheets['Nilai Akademik'][1]);
         $this->assertContains(88.5, $sheets['Nilai Akademik'][1]);
 
-        $this->assertContains('Kelas VII', $sheets['Rekap Nilai'][0]);
-        $this->assertContains('Matematika', $sheets['Rekap Nilai'][1]);
+        $this->assertContains('Matematika', $sheets['Rekap Nilai'][0]);
+        $this->assertContains('Kelas VII', $sheets['Rekap Nilai'][1]);
         $this->assertContains('Rapor Semester 1', $sheets['Rekap Nilai'][2]);
         $this->assertContains(88.5, $sheets['Rekap Nilai'][3]);
 
@@ -236,9 +236,15 @@ class RegistrationExcelExportTest extends TestCase
             'min_score' => 0,
             'max_score' => 100,
             'pathway_uuids' => [],
-            'grades' => [['key' => 'vii', 'label' => 'Kelas VII']],
+            'grades' => [
+                ['key' => 'vii', 'label' => 'Kelas VII'],
+                ['key' => 'viii', 'label' => 'Kelas VIII'],
+            ],
             'subjects' => [['key' => 'mat', 'label' => 'Matematika']],
-            'assessments' => [['key' => 'rapor_s1', 'label' => 'Rapor S1', 'grade_keys' => ['vii']]],
+            'assessments' => [
+                ['key' => 'rapor_s1', 'label' => 'Rapor S1', 'grade_keys' => ['vii', 'viii']],
+                ['key' => 'rapor_s2', 'label' => 'Rapor S2', 'grade_keys' => ['vii', 'viii']],
+            ],
         ];
         $old = UnitConfiguration::create(array_merge($base, [
             'unit_id' => $unit->id,
@@ -332,11 +338,15 @@ class RegistrationExcelExportTest extends TestCase
                 $rows[5][1],
             ]);
 
-            $oldColumn = array_search('Matematika', $rows[1], true);
-            $newColumn = array_search('Matematika Lanjutan', $rows[1], true);
+            $oldColumn = array_search('Matematika', $rows[0], true);
+            $newColumn = array_search('Matematika Lanjutan', $rows[0], true);
             $this->assertIsInt($oldColumn);
             $this->assertIsInt($newColumn);
             $this->assertNotSame($oldColumn, $newColumn);
+            $this->assertSame('Kelas VII', $rows[1][$oldColumn]);
+            $this->assertSame('Kelas VIII', $rows[1][$oldColumn + 2]);
+            $this->assertSame('Rapor S1', $rows[2][$oldColumn]);
+            $this->assertSame('Rapor S2', $rows[2][$oldColumn + 1]);
             $this->assertSame(80.5, (float) $rows[3][$oldColumn]);
             $this->assertTrue(blank($rows[3][$newColumn] ?? null));
             $this->assertSame(93.0, (float) $rows[4][$newColumn]);
@@ -351,7 +361,9 @@ class RegistrationExcelExportTest extends TestCase
                 $sheetXml = $zip->getFromName('xl/worksheets/sheet3.xml');
                 $this->assertIsString($sheetXml);
                 $this->assertStringContainsString('ref="A1:A3"', $sheetXml);
-                $this->assertStringContainsString('ref="F1:H1"', $sheetXml);
+                $this->assertStringContainsString('ref="F1:I1"', $sheetXml);
+                $this->assertStringContainsString('ref="F2:G2"', $sheetXml);
+                $this->assertStringContainsString('ref="H2:I2"', $sheetXml);
             } finally {
                 $zip->close();
             }
