@@ -823,6 +823,14 @@ class UnitConfigurationService
 
             $academicGradeKeys = collect($validated['academic_score_settings']['grades'] ?? [])->pluck('key');
             foreach ($validated['academic_score_settings']['assessments'] ?? [] as $assessmentIndex => $assessment) {
+                $gradeKeys = $assessment['grade_keys'] ?? [];
+                if (count($gradeKeys) !== count(array_unique($gradeKeys))) {
+                    throw ValidationException::withMessages([
+                        'academic_score_settings.assessments.'.$assessmentIndex.'.grade_keys'
+                            => 'Kelas/tingkat tidak boleh dipilih lebih dari sekali dalam komponen nilai yang sama.',
+                    ]);
+                }
+
                 $unknownGradeKeys = collect($assessment['grade_keys'] ?? [])->diff($academicGradeKeys);
 
                 if ($unknownGradeKeys->isNotEmpty()) {
