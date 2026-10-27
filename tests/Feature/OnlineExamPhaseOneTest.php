@@ -285,6 +285,25 @@ class OnlineExamPhaseOneTest extends TestCase
             ->submit($attempt, $user)->percentage);
     }
 
+    public function test_clearing_numerical_answer_removes_previous_autosaved_value(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario();
+        $this->addQuestion($exam, 'numerical', [], ['value' => 9.8, 'tolerance' => 0.1]);
+        $exam->update(['is_published' => true]);
+
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        $attempt = app(OnlineExamEngine::class)->start($assignment, $user);
+        $item = $attempt->items->sole();
+
+        app(OnlineExamEngine::class)->save($attempt, $user, $item->id, '9.8');
+        $this->assertEquals(9.8, $item->fresh()->answer['value']);
+
+        app(OnlineExamEngine::class)->save($attempt, $user, $item->id, '');
+        $this->assertNull($item->fresh()->answer['value']);
+        $this->assertEquals(0, (float) app(OnlineExamEngine::class)
+            ->submit($attempt, $user)->percentage);
+    }
+
     public function test_numerical_question_rejects_non_finite_keys_and_tolerances(): void
     {
         [$unit] = $this->scenario();
