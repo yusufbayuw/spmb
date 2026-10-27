@@ -83,10 +83,9 @@ class AdmissionTestResource extends Resource
             ->reorderable('sort_order')
             ->columns([
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit / Institusi')->badge(),
-                Tables\Columns\TextColumn::make('studyProgram.name')
+                Tables\Columns\TextColumn::make('program_scope')
                     ->label('Program Studi')
-                    ->formatStateUsing(fn ($state, AdmissionTest $record): string => $record->programScopeLabel())
-                    ->placeholder('Semua program'),
+                    ->getStateUsing(fn (AdmissionTest $record): string => $record->programScopeLabel()),
                 Tables\Columns\TextColumn::make('name')->label('Tes')->searchable(),
                 Tables\Columns\TextColumn::make('sessions_count')->label('Sesi')->badge(),
                 Tables\Columns\IconColumn::make('is_required')->boolean(),
