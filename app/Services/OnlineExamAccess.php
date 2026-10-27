@@ -41,12 +41,23 @@ class OnlineExamAccess
         return $query->where($column, (int) $actor->unit_id);
     }
 
-    public function canSit(?User $actor, OnlineExamAssignment $assignment): bool
+    /**
+     * A participant may resume an already-started attempt after the exam's
+     * opening window closes, until the attempt's own server deadline.
+     * Revoking the assignment or deactivating the unit still blocks access.
+     */
+    public function canResume(?User $actor, OnlineExamAssignment $assignment): bool
     {
         return $actor !== null && $actor->is_active
             && $actor->isUser()
             && $assignment->is_active
             && (int) $actor->id === (int) $assignment->user_id
+            && $assignment->exam?->unit?->isOperational();
+    }
+
+    public function canSit(?User $actor, OnlineExamAssignment $assignment): bool
+    {
+        return $this->canResume($actor, $assignment)
             && $assignment->exam?->isOpen();
     }
 
