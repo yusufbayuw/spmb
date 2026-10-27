@@ -24,10 +24,10 @@ class RegistrationRichEmailHtml
             'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's',
             'h2', 'h3', 'blockquote', 'ul', 'ol', 'li', 'code', 'pre',
         ] as $element) {
-            $config->allowElement($element);
+            $config = $config->allowElement($element);
         }
 
-        $config->allowElement('a', ['href', 'title']);
+        $config = $config->allowElement('a', ['href', 'title']);
 
         return (new HtmlSanitizer($config))->sanitize($input);
     }
