@@ -64,15 +64,24 @@ class OnlineExamTake extends Page
     {
         $engine = app(OnlineExamEngine::class);
         $record = $this->record();
-        if ($record->status === 'in_progress' && $record->expires_at->gt(now())) {
-            foreach (array_keys($this->answers) as $id) {
-                if (ctype_digit((string) $id)) {
-                    $engine->save($record, auth()->user(), (int) $id, $this->answers[$id]);
+        try {
+            if ($record->status === 'in_progress' && $record->expires_at->gt(now())) {
+                foreach (array_keys($this->answers) as $id) {
+                    if (ctype_digit((string) $id)) {
+                        $engine->save($record, auth()->user(), (int) $id, $this->answers[$id]);
+                    }
                 }
             }
-        }
 
-        $engine->submit($record, auth()->user());
+            $engine->submit($record, auth()->user());
+        } catch (ValidationException $exception) {
+            Notification::make()
+                ->title('Ujian belum berhasil dikumpulkan')
+                ->body(collect($exception->errors())->flatten()->first() ?? 'Periksa kembali jawaban Anda.')
+                ->danger()->send();
+
+            return;
+        }
 
         Notification::make()->title('Jawaban ujian telah dikumpulkan')->success()->send();
     }
