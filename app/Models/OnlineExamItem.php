@@ -16,6 +16,7 @@ class OnlineExamItem extends Model
             $question = OnlineExamQuestion::query()->find($item->online_exam_question_id);
 
             if (! $exam || ! $question || ! $exam->unit?->isOperational()
+                || ! $question->is_active
                 || (int) $exam->unit_id !== (int) $question->unit_id) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'online_exam_question_id' => 'Soal harus berasal dari unit yang sama dengan paket tes.',
