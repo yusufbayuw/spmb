@@ -220,7 +220,7 @@ class RegistrationManualEmailTest extends TestCase
         ]);
         $attempt->forceFill(['created_at' => now()->subHours(3)])->save();
 
-        Mail::shouldNotReceive('html');
+        Mail::shouldReceive('html')->never();
         (new SendRegistrationManualEmail($attempt->id))->handle(
             app(\App\Services\RegistrationEmailDeliveryService::class), $service,
         );
@@ -258,7 +258,7 @@ class RegistrationManualEmailTest extends TestCase
         ]);
         $registration->user->forceFill(['email_verified_at' => null])->save();
 
-        Mail::shouldNotReceive('html');
+        Mail::shouldReceive('html')->never();
         (new SendRegistrationManualEmail($attempt->id))->handle(
             app(\App\Services\RegistrationEmailDeliveryService::class), $service,
         );
