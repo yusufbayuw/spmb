@@ -41,7 +41,7 @@ class FinalizeExpiredOnlineExams extends Command
         $finalized = 0;
 
         foreach ($ids as $id) {
-            if ($engine->finalizeExpired(new OnlineExamAttempt(['id' => $id]))) {
+            if ($engine->finalizeExpired(OnlineExamAttempt::query()->findOrFail($id))) {
                 $finalized++;
             }
         }
