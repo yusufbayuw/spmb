@@ -327,6 +327,69 @@ class OnlineExamPhaseOneTest extends TestCase
         $this->assertSame(0, OnlineExamQuestion::query()->count());
     }
 
+    public function test_scheduler_finalizes_abandoned_attempt_exactly_once(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario(['duration_minutes' => 1]);
+        $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $exam->update(['is_published' => true]);
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        $attempt = app(OnlineExamEngine::class)->start($assignment, $user);
+        app(OnlineExamEngine::class)->save($attempt, $user, $attempt->items->sole()->id, '1');
+
+        Carbon::setTestNow(now()->addMinutes(2));
+        $this->artisan('spmb:finalize-online-exams')->assertExitCode(0);
+        $this->assertSame('graded', $attempt->fresh()->status);
+        $this->assertEquals(100, (float) $attempt->fresh()->percentage);
+
+        $submittedAt = $attempt->fresh()->submitted_at->toDateTimeString();
+        $this->artisan('spmb:finalize-online-exams')->assertExitCode(0);
+        $this->assertSame($submittedAt, $attempt->fresh()->submitted_at->toDateTimeString());
+        $this->assertSame(1, \App\Models\AuditLog::query()
+            ->where('event', 'online_exam.submitted')
+            ->where('auditable_type', \App\Models\OnlineExamAttempt::class)
+            ->where('auditable_id', $attempt->id)->count());
+    }
+
+    public function test_active_attempt_can_resume_after_package_closes_but_cannot_start_new_attempt(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario([
+            'duration_minutes' => 10,
+            'max_attempts' => 2,
+            'closes_at' => now()->addMinute(),
+        ]);
+        $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $exam->update(['is_published' => true]);
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        $attempt = app(OnlineExamEngine::class)->start($assignment, $user);
+
+        Carbon::setTestNow(now()->addMinutes(2));
+        $this->assertFalse($exam->fresh()->isOpen());
+        $this->assertSame($attempt->id, app(OnlineExamEngine::class)
+            ->start($assignment, $user)->id);
+
+        app(OnlineExamEngine::class)->submit($attempt, $user);
+        try {
+            app(OnlineExamEngine::class)->start($assignment, $user);
+            $this->fail('The closed exam cannot create a new attempt.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('exam', $exception->errors());
+        }
+        $this->assertSame(1, $assignment->attempts()->count());
+    }
+
+    public function test_assignment_may_be_revoked_after_participant_is_disabled(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario();
+        $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        $user->update(['is_active' => false]);
+
+        $assignment->update(['is_active' => false]);
+
+        $this->assertFalse($assignment->fresh()->is_active);
+        $this->assertFalse(app(OnlineExamAccess::class)->canResume($user, $assignment->fresh()));
+    }
+
     /** @return array{Unit, OnlineExam, User, User} */
     private function scenario(array $examAttributes = []): array
     {
