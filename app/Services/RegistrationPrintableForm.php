@@ -49,7 +49,7 @@ class RegistrationPrintableForm
             'parents' => ['key' => 'parents', 'title' => 'Orang Tua / Wali', 'rows' => []],
         ];
 
-        $definitions = collect($configuration?->fields ?? [])->filter('is_array')->keyBy('key');
+        $definitions = collect($configuration?->fields ?? [])->filter(fn (mixed $value): bool => is_array($value))->keyBy('key');
         $form = app(ConfiguredRegistrationForm::class);
 
         foreach (ConfiguredRegistrationForm::BUILTIN_FIELDS as $key) {
@@ -87,7 +87,7 @@ class RegistrationPrintableForm
         }
 
         $groupNames = collect($configuration?->form_groups ?? [])
-            ->filter('is_array')
+            ->filter(fn (mixed $value): bool => is_array($value))
             ->filter(fn (array $group): bool => filled($group['key'] ?? null))
             ->mapWithKeys(fn (array $group): array => [(string) $group['key'] => (string) ($group['label'] ?? 'Informasi Tambahan')])
             ->all();
@@ -146,7 +146,7 @@ class RegistrationPrintableForm
 
             foreach (['subjects' => 'subject', 'grades' => 'grade', 'assessments' => 'assessment'] as $setting => $name) {
                 $labels[$name] = collect($settings[$setting] ?? [])
-                    ->filter('is_array')
+                    ->filter(fn (mixed $value): bool => is_array($value))
                     ->mapWithKeys(fn (array $item): array => [(string) ($item['key'] ?? '') => (string) ($item['label'] ?? $item['key'] ?? '')])
                     ->all();
             }
