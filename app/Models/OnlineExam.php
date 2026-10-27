@@ -31,6 +31,14 @@ class OnlineExam extends Model
     protected static function booted(): void
     {
         static::saving(function (self $exam): void {
+            // Apply database defaults before validation on first create.
+            $exam->duration_minutes ??= 60;
+            $exam->max_attempts ??= 1;
+            $exam->passing_percentage ??= 60;
+            $exam->shuffle_questions ??= true;
+            $exam->shuffle_options ??= true;
+            $exam->is_published ??= false;
+
             if ($exam->exists && $exam->isDirty('unit_id')) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'unit_id' => 'Unit paket tes tidak boleh diubah setelah dibuat.',
