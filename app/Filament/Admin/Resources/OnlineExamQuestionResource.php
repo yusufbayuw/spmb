@@ -60,6 +60,8 @@ class OnlineExamQuestionResource extends Resource
             Forms\Components\Toggle::make('is_active')->label('Soal Aktif')->default(true),
             Forms\Components\KeyValue::make('options.choices')
                 ->label('Pilihan / Daftar Pasangan Jawaban')
+                // Refresh the answer-key choices after option codes are edited.
+                ->live(onBlur: true)
                 ->helperText('Kode unik A, B, C; isian memakai kode untuk kunci jawaban. Tidak perlu untuk Benar/Salah.')
                 ->keyLabel('Kode')->valueLabel('Isi Pilihan')
                 ->visible(fn (Forms\Get $get) => in_array($get('type'), ['single_choice', 'multiple_choice', 'matching'], true))
