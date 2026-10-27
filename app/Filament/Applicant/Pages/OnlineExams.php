@@ -4,7 +4,9 @@ namespace App\Filament\Applicant\Pages;
 
 use App\Models\OnlineExamAssignment;
 use App\Services\OnlineExamEngine;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 
 class OnlineExams extends Page
@@ -34,7 +36,16 @@ class OnlineExams extends Page
             ->where('uuid', $uuid)->where('user_id', auth()->id())
             ->firstOrFail();
 
-        $attempt = app(OnlineExamEngine::class)->start($assignment, auth()->user());
+        try {
+            $attempt = app(OnlineExamEngine::class)->start($assignment, auth()->user());
+        } catch (ValidationException $exception) {
+            Notification::make()
+                ->title('Ujian tidak dapat dimulai')
+                ->body(collect($exception->errors())->flatten()->first() ?? 'Periksa waktu dan batas percobaan ujian.')
+                ->danger()->send();
+
+            return;
+        }
 
         $this->redirect(OnlineExamTake::getUrl(['attempt' => $attempt->uuid]));
     }
