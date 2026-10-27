@@ -111,4 +111,44 @@ class OnlineExamFilamentSmokeTest extends TestCase
             ->assertDontSee('grading_snapshot')
             ->assertDontSee('"correct"');
     }
+
+    public function test_participant_can_autosave_and_submit_from_livewire_page(): void
+    {
+        $unit = Unit::create(['name' => 'Unit CBT UI', 'code' => 'CBT-UI-2', 'is_active' => true]);
+        $exam = OnlineExam::create([
+            'unit_id' => $unit->id, 'title' => 'Tes UI Lengkap',
+            'shuffle_questions' => false, 'shuffle_options' => false,
+        ]);
+        $question = OnlineExamQuestion::create([
+            'unit_id' => $unit->id, 'type' => 'single_choice',
+            'prompt' => 'Apa satuan gaya?', 'options' => ['choices' => ['n' => 'Newton', 'j' => 'Joule']],
+            'grading_config' => ['correct' => 'n'],
+            'points' => 1, 'is_active' => true,
+        ]);
+        OnlineExamItem::create(['online_exam_id' => $exam->id, 'online_exam_question_id' => $question->id]);
+        $exam->update(['is_published' => true]);
+
+        $participant = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $participant->assignRole('pendaftar');
+        $assignment = OnlineExamAssignment::create([
+            'online_exam_id' => $exam->id, 'user_id' => $participant->id, 'is_active' => true,
+        ]);
+        $attempt = app(OnlineExamEngine::class)->start($assignment, $participant);
+        $item = $attempt->items->sole();
+
+        $this->actingAs($participant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(OnlineExamTake::class, ['attempt' => $attempt->uuid])
+            ->set('answers.'.$item->id, 'n')
+            ->assertHasNoErrors()
+            ->call('submitExam')
+            ->assertHasNoErrors()
+            ->assertSee('Ujian selesai');
+
+        $this->assertSame('graded', $attempt->fresh()->status);
+        $this->assertEquals(100, (float) $attempt->fresh()->percentage);
+        $this->assertSame(['value' => 'n'], $item->fresh()->answer);
+    }
+
 }
