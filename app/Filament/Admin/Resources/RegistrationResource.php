@@ -295,6 +295,14 @@ class RegistrationResource extends Resource
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
             ])
             ->actions([
+                Tables\Actions\Action::make('printRegistrationForm')
+                    ->label('Cetak Formulir')
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->visible(fn (Registration $record): bool => (bool) (auth()->user()?->isAdmin()
+                        || (auth()->user()?->isTU() && (int) auth()->user()->unit_id === (int) $record->unit_id)))
+                    ->url(fn (Registration $record): string => route('registration.printable-form', $record))
+                    ->openUrlInNewTab(),
                 Tables\Actions\Action::make('viewApplicantCard')
                     ->label('Kartu Pendaftaran')
                     ->icon('heroicon-o-identification')
