@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\OnlineExamAssignmentResource\Pages;
 use App\Models\OnlineExam;
 use App\Models\OnlineExamAssignment;
 use App\Models\User;
+use App\Services\AuditTrail;
 use App\Services\OnlineExamAccess;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -84,7 +85,18 @@ class OnlineExamAssignmentResource extends Resource
                 ->visible(fn (OnlineExamAssignment $record): bool => static::canEdit($record))
                 ->action(function (OnlineExamAssignment $record): void {
                     abort_unless(static::canEdit($record), 403);
-                    $record->update(['is_active' => ! $record->is_active]);
+                    $previouslyActive = $record->is_active;
+                    $record->update(['is_active' => ! $previouslyActive]);
+
+                    app(AuditTrail::class)->record(
+                        $previouslyActive ? 'online_exam.assignment_revoked' : 'online_exam.assignment_reactivated',
+                        $record,
+                        actor: auth()->user(),
+                        unitId: $record->exam->unit_id,
+                        description: $previouslyActive
+                            ? 'Admin mencabut akses Tes Online peserta.'
+                            : 'Admin mengaktifkan kembali akses Tes Online peserta.',
+                    );
                 }),
         ]);
     }
