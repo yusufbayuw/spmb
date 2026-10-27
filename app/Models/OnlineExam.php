@@ -54,12 +54,18 @@ class OnlineExam extends Model
                 ]);
             }
 
-            if ($exam->is_published && (! $exam->exists
-                || ! $exam->items()->whereHas('question', fn ($query) => $query
-                    ->where('unit_id', $exam->unit_id)->where('is_active', true))->exists())) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'is_published' => 'Tambahkan minimal satu soal aktif dari unit yang sama sebelum menerbitkan ujian.',
-                ]);
+            if ($exam->is_published) {
+                $itemsCount = $exam->exists ? $exam->items()->count() : 0;
+                $validCount = $exam->exists
+                    ? $exam->items()->whereHas('question', fn ($query) => $query
+                        ->where('unit_id', $exam->unit_id)->where('is_active', true))->count()
+                    : 0;
+
+                if ($itemsCount === 0 || $itemsCount !== $validCount) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'is_published' => 'Semua soal paket harus aktif dan berasal dari unit yang sama sebelum ujian diterbitkan.',
+                    ]);
+                }
             }
         });
     }
