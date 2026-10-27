@@ -54,9 +54,11 @@ class OnlineExam extends Model
                 ]);
             }
 
-            if ($exam->is_published && (! $exam->exists || ! $exam->items()->exists())) {
+            if ($exam->is_published && (! $exam->exists
+                || ! $exam->items()->whereHas('question', fn ($query) => $query
+                    ->where('unit_id', $exam->unit_id)->where('is_active', true))->exists())) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'is_published' => 'Tambahkan minimal satu soal sebelum menerbitkan ujian.',
+                    'is_published' => 'Tambahkan minimal satu soal aktif dari unit yang sama sebelum menerbitkan ujian.',
                 ]);
             }
         });
