@@ -36,7 +36,7 @@ class RegistrationRichEmailHtmlTest extends TestCase
         $html = app(RegistrationRichEmailHtml::class)->sanitize("Baris pertama\nBaris kedua");
 
         $this->assertStringContainsString('Baris pertama', $html);
-        $this->assertStringContainsString('<br>', $html);
+        $this->assertMatchesRegularExpression('/<br\s*\/?\s*>/i', $html);
         $this->assertStringContainsString('Baris kedua', $html);
     }
 }
