@@ -33,6 +33,19 @@ class OnlineExamQuestion extends Model
     // Correct answers must only be accessed by server-side grading and authorized editors.
     protected $hidden = ['grading_config'];
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $question): void {
+            if ($question->exists && $question->isDirty('unit_id')) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'unit_id' => 'Unit soal tidak dapat dipindahkan. Buat soal baru.',
+                ]);
+            }
+
+            app(\App\Services\OnlineExamQuestionValidator::class)->validate($question);
+        });
+    }
+
     public function unit(): BelongsTo { return $this->belongsTo(Unit::class); }
 
     public function items(): HasMany { return $this->hasMany(OnlineExamItem::class); }

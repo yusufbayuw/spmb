@@ -15,6 +15,26 @@ class OnlineExamAssignment extends Model
 
     protected $casts = ['is_active' => 'boolean'];
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $assignment): void {
+            $exam = OnlineExam::query()->find($assignment->online_exam_id);
+            $user = User::query()->find($assignment->user_id);
+            if (! $exam || ! $exam->unit?->isOperational()
+                || ! $user || ! $user->is_active || ! $user->isUser()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'user_id' => 'Penugasan hanya berlaku untuk pendaftar aktif dan ujian dari unit operasional.',
+                ]);
+            }
+
+            if ($assignment->exists && $assignment->isDirty(['online_exam_id', 'user_id'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'user_id' => 'Penugasan peserta tidak boleh dialihkan ke akun/ujian lain.',
+                ]);
+            }
+        });
+    }
+
     public function exam(): BelongsTo { return $this->belongsTo(OnlineExam::class, 'online_exam_id'); }
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }

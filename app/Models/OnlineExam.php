@@ -28,6 +28,32 @@ class OnlineExam extends Model
         'closes_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $exam): void {
+            if ($exam->exists && $exam->isDirty('unit_id')) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'unit_id' => 'Unit paket tes tidak boleh diubah setelah dibuat.',
+                ]);
+            }
+
+            if ($exam->duration_minutes < 1 || $exam->duration_minutes > 360
+                || $exam->max_attempts < 1 || $exam->max_attempts > 20
+                || (float) $exam->passing_percentage < 0 || (float) $exam->passing_percentage > 100
+                || ($exam->opens_at && $exam->closes_at && $exam->opens_at->gte($exam->closes_at))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'exam' => 'Durasi, percobaan, ambang batas, atau rentang waktu ujian tidak valid.',
+                ]);
+            }
+
+            if ($exam->is_published && (! $exam->exists || ! $exam->items()->exists())) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'is_published' => 'Tambahkan minimal satu soal sebelum menerbitkan ujian.',
+                ]);
+            }
+        });
+    }
+
     public function unit(): BelongsTo { return $this->belongsTo(Unit::class); }
 
     public function items(): HasMany { return $this->hasMany(OnlineExamItem::class)->orderBy('sort_order')->orderBy('id'); }

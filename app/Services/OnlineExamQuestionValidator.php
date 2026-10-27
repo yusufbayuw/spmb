@@ -65,8 +65,7 @@ class OnlineExamQuestionValidator
     private function validLabels(array $items): bool
     {
         return collect($items)->every(
-            fn ($label, $id): bool => is_scalar($id) && strlen((string) $id) <= 40
-                && trim((string) $id) !== ''
+            fn ($label, $id): bool => is_scalar($id) && preg_match('/^[A-Za-z0-9_]{1,30}$/', (string) $id) === 1
                 && is_string($label) && trim($label) !== '' && mb_strlen($label) <= 800
         );
     }
