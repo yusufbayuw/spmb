@@ -32,6 +32,11 @@ class MailDeliveryAttempt extends Model
         return $this->belongsTo(Registration::class);
     }
 
+    public function manualEmail()
+    {
+        return $this->hasOne(RegistrationManualEmail::class, 'mail_delivery_attempt_id');
+    }
+
     public function requester()
     {
         return $this->belongsTo(User::class, 'requested_by');

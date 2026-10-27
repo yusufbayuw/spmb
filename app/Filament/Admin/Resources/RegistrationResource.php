@@ -443,7 +443,7 @@ class RegistrationResource extends Resource
                     ->modalHeading('Riwayat Pengiriman Email')
                     ->modalContent(fn (Registration $record) => view('filament.admin.registration-email-history', [
                         'attempts' => MailDeliveryAttempt::query()
-                            ->with('requester')
+                            ->with(['requester', 'manualEmail'])
                             ->where('registration_id', $record->id)
                             ->latest('id')->limit(20)->get(),
                     ]))
