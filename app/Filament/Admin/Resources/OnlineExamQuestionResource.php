@@ -78,7 +78,7 @@ class OnlineExamQuestionResource extends Resource
                 ->options(fn (Forms\Get $get): array => is_array($get('options.choices'))
                     ? $get('options.choices') : [])
                 ->visible(fn (Forms\Get $get) => $get('type') === 'multiple_choice')
-                ->columns(2)->columnSpanFull(),
+                ->columns(['default' => 1, 'md' => 2])->columnSpanFull(),
             Forms\Components\KeyValue::make('grading_config.pairs')
                 ->label('Kunci Pasangan: Kode Pernyataan → Kode Jawaban')
                 ->keyLabel('Kode Pernyataan')->valueLabel('Kode Pilihan')
@@ -103,7 +103,7 @@ class OnlineExamQuestionResource extends Resource
                 ->label('Penilaian Esai')
                 ->content('Esai dinilai petugas setelah peserta mengumpulkan ujian. Kunci jawaban tidak diperlukan.')
                 ->visible(fn (Forms\Get $get) => $get('type') === 'essay'),
-        ])->columns(2);
+        ])->columns(['default' => 1, 'md' => 2]);
     }
 
     public static function table(Table $table): Table

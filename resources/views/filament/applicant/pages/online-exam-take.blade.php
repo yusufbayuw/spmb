@@ -58,7 +58,7 @@
                             @endforeach
                         @elseif ($row['type'] === 'matching')
                             @foreach ($row['prompts'] as $key => $label)
-                                <div class="grid gap-2 sm:grid-cols-2 sm:items-center">
+                                <div class="grid gap-2 md:grid-cols-2 sm:items-center">
                                     <label class="text-sm" for="match_{{ $row['id'] }}_{{ $key }}">{{ $label }}</label>
                                     <select id="match_{{ $row['id'] }}_{{ $key }}"
                                         class="rounded-md border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-900"

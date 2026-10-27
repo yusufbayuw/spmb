@@ -81,7 +81,7 @@ class OnlineExamResource extends Resource
                 ->label('Terbitkan Paket Tes')
                 ->helperText('Buat paket dahulu, tambahkan soal pada menu Isi Paket Tes, lalu terbitkan. Tidak mengubah alur SPMB.')
                 ->default(false),
-        ])->columns(2);
+        ])->columns(['default' => 1, 'md' => 2]);
     }
 
     public static function table(Table $table): Table
