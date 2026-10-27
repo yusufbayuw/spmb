@@ -14,6 +14,7 @@ use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
 use App\Services\RegistrationEmailDeliveryService;
+use App\Services\RegistrationManualEmailService;
 use App\Services\ApplicantEmailCorrectionService;
 use App\Models\MailDeliveryAttempt;
 use App\Services\UnitConfigurationService;
@@ -344,6 +345,41 @@ class RegistrationResource extends Resource
                             ? Notification::make()->title('VA berhasil di-assign; email masuk queue')->success()->send()
                             : Notification::make()->title('Pool VA unit kosong')->body('Upload nomor VA terlebih dahulu pada menu Pool Virtual Account.')->warning()->send();
                     }),
+                Tables\Actions\Action::make('composeApplicantEmail')
+                    ->label('Kirim Pesan Email')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('primary')
+                    ->visible(fn (Registration $record): bool => auth()->user() !== null
+                        && app(RegistrationManualEmailService::class)->canCompose(auth()->user(), $record))
+                    ->modalHeading('Kirim email kepada pendaftar')
+                    ->modalDescription('Email informasi satu arah. Tidak mengubah status, tahapan pendaftaran, ataupun data seleksi. Pengiriman menggunakan antrean.')
+                    ->form([
+                        Forms\Components\TextInput::make('subject')
+                            ->label('Subjek')
+                            ->required()
+                            ->maxLength(150),
+                        Forms\Components\Textarea::make('body')
+                            ->label('Isi pesan')
+                            ->required()
+                            ->rows(9)
+                            ->maxLength(5000),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan administrasi')
+                            ->required()
+                            ->maxLength(300),
+                    ])
+                    ->modalSubmitActionLabel('Antrekan Email')
+                    ->requiresConfirmation()
+                    ->action(function (Registration $record, array $data): void {
+                        app(RegistrationManualEmailService::class)->send(
+                            $record, auth()->user(), $data['subject'], $data['body'], $data['reason']
+                        );
+
+                        Notification::make()
+                            ->title('Pesan masuk antrean email')
+                            ->body('Pantau status pengiriman pada Riwayat Email.')
+                            ->success()->send();
+                    }),
                 Tables\Actions\Action::make('resendEmail')
                     ->label('Kirim Ulang Email')
                     ->icon('heroicon-o-envelope')
@@ -402,7 +438,8 @@ class RegistrationResource extends Resource
                     ->icon('heroicon-o-clock')
                     ->color('gray')
                     ->visible(fn (Registration $record): bool => auth()->user() !== null
-                        && app(RegistrationEmailDeliveryService::class)->canManage(auth()->user(), $record))
+                        && (app(RegistrationEmailDeliveryService::class)->canManage(auth()->user(), $record)
+                            || app(RegistrationManualEmailService::class)->canCompose(auth()->user(), $record)))
                     ->modalHeading('Riwayat Pengiriman Email')
                     ->modalContent(fn (Registration $record) => view('filament.admin.registration-email-history', [
                         'attempts' => MailDeliveryAttempt::query()

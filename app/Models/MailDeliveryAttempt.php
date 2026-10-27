@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class MailDeliveryAttempt extends Model
 {
     public const TYPES = [
+        'manual_message' => 'Pesan Komunikasi Manual',
         'verification' => 'Verifikasi Email',
         'virtual_account' => 'Informasi Virtual Account',
         'announcement' => 'Pengumuman Penerimaan',
