@@ -55,7 +55,8 @@
 - Hanya peserta pada assignment aktif dapat memulai atau menyimpan jawaban.
   Mencoba ID milik peserta lain harus menghasilkan 403/404.
 - \`grading_snapshot\` tidak dipaparkan pada halaman Livewire peserta.
-- Timeout server mengunci jawaban; submit ulang aman (idempotent).
+- Timeout server mengunci jawaban; submit ulang aman (idempotent). Finalisasi kedaluwarsa tetap dicatat meskipun percobaan berikutnya ditolak.
+- Pilihan menjodohkan yang dikosongkan diperlakukan sebagai belum dijawab; nilai numerik/toleransi tak hingga ditolak.
 - Data baru hanya disimpan pada tabel \`online_exam_*\`.
 - Tidak ada integrasi Moodle, pengawas video, anti-cheat otomatis, import XLSX,
   Cloze, kalkulasi dinamis, maupun drag-and-drop pada fase ini.
