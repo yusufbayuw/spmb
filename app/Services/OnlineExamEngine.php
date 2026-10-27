@@ -20,10 +20,30 @@ class OnlineExamEngine
             throw ValidationException::withMessages(['user_id' => 'Hanya akun pendaftar aktif yang dapat ditugaskan.']);
         }
 
-        return OnlineExamAssignment::query()->firstOrCreate(
+        $assignment = OnlineExamAssignment::query()->firstOrCreate(
             ['online_exam_id' => $exam->id, 'user_id' => $participant->id],
             ['assigned_by' => $actor->id, 'is_active' => true],
         );
+
+        // Never silently reactivate a deliberately revoked assignment.
+        // Admins must use the explicit "Aktifkan Akses" action instead.
+        if (! $assignment->is_active) {
+            throw ValidationException::withMessages([
+                'user_id' => 'Akses peserta pernah dicabut. Gunakan aksi Aktifkan Akses pada penugasan sebelumnya.',
+            ]);
+        }
+
+        if ($assignment->wasRecentlyCreated) {
+            app(AuditTrail::class)->record(
+                'online_exam.assigned',
+                $assignment,
+                actor: $actor,
+                unitId: $exam->unit_id,
+                description: 'Akun peserta ditugaskan mengikuti Tes Online.',
+            );
+        }
+
+        return $assignment;
     }
 
     public function start(OnlineExamAssignment $assignment, User $actor): OnlineExamAttempt
