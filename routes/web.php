@@ -127,6 +127,9 @@ Route::middleware(['auth', EnsureCurrentStaffSession::class, EnsureApplicantEmai
     Route::get('/registration/{registration}/documents', fn (string $registration) => redirect("/pendaftar/dokumen/{$registration}"))
         ->whereUuid('registration')
         ->name('registration.documents');
+    Route::get('/registration/{registration}/printable-form', [RegistrationPrintController::class, 'registrationForm'])
+        ->whereUuid('registration')
+        ->name('registration.printable-form');
     Route::get('/registration/{registration}/test-card', [RegistrationPrintController::class, 'testCard'])->whereUuid('registration')->name('registration.test-card');
     Route::get('/registration/{registration}/receipts/{receipt}', [RegistrationPrintController::class, 'receipt'])->whereUuid(['registration', 'receipt'])->name('registration.receipt');
     Route::get('/registration/{registration}/templates/{key}', [RegistrationPrintController::class, 'template'])->whereUuid('registration')->name('registration.template');

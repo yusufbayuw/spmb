@@ -34,6 +34,21 @@ class RegistrationPrintController extends Controller
         }
     }
 
+    /** Staff-only printable registration form; never changes registration state. */
+    public function registrationForm(Request $request, Registration $registration): View
+    {
+        $user = $request->user();
+        abort_unless(
+            $user?->is_active
+                && ($user->isAdmin() || ($user->isTU() && (int) $user->unit_id === (int) $registration->unit_id)),
+            404,
+        );
+
+        $registration->loadMissing(['configuration', 'unit', 'opening.studyProgram', 'pathway', 'academicScores', 'achievements']);
+
+        return view('registration.printable-form', compact('registration'));
+    }
+
     public function applicantCard(
         Request $request,
         Registration $registration,
