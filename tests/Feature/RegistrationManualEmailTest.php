@@ -163,6 +163,116 @@ class RegistrationManualEmailTest extends TestCase
         $this->assertStringNotContainsString('DemoKey123', $remaining);
     }
 
+    public function test_lms_credentials_require_a_verified_applicant_address(): void
+    {
+        [$registration, $staff] = $this->scenario();
+        $registration->user->forceFill(['email_verified_at' => null])->save();
+
+        $admissionTest = AdmissionTest::create([
+            'unit_id' => $registration->unit_id, 'name' => 'Tes Moodle',
+        ]);
+        $result = AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $admissionTest->id,
+            'status' => 'scheduled', 'result' => 'pending',
+        ]);
+        $service = app(RegistrationManualEmailService::class);
+
+        $this->assertFalse($service->canSendLmsAccess($staff, $result));
+
+        try {
+            $service->sendLmsAccess($result, $staff, [
+                'platform' => 'Moodle',
+                'login_url' => 'https://lms.example.test/login',
+                'username' => 'user-test',
+                'subject' => 'Akses',
+                'body' => '<p>Informasi akun</p>',
+                'reason' => 'Tes daring',
+            ]);
+            $this->fail('LMS access was sent to an unverified email.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+
+        $this->assertDatabaseCount('mail_delivery_attempts', 0);
+    }
+
+    public function test_stale_queued_lms_credentials_are_skipped_and_scrubbed(): void
+    {
+        [$registration, $staff] = $this->scenario();
+        $admissionTest = AdmissionTest::create([
+            'unit_id' => $registration->unit_id, 'name' => 'Tes Moodle',
+        ]);
+        $result = AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $admissionTest->id,
+            'status' => 'scheduled', 'result' => 'pending',
+        ]);
+        $service = app(RegistrationManualEmailService::class);
+        $attempt = $service->sendLmsAccess($result, $staff, [
+            'platform' => 'Moodle',
+            'login_url' => 'https://lms.example.test/login',
+            'username' => 'peserta-test',
+            'temporary_password' => 'demo-temporary-secret',
+            'subject' => 'Akses',
+            'body' => '<p>Informasi akun</p>',
+            'reason' => 'Tes daring',
+        ]);
+        $attempt->forceFill(['created_at' => now()->subHours(3)])->save();
+
+        Mail::shouldNotReceive('html');
+        (new SendRegistrationManualEmail($attempt->id))->handle(
+            app(\App\Services\RegistrationEmailDeliveryService::class), $service,
+        );
+
+        $this->assertSame('skipped', $attempt->fresh()->status);
+        $this->assertStringNotContainsString(
+            'demo-temporary-secret',
+            RegistrationManualEmail::query()
+                ->where('mail_delivery_attempt_id', $attempt->id)
+                ->firstOrFail()
+                ->body,
+        );
+    }
+
+    public function test_lms_credentials_are_not_sent_if_email_verification_is_revoked(): void
+    {
+        [$registration, $staff] = $this->scenario();
+        $admissionTest = AdmissionTest::create([
+            'unit_id' => $registration->unit_id, 'name' => 'Tes Moodle',
+        ]);
+        $result = AdmissionTestResult::create([
+            'registration_id' => $registration->id,
+            'admission_test_id' => $admissionTest->id,
+            'status' => 'scheduled', 'result' => 'pending',
+        ]);
+        $service = app(RegistrationManualEmailService::class);
+        $attempt = $service->sendLmsAccess($result, $staff, [
+            'platform' => 'Moodle',
+            'login_url' => 'https://lms.example.test/login',
+            'username' => 'peserta-test',
+            'temporary_password' => 'demo-temporary-secret',
+            'subject' => 'Akses',
+            'body' => '<p>Informasi akun</p>',
+            'reason' => 'Tes daring',
+        ]);
+        $registration->user->forceFill(['email_verified_at' => null])->save();
+
+        Mail::shouldNotReceive('html');
+        (new SendRegistrationManualEmail($attempt->id))->handle(
+            app(\App\Services\RegistrationEmailDeliveryService::class), $service,
+        );
+
+        $this->assertSame('skipped', $attempt->fresh()->status);
+        $this->assertStringNotContainsString(
+            'demo-temporary-secret',
+            RegistrationManualEmail::query()
+                ->where('mail_delivery_attempt_id', $attempt->id)
+                ->firstOrFail()
+                ->body,
+        );
+    }
+
     /** @return array{Registration, User} */
     private function scenario(): array
     {

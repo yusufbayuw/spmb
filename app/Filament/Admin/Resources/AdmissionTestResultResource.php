@@ -72,9 +72,9 @@ class AdmissionTestResultResource extends Resource
                     ->color('primary')
                     ->visible(fn (AdmissionTestResult $record): bool => auth()->user() !== null
                         && $record->registration !== null
-                        && app(RegistrationManualEmailService::class)->canCompose(auth()->user(), $record->registration))
+                        && app(RegistrationManualEmailService::class)->canSendLmsAccess(auth()->user(), $record))
                     ->modalHeading('Kirim username dan akses Moodle / LMS')
-                    ->modalDescription('Tidak membuat akun Moodle/LMS. Isi kredensial yang sudah dibuat di platform tersebut. Utamakan tautan aktivasi/reset daripada mengirim password. Email dikirim sebagai HTML dan tercatat dalam Riwayat Email pendaftar.')
+                    ->modalDescription('Tidak membuat akun Moodle/LMS. Isi kredensial yang sudah dibuat di platform tersebut. Hanya untuk alamat email yang sudah terverifikasi. Utamakan tautan aktivasi/reset daripada mengirim password. Email dikirim sebagai HTML dan tercatat dalam Riwayat Email pendaftar.')
                     ->modalWidth('3xl')
                     ->fillForm(fn (AdmissionTestResult $record): array => [
                         'platform' => 'Moodle',

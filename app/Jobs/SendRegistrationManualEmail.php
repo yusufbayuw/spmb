@@ -40,6 +40,15 @@ class SendRegistrationManualEmail implements ShouldQueue
             return;
         }
 
+        // A late queue replay must not deliver an outdated LMS password.
+        if ($attempt->type === 'lms_access'
+            && $attempt->created_at->lessThan(now()->subHours(2))) {
+            $delivery->markSkipped($attempt->id);
+            $manual->scrubLmsContent($attempt->id);
+
+            return;
+        }
+
         $delivery->markAttempted($attempt->id);
         $message = RegistrationManualEmail::query()
             ->where('mail_delivery_attempt_id', $attempt->id)->first();
@@ -49,6 +58,7 @@ class SendRegistrationManualEmail implements ShouldQueue
         // Refuse delivery if applicant address, unit, role or staff authorization changed.
         if (! $message || ! $registration || ! $actor
             || ! $manual->canCompose($actor, $registration)
+            || ($attempt->type === 'lms_access' && ! $registration->user?->hasVerifiedEmail())
             || (int) $registration->unit_id !== (int) $attempt->unit_id
             || ! $delivery->destinationMatches($attempt->id, $registration->user->email)) {
             $delivery->markSkipped($attempt->id);

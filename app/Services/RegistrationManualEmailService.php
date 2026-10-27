@@ -30,6 +30,15 @@ class RegistrationManualEmailService
             && filter_var($registration->user->email, FILTER_VALIDATE_EMAIL) !== false;
     }
 
+    public function canSendLmsAccess(User $actor, AdmissionTestResult $result): bool
+    {
+        $registration = $result->registration;
+
+        return $registration !== null
+            && $this->canCompose($actor, $registration)
+            && (bool) $registration->user?->hasVerifiedEmail();
+    }
+
     public function send(
         Registration $registration,
         User $actor,
@@ -50,7 +59,7 @@ class RegistrationManualEmailService
     public function sendLmsAccess(AdmissionTestResult $result, User $actor, array $data): MailDeliveryAttempt
     {
         $registration = $result->registration;
-        abort_unless($registration && $this->canCompose($actor, $registration), 403);
+        abort_unless($this->canSendLmsAccess($actor, $result), 403);
 
         $input = Validator::make($data, [
             'platform' => ['required', 'string', 'max:100'],
@@ -121,7 +130,9 @@ class RegistrationManualEmailService
                 ->whereIn('type', ['manual_message', 'lms_access'])->latest('id')->first();
 
             if ($latest && $latest->status === 'queued'
-                && $latest->created_at->greaterThan(now()->subMinutes(15))) {
+                && $latest->created_at->greaterThan(
+                    now()->subMinutes($latest->type === 'lms_access' ? 120 : 15)
+                )) {
                 throw ValidationException::withMessages([
                     'subject' => 'Pesan sebelumnya masih antre. Periksa Riwayat Email terlebih dahulu.',
                 ]);
