@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-5">
+    <div class="space-y-5" @if ($examAttempt->status === 'in_progress') wire:poll.15s @endif>
         <x-filament::section :heading="$examAttempt->exam->title">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div class="text-sm text-gray-600 dark:text-gray-300">
