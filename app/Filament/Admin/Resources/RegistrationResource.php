@@ -358,11 +358,12 @@ class RegistrationResource extends Resource
                             ->label('Subjek')
                             ->required()
                             ->maxLength(150),
-                        Forms\Components\Textarea::make('body')
+                        Forms\Components\RichEditor::make('body')
                             ->label('Isi pesan')
+                            ->toolbarButtons(['bold', 'italic', 'underline', 'strike', 'link', 'h2', 'h3', 'blockquote', 'bulletList', 'orderedList', 'undo', 'redo'])
                             ->required()
-                            ->rows(9)
-                            ->maxLength(5000),
+                            ->maxLength(15000)
+                            ->columnSpanFull(),
                         Forms\Components\Textarea::make('reason')
                             ->label('Alasan administrasi')
                             ->required()

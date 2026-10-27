@@ -7,6 +7,7 @@ use App\Models\Registration;
 use App\Models\RegistrationManualEmail;
 use App\Services\RegistrationEmailDeliveryService;
 use App\Services\AdmissionTerminology;
+use App\Services\RegistrationRichEmailHtml;
 use App\Services\RegistrationManualEmailService;
 use App\Services\SpmbNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,7 +36,7 @@ class SendRegistrationManualEmail implements ShouldQueue
     public function handle(RegistrationEmailDeliveryService $delivery, RegistrationManualEmailService $manual): void
     {
         $attempt = MailDeliveryAttempt::query()->find($this->deliveryAttemptId);
-        if (! $attempt || $attempt->status !== 'queued' || $attempt->type !== 'manual_message') {
+        if (! $attempt || $attempt->status !== 'queued' || ! in_array($attempt->type, ['manual_message', 'lms_access'], true)) {
             return;
         }
 
@@ -51,25 +52,38 @@ class SendRegistrationManualEmail implements ShouldQueue
             || (int) $registration->unit_id !== (int) $attempt->unit_id
             || ! $delivery->destinationMatches($attempt->id, $registration->user->email)) {
             $delivery->markSkipped($attempt->id);
+
+            if ($attempt->type === 'lms_access') {
+                $manual->scrubLmsContent($attempt->id);
+            }
+
             return;
         }
 
-        $body = $message->body
-            ."\n\nHormat kami,\n".app(AdmissionTerminology::class)->portalName();
+        $html = app(RegistrationRichEmailHtml::class)->render(
+            $message->body, app(AdmissionTerminology::class)->portalName(),
+        );
 
-        Mail::raw($body, fn ($mail) => $mail
+        Mail::html($html, fn ($mail) => $mail
             ->to($attempt->recipient_email)
             ->subject($message->subject));
 
         $delivery->markSent($attempt->id);
+
+        if ($attempt->type === 'lms_access') {
+            $manual->scrubLmsContent($attempt->id);
+        }
     }
 
     public function failed(?Throwable $exception): void
     {
         $service = app(RegistrationEmailDeliveryService::class);
         $service->markFailed($this->deliveryAttemptId, $exception?->getMessage() ?: 'Queue failure');
-
         $attempt = MailDeliveryAttempt::query()->find($this->deliveryAttemptId);
+        if ($attempt?->type === 'lms_access') {
+            app(RegistrationManualEmailService::class)->scrubLmsContent($this->deliveryAttemptId);
+        }
+
         app(SpmbNotificationService::class)->deliveryFailure(
             $attempt,
             'email.manual_message',

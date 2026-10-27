@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\AdmissionTestResultResource\Pages;
 use App\Models\AdmissionTestResult;
+use App\Services\RegistrationManualEmailService;
 use App\Models\TestSession;
 use App\Services\TestBookingService;
 use Filament\Forms;
@@ -65,6 +66,65 @@ class AdmissionTestResultResource extends Resource
                     ->badge(),
             ])
             ->actions([
+                Tables\Actions\Action::make('sendLmsAccess')
+                    ->label('Kirim Akun LMS')
+                    ->icon('heroicon-o-envelope')
+                    ->color('primary')
+                    ->visible(fn (AdmissionTestResult $record): bool => auth()->user() !== null
+                        && $record->registration !== null
+                        && app(RegistrationManualEmailService::class)->canCompose(auth()->user(), $record->registration))
+                    ->modalHeading('Kirim username dan akses Moodle / LMS')
+                    ->modalDescription('Tidak membuat akun Moodle/LMS. Isi kredensial yang sudah dibuat di platform tersebut. Utamakan tautan aktivasi/reset daripada mengirim password. Email dikirim sebagai HTML dan tercatat dalam Riwayat Email pendaftar.')
+                    ->modalWidth('3xl')
+                    ->fillForm(fn (AdmissionTestResult $record): array => [
+                        'platform' => 'Moodle',
+                        'subject' => 'Informasi Akses LMS — '.$record->admissionTest?->name,
+                        'body' => '<p>Yth. peserta,</p><p>Berikut informasi akses platform pembelajaran untuk mengikuti tes. Simpan informasi ini dengan aman.</p>',
+                    ])
+                    ->form([
+                        Forms\Components\TextInput::make('platform')
+                            ->label('Nama platform')
+                            ->required()
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('login_url')
+                            ->label('URL login LMS (HTTPS)')
+                            ->url()
+                            ->required()
+                            ->maxLength(2000),
+                        Forms\Components\TextInput::make('username')
+                            ->label('Username LMS')
+                            ->required()
+                            ->maxLength(150),
+                        Forms\Components\TextInput::make('temporary_password')
+                            ->label('Password sementara (opsional)')
+                            ->password()
+                            ->revealable()
+                            ->maxLength(200)
+                            ->helperText('Lebih aman menggunakan aktivasi/reset password. Jika mengisi password sementara, peserta diinstruksikan menggantinya pada login pertama.'),
+                        Forms\Components\TextInput::make('subject')
+                            ->label('Subjek email')
+                            ->required()
+                            ->maxLength(150),
+                        Forms\Components\RichEditor::make('body')
+                            ->label('Pesan pengantar (rich text)')
+                            ->toolbarButtons(['bold', 'italic', 'underline', 'strike', 'link', 'h2', 'h3', 'blockquote', 'bulletList', 'orderedList', 'undo', 'redo'])
+                            ->required()
+                            ->maxLength(15000)
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan administrasi (jangan berisi password)')
+                            ->required()
+                            ->maxLength(300),
+                    ])
+                    ->modalSubmitActionLabel('Antrekan Email LMS')
+                    ->requiresConfirmation()
+                    ->action(function (AdmissionTestResult $record, array $data): void {
+                        app(RegistrationManualEmailService::class)->sendLmsAccess($record, auth()->user(), $data);
+                        Notification::make()
+                            ->title('Email akses LMS masuk antrean')
+                            ->body('Periksa Riwayat Email pada menu Pendaftaran.')
+                            ->success()->send();
+                    }),
                 Tables\Actions\Action::make('assignSession')
                     ->label(fn (AdmissionTestResult $record): string => $record->status === 'scheduled' ? 'Pindahkan Sesi' : 'Jadwalkan')
                     ->icon('heroicon-o-calendar-days')
