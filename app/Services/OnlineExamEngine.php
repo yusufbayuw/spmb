@@ -301,6 +301,11 @@ class OnlineExamEngine
         }
 
         if ($type === 'numerical') {
+            // A cleared number input must erase a previously saved answer.
+            if ($value === '' || $value === null) {
+                return null;
+            }
+
             if (! is_scalar($value) || ! is_numeric($value)
                 || ! is_finite((float) $value)) {
                 throw ValidationException::withMessages(['answer' => 'Masukkan angka yang valid.']);
