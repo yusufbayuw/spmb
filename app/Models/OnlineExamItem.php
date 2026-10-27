@@ -37,7 +37,9 @@ class OnlineExamItem extends Model
         });
 
         static::deleting(function (self $item): void {
-            $exam = $item->exam;
+            // Do not trust a cached relation: the package may have been
+            // unpublished after a previous failed delete in this session.
+            $exam = OnlineExam::query()->find($item->online_exam_id);
             if ($exam && ($exam->is_published || $exam->attempts()->exists())) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'online_exam_id' => 'Daftar soal paket yang sudah terbit atau sudah dikerjakan tidak boleh dihapus.',
