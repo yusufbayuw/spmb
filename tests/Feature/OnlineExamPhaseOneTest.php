@@ -409,6 +409,65 @@ class OnlineExamPhaseOneTest extends TestCase
         $this->assertTrue($exam->fresh()->is_published);
     }
 
+    public function test_published_package_cannot_lose_its_question_or_active_state(): void
+    {
+        [$unit, $exam] = $this->scenario();
+        $question = $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $item = $exam->items()->firstOrFail();
+        $exam->update(['is_published' => true]);
+
+        try {
+            $question->update(['is_active' => false]);
+            $this->fail('Question may not be deactivated while in a published package.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('is_active', $exception->errors());
+        }
+
+        try {
+            $item->delete();
+            $this->fail('Published package may not lose its question.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('online_exam_id', $exception->errors());
+        }
+
+        $this->assertTrue($question->fresh()->is_active);
+        $this->assertSame(1, $exam->items()->count());
+
+        $exam->update(['is_published' => false]);
+        $question->update(['is_active' => false]);
+        $this->assertFalse($question->fresh()->is_active);
+        $item->delete();
+        $this->assertSame(0, $exam->items()->count());
+    }
+
+    public function test_published_package_cannot_receive_new_items_until_unpublished(): void
+    {
+        [$unit, $exam] = $this->scenario();
+        $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $exam->update(['is_published' => true]);
+
+        $other = OnlineExamQuestion::create([
+            'unit_id' => $unit->id, 'type' => 'essay', 'prompt' => 'Jelaskan eksperimen.',
+            'options' => [], 'grading_config' => [], 'points' => 1, 'is_active' => true,
+        ]);
+
+        try {
+            OnlineExamItem::create([
+                'online_exam_id' => $exam->id, 'online_exam_question_id' => $other->id,
+            ]);
+            $this->fail('Published package must remain structurally stable.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('online_exam_id', $exception->errors());
+        }
+
+        $this->assertSame(1, $exam->items()->count());
+        $exam->update(['is_published' => false]);
+        OnlineExamItem::create([
+            'online_exam_id' => $exam->id, 'online_exam_question_id' => $other->id,
+        ]);
+        $this->assertSame(2, $exam->items()->count());
+    }
+
     /** @return array{Unit, OnlineExam, User, User} */
     private function scenario(array $examAttributes = []): array
     {
