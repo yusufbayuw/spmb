@@ -390,6 +390,25 @@ class OnlineExamPhaseOneTest extends TestCase
         $this->assertFalse(app(OnlineExamAccess::class)->canResume($user, $assignment->fresh()));
     }
 
+    public function test_publishing_requires_at_least_one_active_question_from_same_unit(): void
+    {
+        [$unit, $exam] = $this->scenario();
+        $question = $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $question->update(['is_active' => false]);
+
+        try {
+            $exam->update(['is_published' => true]);
+            $this->fail('Empty active exam cannot be published.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('is_published', $exception->errors());
+        }
+
+        $this->assertFalse($exam->fresh()->is_published);
+        $question->update(['is_active' => true]);
+        $exam->update(['is_published' => true]);
+        $this->assertTrue($exam->fresh()->is_published);
+    }
+
     /** @return array{Unit, OnlineExam, User, User} */
     private function scenario(array $examAttributes = []): array
     {
