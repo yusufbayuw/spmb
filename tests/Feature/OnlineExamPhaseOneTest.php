@@ -242,6 +242,72 @@ class OnlineExamPhaseOneTest extends TestCase
         app(OnlineExamEngine::class)->start($assignment, $user);
     }
 
+    public function test_expired_attempt_is_finalized_even_when_attempt_limit_rejects_restart(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario(['duration_minutes' => 1]);
+        $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $exam->update(['is_published' => true]);
+
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        $attempt = app(OnlineExamEngine::class)->start($assignment, $user);
+
+        Carbon::setTestNow(now()->addMinutes(2));
+
+        try {
+            app(OnlineExamEngine::class)->start($assignment, $user);
+            $this->fail('An attempt over the limit must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('exam', $exception->errors());
+        }
+
+        $this->assertSame('graded', $attempt->fresh()->status);
+        $this->assertNotNull($attempt->fresh()->submitted_at);
+        $this->assertEquals(0, (float) $attempt->fresh()->earned_points);
+        $this->assertSame(1, $assignment->attempts()->count());
+    }
+
+    public function test_matching_blank_selection_is_saved_as_unanswered_and_other_pairs_are_scored(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario();
+        $this->addQuestion($exam, 'matching',
+            ['prompts' => ['p1' => 'Bumi', 'p2' => 'Venus'], 'choices' => ['a' => 'A', 'b' => 'B']],
+            ['pairs' => ['p1' => 'a', 'p2' => 'b']]);
+        $exam->update(['is_published' => true]);
+
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        $attempt = app(OnlineExamEngine::class)->start($assignment, $user);
+        $item = $attempt->items->sole();
+
+        app(OnlineExamEngine::class)->save($attempt, $user, $item->id, ['p1' => '', 'p2' => 'b']);
+
+        $this->assertSame(['p2' => 'b'], $item->fresh()->answer['value']);
+        $this->assertEquals(50, (float) app(OnlineExamEngine::class)
+            ->submit($attempt, $user)->percentage);
+    }
+
+    public function test_numerical_question_rejects_non_finite_keys_and_tolerances(): void
+    {
+        [$unit] = $this->scenario();
+
+        foreach ([
+            ['value' => '1e309', 'tolerance' => 0],
+            ['value' => 9.8, 'tolerance' => '1e309'],
+        ] as $key) {
+            try {
+                OnlineExamQuestion::create([
+                    'unit_id' => $unit->id, 'type' => 'numerical',
+                    'prompt' => 'Percepatan gravitasi?', 'options' => [],
+                    'grading_config' => $key, 'points' => 1, 'is_active' => true,
+                ]);
+                $this->fail('A non-finite numerical value must be rejected.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('grading_config', $exception->errors());
+            }
+        }
+
+        $this->assertSame(0, OnlineExamQuestion::query()->count());
+    }
+
     /** @return array{Unit, OnlineExam, User, User} */
     private function scenario(array $examAttributes = []): array
     {
