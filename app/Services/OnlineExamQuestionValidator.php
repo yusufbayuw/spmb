@@ -51,6 +51,8 @@ class OnlineExamQuestionValidator
         } elseif ($type === 'numerical') {
             $valid = $valid && is_numeric($key['value'] ?? null)
                 && is_numeric($key['tolerance'] ?? null)
+                && is_finite((float) ($key['value'] ?? 0))
+                && is_finite((float) ($key['tolerance'] ?? 0))
                 && (float) $key['tolerance'] >= 0
                 && (float) $key['tolerance'] <= 1000000;
         }
