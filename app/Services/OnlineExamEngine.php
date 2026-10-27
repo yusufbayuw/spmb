@@ -34,7 +34,7 @@ class OnlineExamEngine
                 ->lockForUpdate()
                 ->findOrFail($assignment->id);
 
-            app(OnlineExamAccess::class)->assertParticipant($actor, $assignment);
+            abort_unless(app(OnlineExamAccess::class)->canResume($actor, $assignment), 403);
             $exam = $assignment->exam;
 
             $existing = $assignment->attempts()
@@ -49,6 +49,14 @@ class OnlineExamEngine
 
             if ($existing) {
                 $this->finalizeLocked($existing, true);
+            }
+
+            // A closed or unpublished package must not create new attempts.
+            // Resuming an active attempt above remains possible until its own timeout.
+            if (! $exam->isOpen()) {
+                return ValidationException::withMessages([
+                    'exam' => 'Paket tes tidak sedang dibuka untuk percobaan baru.',
+                ]);
             }
 
             if ($assignment->attempts()->count() >= $exam->max_attempts) {
@@ -239,6 +247,28 @@ class OnlineExamEngine
             );
 
             return $attempt->fresh(['items']);
+        }, 5);
+    }
+
+    /**
+     * Finalize an abandoned attempt without requiring the participant to return.
+     * Used by the scheduler; the DB lock and status guard make retries safe.
+     */
+    public function finalizeExpired(OnlineExamAttempt $attempt): bool
+    {
+        return DB::transaction(function () use ($attempt): bool {
+            $locked = OnlineExamAttempt::query()
+                ->with(['exam', 'user'])
+                ->lockForUpdate()
+                ->findOrFail($attempt->id);
+
+            if ($locked->status !== 'in_progress' || $locked->expires_at->gt(now())) {
+                return false;
+            }
+
+            $this->finalizeLocked($locked, true);
+
+            return true;
         }, 5);
     }
 
