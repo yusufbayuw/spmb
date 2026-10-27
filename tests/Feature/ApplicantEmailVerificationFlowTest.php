@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Filament\Applicant\Pages\Auth\EmailVerificationPrompt;
+use Filament\Facades\Filament;
+use Livewire\Livewire;
 use App\Services\ApplicantEmailVerificationUrl;
 use App\Support\SpmbOperationalMode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,6 +124,35 @@ class ApplicantEmailVerificationFlowTest extends TestCase
             ->assertForbidden();
 
         $this->assertFalse($applicant->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_unverified_applicant_sees_spam_help_and_unchanged_resend_action(): void
+    {
+        $applicant = $this->applicant(['email_verified_at' => null]);
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(EmailVerificationPrompt::class)
+            ->assertSee('Belum menerima email verifikasi?')
+            ->assertSee('Spam, Junk, atau Email Sampah')
+            ->assertSee('Promosi')
+            ->assertSee('Sosial')
+            ->assertSee('Bukan spam')
+            ->assertSee('Kirim Ulang Email Verifikasi');
+
+        $this->assertFalse($applicant->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_legacy_verification_view_shares_plain_language_instructions(): void
+    {
+        $legacyTemplate = file_get_contents(resource_path('views/auth/verify-email.blade.php'));
+        $html = view('components.auth.email-verification-help')->render();
+
+        $this->assertStringContainsString('x-auth.email-verification-help', $legacyTemplate);
+        $this->assertStringContainsString('Spam, Junk, atau Email Sampah', $html);
+        $this->assertStringContainsString('Kirim Ulang Email Verifikasi', $legacyTemplate);
+        $this->assertStringNotContainsString('Thanks for signing up!', $legacyTemplate);
     }
 
     private function applicant(array $attributes = []): User
