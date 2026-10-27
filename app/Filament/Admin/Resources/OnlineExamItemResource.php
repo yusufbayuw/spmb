@@ -36,7 +36,9 @@ class OnlineExamItemResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
-        return static::canView($record) && ! $record->exam->attempts()->exists();
+        return static::canView($record)
+            && ! $record->exam->is_published
+            && ! $record->exam->attempts()->exists();
     }
 
     public static function getEloquentQuery(): Builder
@@ -56,7 +58,9 @@ class OnlineExamItemResource extends Resource
                 ->options(fn (): array => OnlineExam::query()
                     ->whereHas('unit', fn (Builder $q) => $q->operational())
                     ->when(auth()->user()?->isAdminUnit(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))
+                    ->where('is_published', false)
                     ->orderBy('title')->pluck('title', 'id')->all())
+                ->helperText('Batalkan publikasi paket sebelum menambah soal.')
                 ->live()->searchable()->required(),
             Forms\Components\Select::make('online_exam_question_id')
                 ->label('Soal dari Bank')
