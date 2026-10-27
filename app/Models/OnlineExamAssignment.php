@@ -21,7 +21,8 @@ class OnlineExamAssignment extends Model
             $exam = OnlineExam::query()->find($assignment->online_exam_id);
             $user = User::query()->find($assignment->user_id);
             if (! $exam || ! $exam->unit?->isOperational()
-                || ! $user || ! $user->is_active || ! $user->isUser()) {
+                || ! $user
+                || ($assignment->is_active && (! $user->is_active || ! $user->isUser()))) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'user_id' => 'Penugasan hanya berlaku untuk pendaftar aktif dan ujian dari unit operasional.',
                 ]);
