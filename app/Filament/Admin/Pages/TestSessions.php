@@ -50,8 +50,10 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
                 ->whereHas('unit', fn ($query) => $query->operational())
                 ->where('is_active', true)
                 ->when(auth()->user()->isTU(), fn ($q) => $q->where('unit_id', auth()->user()->unit_id))
-                ->pluck('name', 'uuid')
-                ->all())->required(),
+                ->get()
+                ->mapWithKeys(fn (AdmissionTest $test): array => [
+                    $test->uuid => $test->name.' — '.$test->programScopeLabel(),
+                ])->all())->required(),
             Forms\Components\DateTimePicker::make('starts_at')->label('Mulai')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->required(),
             Forms\Components\DateTimePicker::make('ends_at')->label('Selesai')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->required(),
             Forms\Components\DateTimePicker::make('booking_closes_at')->label('Batas pemesanan/perpindahan')->timezone(config('app.timezone'))->native(false)->displayFormat('d/m/Y H:i')->seconds(false)->helperText('Kosongkan untuk 24 jam sebelum mulai.'),
@@ -72,7 +74,8 @@ class TestSessions extends Page implements Forms\Contracts\HasForms, Tables\Cont
             ->when($this->statusTab !== 'all', fn ($query) => $query->where('status', $this->statusTab))
             ->latest())
             ->columns([
-                Tables\Columns\TextColumn::make('admissionTest.name')->label('Tes'),
+                Tables\Columns\TextColumn::make('admissionTest.name')->label('Tes')
+                    ->description(fn (TestSession $record): string => $record->admissionTest->programScopeLabel()),
                 Tables\Columns\TextColumn::make('starts_at')->label('Mulai')->dateTime('d/m/Y H:i', timezone: config('app.timezone')),
                 Tables\Columns\TextColumn::make('location')->label('Lokasi'),
                 Tables\Columns\TextColumn::make('bookings_count')->label('Terisi'),

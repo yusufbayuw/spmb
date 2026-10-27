@@ -1041,9 +1041,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             Forms\Components\Textarea::make('description')
                 ->label('Deskripsi')
                 ->columnSpanFull(),
-            Forms\Components\Select::make('study_program_id')
-                ->label('Program Studi')
-                ->placeholder('Semua program studi pada institusi')
+            Forms\Components\Select::make('study_program_ids')
+                ->label('Program Studi yang Mengikuti Tes')
+                ->helperText('Kosongkan untuk semua program studi.')
+                ->multiple()
                 ->options(fn (): array => StudyProgram::query()
                     ->where('unit_id', $this->unitId())
                     ->where('is_active', true)
