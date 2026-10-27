@@ -468,6 +468,45 @@ class OnlineExamPhaseOneTest extends TestCase
         $this->assertSame(2, $exam->items()->count());
     }
 
+    public function test_publishing_rejects_mixed_active_and_inactive_questions(): void
+    {
+        [$unit, $exam] = $this->scenario();
+        $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $other = $this->addQuestion($exam, 'essay', [], []);
+        $other->update(['is_active' => false]);
+
+        try {
+            $exam->update(['is_published' => true]);
+            $this->fail('Published packages must include only active questions.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('is_published', $exception->errors());
+        }
+
+        $this->assertFalse($exam->fresh()->is_published);
+        $this->assertSame(2, $exam->items()->count());
+    }
+
+    public function test_revoked_assignment_is_not_silently_reactivated_by_reassignment(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario();
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        $assignment->update(['is_active' => false]);
+
+        try {
+            app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+            $this->fail('Reassignment must not bypass an explicit revocation.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('user_id', $exception->errors());
+        }
+
+        $this->assertFalse($assignment->fresh()->is_active);
+        $this->assertSame(1, $exam->assignments()->count());
+        $this->assertSame(1, \App\Models\AuditLog::query()
+            ->where('event', 'online_exam.assigned')
+            ->where('auditable_type', \App\Models\OnlineExamAssignment::class)
+            ->where('auditable_id', $assignment->id)->count());
+    }
+
     /** @return array{Unit, OnlineExam, User, User} */
     private function scenario(array $examAttributes = []): array
     {
