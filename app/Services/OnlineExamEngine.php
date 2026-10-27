@@ -28,7 +28,7 @@ class OnlineExamEngine
 
     public function start(OnlineExamAssignment $assignment, User $actor): OnlineExamAttempt
     {
-        return DB::transaction(function () use ($assignment, $actor): OnlineExamAttempt {
+        $result = DB::transaction(function () use ($assignment, $actor): OnlineExamAttempt|ValidationException {
             $assignment = OnlineExamAssignment::query()
                 ->with('exam.unit')
                 ->lockForUpdate()
@@ -52,7 +52,7 @@ class OnlineExamEngine
             }
 
             if ($assignment->attempts()->count() >= $exam->max_attempts) {
-                throw ValidationException::withMessages(['exam' => 'Batas jumlah pengerjaan ujian telah tercapai.']);
+                return ValidationException::withMessages(['exam' => 'Batas jumlah pengerjaan ujian telah tercapai.']);
             }
 
             $items = $exam->items()->with('question')->get()
@@ -61,11 +61,16 @@ class OnlineExamEngine
                 ->values();
 
             if ($items->isEmpty()) {
-                throw ValidationException::withMessages(['exam' => 'Paket ujian belum memiliki soal aktif.']);
+                return ValidationException::withMessages(['exam' => 'Paket ujian belum memiliki soal aktif.']);
             }
 
             foreach ($items as $item) {
-                app(OnlineExamQuestionValidator::class)->validate($item->question);
+                try {
+                    app(OnlineExamQuestionValidator::class)->validate($item->question);
+                } catch (ValidationException $exception) {
+                    // Commit an expired prior attempt even when a new attempt cannot start.
+                    return $exception;
+                }
             }
 
             if ($exam->shuffle_questions) {
@@ -125,6 +130,14 @@ class OnlineExamEngine
 
             return $attempt->load('items');
         }, 5);
+
+        // Throw outside the transaction: an expired attempt must stay finalized
+        // even if the next attempt is rejected by a business validation rule.
+        if ($result instanceof ValidationException) {
+            throw $result;
+        }
+
+        return $result;
     }
 
     public function save(OnlineExamAttempt $attempt, User $actor, int $itemId, mixed $answer): void
@@ -269,11 +282,14 @@ class OnlineExamEngine
             if (! is_array($value) || count($value) > count($prompts)
                 || ! collect($value)->every(fn ($v, $k) =>
                     array_key_exists((string) $k, $prompts)
-                    && is_scalar($v) && array_key_exists((string) $v, $choices))) {
+                    && ($v === '' || $v === null
+                        || (is_scalar($v) && array_key_exists((string) $v, $choices))))) {
                 throw ValidationException::withMessages(['answer' => 'Pasangan jawaban tidak valid.']);
             }
 
-            return collect($value)->mapWithKeys(fn ($v, $k) => [(string) $k => (string) $v])->all();
+            return collect($value)
+                ->reject(fn ($v) => $v === '' || $v === null)
+                ->mapWithKeys(fn ($v, $k) => [(string) $k => (string) $v])->all();
         }
 
         if (in_array($type, ['short_answer', 'essay'], true)) {
