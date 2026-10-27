@@ -88,8 +88,13 @@ class SendRegistrationManualEmail implements ShouldQueue
     public function failed(?Throwable $exception): void
     {
         $service = app(RegistrationEmailDeliveryService::class);
-        $service->markFailed($this->deliveryAttemptId, $exception?->getMessage() ?: 'Queue failure');
         $attempt = MailDeliveryAttempt::query()->find($this->deliveryAttemptId);
+        $service->markFailed(
+            $this->deliveryAttemptId,
+            $attempt?->type === 'lms_access'
+                ? 'Pengiriman akses LMS gagal setelah percobaan ulang.'
+                : ($exception?->getMessage() ?: 'Queue failure'),
+        );
         if ($attempt?->type === 'lms_access') {
             app(RegistrationManualEmailService::class)->scrubLmsContent($this->deliveryAttemptId);
         }

@@ -193,7 +193,12 @@ class RegistrationManualEmailService
         try {
             SendRegistrationManualEmail::dispatch($attempt->id);
         } catch (Throwable $exception) {
-            app(RegistrationEmailDeliveryService::class)->markFailed($attempt->id, $exception->getMessage());
+            app(RegistrationEmailDeliveryService::class)->markFailed(
+                $attempt->id,
+                $type === 'lms_access'
+                    ? 'Pengiriman akses LMS gagal. Periksa konfigurasi SMTP dan antrean.'
+                    : $exception->getMessage(),
+            );
 
             if ($type === 'lms_access') {
                 $this->scrubLmsContent($attempt->id);
