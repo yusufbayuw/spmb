@@ -151,4 +151,29 @@ class OnlineExamFilamentSmokeTest extends TestCase
         $this->assertSame(['value' => 'n'], $item->fresh()->answer);
     }
 
+
+    public function test_authorized_question_editor_loads_existing_answer_key(): void
+    {
+        $unit = Unit::create(['name' => 'Unit Soal', 'code' => 'CBT-EDIT', 'is_active' => true]);
+        $staff = User::factory()->create(['unit_id' => $unit->id, 'is_active' => true]);
+        $staff->assignRole('admin_unit');
+        $question = OnlineExamQuestion::create([
+            'unit_id' => $unit->id,
+            'type' => 'single_choice',
+            'prompt' => 'Pilih besaran vektor',
+            'options' => ['choices' => ['a' => 'Gaya', 'b' => 'Suhu']],
+            'grading_config' => ['correct' => 'a'],
+            'points' => 1,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(\App\Filament\Admin\Resources\OnlineExamQuestionResource\Pages\EditOnlineExamQuestion::class,
+            ['record' => $question->getRouteKey()])
+            ->assertSuccessful()
+            ->assertFormSet(['grading_config.correct' => 'a']);
+    }
+
 }
