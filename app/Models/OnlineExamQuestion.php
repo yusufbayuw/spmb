@@ -36,6 +36,16 @@ class OnlineExamQuestion extends Model
     protected static function booted(): void
     {
         static::saving(function (self $question): void {
+            // An active question referenced by a published package cannot
+            // be deactivated while that package is available to participants.
+            if ($question->exists && $question->isDirty('is_active') && ! $question->is_active
+                && $question->items()->whereHas('exam', fn ($query) => $query
+                    ->where('is_published', true))->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'is_active' => 'Batalkan publikasi paket yang menggunakan soal ini sebelum menonaktifkannya.',
+                ]);
+            }
+
             if ($question->exists && $question->isDirty('unit_id')) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'unit_id' => 'Unit soal tidak dapat dipindahkan. Buat soal baru.',
