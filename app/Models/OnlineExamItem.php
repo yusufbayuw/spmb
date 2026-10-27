@@ -22,9 +22,24 @@ class OnlineExamItem extends Model
                 ]);
             }
 
+            if ($exam->is_published) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'online_exam_id' => 'Batalkan publikasi paket sebelum mengubah daftar soal.',
+                ]);
+            }
+
             if ($item->exists && $item->isDirty(['online_exam_id', 'online_exam_question_id'])) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'online_exam_question_id' => 'Relasi soal paket tidak boleh diubah. Tambahkan item baru.',
+                ]);
+            }
+        });
+
+        static::deleting(function (self $item): void {
+            $exam = $item->exam;
+            if ($exam && ($exam->is_published || $exam->attempts()->exists())) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'online_exam_id' => 'Daftar soal paket yang sudah terbit atau sudah dikerjakan tidak boleh dihapus.',
                 ]);
             }
         });
