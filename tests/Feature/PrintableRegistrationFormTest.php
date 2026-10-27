@@ -44,7 +44,6 @@ class PrintableRegistrationFormTest extends TestCase
         $response = $this->actingAs($staff)->get(route('registration.printable-form', $registration));
 
         $response->assertOk()
-            ->assertHeader('Cache-Control', 'private, no-store, max-age=0')
             ->assertHeader('X-Frame-Options', 'DENY')
             ->assertSee('Formulir Pendaftaran')
             ->assertSee('Ayah Contoh')
@@ -58,6 +57,11 @@ class PrintableRegistrationFormTest extends TestCase
             ->assertDontSee('Jawaban Rahasia')
             ->assertDontSee('subject_key')
             ->assertDontSee('certificate_path');
+
+        $cacheControl = $response->headers->get('Cache-Control', '');
+        $this->assertStringContainsString('private', $cacheControl);
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('max-age=0', $cacheControl);
     }
 
     public function test_applicant_and_other_unit_staff_cannot_open_printable_form(): void
