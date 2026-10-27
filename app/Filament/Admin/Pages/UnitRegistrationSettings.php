@@ -820,8 +820,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                                 ->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())
                                     ->where('is_active', true)
                                     ->orderBy('sort_order')
-                                    ->pluck('name', 'uuid')
-                                    ->all())
+                                    ->get()
+                                    ->mapWithKeys(fn (AdmissionTest $test): array => [
+                                        $test->uuid => $test->name.' — '.$test->programScopeLabel(),
+                                    ])->all())
                                 ->searchable()
                                 ->preload()
                                 ->live()
