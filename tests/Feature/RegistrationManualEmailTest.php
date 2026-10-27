@@ -3,6 +3,11 @@
 namespace Tests\Feature;
 
 use App\Jobs\SendRegistrationManualEmail;
+use App\Models\AdmissionTest;
+use App\Models\AdmissionTestResult;
+use App\Models\RegistrationManualEmail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
@@ -88,6 +93,74 @@ class RegistrationManualEmailTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $service->send($registration, $staff, 'Kedua', 'Isi pesan kedua', 'Alasan');
+    }
+
+    public function test_rich_manual_message_is_delivered_as_html(): void
+    {
+        [$registration, $staff] = $this->scenario();
+        $service = app(RegistrationManualEmailService::class);
+        $attempt = $service->send(
+            $registration, $staff, 'Tes Rich Email',
+            '<p><strong>Informasi</strong> <em>Penting</em>.</p>',
+            'Informasi tambahan',
+        );
+
+        Mail::shouldReceive('html')->once()->withArgs(
+            fn (string $html, $callback): bool =>
+                str_contains($html, '<strong>Informasi</strong>')
+                && str_contains($html, '<em>Penting</em>'),
+        );
+
+        (new SendRegistrationManualEmail($attempt->id))->handle(
+            app(\App\Services\RegistrationEmailDeliveryService::class), $service,
+        );
+
+        $this->assertSame('sent', $attempt->fresh()->status);
+    }
+
+    public function test_lms_access_message_is_encrypted_then_scrubbed_after_delivery(): void
+    {
+        [$registration, $staff] = $this->scenario();
+        $test = AdmissionTest::create([
+            'unit_id' => $registration->unit_id, 'name' => 'Tes Akses',
+        ]);
+        $result = AdmissionTestResult::create([
+            'registration_id' => $registration->id, 'admission_test_id' => $test->id,
+            'status' => 'scheduled', 'result' => 'pending',
+        ]);
+        $service = app(RegistrationManualEmailService::class);
+        $attempt = $service->sendLmsAccess($result, $staff, [
+            'platform' => 'Moodle',
+            'login_url' => 'https://example.test/lms',
+            'username' => 'sample.account',
+            'temporary_password' => 'DemoKey123',
+            'subject' => 'Akses Moodle',
+            'body' => '<p>Silakan <strong>login</strong>.</p>',
+            'reason' => 'Ujian daring',
+        ]);
+
+        $this->assertSame('lms_access', $attempt->type);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'mail.lms_access_requested']);
+        $raw = DB::table('registration_manual_emails')
+            ->where('mail_delivery_attempt_id', $attempt->id)->value('body');
+        $this->assertStringNotContainsString('DemoKey123', $raw);
+        $this->assertSame('data_validation', $registration->fresh()->current_stage);
+
+        Mail::shouldReceive('html')->once()->withArgs(
+            fn (string $html, $callback): bool =>
+                str_contains($html, '<strong>login</strong>')
+                && str_contains($html, 'sample.account')
+                && str_contains($html, 'DemoKey123'),
+        );
+
+        (new SendRegistrationManualEmail($attempt->id))->handle(
+            app(\App\Services\RegistrationEmailDeliveryService::class), $service,
+        );
+
+        $this->assertSame('sent', $attempt->fresh()->status);
+        $remaining = RegistrationManualEmail::query()
+            ->where('mail_delivery_attempt_id', $attempt->id)->firstOrFail()->body;
+        $this->assertStringNotContainsString('DemoKey123', $remaining);
     }
 
     /** @return array{Registration, User} */
