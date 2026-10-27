@@ -139,8 +139,11 @@ class OnlineExamEngine
             }
 
             if ($attempt->expires_at->lte(now())) {
+                // Commit finalization rather than throwing inside this DB
+                // transaction (which would roll back the timeout result).
                 $this->finalizeLocked($attempt, true);
-                throw ValidationException::withMessages(['answer' => 'Waktu pengerjaan sudah habis.']);
+
+                return;
             }
 
             $item = OnlineExamAttemptItem::query()
