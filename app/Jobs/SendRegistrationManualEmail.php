@@ -6,6 +6,7 @@ use App\Models\MailDeliveryAttempt;
 use App\Models\Registration;
 use App\Models\RegistrationManualEmail;
 use App\Services\RegistrationEmailDeliveryService;
+use App\Services\AdmissionTerminology;
 use App\Services\RegistrationManualEmailService;
 use App\Services\SpmbNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -54,7 +55,7 @@ class SendRegistrationManualEmail implements ShouldQueue
         }
 
         $body = $message->body
-            ."\n\nHormat kami,\n".config('spmb.portal.name', 'SPMB');
+            ."\n\nHormat kami,\n".app(AdmissionTerminology::class)->portalName();
 
         Mail::raw($body, fn ($mail) => $mail
             ->to($attempt->recipient_email)
