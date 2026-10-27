@@ -98,6 +98,21 @@
 - CI menguji finalisasi ulang, jendela tutup, pencabutan akses, publikasi soal aktif,
   serta autosave dan submit via Livewire. Bukti staging/browser tetap diperlukan.
 
+## Integritas paket dan penugasan
+
+- Paket yang **sudah diterbitkan tidak dapat ditambah atau dikurangi soal**.
+  Batalkan publikasi dahulu untuk menyunting komposisi paket. Penghapusan item
+  ditolak setelah paket memiliki attempt, demi mempertahankan audit riwayat.
+- Menonaktifkan soal yang masih digunakan paket terbit juga ditolak;
+  terbitkan kembali hanya bila **seluruh** item menunjuk soal aktif dari unit
+  paket yang sama. Ujian menolak mulai jika daftar soal menjadi tidak lengkap,
+  bukan diam-diam melewatkan soal.
+- Membuat penugasan duplikat tidak menghidupkan lagi akses yang sebelumnya
+  dicabut. Gunakan aksi **Aktifkan Akses** secara eksplisit; aksi aktivasi dan
+  pencabutan mencatat audit trail. Pembuatan penugasan baru juga diaudit.
+- Tes regresi untuk penambahan/penghapusan soal terbit, penonaktifan soal,
+  paket campuran aktif/nonaktif, dan penugasan ulang yang dicabut.
+
 ## Staging release gates
 
 - [ ] Backup database dan file pendaftar, lalu uji restore terisolasi.
