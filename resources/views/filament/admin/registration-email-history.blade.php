@@ -21,6 +21,9 @@
                 {{ $attempt->origin === 'manual' ? 'Manual oleh '.($attempt->requester?->name ?? 'Petugas') : 'Otomatis' }} ·
                 {{ $attempt->recipient_email }}
             </p>
+            @if ($attempt->type === 'manual_message' && $attempt->manualEmail)
+                <p class="mt-2 text-sm font-medium text-gray-950 dark:text-white">Subjek: {{ $attempt->manualEmail->subject }}</p>
+            @endif
             @if ($attempt->reason)
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Alasan: {{ $attempt->reason }}</p>
             @endif

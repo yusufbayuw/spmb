@@ -8,9 +8,11 @@ use App\Models\TestBooking;
 use App\Models\UnitConfiguration;
 use App\Services\ApplicantFileStorage;
 use App\Services\RegistrationCardService;
+use App\Services\RegistrationPrintableForm;
 use App\Services\TestCardEligibilityService;
 use App\Services\UnitConfigurationService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -32,6 +34,33 @@ class RegistrationPrintController extends Controller
             $registration->loadMissing('unit');
             abort_unless($registration->unit?->isOperational(), 404);
         }
+    }
+
+    /** Staff-only printable registration form; never changes registration state. */
+    public function registrationForm(Request $request, Registration $registration, RegistrationPrintableForm $forms): Response
+    {
+        $user = $request->user();
+        abort_unless(
+            $user?->is_active
+                && ($user->isAdmin() || ($user->isTU()
+                    && $user->hasOperationalUnitAccess()
+                    && (int) $user->unit_id === (int) $registration->unit_id)),
+            404,
+        );
+
+        $registration->loadMissing(['configuration', 'unit', 'opening.studyProgram', 'pathway', 'parentInfo', 'academicScores', 'achievements']);
+
+        return response()->view('registration.printable-form', [
+            'registration' => $registration,
+            'sections' => $forms->sections($registration),
+        ], 200, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'DENY',
+            'Referrer-Policy' => 'no-referrer',
+            'X-Robots-Tag' => 'noindex, nofollow',
+        ]);
     }
 
     public function applicantCard(

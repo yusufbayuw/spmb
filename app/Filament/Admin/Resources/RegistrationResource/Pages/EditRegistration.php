@@ -23,6 +23,12 @@ class EditRegistration extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('printRegistrationForm')
+                ->label('Cetak Formulir')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->url(fn (): string => route('registration.printable-form', $this->record))
+                ->openUrlInNewTab(),
             Actions\Action::make('viewApplicantCard')
                 ->label('Lihat Kartu')
                 ->icon('heroicon-o-identification')

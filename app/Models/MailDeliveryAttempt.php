@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class MailDeliveryAttempt extends Model
 {
     public const TYPES = [
+        'manual_message' => 'Pesan Komunikasi Manual',
+        'lms_access' => 'Informasi Akun LMS',
         'verification' => 'Verifikasi Email',
         'virtual_account' => 'Informasi Virtual Account',
         'announcement' => 'Pengumuman Penerimaan',
@@ -29,6 +31,11 @@ class MailDeliveryAttempt extends Model
     public function registration()
     {
         return $this->belongsTo(Registration::class);
+    }
+
+    public function manualEmail()
+    {
+        return $this->hasOne(RegistrationManualEmail::class, 'mail_delivery_attempt_id');
     }
 
     public function requester()

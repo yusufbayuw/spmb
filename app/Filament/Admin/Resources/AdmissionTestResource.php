@@ -44,11 +44,14 @@ class AdmissionTestResource extends Resource
                 ->disabled(fn () => auth()->user()?->isTU() ?? false)
                 ->dehydrated()
                 ->live()
-                ->afterStateUpdated(fn (Forms\Set $set) => $set('study_program_id', null))
+                ->afterStateUpdated(fn (Forms\Set $set) => $set('study_program_ids', []))
                 ->required(),
-            Forms\Components\Select::make('study_program_id')
-                ->label('Program Studi')
-                ->placeholder('Semua program studi pada institusi')
+            Forms\Components\Select::make('study_program_ids')
+                ->label('Program Studi yang Mengikuti Tes')
+                ->helperText('Kosongkan untuk semua program studi. Lebih dari satu prodi dapat dipilih.')
+                ->multiple()
+                ->afterStateHydrated(fn (Forms\Components\Select $component, ?AdmissionTest $record) =>
+                    $component->state($record?->effectiveProgramIds() ?? []))
                 ->options(fn (Forms\Get $get): array => StudyProgram::query()
                     ->where('unit_id', $get('unit_id'))
                     ->where('is_active', true)
@@ -80,10 +83,9 @@ class AdmissionTestResource extends Resource
             ->reorderable('sort_order')
             ->columns([
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit / Institusi')->badge(),
-                Tables\Columns\TextColumn::make('studyProgram.name')
+                Tables\Columns\TextColumn::make('program_scope')
                     ->label('Program Studi')
-                    ->formatStateUsing(fn ($state, AdmissionTest $record): string => $record->studyProgram?->label() ?? 'Semua program')
-                    ->placeholder('Semua program'),
+                    ->getStateUsing(fn (AdmissionTest $record): string => $record->programScopeLabel()),
                 Tables\Columns\TextColumn::make('name')->label('Tes')->searchable(),
                 Tables\Columns\TextColumn::make('sessions_count')->label('Sesi')->badge(),
                 Tables\Columns\IconColumn::make('is_required')->boolean(),
