@@ -75,6 +75,29 @@
 | Dashboard, pendaftaran, pembayaran, email, VA | Tidak ada | CI existing + smoke staging |
 | \`AdminPanelProvider\` | Tambah grup navigasi **Tes Online** saja | Smoke navigation |
 
+## Penyelesaian operasional ujian
+
+- Paket hanya dapat diterbitkan jika memuat setidaknya satu soal aktif dari unit yang sama.
+- Peserta yang sudah memulai ujian dapat melanjutkan attempt aktif meskipun jendela pembukaan
+  paket telah berakhir. Percobaan baru tetap dilarang setelah paket ditutup.
+  Menonaktifkan penugasan atau unit tetap memblokir akses.
+- Halaman pengerjaan memeriksa masa berlaku server setiap 15 detik ketika browser terbuka.
+  Autosave tetap menjadi sumber jawaban terakhir sebelum tenggat.
+- Scheduler menjalankan `spmb:finalize-online-exams` setiap menit untuk memfinalisasi
+  attempt kedaluwarsa tanpa membutuhkan browser peserta. Command ini memakai transaksi,
+  lock, dan pemeriksaan status agar proses ulang tidak menghasilkan penilaian ganda.
+- Jalankan `php artisan schedule:run` melalui cron satu kali tiap menit di server
+  sesuai standar deployment Laravel. Supervisor queue worker **tidak** menggantikan scheduler.
+  Jika memakai `schedule:work`, pastikan tidak ada dua scheduler independen yang tidak
+  dimaksudkan; finalisasi tetap idempotent.
+- Validasi operasional: `php artisan schedule:list`, dan
+  `php artisan spmb:finalize-online-exams --limit=500`.
+  Command aman jika tabel ujian belum dimigrasikan; gunakan `--limit` 1–5000.
+- Pada edit soal, kunci jawaban dipulihkan hanya di formulir admin terotorisasi,
+  tidak pada serialisasi model peserta.
+- CI menguji finalisasi ulang, jendela tutup, pencabutan akses, publikasi soal aktif,
+  serta autosave dan submit via Livewire. Bukti staging/browser tetap diperlukan.
+
 ## Staging release gates
 
 - [ ] Backup database dan file pendaftar, lalu uji restore terisolasi.
