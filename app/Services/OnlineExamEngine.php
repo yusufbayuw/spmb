@@ -63,13 +63,16 @@ class OnlineExamEngine
                 return ValidationException::withMessages(['exam' => 'Batas jumlah pengerjaan ujian telah tercapai.']);
             }
 
-            $items = $exam->items()->with('question')->get()
-                ->filter(fn ($item) => $item->question?->is_active
-                    && (int) $item->question->unit_id === (int) $exam->unit_id)
-                ->values();
+            $items = $exam->items()->with('question')->get();
 
-            if ($items->isEmpty()) {
-                return ValidationException::withMessages(['exam' => 'Paket ujian belum memiliki soal aktif.']);
+            // Fail closed instead of silently removing questions that have been
+            // deactivated or moved outside the exam's owning unit.
+            if ($items->isEmpty() || $items->contains(fn ($item) =>
+                ! $item->question?->is_active
+                || (int) $item->question->unit_id !== (int) $exam->unit_id)) {
+                return ValidationException::withMessages([
+                    'exam' => 'Paket ujian belum memiliki daftar soal aktif yang lengkap.',
+                ]);
             }
 
             foreach ($items as $item) {
