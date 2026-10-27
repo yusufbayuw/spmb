@@ -9,9 +9,8 @@
             @php
                 $exam = $assignment->exam;
                 $latest = $assignment->attempts->first();
-                $mayStart = $exam->isOpen()
-                    && ($latest?->status === 'in_progress'
-                        || $assignment->attempts->count() < $exam->max_attempts);
+                $mayStart = ($latest?->status === 'in_progress' && $latest->expires_at->isFuture())
+                    || ($exam->isOpen() && $assignment->attempts->count() < $exam->max_attempts);
             @endphp
             <x-filament::section :heading="$exam->title" :description="$exam->unit->name">
                 <div class="space-y-3">
@@ -23,7 +22,7 @@
                         <x-filament::badge color="gray">Maksimal {{ $exam->max_attempts }} percobaan</x-filament::badge>
                         @if ($latest)
                             <x-filament::badge :color="$latest->status === 'graded' ? 'success' : 'warning'">
-                                {{ $latest->status === 'graded' ? 'Dinilai' : ($latest->status === 'pending_review' ? 'Menunggu koreksi' : 'Sedang dikerjakan') }}
+                                {{ $latest->status === 'graded' ? 'Dinilai' : ($latest->status === 'pending_review' ? 'Menunggu koreksi' : ($latest->status === 'in_progress' ? 'Sedang dikerjakan' : 'Selesai')) }}
                             </x-filament::badge>
                         @endif
                     </div>
@@ -36,7 +35,7 @@
 
                     @if ($mayStart)
                         <x-filament::button wire:click="startExam('{{ $assignment->uuid }}')" wire:loading.attr="disabled">
-                            {{ $latest?->status === 'in_progress' ? 'Lanjutkan Ujian' : 'Mulai Ujian' }}
+                            {{ $latest?->status === 'in_progress' && $latest->expires_at->isFuture() ? 'Lanjutkan Ujian' : 'Mulai Ujian' }}
                         </x-filament::button>
                     @else
                         <p class="text-sm text-gray-500 dark:text-gray-400">
