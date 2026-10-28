@@ -59,6 +59,7 @@ class OnlineExamItemResource extends Resource
                     ->whereHas('unit', fn (Builder $q) => $q->operational())
                     ->when(auth()->user()?->isAdminUnit(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))
                     ->where('is_published', false)
+                    ->whereNull('blueprint')
                     ->orderBy('title')->pluck('title', 'id')->all())
                 ->helperText('Batalkan publikasi paket sebelum menambah soal.')
                 ->live()->searchable()->required(),
@@ -66,7 +67,8 @@ class OnlineExamItemResource extends Resource
                 ->label('Soal dari Bank')
                 ->options(function (Forms\Get $get): array {
                     $exam = OnlineExam::query()->find($get('online_exam_id'));
-                    if (! $exam || ! app(OnlineExamAccess::class)->canManage(auth()->user(), $exam)) {
+                    if (! $exam || app(\App\Services\OnlineExamBlueprint::class)->isEnabled($exam)
+                        || ! app(OnlineExamAccess::class)->canManage(auth()->user(), $exam)) {
                         return [];
                     }
 

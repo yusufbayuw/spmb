@@ -4,6 +4,9 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\OnlineExamResource\Pages;
 use App\Models\OnlineExam;
+use App\Models\OnlineExamCategory;
+use App\Models\StudyProgram;
+use App\Services\OnlineExamBlueprint;
 use App\Models\Unit;
 use App\Services\OnlineExamAccess;
 use Filament\Forms;
@@ -63,7 +66,15 @@ class OnlineExamResource extends Resource
                 ->default(fn () => auth()->user()?->isAdminUnit() ? auth()->user()->unit_id : null)
                 ->disabled(fn (): bool => auth()->user()?->isAdminUnit() ?? false)
                 ->dehydrated()
+                ->live()
                 ->required(),
+            Forms\Components\Select::make('study_program_id')
+                ->label('Program Studi (Opsional)')
+                ->helperText('Khusus unit perguruan tinggi; tidak mengubah penugasan peserta atau alur seleksi.')
+                ->options(fn (Forms\Get $get): array => StudyProgram::query()
+                    ->where('unit_id', $get('unit_id'))->where('is_active', true)
+                    ->orderBy('name')->pluck('name', 'id')->all())
+                ->searchable(),
             Forms\Components\TextInput::make('title')->label('Nama Paket Tes')->required()->maxLength(180),
             Forms\Components\Textarea::make('description')->label('Instruksi')->columnSpanFull(),
             Forms\Components\TextInput::make('duration_minutes')
@@ -77,6 +88,23 @@ class OnlineExamResource extends Resource
                 ->after('opens_at'),
             Forms\Components\Toggle::make('shuffle_questions')->label('Acak Urutan Soal')->default(true),
             Forms\Components\Toggle::make('shuffle_options')->label('Acak Pilihan')->default(true),
+            Forms\Components\Repeater::make('blueprint')
+                ->label('Blueprint Soal Acak (Opsional)')
+                ->helperText('Kosong = gunakan Isi Paket Tes manual (kompatibel Fase 1). Jika diisi, paket mengambil sejumlah soal aktif per kategori secara acak dan tidak boleh memiliki Isi Paket Tes manual.')
+                ->schema([
+                    Forms\Components\Select::make('category_id')
+                        ->label('Kategori')
+                        ->options(fn (Forms\Get $get): array => OnlineExamCategory::query()
+                            ->where('unit_id', $get('../../unit_id'))->where('is_active', true)
+                            ->orderBy('name')->pluck('name', 'id')->all())
+                        ->required()->searchable(),
+                    Forms\Components\Select::make('difficulty')
+                        ->label('Kesulitan')
+                        ->options(['any' => 'Semua Tingkat', ...OnlineExamBlueprint::DIFFICULTIES])
+                        ->default('any')->required(),
+                    Forms\Components\TextInput::make('count')
+                        ->label('Jumlah Soal')->integer()->minValue(1)->maxValue(200)->required(),
+                ])->columns(3)->defaultItems(0)->reorderable(false)->columnSpanFull(),
             Forms\Components\Toggle::make('is_published')
                 ->label('Terbitkan Paket Tes')
                 ->helperText('Buat paket dahulu, tambahkan soal pada menu Isi Paket Tes, lalu terbitkan. Tidak mengubah alur SPMB.')
@@ -88,6 +116,7 @@ class OnlineExamResource extends Resource
     {
         return $table->defaultSort('id', 'desc')->columns([
             Tables\Columns\TextColumn::make('unit.name')->label('Unit'),
+            Tables\Columns\TextColumn::make('studyProgram.name')->label('Prodi')->toggleable(isToggledHiddenByDefault: true),
             Tables\Columns\TextColumn::make('title')->label('Paket Tes')->searchable(),
             Tables\Columns\TextColumn::make('items_count')->label('Soal')->badge(),
             Tables\Columns\TextColumn::make('assignments_count')->label('Peserta')->badge(),
