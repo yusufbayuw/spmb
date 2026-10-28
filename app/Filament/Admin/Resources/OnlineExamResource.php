@@ -104,7 +104,7 @@ class OnlineExamResource extends Resource
                         ->default('any')->required(),
                     Forms\Components\TextInput::make('count')
                         ->label('Jumlah Soal')->integer()->minValue(1)->maxValue(200)->required(),
-                ])->columns(3)->defaultItems(0)->reorderable(false)->columnSpanFull(),
+                ])->columns(['default' => 1, 'md' => 3])->defaultItems(0)->reorderable(false)->columnSpanFull(),
             Forms\Components\Toggle::make('is_published')
                 ->label('Terbitkan Paket Tes')
                 ->helperText('Buat paket dahulu, tambahkan soal pada menu Isi Paket Tes, lalu terbitkan. Tidak mengubah alur SPMB.')
