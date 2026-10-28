@@ -65,7 +65,7 @@ class OnlineExamMonitoringService
             ->where('online_exam_id', $exam->id)
             ->with([
                 'user:id,name,email',
-                'latestAttempt' => fn (Builder $q) => $q
+                'latestAttempt' => fn ($q) => $q
                     ->withCount([
                         'items as total_items_count',
                         'items as answered_items_count' => fn (Builder $items) => $items
