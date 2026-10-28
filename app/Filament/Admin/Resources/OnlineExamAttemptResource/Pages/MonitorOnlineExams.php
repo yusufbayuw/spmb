@@ -25,7 +25,7 @@ class MonitorOnlineExams extends Page
 
     public int $pageNumber = 1;
 
-    public static function canAccess(): bool
+    public static function canAccess(array $parameters = []): bool
     {
         return OnlineExamAttemptResource::canViewAny();
     }
