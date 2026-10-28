@@ -106,6 +106,7 @@ class OnlineExamAssignmentResource extends Resource
         return [
             'index' => Pages\ListOnlineExamAssignments::route('/'),
             'create' => Pages\CreateOnlineExamAssignment::route('/create'),
+            'bulk' => Pages\BulkAssignOnlineExamAssignments::route('/bulk'),
         ];
     }
 }
