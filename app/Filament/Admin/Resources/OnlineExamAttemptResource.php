@@ -90,6 +90,7 @@ class OnlineExamAttemptResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => Pages\ListOnlineExamAttempts::route('/')];
+        return ['index' => Pages\ListOnlineExamAttempts::route('/'),
+            'monitor' => Pages\MonitorOnlineExams::route('/monitor')];
     }
 }
