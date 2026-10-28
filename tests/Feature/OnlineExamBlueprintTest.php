@@ -54,13 +54,13 @@ class OnlineExamBlueprintTest extends TestCase
         $attempt = app(OnlineExamEngine::class)->start(
             app(OnlineExamEngine::class)->assign($exam, $user, $staff), $user
         );
-        $items = $attempt->items()->with('question')->get();
+        $items = $attempt->items()->with('sourceQuestion')->get();
         $this->assertCount(3, $items);
         $this->assertSame(0, $exam->items()->count());
         $this->assertSame(3, $items->pluck('online_exam_question_id')->unique()->count());
         $this->assertSame(2, $items->filter(fn ($item) =>
-            (int) $item->question->online_exam_category_id === $math->id
-            && $item->question->difficulty === 'easy')->count());
+            (int) $item->sourceQuestion->online_exam_category_id === $math->id
+            && $item->sourceQuestion->difficulty === 'easy')->count());
 
         foreach ($items as $item) {
             $this->assertArrayNotHasKey('grading_snapshot', $item->toArray());
@@ -88,6 +88,8 @@ class OnlineExamBlueprintTest extends TestCase
         } catch (ValidationException $e) {
             $this->assertArrayHasKey('blueprint', $e->errors());
         }
+        // An Eloquent model retains dirty in-memory attributes when saving throws.
+        $exam->refresh();
         $exam->update(['blueprint' => [
             ['category_id' => $foreign->id, 'difficulty' => 'any', 'count' => 1],
         ]]);
