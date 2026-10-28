@@ -24,6 +24,12 @@ Schedule::command('spmb:expire-admission-offers')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
+// Finalize attempts when participants close their browsers before time runs out.
+// The command is idempotent and processes a bounded batch per scheduler tick.
+Schedule::command('spmb:finalize-online-exams')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 // Reminders are opt-in to avoid sending unsolicited messages during deployment.
 if (config('spmb.mail.automatic_reminders_enabled', false)) {
     Schedule::command('spmb:remind-pending-actions --execute')->dailyAt('09:00')->withoutOverlapping();
