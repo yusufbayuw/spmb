@@ -6,6 +6,7 @@ use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OnlineExamAssignment extends Model
 {
@@ -41,4 +42,6 @@ class OnlineExamAssignment extends Model
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
 
     public function attempts(): HasMany { return $this->hasMany(OnlineExamAttempt::class); }
+
+    public function latestAttempt(): HasOne { return $this->hasOne(OnlineExamAttempt::class)->latestOfMany('id'); }
 }
