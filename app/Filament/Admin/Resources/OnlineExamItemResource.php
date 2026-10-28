@@ -59,7 +59,7 @@ class OnlineExamItemResource extends Resource
                     ->whereHas('unit', fn (Builder $q) => $q->operational())
                     ->when(auth()->user()?->isAdminUnit(), fn (Builder $q) => $q->where('unit_id', auth()->user()->unit_id))
                     ->where('is_published', false)
-                    ->whereNull('blueprint')
+                    ->where(fn (Builder $q) => $q->whereNull('blueprint')->orWhere('blueprint', '[]'))
                     ->orderBy('title')->pluck('title', 'id')->all())
                 ->helperText('Batalkan publikasi paket sebelum menambah soal.')
                 ->live()->searchable()->required(),

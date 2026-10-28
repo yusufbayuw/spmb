@@ -23,7 +23,7 @@ class OnlineExamItem extends Model
                 ]);
             }
 
-            if ($exam->is_published) {
+            if ($exam->is_published || app(\App\Services\OnlineExamBlueprint::class)->isEnabled($exam)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'online_exam_id' => 'Batalkan publikasi paket sebelum mengubah daftar soal.',
                 ]);

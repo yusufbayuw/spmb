@@ -51,6 +51,15 @@ class OnlineExamCategory extends Model
         });
 
         static::deleting(function (self $category): void {
+            if (OnlineExam::query()->where('unit_id', $category->unit_id)
+                ->whereNotNull('blueprint')->get()
+                ->contains(fn ($exam) => collect($exam->blueprint ?? [])
+                    ->contains(fn ($row) => (int) ($row['category_id'] ?? 0) === (int) $category->id))) {
+                throw ValidationException::withMessages([
+                    'category' => 'Kategori sedang digunakan blueprint paket ujian.',
+                ]);
+            }
+
             if ($category->questions()->exists()) {
                 throw ValidationException::withMessages([
                     'category' => 'Kategori masih memiliki soal. Nonaktifkan kategori sebagai gantinya.',
