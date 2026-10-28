@@ -38,6 +38,12 @@ class OnlineExamQuestionSpreadsheetService
         }
 
         $disk = Storage::disk('local');
+        // Only a private upload from the dedicated Filament directory may be read/deleted.
+        if (! str_starts_with($storedPath, 'imports/online-exam-questions/')
+            || str_contains($storedPath, '..') || str_contains($storedPath, '\\')) {
+            throw ValidationException::withMessages(['file' => 'Lokasi berkas impor tidak valid.']);
+        }
+
         $absolutePath = $disk->path($storedPath);
         if (! is_file($absolutePath) || filesize($absolutePath) > 5 * 1024 * 1024) {
             throw ValidationException::withMessages(['file' => 'File tidak ditemukan atau melebihi 5 MB.']);
@@ -59,9 +65,10 @@ class OnlineExamQuestionSpreadsheetService
             $opened = true;
 
             foreach ($reader->getSheetIterator() as $sheet) {
+                $line = 0;
                 foreach ($sheet->getRowIterator() as $sheetRow) {
                     $values = $sheetRow->toArray();
-                    $line = $sheetRow->getRowIndex();
+                    $line++;
 
                     if ($line === 1) {
                         $headers = array_map(fn ($cell): string =>
