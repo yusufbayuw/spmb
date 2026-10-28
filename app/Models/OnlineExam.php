@@ -14,7 +14,7 @@ class OnlineExam extends Model
     protected $fillable = [
         'unit_id', 'title', 'description', 'duration_minutes', 'max_attempts',
         'passing_percentage', 'shuffle_questions', 'shuffle_options', 'is_published',
-        'opens_at', 'closes_at',
+        'opens_at', 'closes_at', 'study_program_id', 'blueprint',
     ];
 
     protected $casts = [
@@ -26,6 +26,7 @@ class OnlineExam extends Model
         'is_published' => 'boolean',
         'opens_at' => 'datetime',
         'closes_at' => 'datetime',
+        'blueprint' => 'array',
     ];
 
     protected static function booted(): void
@@ -54,6 +55,35 @@ class OnlineExam extends Model
                 ]);
             }
 
+            if ($exam->study_program_id) {
+                $program = StudyProgram::query()->find($exam->study_program_id);
+                if (! $program || ! $program->is_active || (int) $program->unit_id !== (int) $exam->unit_id) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'study_program_id' => 'Program studi harus aktif dan berasal dari unit paket ujian.',
+                    ]);
+                }
+            }
+
+            if ($exam->exists && $exam->attempts()->exists()
+                && $exam->isDirty('study_program_id')) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'study_program_id' => 'Prodi ujian tidak dapat diubah setelah peserta mulai mengerjakan.',
+                ]);
+            }
+
+            if ($exam->exists && $exam->getOriginal('is_published')
+                && $exam->is_published && $exam->isDirty('blueprint')) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'blueprint' => 'Batalkan publikasi paket sebelum mengubah blueprint.',
+                ]);
+            }
+
+            if ($exam->is_published && app(\App\Services\OnlineExamBlueprint::class)->isEnabled($exam)) {
+                app(\App\Services\OnlineExamBlueprint::class)->validate($exam);
+
+                return;
+            }
+
             if ($exam->is_published) {
                 $itemsCount = $exam->exists ? $exam->items()->count() : 0;
                 $validCount = $exam->exists
@@ -73,6 +103,8 @@ class OnlineExam extends Model
     public function unit(): BelongsTo { return $this->belongsTo(Unit::class); }
 
     public function items(): HasMany { return $this->hasMany(OnlineExamItem::class)->orderBy('sort_order')->orderBy('id'); }
+
+    public function studyProgram(): BelongsTo { return $this->belongsTo(StudyProgram::class); }
 
     public function assignments(): HasMany { return $this->hasMany(OnlineExamAssignment::class); }
 

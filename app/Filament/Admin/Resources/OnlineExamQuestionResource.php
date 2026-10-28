@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\OnlineExamQuestionResource\Pages;
 use App\Models\OnlineExamQuestion;
+use App\Models\OnlineExamCategory;
+use App\Services\OnlineExamBlueprint;
 use App\Models\Unit;
 use App\Services\OnlineExamAccess;
 use Filament\Forms;
@@ -51,7 +53,18 @@ class OnlineExamQuestionResource extends Resource
                     ->orderBy('name')->pluck('name', 'id')->all())
                 ->default(fn () => auth()->user()?->isAdminUnit() ? auth()->user()->unit_id : null)
                 ->disabled(fn (): bool => auth()->user()?->isAdminUnit() ?? false)
-                ->dehydrated()->required(),
+                ->dehydrated()->live()->required(),
+            Forms\Components\Select::make('online_exam_category_id')
+                ->label('Kategori (Opsional untuk paket manual)')
+                ->options(fn (Forms\Get $get): array => OnlineExamCategory::query()
+                    ->where('unit_id', $get('unit_id'))->where('is_active', true)
+                    ->orderBy('name')->pluck('name', 'id')->all())
+                ->searchable(),
+            Forms\Components\Select::make('difficulty')
+                ->label('Tingkat Kesulitan')
+                ->options(OnlineExamBlueprint::DIFFICULTIES)->default('medium')->required(),
+            Forms\Components\TextInput::make('competency_tag')
+                ->label('Tag Kompetensi')->maxLength(150),
             Forms\Components\Select::make('type')->label('Jenis Soal')
                 ->options(OnlineExamQuestion::TYPES)->live()->required(),
             Forms\Components\Textarea::make('prompt')
@@ -112,6 +125,8 @@ class OnlineExamQuestionResource extends Resource
     {
         return $table->defaultSort('id', 'desc')->columns([
             Tables\Columns\TextColumn::make('unit.name')->label('Unit'),
+            Tables\Columns\TextColumn::make('category.name')->label('Kategori')->toggleable(),
+            Tables\Columns\TextColumn::make('difficulty')->label('Kesulitan')->badge(),
             Tables\Columns\TextColumn::make('type')->label('Jenis')->formatStateUsing(
                 fn (string $state): string => OnlineExamQuestion::TYPES[$state] ?? $state
             )->badge(),

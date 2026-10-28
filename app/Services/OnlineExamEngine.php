@@ -83,21 +83,27 @@ class OnlineExamEngine
                 return ValidationException::withMessages(['exam' => 'Batas jumlah pengerjaan ujian telah tercapai.']);
             }
 
-            $items = $exam->items()->with('question')->get();
+            $blueprint = app(OnlineExamBlueprint::class);
+            try {
+                $questions = $blueprint->isEnabled($exam)
+                    ? $blueprint->draw($exam)
+                    : $exam->items()->with('question')->get()->pluck('question');
+            } catch (ValidationException $exception) {
+                return $exception;
+            }
 
-            // Fail closed instead of silently removing questions that have been
-            // deactivated or moved outside the exam's owning unit.
-            if ($items->isEmpty() || $items->contains(fn ($item) =>
-                ! $item->question?->is_active
-                || (int) $item->question->unit_id !== (int) $exam->unit_id)) {
+            // Fail closed instead of silently dropping unavailable questions.
+            if ($questions->isEmpty() || $questions->contains(fn ($question) =>
+                ! $question?->is_active
+                || (int) $question->unit_id !== (int) $exam->unit_id)) {
                 return ValidationException::withMessages([
                     'exam' => 'Paket ujian belum memiliki daftar soal aktif yang lengkap.',
                 ]);
             }
 
-            foreach ($items as $item) {
+            foreach ($questions as $question) {
                 try {
-                    app(OnlineExamQuestionValidator::class)->validate($item->question);
+                    app(OnlineExamQuestionValidator::class)->validate($question);
                 } catch (ValidationException $exception) {
                     // Commit an expired prior attempt even when a new attempt cannot start.
                     return $exception;
@@ -105,7 +111,7 @@ class OnlineExamEngine
             }
 
             if ($exam->shuffle_questions) {
-                $items = $items->shuffle()->values();
+                $questions = $questions->shuffle()->values();
             }
 
             $attempt = OnlineExamAttempt::query()->create([
@@ -120,8 +126,7 @@ class OnlineExamEngine
                 'expires_at' => now()->addMinutes($exam->duration_minutes),
             ]);
 
-            foreach ($items as $index => $item) {
-                $question = $item->question;
+            foreach ($questions as $index => $question) {
                 $choices = $question->options['choices'] ?? [];
                 if ($question->type === 'true_false') {
                     $choices = ['1' => 'Benar', '0' => 'Salah'];
