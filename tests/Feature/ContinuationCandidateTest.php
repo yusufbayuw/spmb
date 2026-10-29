@@ -164,7 +164,7 @@ class ContinuationCandidateTest extends TestCase
                 'NIK',
                 'Tanggal Lahir',
                 'Pilihan Pendaftaran',
-                'Identitas Calon Siswa / Mahasiswa',
+                'Identitas Calon Siswa',
             ])
             ->setActionData(['accepted' => true])
             ->callMountedAction()

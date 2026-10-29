@@ -75,6 +75,41 @@ class AdmissionTerminologyTest extends TestCase
         }
     }
 
+    public function test_applicant_identity_and_parent_copy_follows_k12_he_and_mixed_audience(): void
+    {
+        $cases = [
+            SpmbOperationalMode::K12 => ['Identitas Calon Siswa', 'calon siswa', 'mahasiswa'],
+            SpmbOperationalMode::HIGHER_EDUCATION => ['Identitas Calon Mahasiswa', 'calon mahasiswa', 'calon siswa'],
+            SpmbOperationalMode::MIXED => ['Identitas Calon Siswa / Mahasiswa', 'calon siswa atau calon mahasiswa', null],
+        ];
+
+        foreach ($cases as $mode => [$heading, $description, $forbidden]) {
+            config()->set('spmb.operations.mode', $mode);
+            $terms = app(AdmissionTerminology::class);
+
+            $this->assertSame($heading, $terms->applicantIdentityHeading());
+            $this->assertStringContainsString($description, $terms->applicantIdentityDescription());
+
+            if ($forbidden !== null) {
+                foreach ([
+                    $terms->applicantIdentityHeading(),
+                    $terms->applicantIdentityDescription(),
+                    $terms->applicantParentDescription(),
+                    $terms->applicantChoiceDescription(),
+                    $terms->applicantSelfOption(),
+                    $terms->applicantRelationshipLabel(),
+                ] as $text) {
+                    $this->assertStringNotContainsString($forbidden, mb_strtolower($text));
+                }
+            }
+        }
+
+        config()->set('spmb.operations.mode', SpmbOperationalMode::MIXED);
+        $terms = app(AdmissionTerminology::class);
+        $this->assertSame('Identitas Calon Siswa', $terms->applicantIdentityHeading(false));
+        $this->assertSame('Identitas Calon Mahasiswa', $terms->applicantIdentityHeading(true));
+    }
+
     public function test_legacy_defaults_are_relabelled_only_for_presentation(): void
     {
         config()->set('spmb.operations.mode', SpmbOperationalMode::HIGHER_EDUCATION);
