@@ -123,7 +123,8 @@ jobs:
             tests/Feature/OnlineExamQuestionSpreadsheetTest.php \
             tests/Feature/OnlineExamBulkAssignmentTest.php \
             tests/Feature/OnlineExamMonitoringTest.php \
-            tests/Feature/OnlineExamAdmissionTransferTest.php
+            tests/Feature/OnlineExamAdmissionTransferTest.php \
+            tests/Feature/OnlineExamResultSpreadsheetTest.php
 
       # Synthetic environment only: this does NOT contact real staging
       # services, send email, start queue workers, or validate backups.

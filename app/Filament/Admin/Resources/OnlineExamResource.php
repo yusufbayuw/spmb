@@ -10,6 +10,7 @@ use App\Models\StudyProgram;
 use App\Services\OnlineExamBlueprint;
 use App\Models\Unit;
 use App\Services\OnlineExamAccess;
+use App\Services\OnlineExamResultSpreadsheetService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -140,7 +141,19 @@ class OnlineExamResource extends Resource
             Tables\Columns\TextColumn::make('assignments_count')->label('Peserta')->badge(),
             Tables\Columns\TextColumn::make('attempts_count')->label('Pengerjaan')->badge(),
             Tables\Columns\IconColumn::make('is_published')->label('Terbit')->boolean(),
-        ])->actions([Tables\Actions\EditAction::make()]);
+        ])->actions([
+            Tables\Actions\EditAction::make(),
+            Tables\Actions\Action::make('exportResultXlsx')
+                ->label('Unduh Hasil XLSX')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->visible(fn (OnlineExam $record): bool => static::canView($record))
+                ->modalHeading('Ekspor laporan CBT mandiri')
+                ->modalDescription('File berisi nama dan email peserta, seluruh percobaan, dan skor yang sudah final. Simpan sebagai dokumen internal. Tidak memuat soal/jawaban/kunci dan tidak mengubah hasil seleksi SPMB.')
+                ->requiresConfirmation()
+                ->action(fn (OnlineExam $record) => app(OnlineExamResultSpreadsheetService::class)
+                    ->download($record, auth()->user())),
+        ]);
     }
 
     public static function getPages(): array
