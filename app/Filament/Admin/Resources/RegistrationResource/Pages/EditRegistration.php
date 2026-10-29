@@ -7,6 +7,7 @@ use App\Filament\RedirectsToResourceIndex;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\ContinuationCandidateMatcher;
 use App\Services\RegistrationRegionService;
 use App\Services\RegistrationWorkflowService;
 use Filament\Actions;
@@ -77,6 +78,7 @@ class EditRegistration extends EditRecord
         }
 
         $record->update($data);
+        app(ContinuationCandidateMatcher::class)->linkRegistration($record);
 
         $canValidate = auth()->user()?->can('validate_data_registration') ?? false;
 

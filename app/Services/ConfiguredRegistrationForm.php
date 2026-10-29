@@ -677,7 +677,7 @@ class ConfiguredRegistrationForm
                 ->content(view('registration.custom-placeholder', [
                     'content' => $content,
                     'downloadUrl' => ! empty($definition['template_path'])
-                        ? route('registration.form-field-template', [app(UnitConfigurationService::class)->current((int) $configuration->unit_id) ?? $configuration, $definition['key']])
+                        ? route('registration.form-field-template', [$configuration, $definition['key']])
                         : null,
                     'downloadLabel' => $definition['label'] ?? 'Dokumen',
                 ]))

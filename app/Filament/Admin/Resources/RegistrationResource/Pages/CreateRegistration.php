@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\RegistrationResource;
 use App\Filament\RedirectsToResourceIndex;
 use App\Models\RegistrationOpening;
 use App\Services\RegistrationRegionService;
+use App\Services\ContinuationCandidateMatcher;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateRegistration extends CreateRecord
@@ -13,6 +14,11 @@ class CreateRegistration extends CreateRecord
     use RedirectsToResourceIndex;
 
     protected static string $resource = RegistrationResource::class;
+
+    protected function afterCreate(): void
+    {
+        app(ContinuationCandidateMatcher::class)->linkRegistration($this->record);
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
