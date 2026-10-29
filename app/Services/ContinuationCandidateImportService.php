@@ -89,6 +89,10 @@ class ContinuationCandidateImportService
             $reader->close();
         }
 
+        if ($result['created'] > 0 || $result['updated'] > 0) {
+            app(ContinuationCandidateMatcher::class)->reconcileExistingRegistrations($unitId);
+        }
+
         return $result;
     }
 

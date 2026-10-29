@@ -38,7 +38,7 @@ class UnitConfigurationService
         foreach ($labels as $key => $label) {
             $documents[] = ['key' => $key, 'label' => $label, 'active' => $key !== 'report_card' || $unit->code !== 'SD', 'required' => $key !== 'supporting_document', 'max_files' => 1, 'formats' => $key === 'photo' ? ['jpg', 'png'] : ['pdf', 'jpg', 'png'], 'instructions' => '', 'template_path' => null];
         }
-        $tests = $unit->admissionTests()->where('is_active', true)->get()->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score']) + ['pathway_uuids' => []])->all();
+        $tests = $unit->admissionTests()->where('is_active', true)->get()->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score']) + ['study_program_ids' => $test->effectiveProgramIds(), 'pathway_uuids' => []])->all();
 
         return [
             'payment_enabled' => true,
@@ -1003,7 +1003,7 @@ class UnitConfigurationService
             }
 
             foreach ($validated['fields'] as $field) {
-                if (($field['type'] ?? null) !== 'file') {
+                if (! in_array($field['type'] ?? null, ['file', 'placeholder'], true)) {
                     continue;
                 }
 
@@ -1014,7 +1014,7 @@ class UnitConfigurationService
                 }
 
                 $formats = array_values($field['formats'] ?? []);
-                if ($formats === []) {
+                if (($field['type'] ?? null) === 'file' && $formats === []) {
                     throw ValidationException::withMessages([
                         'fields' => 'Field Unggah Dokumen harus memiliki minimal satu format file.',
                     ]);
@@ -1043,7 +1043,7 @@ class UnitConfigurationService
             }
             $testScopes = collect($validated['test_definitions'])->keyBy('id');
             $validated['test_definitions'] = $tests->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'result_type', 'passing_score'])
-                + ['pathway_uuids' => $testScopes->get($test->id)['pathway_uuids'] ?? []])->all();
+                + ['study_program_ids' => $test->effectiveProgramIds(), 'pathway_uuids' => $testScopes->get($test->id)['pathway_uuids'] ?? []])->all();
             if ($publish) {
                 if ($validated['participant_card_mode'] === UnitConfiguration::PARTICIPANT_CARD_MODE_TEST_ONLY
                     && (! $validated['tests_enabled'] || ! $tests->contains('is_required', true))) {

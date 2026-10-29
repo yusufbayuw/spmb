@@ -7,6 +7,7 @@ use App\Filament\RedirectsToResourceIndex;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\ContinuationCandidateMatcher;
 use App\Services\RegistrationRegionService;
 use App\Services\RegistrationWorkflowService;
 use Filament\Actions;
@@ -23,6 +24,12 @@ class EditRegistration extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('printRegistrationForm')
+                ->label('Cetak Formulir')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->url(fn (): string => route('registration.printable-form', $this->record))
+                ->openUrlInNewTab(),
             Actions\Action::make('viewApplicantCard')
                 ->label('Lihat Kartu')
                 ->icon('heroicon-o-identification')
@@ -71,6 +78,7 @@ class EditRegistration extends EditRecord
         }
 
         $record->update($data);
+        app(ContinuationCandidateMatcher::class)->linkRegistration($record);
 
         $canValidate = auth()->user()?->can('validate_data_registration') ?? false;
 

@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\ContinuationCandidateResource;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Services\ContinuationCandidateExportService;
+use App\Services\ContinuationCandidateCorrectionService;
 use App\Services\ContinuationCandidateImportService;
 use App\Services\ContinuationCandidateTemplateService;
 use Filament\Actions;
@@ -82,6 +83,34 @@ class ListContinuationCandidates extends ListRecords
                         $unitId,
                         $academicYear,
                     );
+                }),
+
+            Actions\Action::make('correctAcademicYear')
+                ->label('Koreksi Tahun Ajaran')
+                ->icon('heroicon-o-calendar-days')
+                ->color('warning')
+                ->visible(fn (): bool => (bool) auth()->user()?->can('update_continuationcandidate'))
+                ->form([
+                    Forms\Components\Select::make('unit_id')
+                        ->label('Unit')
+                        ->options(fn (): array => Unit::query()->whereIn('id', ContinuationCandidateResource::scopedQuery()->select('unit_id'))->pluck('name', 'id')->all())
+                        ->default(fn (): ?int => auth()->user()?->unit_id)
+                        ->disabled(fn (): bool => auth()->user()?->isTU() ?? false)
+                        ->dehydrated()->live()->required(),
+                    Forms\Components\Select::make('source_year')->label('Tahun Asal')
+                        ->options(fn (Forms\Get $get): array => filled($get('unit_id')) ? ContinuationCandidateResource::scopedQuery()->where('unit_id', (int) $get('unit_id'))->distinct()->pluck('academic_year', 'academic_year')->all() : [])
+                        ->searchable()->required(),
+                    Forms\Components\Select::make('target_year')->label('Tahun Tujuan')
+                        ->options(fn (Forms\Get $get): array => filled($get('unit_id')) ? RegistrationOpening::query()->where('unit_id', (int) $get('unit_id'))->distinct()->pluck('academic_year', 'academic_year')->all() : [])
+                        ->searchable()->required(),
+                ])
+                ->requiresConfirmation()
+                ->action(function (array $data): void {
+                    $user = auth()->user();
+                    $unitId = (int) ($data['unit_id'] ?? 0);
+                    abort_unless($user?->can('update_continuationcandidate') && ($user->isAdmin() || ($user->isTU() && (int) $user->unit_id === $unitId)), 403);
+                    $count = app(ContinuationCandidateCorrectionService::class)->moveAcademicYear($unitId, (string) $data['source_year'], (string) $data['target_year']);
+                    Notification::make()->title('Koreksi berhasil')->body($count.' data dipindahkan.')->success()->send();
                 }),
 
             Actions\Action::make('downloadTemplate')

@@ -676,6 +676,10 @@ class ConfiguredRegistrationForm
                 ->label('')
                 ->content(view('registration.custom-placeholder', [
                     'content' => $content,
+                    'downloadUrl' => ! empty($definition['template_path'])
+                        ? route('registration.form-field-template', [$configuration, $definition['key']])
+                        : null,
+                    'downloadLabel' => $definition['label'] ?? 'Dokumen',
                 ]))
                 ->columnSpanFull();
         }
