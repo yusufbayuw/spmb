@@ -217,7 +217,7 @@ class RegistrationPrintController extends Controller
 
         $field = collect($configuration->fields ?? [])->first(
             fn (array $field): bool => ($field['key'] ?? null) === $key
-                && ($field['type'] ?? null) === 'file'
+                && in_array($field['type'] ?? null, ['file', 'placeholder'], true)
                 && (bool) ($field['active'] ?? false),
         );
 
