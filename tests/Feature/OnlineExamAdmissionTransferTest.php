@@ -127,8 +127,33 @@ class OnlineExamAdmissionTransferTest extends TestCase
             (int) $exam->fresh()->admission_test_id);
     }
 
+    public function test_graded_cbt_does_not_mutate_spmb_until_staff_explicitly_transfers_score(): void
+    {
+        [$attempt, $registration, $staff] = $this->scenario();
+
+        $this->assertSame('graded', $attempt->status);
+        $this->assertSame('tests', $registration->fresh()->current_stage);
+        $this->assertSame('pending', $registration->testResults()->value('result'));
+        $this->assertNull($registration->testResults()->value('score'));
+        $this->assertNull($registration->selection);
+        $this->assertSame(0, OnlineExamResultTransfer::query()->count());
+    }
+
+    public function test_unlinked_cbt_stays_standalone_even_if_admission_test_is_required(): void
+    {
+        [$attempt, $registration, $staff, $exam] = $this->scenario(false);
+
+        $this->assertNull($exam->admission_test_id);
+        $this->assertSame([], app(OnlineExamResultTransferService::class)
+            ->eligibleRegistrations($attempt, $staff));
+        $this->assertSame('tests', $registration->fresh()->current_stage);
+        $this->assertSame('pending', $registration->testResults()->value('result'));
+        $this->assertNull($registration->testResults()->value('score'));
+        $this->assertSame(0, OnlineExamResultTransfer::query()->count());
+    }
+
     /** @return array{OnlineExamAttempt, Registration, User, OnlineExam} */
-    private function scenario(): array
+    private function scenario(bool $linked = true): array
     {
         $this->seed(ShieldSeeder::class);
         $unit = Unit::create(['name' => 'CBT Admission', 'code' => 'CBT-A', 'is_active' => true]);
@@ -176,7 +201,7 @@ class OnlineExamAdmissionTransferTest extends TestCase
         ]);
         $exam = OnlineExam::create([
             'unit_id' => $unit->id, 'title' => 'Paket CBT Seleksi',
-            'admission_test_id' => $test->id,
+            'admission_test_id' => $linked ? $test->id : null,
             'shuffle_questions' => false, 'shuffle_options' => false,
         ]);
         $question = OnlineExamQuestion::create([

@@ -64,7 +64,7 @@ class OnlineExamAttemptResource extends Resource
             Tables\Columns\TextColumn::make('submitted_at')->label('Dikumpulkan')->dateTime('d/m/Y H:i'),
         ])->actions([
             Tables\Actions\Action::make('transferToAdmission')
-                ->label('Sahkan ke Hasil Tes')
+                ->label('Gunakan Nilai di SPMB (Opsional)')
                 ->icon('heroicon-o-arrow-right-circle')
                 ->color('success')
                 ->visible(fn (OnlineExamAttempt $record): bool => $record->status === 'graded'
@@ -72,8 +72,8 @@ class OnlineExamAttemptResource extends Resource
                     && $record->transfer === null
                     && auth()->user()?->can('record_result_admissiontestresult')
                     && static::canView($record))
-                ->modalHeading('Sahkan nilai CBT ke Tes Penerimaan')
-                ->modalDescription('Pilih pendaftaran milik peserta. Nilai dapat menyelesaikan tahap Tes dan melanjutkan ke Seleksi jika semua tes wajib sudah selesai. Tindakan tercatat dan tidak dapat diulang.')
+                ->modalHeading('Integrasi nilai CBT (pilihan petugas)')
+                ->modalDescription('CBT bukan syarat wajib SPMB. Aksi ini hanya untuk paket yang sengaja dihubungkan ke Tes Penerimaan. Setelah Anda memilih pendaftaran dan mengonfirmasi, nilai akan masuk ke hasil tes tersebut dan dapat melanjutkan tahap tes SPMB sesuai aturan yang sudah dikonfigurasi. Tindakan diaudit dan tidak dapat diulang.')
                 ->form([
                     Forms\Components\Select::make('registration_id')
                         ->label('Pendaftaran yang Menerima Nilai')

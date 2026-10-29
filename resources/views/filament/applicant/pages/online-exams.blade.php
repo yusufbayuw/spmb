@@ -1,8 +1,10 @@
 <x-filament-panels::page>
     <div class="space-y-5">
         <p class="text-sm text-gray-600 dark:text-gray-300">
-            Paket Tes Online hanya muncul jika ditugaskan oleh pengelola.
-            Modul ini mandiri dan tidak otomatis mengubah tahapan atau hasil seleksi pendaftaran.
+            Tes Online (CBT) adalah fasilitas tambahan, bukan persyaratan wajib untuk masuk
+            atau melanjutkan alur pendaftaran SPMB. Paket hanya muncul jika Anda ditugaskan
+            oleh pengelola. Pengerjaan dan nilai CBT tidak otomatis memengaruhi status pendaftaran
+            maupun keputusan seleksi; ketentuan tes penerimaan yang terpisah tetap mengikuti konfigurasi sekolah/institusi.
         </p>
 
         @forelse ($assignments as $assignment)
@@ -47,7 +49,8 @@
         @empty
             <x-filament::section>
                 <p class="text-sm text-gray-600 dark:text-gray-300">
-                    Belum ada Tes Online yang ditugaskan kepada akun Anda.
+                    Belum ada Tes Online yang ditugaskan kepada akun Anda. Ini tidak menghambat
+                    pendaftaran maupun seleksi SPMB sesuai ketentuan yang berlaku.
                 </p>
             </x-filament::section>
         @endforelse
