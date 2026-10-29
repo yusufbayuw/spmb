@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AdmissionOffer;
 use App\Models\Announcement;
 use App\Models\Payment;
+use App\Models\OnlineExamAssignment;
 use App\Models\Registration;
 use App\Models\ReRegistrationItem;
 use App\Models\Unit;
@@ -544,6 +545,32 @@ class SpmbNotificationService
                 'days_remaining' => $daysRemaining,
                 'program_code' => $certificate->programCode(),
             ],
+        );
+    }
+
+    public function onlineExamAssigned(OnlineExamAssignment $assignment, bool $reactivated = false): void
+    {
+        $assignment->loadMissing(['exam.unit', 'user']);
+
+        if (! $assignment->is_active || ! $assignment->user?->is_active
+            || ! $assignment->exam?->is_published
+            || ! $assignment->exam?->unit?->isOperational()) {
+            return;
+        }
+
+        $this->notify(
+            collect([$assignment->user]),
+            $reactivated ? 'online_exam.assignment_reactivated' : 'online_exam.assigned',
+            'workflow',
+            $reactivated ? 'Akses Tes Online telah diaktifkan kembali' : 'Anda mendapat penugasan Tes Online',
+            'Paket: '.$assignment->exam->title.'. Periksa jadwal dan kerjakan sesuai instruksi yang tersedia pada portal.',
+            'info',
+            'heroicon-o-computer-desktop',
+            'Lihat Tes Online',
+            url('/pendaftar/ujian-online'),
+            $assignment,
+            ['online_exam_uuid' => $assignment->exam->uuid, 'assignment_uuid' => $assignment->uuid],
+            (int) $assignment->exam->unit_id,
         );
     }
 

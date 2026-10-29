@@ -97,6 +97,11 @@ class OnlineExamAssignmentResource extends Resource
                             ? 'Admin mencabut akses Tes Online peserta.'
                             : 'Admin mengaktifkan kembali akses Tes Online peserta.',
                     );
+
+                    if (! $previouslyActive) {
+                        app(\App\Services\SpmbNotificationService::class)
+                            ->onlineExamAssigned($record->fresh(), true);
+                    }
                 }),
         ]);
     }

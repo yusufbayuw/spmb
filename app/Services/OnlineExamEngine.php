@@ -41,6 +41,7 @@ class OnlineExamEngine
                 unitId: $exam->unit_id,
                 description: 'Akun peserta ditugaskan mengikuti Tes Online.',
             );
+            app(SpmbNotificationService::class)->onlineExamAssigned($assignment);
         }
 
         return $assignment;

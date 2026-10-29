@@ -26,7 +26,7 @@ Fitur ini **tidak** terhubung ke penilaian seleksi dan tidak memutasi data regis
 
 - Penugasan dilakukan **sekali saat admin menekan konfirmasi**, bukan otomatis dari event registrasi.
 - Tidak menambah jadwal ujian atau mengubah \`AdmissionTestResult\`, \`registrations.current_stage\`, dan hasil seleksi.
-- Tidak mengirim notifikasi ke peserta pada iterasi ini.
+- Peserta menerima notifikasi database/Web Push (jika terdaftar) ketika penugasan baru berhasil dibuat melalui layanan penugasan, serta saat staf mengaktifkan kembali akses. Tidak mengirim email atau notifikasi ulang untuk penugasan aktif yang sudah ada. Pengiriman melalui queue `notifications` memerlukan worker operasional.
 - Filter gelombang melalui ID pembukaan, bukan pencocokan teks label gelombang.
 - Setelah deployment, UAT lintas unit, perubahan cohort setelah pratinjau, pembatasan prodi, dan registrasi duplikat harus divalidasi pada staging.
 
