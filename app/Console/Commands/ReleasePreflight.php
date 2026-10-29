@@ -77,6 +77,20 @@ class ReleasePreflight extends Command
         $add('applicant_storage', $privateSafe,
             'Applicant-private storage is separate from the public disk and cannot be served directly.');
 
+        $localDisk = config('filesystems.disks.local', []);
+        $localRoot = rtrim((string) ($localDisk['root'] ?? ''), '/\\');
+        $webRoot = rtrim(public_path(), '/\\');
+        $cbtExportSafe = ($localDisk['driver'] ?? null) === 'local'
+            && $localRoot !== '' && $publicRoot !== '' && $webRoot !== ''
+            && $localRoot !== $publicRoot && $localRoot !== $webRoot
+            && ! str_starts_with($localRoot.'/', $publicRoot.'/')
+            && ! str_starts_with($localRoot.'/', $webRoot.'/');
+
+        // Pure configuration check: do not create files or call the exporter
+        // on staging/production during a read-only preflight.
+        $add('cbt_report_storage', $cbtExportSafe,
+            'CBT report XLSX files are created on local storage outside public/web roots.');
+
         $add('session', ! $live || (filled(config('session.driver')) && ! in_array(config('session.driver'), ['array', 'null'], true)
             && config('session.secure') === true),
             'Persistent sessions and secure cookies are configured.', $live);
@@ -131,6 +145,8 @@ class ReleasePreflight extends Command
             'Send a real password-recovery email through the configured mail service.',
             'Perform cross-unit authorization, applicant journey, and manual-transfer-proof UAT.',
             'Verify file upload, download, and signed document behavior over HTTPS.',
+            'Exercise CBT XLSX download in a real browser; confirm private headers, no exposed keys, and correct unit scope.',
+            'Run a staging-only CBT XLSX load drill and verify the scheduled abandoned-report cleanup.',
             'Confirm staging isolation, approved release SHA, rollback owner, and go/no-go sign-off.',
         ];
 
