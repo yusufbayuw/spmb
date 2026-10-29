@@ -76,14 +76,22 @@ class OnlineExamResource extends Resource
                     ->where('unit_id', $get('unit_id'))->where('is_active', true)
                     ->orderBy('name')->pluck('name', 'id')->all())
                 ->searchable()->live(),
-            Forms\Components\Select::make('admission_test_id')
-                ->label('Tes Penerimaan yang Dihubungkan (Opsional)')
-                ->helperText('Nilai CBT hanya masuk ke seleksi setelah petugas memilih pendaftaran dan mengesahkan hasil final secara eksplisit.')
-                ->options(fn (Forms\Get $get): array => AdmissionTest::query()
-                    ->where('unit_id', $get('unit_id'))
-                    ->where('is_active', true)
-                    ->orderBy('name')->pluck('name', 'id')->all())
-                ->searchable(),
+            Forms\Components\Section::make('Integrasi CBT ke SPMB (opsional)')
+                ->description('CBT adalah fasilitas tambahan. Tanpa pengaturan ini, paket tetap mandiri dan tidak menjadi syarat untuk mengikuti alur pendaftaran atau seleksi SPMB.')
+                ->schema([
+                    Forms\Components\Select::make('admission_test_id')
+                        ->label('Hubungkan ke Tes Penerimaan (tidak wajib)')
+                        ->placeholder('Tidak dihubungkan - CBT mandiri')
+                        ->helperText('Kosongkan jika CBT hanya dipakai untuk latihan/ujian mandiri. Jika dihubungkan, nilainya tetap hanya masuk ke SPMB setelah pengesahan eksplisit petugas yang berwenang.')
+                        ->options(fn (Forms\Get $get): array => AdmissionTest::query()
+                            ->where('unit_id', $get('unit_id'))
+                            ->where('is_active', true)
+                            ->orderBy('name')->pluck('name', 'id')->all())
+                        ->searchable(),
+                ])
+                ->collapsible()
+                ->collapsed()
+                ->columnSpanFull(),
             Forms\Components\TextInput::make('title')->label('Nama Paket Tes')->required()->maxLength(180),
             Forms\Components\Textarea::make('description')->label('Instruksi')->columnSpanFull(),
             Forms\Components\TextInput::make('duration_minutes')
@@ -116,7 +124,7 @@ class OnlineExamResource extends Resource
                 ])->columns(['default' => 1, 'md' => 3])->defaultItems(0)->reorderable(false)->columnSpanFull(),
             Forms\Components\Toggle::make('is_published')
                 ->label('Terbitkan Paket Tes')
-                ->helperText('Buat paket dahulu, tambahkan soal pada menu Isi Paket Tes, lalu terbitkan. Tidak mengubah alur SPMB.')
+                ->helperText('Penerbitan CBT hanya membuat ujian tersedia untuk peserta yang ditugaskan; tidak menambah tahapan atau persyaratan pendaftaran SPMB.')
                 ->default(false),
         ])->columns(['default' => 1, 'md' => 2]);
     }

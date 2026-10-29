@@ -627,6 +627,9 @@ class RegistrationWorkflowService
 
     public function prepareTestsAndSelection(Registration $registration): bool
     {
+        // Only configured AdmissionTest definitions participate in SPMB workflow.
+        // OnlineExam (CBT) packages and assignments are independent facilities:
+        // their presence or absence must never add a mandatory registration stage.
         $tests = $registration->configuredTests();
         foreach ($tests as $test) {
             AdmissionTestResult::firstOrCreate(['registration_id' => $registration->id, 'admission_test_id' => $test['id']], ['status' => 'unbooked', 'result' => 'pending']);
