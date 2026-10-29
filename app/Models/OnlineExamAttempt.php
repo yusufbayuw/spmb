@@ -40,6 +40,11 @@ class OnlineExamAttempt extends Model
 
     public function items(): HasMany { return $this->hasMany(OnlineExamAttemptItem::class)->orderBy('sort_order'); }
 
+    public function transfer(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(OnlineExamResultTransfer::class, 'online_exam_attempt_id');
+    }
+
     public function isTerminal(): bool
     {
         return in_array($this->status, ['submitted', 'pending_review', 'graded', 'expired'], true);

@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\OnlineExamAttemptResource\Pages;
 use App\Models\OnlineExamAttempt;
 use App\Services\OnlineExamAccess;
 use App\Services\OnlineExamEngine;
+use App\Services\OnlineExamResultTransferService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -40,7 +41,7 @@ class OnlineExamAttemptResource extends Resource
         return parent::getEloquentQuery()->whereHas('exam', fn (Builder $q) =>
             app(OnlineExamAccess::class)->staffScope($q, auth()->user())
                 ->whereHas('unit', fn (Builder $unit) => $unit->operational())
-        )->with(['exam.unit', 'user', 'items']);
+        )->with(['exam.unit', 'exam.admissionTest', 'user', 'items', 'transfer.admissionTestResult']);
     }
 
     public static function form(Form $form): Form
@@ -59,8 +60,36 @@ class OnlineExamAttemptResource extends Resource
             Tables\Columns\TextColumn::make('percentage')->label('Skor %')
                 ->formatStateUsing(fn ($state) => $state === null ? 'Menunggu Koreksi' : number_format((float) $state, 2, ',', '.')),
             Tables\Columns\IconColumn::make('passed')->label('Lulus')->boolean(),
+            Tables\Columns\IconColumn::make('transfer.id')->label('Ke Seleksi')->boolean(),
             Tables\Columns\TextColumn::make('submitted_at')->label('Dikumpulkan')->dateTime('d/m/Y H:i'),
         ])->actions([
+            Tables\Actions\Action::make('transferToAdmission')
+                ->label('Sahkan ke Hasil Tes')
+                ->icon('heroicon-o-arrow-right-circle')
+                ->color('success')
+                ->visible(fn (OnlineExamAttempt $record): bool => $record->status === 'graded'
+                    && $record->exam?->admission_test_id !== null
+                    && $record->transfer === null
+                    && auth()->user()?->can('record_result_admissiontestresult')
+                    && static::canView($record))
+                ->modalHeading('Sahkan nilai CBT ke Tes Penerimaan')
+                ->modalDescription('Pilih pendaftaran milik peserta. Nilai dapat menyelesaikan tahap Tes dan melanjutkan ke Seleksi jika semua tes wajib sudah selesai. Tindakan tercatat dan tidak dapat diulang.')
+                ->form([
+                    Forms\Components\Select::make('registration_id')
+                        ->label('Pendaftaran yang Menerima Nilai')
+                        ->options(fn (OnlineExamAttempt $record): array =>
+                            app(OnlineExamResultTransferService::class)
+                                ->eligibleRegistrations($record, auth()->user()))
+                        ->required()->searchable(),
+                ])
+                ->requiresConfirmation()
+                ->action(function (OnlineExamAttempt $record, array $data): void {
+                    app(OnlineExamResultTransferService::class)->transfer(
+                        $record, (int) $data['registration_id'], auth()->user(),
+                    );
+                    Notification::make()->title('Nilai CBT berhasil disahkan ke hasil tes penerimaan')
+                        ->success()->send();
+                }),
             Tables\Actions\Action::make('gradeEssay')
                 ->label('Nilai Esai')
                 ->icon('heroicon-o-pencil-square')

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\OnlineExamResource\Pages;
 use App\Models\OnlineExam;
+use App\Models\AdmissionTest;
 use App\Models\OnlineExamCategory;
 use App\Models\StudyProgram;
 use App\Services\OnlineExamBlueprint;
@@ -74,6 +75,14 @@ class OnlineExamResource extends Resource
                 ->options(fn (Forms\Get $get): array => StudyProgram::query()
                     ->where('unit_id', $get('unit_id'))->where('is_active', true)
                     ->orderBy('name')->pluck('name', 'id')->all())
+                ->searchable()->live(),
+            Forms\Components\Select::make('admission_test_id')
+                ->label('Tes Penerimaan yang Dihubungkan (Opsional)')
+                ->helperText('Nilai CBT hanya masuk ke seleksi setelah petugas memilih pendaftaran dan mengesahkan hasil final secara eksplisit.')
+                ->options(fn (Forms\Get $get): array => AdmissionTest::query()
+                    ->where('unit_id', $get('unit_id'))
+                    ->where('is_active', true)
+                    ->orderBy('name')->pluck('name', 'id')->all())
                 ->searchable(),
             Forms\Components\TextInput::make('title')->label('Nama Paket Tes')->required()->maxLength(180),
             Forms\Components\Textarea::make('description')->label('Instruksi')->columnSpanFull(),
@@ -118,6 +127,7 @@ class OnlineExamResource extends Resource
             Tables\Columns\TextColumn::make('unit.name')->label('Unit'),
             Tables\Columns\TextColumn::make('studyProgram.name')->label('Prodi')->toggleable(isToggledHiddenByDefault: true),
             Tables\Columns\TextColumn::make('title')->label('Paket Tes')->searchable(),
+            Tables\Columns\TextColumn::make('admissionTest.name')->label('Tes Seleksi Tertaut')->toggleable(isToggledHiddenByDefault: true),
             Tables\Columns\TextColumn::make('items_count')->label('Soal')->badge(),
             Tables\Columns\TextColumn::make('assignments_count')->label('Peserta')->badge(),
             Tables\Columns\TextColumn::make('attempts_count')->label('Pengerjaan')->badge(),
