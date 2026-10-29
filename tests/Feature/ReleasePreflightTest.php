@@ -116,6 +116,20 @@ class ReleasePreflightTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_cbt_xlsx_export_cannot_use_public_web_root_even_when_other_checks_pass(): void
+    {
+        config()->set([
+            'app.key' => 'base64:'.base64_encode(str_repeat('h', 32)),
+            'filesystems.disks.local.root' => public_path('unsafe-cbt-export'),
+        ]);
+
+        $this->artisan('spmb:release:preflight', ['--profile' => 'development'])
+            ->assertExitCode(1);
+
+        // Preflight is read-only; it must not create the configured location.
+        $this->assertDirectoryDoesNotExist(public_path('unsafe-cbt-export'));
+    }
+
     public function test_invalid_profile_fails_without_modifying_database(): void
     {
         $this->artisan('spmb:release:preflight', ['--profile' => 'unknown'])
