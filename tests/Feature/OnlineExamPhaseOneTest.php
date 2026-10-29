@@ -11,6 +11,8 @@ use App\Models\OnlineExamQuestion;
 use App\Models\TestBooking;
 use App\Models\Unit;
 use App\Models\User;
+use App\Notifications\SpmbDatabaseNotification;
+use Illuminate\Support\Facades\Notification;
 use App\Services\OnlineExamAccess;
 use App\Services\OnlineExamEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -505,6 +507,25 @@ class OnlineExamPhaseOneTest extends TestCase
             ->where('event', 'online_exam.assigned')
             ->where('auditable_type', \App\Models\OnlineExamAssignment::class)
             ->where('auditable_id', $assignment->id)->count());
+    }
+
+    public function test_new_assignment_notifies_once_but_reassignment_is_idempotent(): void
+    {
+        [$unit, $exam, $staff, $user] = $this->scenario();
+        $this->addQuestion($exam, 'true_false', [], ['correct' => '1']);
+        $exam->update(['is_published' => true]);
+
+        Notification::fake();
+        $assignment = app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+
+        Notification::assertSentTo($user, SpmbDatabaseNotification::class,
+            fn (SpmbDatabaseNotification $notice): bool =>
+                $notice->event === 'online_exam.assigned'
+                && $notice->actionUrl === url('/pendaftar/ujian-online'));
+
+        app(OnlineExamEngine::class)->assign($exam, $user, $staff);
+        Notification::assertSentToTimes($user, SpmbDatabaseNotification::class, 1);
+        $this->assertSame(1, $exam->assignments()->count());
     }
 
     /** @return array{Unit, OnlineExam, User, User} */
