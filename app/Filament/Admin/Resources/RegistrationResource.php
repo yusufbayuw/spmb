@@ -257,11 +257,15 @@ class RegistrationResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
             ->columns([
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable()->placeholder('Belum diterbitkan'),
                 Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable(['full_name', 'nik', 'nisn'])->description(fn (Registration $record) => $record->nik),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
+                Tables\Columns\TextColumn::make('is_alumni')->label('Alumni')->badge()
+                    ->formatStateUsing(fn ($state): string => $state ? 'Alumni' : 'Non-Alumni')
+                    ->color(fn ($state): string => $state ? 'success' : 'gray'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
                 Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->badge()->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id')->placeholder('-'),
@@ -294,6 +298,12 @@ class RegistrationResource extends Resource
                     ->options(Registration::LIFECYCLE_STATUSES)
                     ->default('active'),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
+                Tables\Filters\TernaryFilter::make('alumni')->label('Alumni')
+                    ->trueLabel('Alumni')->falseLabel('Non-Alumni')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->whereHas('continuationLink'),
+                        false: fn (Builder $query): Builder => $query->whereDoesntHave('continuationLink'),
+                    ),
             ])
             ->actions([
                 Tables\Actions\Action::make('printRegistrationForm')
