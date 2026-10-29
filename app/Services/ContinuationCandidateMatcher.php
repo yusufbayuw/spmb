@@ -110,6 +110,22 @@ class ContinuationCandidateMatcher
             ->all();
     }
 
+    public function reconcileExistingRegistrations(?int $unitId = null): int
+    {
+        $count = 0;
+        Registration::query()->whereDoesntHave('continuationLink')->whereNotNull('nik')->whereNotNull('birth_date')
+            ->whereHas('opening')->when($unitId !== null, fn ($q) => $q->where('unit_id', $unitId))
+            ->with('opening')->chunkById(200, function ($registrations) use (&$count): void {
+                foreach ($registrations as $registration) {
+                    $this->linkRegistration($registration);
+                    if ($registration->continuationLink()->exists()) {
+                        $count++;
+                    }
+                }
+            });
+        return $count;
+    }
+
     public function linkRegistration(Registration $registration): void
     {
         $registration->loadMissing('opening');

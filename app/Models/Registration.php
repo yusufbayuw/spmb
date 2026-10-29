@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
@@ -396,7 +397,11 @@ class Registration extends Model
     public function configuredTests(): array
     {
         if (! $this->configuration) {
-            return $this->unit->admissionTests()->where('is_active', true)->get()->filter(fn ($test) => ! $test->study_program_id || $test->study_program_id === $this->opening?->study_program_id)->map(fn ($test) => $test->only(['id', 'name', 'study_program_id', 'is_required', 'passing_score', 'result_type']))->values()->all();
+            return $this->unit->admissionTests()->where('is_active', true)->get()
+                ->filter(fn (AdmissionTest $test): bool => $test->appliesToStudyProgram($this->opening?->study_program_id))
+                ->map(fn (AdmissionTest $test): array => $test->only(['id', 'name', 'study_program_id', 'is_required', 'passing_score', 'result_type'])
+                    + ['study_program_ids' => $test->effectiveProgramIds()])
+                ->values()->all();
         }
         if (! $this->configuration->tests_enabled) {
             return [];
@@ -406,8 +411,13 @@ class Registration extends Model
             ?? RegistrationPathway::query()->whereKey($this->registration_pathway_id)->value('uuid');
 
         return array_values(array_filter($this->configuration->test_definitions, function (array $test) use ($pathwayUuid): bool {
-            $matchesProgram = empty($test['study_program_id'])
-                || (int) $test['study_program_id'] === (int) $this->opening?->study_program_id;
+            $matchesProgram = array_key_exists('study_program_ids', $test) && is_array($test['study_program_ids'])
+                ? ($test['study_program_ids'] === [] || (
+                    $this->opening?->study_program_id !== null
+                    && in_array((int) $this->opening->study_program_id, array_map('intval', $test['study_program_ids']), true)
+                ))
+                : (empty($test['study_program_id'])
+                    || (int) $test['study_program_id'] === (int) $this->opening?->study_program_id);
 
             $pathwayUuids = is_array($test['pathway_uuids'] ?? null)
                 ? array_values(array_filter($test['pathway_uuids']))
@@ -595,6 +605,11 @@ class Registration extends Model
     public function parentInfo()
     {
         return $this->hasOne(ParentInfo::class);
+    }
+
+    public function continuationLink(): HasOne
+    {
+        return $this->hasOne(ContinuationRegistrationLink::class);
     }
 
     public function consent(): HasOne

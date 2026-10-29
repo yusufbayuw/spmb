@@ -646,7 +646,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->previewable(false)
                         ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(5120)
-                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'file'),
+                        ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['file', 'placeholder'], true)),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')
                         ->label('Wajib')
@@ -820,8 +820,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                                 ->options(fn (): array => AdmissionTest::where('unit_id', $this->unitId())
                                     ->where('is_active', true)
                                     ->orderBy('sort_order')
-                                    ->pluck('name', 'uuid')
-                                    ->all())
+                                    ->get()
+                                    ->mapWithKeys(fn (AdmissionTest $test): array => [
+                                        $test->uuid => $test->name.' — '.$test->programScopeLabel(),
+                                    ])->all())
                                 ->searchable()
                                 ->preload()
                                 ->live()
@@ -1041,9 +1043,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             Forms\Components\Textarea::make('description')
                 ->label('Deskripsi')
                 ->columnSpanFull(),
-            Forms\Components\Select::make('study_program_id')
-                ->label('Program Studi')
-                ->placeholder('Semua program studi pada institusi')
+            Forms\Components\Select::make('study_program_ids')
+                ->label('Program Studi yang Mengikuti Tes')
+                ->helperText('Kosongkan untuk semua program studi.')
+                ->multiple()
                 ->options(fn (): array => StudyProgram::query()
                     ->where('unit_id', $this->unitId())
                     ->where('is_active', true)

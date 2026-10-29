@@ -14,6 +14,7 @@ use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
 use App\Services\RegistrationEmailDeliveryService;
+use App\Services\RegistrationManualEmailService;
 use App\Services\ApplicantEmailCorrectionService;
 use App\Models\MailDeliveryAttempt;
 use App\Services\UnitConfigurationService;
@@ -256,11 +257,15 @@ class RegistrationResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
             ->columns([
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable()->placeholder('Belum diterbitkan'),
                 Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable(['full_name', 'nik', 'nisn'])->description(fn (Registration $record) => $record->nik),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
+                Tables\Columns\TextColumn::make('is_alumni')->label('Alumni')->badge()
+                    ->formatStateUsing(fn ($state): string => $state ? 'Alumni' : 'Non-Alumni')
+                    ->color(fn ($state): string => $state ? 'success' : 'gray'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
                 Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->badge()->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id')->placeholder('-'),
@@ -293,8 +298,22 @@ class RegistrationResource extends Resource
                     ->options(Registration::LIFECYCLE_STATUSES)
                     ->default('active'),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
+                Tables\Filters\TernaryFilter::make('alumni')->label('Alumni')
+                    ->trueLabel('Alumni')->falseLabel('Non-Alumni')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->whereHas('continuationLink'),
+                        false: fn (Builder $query): Builder => $query->whereDoesntHave('continuationLink'),
+                    ),
             ])
             ->actions([
+                Tables\Actions\Action::make('printRegistrationForm')
+                    ->label('Cetak Formulir')
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->visible(fn (Registration $record): bool => (bool) (auth()->user()?->isAdmin()
+                        || (auth()->user()?->isTU() && (int) auth()->user()->unit_id === (int) $record->unit_id)))
+                    ->url(fn (Registration $record): string => route('registration.printable-form', $record))
+                    ->openUrlInNewTab(),
                 Tables\Actions\Action::make('viewApplicantCard')
                     ->label('Kartu Pendaftaran')
                     ->icon('heroicon-o-identification')
@@ -335,6 +354,42 @@ class RegistrationResource extends Resource
                         $payment
                             ? Notification::make()->title('VA berhasil di-assign; email masuk queue')->success()->send()
                             : Notification::make()->title('Pool VA unit kosong')->body('Upload nomor VA terlebih dahulu pada menu Pool Virtual Account.')->warning()->send();
+                    }),
+                Tables\Actions\Action::make('composeApplicantEmail')
+                    ->label('Kirim Pesan Email')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('primary')
+                    ->visible(fn (Registration $record): bool => auth()->user() !== null
+                        && app(RegistrationManualEmailService::class)->canCompose(auth()->user(), $record))
+                    ->modalHeading('Kirim email kepada pendaftar')
+                    ->modalDescription('Email informasi satu arah. Tidak mengubah status, tahapan pendaftaran, ataupun data seleksi. Pengiriman menggunakan antrean.')
+                    ->form([
+                        Forms\Components\TextInput::make('subject')
+                            ->label('Subjek')
+                            ->required()
+                            ->maxLength(150),
+                        Forms\Components\RichEditor::make('body')
+                            ->label('Isi pesan')
+                            ->toolbarButtons(['bold', 'italic', 'underline', 'strike', 'link', 'h2', 'h3', 'blockquote', 'bulletList', 'orderedList', 'undo', 'redo'])
+                            ->required()
+                            ->maxLength(15000)
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan administrasi')
+                            ->required()
+                            ->maxLength(300),
+                    ])
+                    ->modalSubmitActionLabel('Antrekan Email')
+                    ->requiresConfirmation()
+                    ->action(function (Registration $record, array $data): void {
+                        app(RegistrationManualEmailService::class)->send(
+                            $record, auth()->user(), $data['subject'], $data['body'], $data['reason']
+                        );
+
+                        Notification::make()
+                            ->title('Pesan masuk antrean email')
+                            ->body('Pantau status pengiriman pada Riwayat Email.')
+                            ->success()->send();
                     }),
                 Tables\Actions\Action::make('resendEmail')
                     ->label('Kirim Ulang Email')
@@ -394,11 +449,12 @@ class RegistrationResource extends Resource
                     ->icon('heroicon-o-clock')
                     ->color('gray')
                     ->visible(fn (Registration $record): bool => auth()->user() !== null
-                        && app(RegistrationEmailDeliveryService::class)->canManage(auth()->user(), $record))
+                        && (app(RegistrationEmailDeliveryService::class)->canManage(auth()->user(), $record)
+                            || app(RegistrationManualEmailService::class)->canCompose(auth()->user(), $record)))
                     ->modalHeading('Riwayat Pengiriman Email')
                     ->modalContent(fn (Registration $record) => view('filament.admin.registration-email-history', [
                         'attempts' => MailDeliveryAttempt::query()
-                            ->with('requester')
+                            ->with(['requester', 'manualEmail'])
                             ->where('registration_id', $record->id)
                             ->latest('id')->limit(20)->get(),
                     ]))
