@@ -646,7 +646,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->previewable(false)
                         ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(5120)
-                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'file'),
+                        ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['file', 'placeholder'], true)),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')
                         ->label('Wajib')
