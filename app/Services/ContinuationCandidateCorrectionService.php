@@ -49,6 +49,7 @@ class ContinuationCandidateCorrectionService
             app(AuditTrail::class)->record('continuation_candidate.corrected', $record,
                 ['academic_year' => $oldYear], ['academic_year' => $year]);
         });
+        app(ContinuationCandidateMatcher::class)->reconcileExistingRegistrations((int) $candidate->unit_id);
     }
 
     public function moveAcademicYear(int $unitId, string $source, string $target): int
