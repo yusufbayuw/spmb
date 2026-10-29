@@ -124,7 +124,23 @@ jobs:
             tests/Feature/OnlineExamBulkAssignmentTest.php \
             tests/Feature/OnlineExamMonitoringTest.php \
             tests/Feature/OnlineExamAdmissionTransferTest.php \
-            tests/Feature/OnlineExamResultSpreadsheetTest.php
+            tests/Feature/OnlineExamResultSpreadsheetTest.php \
+            tests/Feature/OnlineExamExportPruneTest.php \
+            tests/Feature/OnlineExamReportUiTest.php
+
+      - name: Synthetic CBT XLSX report load drill (isolated MySQL)
+        env:
+          SPMB_CBT_LOAD_TEST: '1'
+          SPMB_CBT_LOAD_REPORT_JSON: '1'
+        run: php artisan test tests/Feature/OnlineExamResultSpreadsheetLoadTest.php
+
+      - name: Upload synthetic CBT XLSX load metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: cbt-report-load-synthetic
+          path: cbt-report-load-synthetic.json
+          if-no-files-found: error
+          retention-days: 14
 
       # Synthetic environment only: this does NOT contact real staging
       # services, send email, start queue workers, or validate backups.

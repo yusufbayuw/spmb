@@ -30,6 +30,13 @@ Schedule::command('spmb:finalize-online-exams')
     ->everyMinute()
     ->withoutOverlapping();
 
+// XLSX downloads normally delete their temporary files after sending, but
+// interrupted connections can strand them. Prune only old UUID-named private
+// CBT reports; never touch question-bank exports or applicant uploads.
+Schedule::command('spmb:prune-online-exam-reports --hours=24 --limit=500')
+    ->dailyAt('02:30')
+    ->withoutOverlapping();
+
 // Reminders are opt-in to avoid sending unsolicited messages during deployment.
 if (config('spmb.mail.automatic_reminders_enabled', false)) {
     Schedule::command('spmb:remind-pending-actions --execute')->dailyAt('09:00')->withoutOverlapping();
