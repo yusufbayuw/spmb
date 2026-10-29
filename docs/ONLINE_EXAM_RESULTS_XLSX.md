@@ -44,3 +44,65 @@
 - [ ] Uji backup/restore serta rollback sesuai SOP deployment.
 
 Lulus CI otomatis tidak sama dengan telah diterapkan dan diuji di production.
+
+
+## Pengamanan operasional unduhan
+
+Unduhan biasa menggunakan delete-after-send. Jika koneksi browser terputus
+sebelum respons selesai, file sementara mungkin tidak terhapus. Karena itu
+scheduler menjalankan pembersihan **sekali setiap hari pukul 02.30 waktu
+aplikasi**, dengan batas 500 file lama per eksekusi:
+
+```bash
+php artisan schedule:list
+php artisan spmb:prune-online-exam-reports --hours=24 --limit=500 --dry-run --json
+php artisan spmb:prune-online-exam-reports --hours=24 --limit=500 --json
+```
+
+- Minimal umur 24 jam sebelum sebuah file dianggap kedaluwarsa.
+- Hanya file `exports/online-exam-results/{uuid}.xlsx` pada disk `local`
+  yang boleh dihapus; file bank soal, upload peserta, dan file bernama manual
+  di lokasi lain tidak disentuh.
+- `--dry-run` memeriksa kandidat tanpa menghapus. `--limit` membatasi
+  pekerjaan jika server mempunyai backlog ekspor.
+- Output hanya jumlah berkas, tidak mencantumkan identitas peserta.
+- Periksa permission direktori storage dan keberjalanan Laravel scheduler
+  pada server nyata. Command aman dijalankan berulang kali.
+- Pemeriksaan pra-rilis `spmb:release:preflight` juga menolak konfigurasi
+  disk ekspor CBT yang berada di bawah root public/web.
+
+## Validasi otomatis pada CI
+
+- `OnlineExamReportUiTest`: menguji aksi download melalui Filament sebagai
+  Admin Unit, membatasi unit, serta memastikan tidak menulis tabel seleksi.
+  Ini **bukan** browser real.
+- `OnlineExamExportPruneTest`: menguji dry-run, batas jumlah, usia berkas,
+  dan proteksi berkas non-CBT.
+- `OnlineExamResultSpreadsheetLoadTest`: hanya dapat berjalan pada database
+  **MySQL CI terisolasi bernama `spmb_test`**, setelah diaktifkan eksplisit
+  oleh `SPMB_CBT_LOAD_TEST=1`. Menyiapkan 1.200 akun dan 2.400 attempt
+  sintetis, menghitung jumlah baris di workbook akhir, memastikan skor belum
+  final tidak bocor, dan melaporkan durasi/memori/ukuran XLSX. CI menyimpan
+  `cbt-report-load-synthetic.json` sebagai artefak.
+- Tidak ada beban sintetis yang boleh dijalankan di database staging yang
+  berisi data pengguna asli atau database produksi.
+
+## Gerbang staging/production yang belum otomatis
+
+- [ ] Verifikasi backup database dan storage privat, **uji restore** di salinan terisolasi.
+- [ ] Jalankan preflight *read-only* pada staging dengan profil staging;
+      tidak boleh ada kegagalan, dan telaah seluruh peringatan.
+- [ ] Browser UAT: login admin unit, unduh, buka XLSX di Excel dan LibreOffice,
+      pastikan nama/email/riwayat tepat dan tidak ada kunci soal.
+- [ ] Coba akun dari unit berbeda dan pendaftar: unduhan harus ditolak.
+- [ ] Simulasikan unduhan terputus dan verifikasi file lama akhirnya dipruning
+      tanpa menyentuh ekspor bank soal/berkas pendaftar.
+- [ ] Ukur beban beberapa unduhan paralel di staging menggunakan **data sintetik**;
+      tentukan ambang latensi, kapasitas disk sementara, dan memori yang aman.
+- [ ] Pastikan cron/scheduler berjalan, private disk writable, audit terlihat,
+      serta tidak ada URL publik untuk file report.
+- [ ] Catat commit SHA, operator, bukti UAT, persetujuan rilis, dan
+      prosedur rollback deployment; produksi hanya setelah GO.
+
+Workflow CI memakai database dan layanan **sintetis/terisolasi**. Hasil hijau
+tidak membuktikan staging asli, backup/restore, atau deployment production.
