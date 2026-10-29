@@ -129,6 +129,8 @@ class EditRegistration extends EditRecord
 
     protected function afterSave(): void
     {
+        app(\App\Services\ContinuationCandidateMatcher::class)->linkRegistration($this->record);
+
         app(RegistrationSupplementalDataService::class)->sync(
             $this->record,
             $this->validatedAcademicScores,

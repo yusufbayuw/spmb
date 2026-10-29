@@ -15,6 +15,71 @@ final class AdmissionTerminology
         return SpmbOperationalMode::profile()['portal_label'];
     }
 
+    private function applicantAudience(?bool $higherEducation): string
+    {
+        if ($higherEducation !== null) {
+            return $higherEducation ? SpmbOperationalMode::HIGHER_EDUCATION : SpmbOperationalMode::K12;
+        }
+
+        return SpmbOperationalMode::mode();
+    }
+
+    public function applicantIdentityHeading(?bool $higherEducation = null): string
+    {
+        return match ($this->applicantAudience($higherEducation)) {
+            SpmbOperationalMode::K12 => 'Identitas Calon Siswa',
+            SpmbOperationalMode::HIGHER_EDUCATION => 'Identitas Calon Mahasiswa',
+            default => 'Identitas Calon Siswa / Mahasiswa',
+        };
+    }
+
+    public function applicantIdentityDescription(?bool $higherEducation = null): string
+    {
+        return match ($this->applicantAudience($higherEducation)) {
+            SpmbOperationalMode::K12 => 'Gunakan identitas yang sama dengan dokumen resmi calon siswa.',
+            SpmbOperationalMode::HIGHER_EDUCATION => 'Gunakan identitas yang sama dengan dokumen resmi calon mahasiswa.',
+            default => 'Gunakan identitas yang sama dengan dokumen resmi calon siswa atau calon mahasiswa.',
+        };
+    }
+
+    public function applicantParentDescription(?bool $higherEducation = null): string
+    {
+        $introduction = match ($this->applicantAudience($higherEducation)) {
+            SpmbOperationalMode::K12 => 'Data orang tua diperlukan sebagai bagian identitas pendaftaran.',
+            SpmbOperationalMode::HIGHER_EDUCATION => 'Data orang tua tetap diperlukan sebagai bagian identitas pendaftaran, termasuk ketika calon mahasiswa mendaftar sendiri.',
+            default => 'Data orang tua diperlukan sebagai bagian identitas pendaftaran, termasuk ketika peserta mendaftar sendiri.',
+        };
+
+        return $introduction.' Data dari pendaftaran sebelumnya pada akun ini akan diisikan kembali bila tersedia.';
+    }
+
+    public function applicantChoiceDescription(?bool $higherEducation = null): string
+    {
+        return match ($this->applicantAudience($higherEducation)) {
+            SpmbOperationalMode::K12 => 'Unit sekolah, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia.',
+            SpmbOperationalMode::HIGHER_EDUCATION => 'Institusi, program studi, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia.',
+            default => 'Unit/institusi, program studi jika tersedia, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia.',
+        };
+    }
+
+    public function applicantSelfOption(?bool $higherEducation = null): string
+    {
+        return match ($this->applicantAudience($higherEducation)) {
+            SpmbOperationalMode::K12 => 'Calon Siswa Sendiri',
+            SpmbOperationalMode::HIGHER_EDUCATION => 'Calon Mahasiswa Sendiri',
+            default => 'Calon Peserta Sendiri',
+        };
+    }
+
+    public function applicantRelationshipLabel(?bool $higherEducation = null): string
+    {
+        return match ($this->applicantAudience($higherEducation)) {
+            SpmbOperationalMode::K12 => 'Hubungan dengan Calon Siswa',
+            SpmbOperationalMode::HIGHER_EDUCATION => 'Hubungan dengan Calon Mahasiswa',
+            default => 'Hubungan dengan Calon Peserta',
+        };
+    }
+
     public function registrationTitle(): string
     {
         return match (SpmbOperationalMode::mode()) {

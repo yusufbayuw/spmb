@@ -1003,7 +1003,7 @@ class UnitConfigurationService
             }
 
             foreach ($validated['fields'] as $field) {
-                if (($field['type'] ?? null) !== 'file') {
+                if (! in_array($field['type'] ?? null, ['file', 'placeholder'], true)) {
                     continue;
                 }
 
@@ -1014,7 +1014,7 @@ class UnitConfigurationService
                 }
 
                 $formats = array_values($field['formats'] ?? []);
-                if ($formats === []) {
+                if (($field['type'] ?? null) === 'file' && $formats === []) {
                     throw ValidationException::withMessages([
                         'fields' => 'Field Unggah Dokumen harus memiliki minimal satu format file.',
                     ]);

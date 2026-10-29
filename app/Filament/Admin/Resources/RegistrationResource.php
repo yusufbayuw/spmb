@@ -9,7 +9,9 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\UnitConfiguration;
+use App\Models\Unit;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\AdmissionTerminology;
 use App\Services\RegistrationCardService;
 use App\Services\RegistrationConsentService;
 use App\Services\RegistrationWorkflowService;
@@ -119,7 +121,7 @@ class RegistrationResource extends Resource
                         ->dehydrated()
                         ->required(),
                     Forms\Components\Select::make('unit_id')
-                        ->label('Unit Sekolah')
+                        ->label('Unit / Institusi')
                         ->relationship(
                             'unit',
                             'name',
@@ -145,10 +147,14 @@ class RegistrationResource extends Resource
                         ->required(),
                     Forms\Components\Select::make('registrant_type')
                         ->label('Yang Mendaftarkan')
-                        ->options(['parent' => 'Orang Tua / Wali', 'self' => 'Calon Siswa Sendiri'])
+                        ->options(fn (Forms\Get $get, ?Registration $record): array => [
+                            'parent' => 'Orang Tua / Wali',
+                            'self' => app(AdmissionTerminology::class)->applicantSelfOption(static::adminIsHigherEducation($get('registration_opening_id'), $get('unit_id'), $record)),
+                        ])
                         ->required()->live(),
                     Forms\Components\Select::make('registrant_relationship')
-                        ->label('Hubungan dengan Calon Siswa')
+                        ->label(fn (Forms\Get $get, ?Registration $record): string => app(AdmissionTerminology::class)
+                            ->applicantRelationshipLabel(static::adminIsHigherEducation($get('registration_opening_id'), $get('unit_id'), $record)))
                         ->options(function (Forms\Get $get, ?Registration $record): array {
                             $configuration = $record?->configuration;
 
@@ -174,7 +180,8 @@ class RegistrationResource extends Resource
                         ->disabled()->dehydrated(false),
                 ]),
 
-            Forms\Components\Section::make('Identitas Calon Siswa')
+            Forms\Components\Section::make(fn (Forms\Get $get, ?Registration $record): string => app(AdmissionTerminology::class)
+                ->applicantIdentityHeading(static::adminIsHigherEducation($get('registration_opening_id'), $get('unit_id'), $record)))
                 ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema(fn (?Registration $record): array => app(ConfiguredRegistrationForm::class)
                     ->applyBuiltinOverridesToSchema([
@@ -253,15 +260,32 @@ class RegistrationResource extends Resource
         ]);
     }
 
+    private static function adminIsHigherEducation(mixed $openingId, mixed $unitId, ?Registration $record): ?bool
+    {
+        $targetUnitId = $record?->unit_id
+            ?: RegistrationOpening::query()->whereKey($openingId)->value('unit_id')
+            ?: $unitId;
+
+        if (! $targetUnitId) {
+            return null;
+        }
+
+        return Unit::query()->whereKey((int) $targetUnitId)->where('institution_type', 'university')->exists();
+    }
+
     public static function table(Table $table): Table
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
             ->columns([
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable()->placeholder('Belum diterbitkan'),
-                Tables\Columns\TextColumn::make('full_name')->label('Calon Siswa')->searchable(['full_name', 'nik', 'nisn'])->description(fn (Registration $record) => $record->nik),
+                Tables\Columns\TextColumn::make('full_name')->label('Calon Peserta')->searchable(['full_name', 'nik', 'nisn'])->description(fn (Registration $record) => $record->nik),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
+                Tables\Columns\TextColumn::make('is_alumni')->label('Alumni')->badge()
+                    ->formatStateUsing(fn ($state): string => $state ? 'Alumni' : 'Non-Alumni')
+                    ->color(fn ($state): string => $state ? 'success' : 'gray'),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
                 Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->badge()->placeholder('-'),
                 Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id')->placeholder('-'),
@@ -294,6 +318,12 @@ class RegistrationResource extends Resource
                     ->options(Registration::LIFECYCLE_STATUSES)
                     ->default('active'),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
+                Tables\Filters\TernaryFilter::make('alumni')->label('Alumni')
+                    ->trueLabel('Alumni')->falseLabel('Non-Alumni')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->whereHas('continuationLink'),
+                        false: fn (Builder $query): Builder => $query->whereDoesntHave('continuationLink'),
+                    ),
             ])
             ->actions([
                 Tables\Actions\Action::make('printRegistrationForm')

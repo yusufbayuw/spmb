@@ -12,6 +12,7 @@ use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\UnitConfiguration;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\AdmissionTerminology;
 use App\Services\UnitConfigurationService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -74,7 +75,8 @@ class RegistrationResource extends Resource
                 ]),
 
             'registration_choice' => Forms\Components\Section::make('Pilihan Pendaftaran')
-                ->description('Unit/institusi, program studi, periode, dan biaya formulir mengikuti pembukaan. Pilih jalur pendaftaran yang tersedia untuk unit tujuan.')
+                ->description(fn (Forms\Get $get, ?Registration $record): string => app(AdmissionTerminology::class)
+                    ->applicantChoiceDescription(static::openingIsHigherEducation($get('registration_opening_uuid'), $record)))
                 ->columns(['default' => 1, 'md' => 2])
                 ->schema([
                     Forms\Components\Hidden::make('registration_opening_uuid')->required(),
@@ -114,7 +116,8 @@ class RegistrationResource extends Resource
                         ->required()
                         ->live(),
                     Forms\Components\Select::make('registrant_relationship')
-                        ->label('Hubungan dengan calon peserta didik')
+                        ->label(fn (Forms\Get $get, ?Registration $record): string => app(AdmissionTerminology::class)
+                            ->applicantRelationshipLabel(static::openingIsHigherEducation($get('registration_opening_uuid'), $record)))
                         ->options(fn (?Registration $record): array => static::formConfiguration($form, $record)
                             ?->registrantRelationshipOptions($record?->registrant_relationship)
                             ?? UnitConfiguration::defaultRegistrantRelationshipOptionMap())
@@ -122,8 +125,12 @@ class RegistrationResource extends Resource
                         ->visible(fn (Forms\Get $get): bool => $get('registrant_type') === 'parent'),
                 ]),
 
-            'identity' => Forms\Components\Section::make('Identitas Calon Siswa / Mahasiswa')
-                ->description('Gunakan identitas yang sama dengan dokumen resmi calon peserta didik atau calon mahasiswa.')
+            'identity' => Forms\Components\Section::make(
+                fn (Forms\Get $get, ?Registration $record): string => app(AdmissionTerminology::class)
+                    ->applicantIdentityHeading(static::openingIsHigherEducation($get('registration_opening_uuid'), $record))
+            )
+                ->description(fn (Forms\Get $get, ?Registration $record): string => app(AdmissionTerminology::class)
+                    ->applicantIdentityDescription(static::openingIsHigherEducation($get('registration_opening_uuid'), $record)))
                 ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     Forms\Components\TextInput::make('full_name')->label('Nama Lengkap')->required()->maxLength(150)->columnSpan(['default' => 1, 'md' => 2]),
@@ -151,7 +158,8 @@ class RegistrationResource extends Resource
                 ]),
 
             'parents' => Forms\Components\Section::make('Data Orang Tua')
-                ->description('Data orang tua tetap diperlukan sebagai bagian identitas pendaftaran, termasuk ketika calon mahasiswa melakukan pendaftaran sendiri. Data dari pendaftaran sebelumnya pada akun ini akan diisikan kembali bila tersedia.')
+                ->description(fn (Forms\Get $get, ?Registration $record): string => app(AdmissionTerminology::class)
+                    ->applicantParentDescription(static::openingIsHigherEducation($get('registration_opening_uuid'), $record)))
                 ->relationship('parentInfo')
                 ->schema(ParentInfoFields::schema()),
         ], static::formConfiguration($form, $record)));
@@ -255,7 +263,7 @@ class RegistrationResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->emptyStateHeading('Belum ada pendaftaran')
-            ->emptyStateDescription('Pilih pembukaan SPMB sekolah atau PMB program studi yang tersedia.')
+            ->emptyStateDescription(fn (): string => app(AdmissionTerminology::class)->applicantOpeningDescription())
             ->emptyStateIcon('heroicon-o-user-plus')
             ->emptyStateActions([
                 Tables\Actions\Action::make('chooseOpening')->label('Pilih Pendaftaran')->icon('heroicon-o-calendar-days')->url(RegistrationOpenings::getUrl()),
@@ -289,6 +297,22 @@ class RegistrationResource extends Resource
             && $record->isOperational()
             && $record->current_stage === 'data_validation'
             && in_array($record->data_validation_status, ['pending', 'revision'], true);
+    }
+
+    public static function openingIsHigherEducation(?string $openingUuid, ?Registration $record = null): ?bool
+    {
+        if ($record?->opening) {
+            return $record->opening->unit?->isHigherEducation();
+        }
+
+        if (blank($openingUuid)) {
+            return null;
+        }
+
+        return RegistrationOpening::query()
+            ->with('unit')
+            ->where('uuid', $openingUuid)
+            ->first()?->unit?->isHigherEducation();
     }
 
     public static function isHigherEducationOpening(?string $openingUuid): bool

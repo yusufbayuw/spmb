@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\ContinuationCandidateResource\Pages;
 use App\Models\ContinuationCandidate;
+use App\Services\ContinuationCandidateCorrectionService;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -322,7 +323,7 @@ class ContinuationCandidateResource extends Resource
             $prefill[$prefillKey] = is_string($value) ? trim($value) : $value;
         }
 
-        $record->update([
+        app(ContinuationCandidateCorrectionService::class)->correct($record, [
             'nik' => preg_replace('/\D+/', '', (string) $data['nik']),
             'birth_date' => $data['birth_date'],
             'full_name' => trim((string) $data['full_name']),

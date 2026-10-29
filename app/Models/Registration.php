@@ -606,6 +606,11 @@ class Registration extends Model
         return $this->hasOne(ParentInfo::class);
     }
 
+    public function continuationLink(): HasOne
+    {
+        return $this->hasOne(ContinuationRegistrationLink::class);
+    }
+
     public function consent(): HasOne
     {
         return $this->hasOne(RegistrationConsent::class);

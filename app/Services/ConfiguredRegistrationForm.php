@@ -663,6 +663,29 @@ class ConfiguredRegistrationForm
         );
     }
 
+    /**
+     * The applicant download route only serves the current published
+     * configuration. Pinned forms can use its updated presentation template
+     * when the field key, type and template path still match.
+     */
+    private function templateConfiguration(array $definition, UnitConfiguration $configuration): UnitConfiguration
+    {
+        if ($configuration->status !== 'published') {
+            return $configuration;
+        }
+
+        $current = app(UnitConfigurationService::class)->current((int) $configuration->unit_id);
+        $latest = collect($current?->fields ?? [])->firstWhere('key', $definition['key']);
+
+        if ($current && is_array($latest)
+            && ($latest['type'] ?? null) === ($definition['type'] ?? null)
+            && ($latest['template_path'] ?? null) === ($definition['template_path'] ?? null)) {
+            return $current;
+        }
+
+        return $configuration;
+    }
+
     public function field(array $definition, UnitConfiguration $configuration): Field|Group|Placeholder
     {
         $name = 'custom_answers.'.$definition['key'];
@@ -676,6 +699,10 @@ class ConfiguredRegistrationForm
                 ->label('')
                 ->content(view('registration.custom-placeholder', [
                     'content' => $content,
+                    'downloadUrl' => ! empty($definition['template_path'])
+                        ? route('registration.form-field-template', [$this->templateConfiguration($definition, $configuration), $definition['key']])
+                        : null,
+                    'downloadLabel' => $definition['label'] ?? 'Dokumen',
                 ]))
                 ->columnSpanFull();
         }
@@ -706,18 +733,7 @@ class ConfiguredRegistrationForm
             $actions = [];
 
             if (! empty($definition['template_path'])) {
-                $templateConfiguration = $configuration;
-
-                if ($configuration->status === 'published') {
-                    $current = app(UnitConfigurationService::class)->current((int) $configuration->unit_id);
-                    $latestField = collect($current?->fields ?? [])->firstWhere('key', $definition['key']);
-
-                    if ($current
-                        && is_array($latestField)
-                        && ($latestField['template_path'] ?? null) === ($definition['template_path'] ?? null)) {
-                        $templateConfiguration = $current;
-                    }
-                }
+                $templateConfiguration = $this->templateConfiguration($definition, $configuration);
 
                 $actions[] = Action::make('download_template_'.$definition['key'])
                     ->label('Unduh Template '.$definition['label'])
