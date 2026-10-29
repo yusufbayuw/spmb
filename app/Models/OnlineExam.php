@@ -14,7 +14,7 @@ class OnlineExam extends Model
     protected $fillable = [
         'unit_id', 'title', 'description', 'duration_minutes', 'max_attempts',
         'passing_percentage', 'shuffle_questions', 'shuffle_options', 'is_published',
-        'opens_at', 'closes_at', 'study_program_id', 'blueprint',
+        'opens_at', 'closes_at', 'study_program_id', 'blueprint', 'admission_test_id',
     ];
 
     protected $casts = [
@@ -64,6 +64,26 @@ class OnlineExam extends Model
                 }
             }
 
+            if ($exam->admission_test_id) {
+                $admission = AdmissionTest::query()->find($exam->admission_test_id);
+                if (! $admission || ! $admission->is_active
+                    || (int) $admission->unit_id !== (int) $exam->unit_id
+                    || (! $exam->study_program_id && $admission->effectiveProgramIds() !== [])
+                    || ($exam->study_program_id
+                        && ! $admission->appliesToStudyProgram((int) $exam->study_program_id))) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'admission_test_id' => 'Tes penerimaan harus aktif, cocok dengan unit, dan mencakup prodi paket CBT.',
+                    ]);
+                }
+            }
+
+            if ($exam->exists && $exam->isDirty('admission_test_id')
+                && $exam->attempts()->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'admission_test_id' => 'Pemetaan hasil tes tidak dapat diubah setelah ujian memiliki percobaan.',
+                ]);
+            }
+
             if ($exam->exists && $exam->attempts()->exists()
                 && $exam->isDirty('study_program_id')) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
@@ -105,6 +125,8 @@ class OnlineExam extends Model
     public function items(): HasMany { return $this->hasMany(OnlineExamItem::class)->orderBy('sort_order')->orderBy('id'); }
 
     public function studyProgram(): BelongsTo { return $this->belongsTo(StudyProgram::class); }
+
+    public function admissionTest(): BelongsTo { return $this->belongsTo(AdmissionTest::class); }
 
     public function assignments(): HasMany { return $this->hasMany(OnlineExamAssignment::class); }
 

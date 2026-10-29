@@ -473,6 +473,9 @@ class ControlledDeletionService
         $supportedReferencingTables = [
             ...$deletedTables, 'virtual_accounts', 'audit_logs',
             'mail_delivery_attempts', 'pending_applicant_email_changes',
+            // Source transfer row cascades with its admission_test_result;
+            // the linked CBT attempt remains intact for its own audit history.
+            'online_exam_result_transfers',
         ];
 
         foreach (Schema::getTables() as $tableInfo) {
