@@ -76,15 +76,21 @@ class OnlineExamResultSpreadsheetService
     {
         $report = $this->generate($exam, $actor);
 
-        return response()->download(
+        $response = response()->download(
             $report['path'],
             $report['filename'],
             [
                 'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Cache-Control' => 'private, no-store',
+                'Cache-Control' => 'no-store',
                 'X-Content-Type-Options' => 'nosniff',
             ],
         )->deleteFileAfterSend(true);
+
+        // Symfony's BinaryFileResponse may default to "public" even when
+        // supplied a Cache-Control header. Explicitly enforce private.
+        $response->setPrivate();
+
+        return $response;
     }
 
     /** @return array{assignments:int,attempts:int} */
