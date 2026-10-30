@@ -118,6 +118,8 @@ jobs:
         run: |
           php artisan test \
             tests/Feature/PhaseOneUnitBoundaryTest.php \
+            tests/Feature/RegistrationFormDraftTest.php \
+            tests/Feature/PreRegistrationDocumentFieldTest.php \
             tests/Feature/PhaseOneStaffSessionTest.php \
             tests/Feature/PhaseOneOperationalResetTest.php \
             tests/Feature/PhaseOneAuthorizationRegressionTest.php \
