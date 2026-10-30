@@ -24,14 +24,14 @@
                 </x-filament::button>
             </div>
         </form>
-        <x-filament::modal id="registration-preview" width="7xl" slide-over="false">
+        <x-filament::modal id="registration-preview" width="7xl">
             <x-slot name="heading">Pratinjau Form Pendaftar</x-slot>
             <x-slot name="description">Pratinjau draft, belum dipublikasikan. Tidak ada data pendaftaran yang disimpan.</x-slot>
             @if($preview)
                 <div class="flex flex-wrap items-center justify-between gap-3 pb-4">
                     <div class="flex gap-2">
-                        <x-filament::button size="sm" color="{{ $previewDevice === 'desktop' ? 'primary' : 'gray' }}" wire:click="$set('previewDevice', 'desktop')">Desktop</x-filament::button>
-                        <x-filament::button size="sm" color="{{ $previewDevice === 'mobile' ? 'primary' : 'gray' }}" wire:click="$set('previewDevice', 'mobile')">Mobile</x-filament::button>
+                        <x-filament::button size="sm" :color="$previewDevice === 'desktop' ? 'primary' : 'gray'" wire:click="$set('previewDevice', 'desktop')">Desktop</x-filament::button>
+                        <x-filament::button size="sm" :color="$previewDevice === 'mobile' ? 'primary' : 'gray'" wire:click="$set('previewDevice', 'mobile')">Mobile</x-filament::button>
                     </div>
                     @if($previewToken)
                         <a target="_blank" rel="noopener noreferrer" href="{{ \App\Filament\Admin\Pages\UnitRegistrationFormPreview::getUrl(['token' => $previewToken]) }}" class="text-sm font-medium text-primary-600 underline dark:text-primary-400">Buka di Halaman Baru</a>
