@@ -10,6 +10,8 @@ use App\Models\User;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -53,6 +55,8 @@ class UnitRegistrationSettingsTest extends TestCase
     public function test_invalid_configuration_does_not_update_unit_logo(): void
     {
         [$unit, $staff] = $this->fixture();
+        Storage::fake('public');
+        Storage::disk('public')->putFileAs('units/logos', UploadedFile::fake()->image('original.png'), 'original.png');
         $unit->update(['logo_path' => 'units/logos/original.png']);
 
         $this->actingAs($staff);
@@ -60,7 +64,7 @@ class UnitRegistrationSettingsTest extends TestCase
 
         Livewire::test(UnitRegistrationSettings::class)
             ->fillForm([
-                'unit_logo_path' => 'units/logos/replacement.png',
+                'unit_logo_path' => [UploadedFile::fake()->image('replacement.png')],
                 'registration_number_digits' => 2,
             ])
             ->call('save')
