@@ -665,7 +665,7 @@ class UnitConfigurationService
                 'workflow_blocks' => ['present', 'array', 'size:2'],
                 'workflow_blocks.*.key' => ['required', Rule::in(array_keys(Registration::WORKFLOW_BLOCK_LABELS)), 'distinct'],
                 'builtin_field_policy' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::BUILTIN_FIELD_POLICIES))],
-                'core_identity_fields' => ['present', 'array', 'max:4'],
+                'core_identity_fields' => ['present', 'array', 'max:5'],
                 'core_identity_fields.*.key' => ['required', Rule::in(array_keys(ConfiguredRegistrationForm::CORE_PRESENTATION_FIELDS)), 'distinct'],
                 'core_identity_fields.*.label' => ['nullable', 'string', 'max:150'],
                 'core_identity_fields.*.help' => ['nullable', 'string', 'max:1000'],
