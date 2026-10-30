@@ -162,7 +162,7 @@ class RegistrationResource extends Resource
                     ->applicantParentDescription(static::openingIsHigherEducation($get('registration_opening_uuid'), $record)))
                 ->relationship('parentInfo')
                 ->schema(ParentInfoFields::schema()),
-        ], static::formConfiguration($form, $record)));
+        ], static::formConfiguration($form, $record), method_exists($form->getLivewire(), 'previewConfiguration')));
     }
 
     protected static function formConfiguration(Form $form, ?Registration $record): ?UnitConfiguration
