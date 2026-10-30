@@ -113,6 +113,7 @@ class RegistrationConsentTest extends TestCase
             ->callMountedAction()
             ->assertHasNoActionErrors();
 
+        $page->assertSet('draftOwnerId', $applicant->id);
         $this->assertDatabaseCount('registration_consents', 1);
 
         $page->fillForm($formData)
@@ -125,6 +126,10 @@ class RegistrationConsentTest extends TestCase
             ->firstOrFail();
         $consent = $registration->consent;
 
+        $this->assertSame(
+            'spmb:registration-draft:v1:'.$applicant->id.':'.$opening->uuid.':'.$registration->configuration->uuid,
+            session('spmb_registration_draft_completed'),
+        );
         $this->assertNotNull($consent);
         $this->assertSame($registration->id, $consent->registration_id);
         $this->assertSame($registration->unit_configuration_id, $consent->unit_configuration_id);
