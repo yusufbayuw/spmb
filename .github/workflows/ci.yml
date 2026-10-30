@@ -56,6 +56,9 @@ jobs:
           php artisan migrate --force
           php artisan db:seed --force
 
+      - name: Test applicant exit and legacy draft cleanup
+        run: node --test tests/javascript/registration-exit-guard.test.mjs
+
       - name: Test manual registration drafts
         run: php artisan test tests/Feature/RegistrationFormDraftTest.php
 
