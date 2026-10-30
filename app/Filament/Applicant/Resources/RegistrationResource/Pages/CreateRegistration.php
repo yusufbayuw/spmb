@@ -47,6 +47,9 @@ class CreateRegistration extends CreateRecord
     #[Locked]
     public int $draftRevision = 0;
 
+    #[Locked]
+    public bool $draftHasBeenResumed = false;
+
     public ?string $configurationUuid = null;
 
     #[Locked]
@@ -547,10 +550,19 @@ class CreateRegistration extends CreateRecord
         $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->firstOrFail();
         $configuration = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
         abort_unless($configuration && $configuration->uuid === $this->configurationUuid, 409);
+        // Never overwrite an existing draft until the applicant explicitly
+        // resumes it. Opening a fresh form must not clobber earlier progress.
+        if ($this->draftRevision > 0 && ! $this->draftHasBeenResumed) {
+            throw ValidationException::withMessages([
+                'draft' => 'Lanjutkan Draft terlebih dahulu agar data sebelumnya tidak tertimpa.',
+            ]);
+        }
+
         $draft = app(RegistrationFormDraftService::class)->save(
             auth()->user(), $opening, $configuration, $this->data, $this->draftRevision,
         );
         $this->draftRevision = $draft->revision;
+        $this->draftHasBeenResumed = true;
         Notification::make()->title('Draft tersimpan di server')->success()->send();
     }
 
@@ -565,6 +577,7 @@ class CreateRegistration extends CreateRecord
         }
 
         $this->draftRevision = $draft->revision;
+        $this->draftHasBeenResumed = true;
         $data = array_replace_recursive($this->data, $draft->payload);
         $data['registration_opening_uuid'] = $opening->uuid;
         $data['unit_configuration_uuid'] = $configuration->uuid;
@@ -578,6 +591,7 @@ class CreateRegistration extends CreateRecord
         $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->firstOrFail();
         app(RegistrationFormDraftService::class)->discard(auth()->user(), $opening);
         $this->draftRevision = 0;
+        $this->draftHasBeenResumed = false;
         Notification::make()->title('Draft dihapus')->success()->send();
     }
 
