@@ -50,6 +50,34 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
     }
 
+    public function test_invalid_configuration_does_not_update_unit_logo(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $unit->update(['logo_path' => 'units/logos/original.png']);
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm([
+                'unit_logo_path' => 'units/logos/replacement.png',
+                'registration_number_digits' => 2,
+            ])
+            ->call('save')
+            ->assertHasFormErrors();
+
+        $this->assertSame('units/logos/original.png', $unit->fresh()->logo_path);
+    }
+
+    public function test_admin_editor_no_longer_has_unsafe_autosave_method(): void
+    {
+        $this->assertFalse(method_exists(UnitRegistrationSettings::class, 'autosaveDraft'));
+        $this->assertStringNotContainsString(
+            'wire:poll',
+            file_get_contents(resource_path('views/filament/admin/pages/unit-registration-settings.blade.php')),
+        );
+    }
+
     public function test_preview_opens_modal_without_publishing_or_saving_incomplete_draft(): void
     {
         [$unit, $staff] = $this->fixture();
