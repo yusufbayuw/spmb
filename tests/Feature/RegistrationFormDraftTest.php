@@ -83,6 +83,48 @@ class RegistrationFormDraftTest extends TestCase
         $this->assertArrayNotHasKey('medical_document', $saved->payload['custom_answers']);
     }
 
+
+    public function test_applicant_can_save_resume_and_complete_registration_without_draft_surviving(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $user->assignRole('pendaftar');
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
+        app(UnitConfigurationService::class)->initialize($unit);
+        $pathway = \App\Models\RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+        $this->actingAs($user);
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('pendaftar'));
+
+        $page = \Livewire\Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(\App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration::class)
+            ->setActionData(['accepted' => true])->callMountedAction()
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'self',
+                'full_name' => 'Draft Menjadi Final',
+                'nik' => '3273010101010018',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu'],
+            ])->call('saveRegistrationDraft')->assertHasNoErrors();
+
+        $this->assertDatabaseCount('registration_form_drafts', 1);
+        $this->assertDatabaseCount('registrations', 0);
+
+        $fresh = \Livewire\Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(\App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration::class)
+            ->setActionData(['accepted' => true])->callMountedAction()
+            ->call('resumeRegistrationDraft')->assertHasNoErrors();
+        $this->assertSame('Draft Menjadi Final', $fresh->get('data.full_name'));
+
+        $fresh->call('create')->assertHasNoFormErrors();
+        $this->assertDatabaseCount('registrations', 1);
+        $this->assertDatabaseCount('registration_form_drafts', 0);
+    }
+
     public function test_revision_conflict_does_not_overwrite_a_newer_draft(): void
     {
         $this->seed(ShieldSeeder::class);

@@ -563,6 +563,7 @@ class CreateRegistration extends CreateRecord
         );
         $this->draftRevision = $draft->revision;
         $this->draftHasBeenResumed = true;
+        $this->dispatch('spmb-draft-clean');
         Notification::make()->title('Draft tersimpan di server')->success()->send();
     }
 
@@ -583,6 +584,7 @@ class CreateRegistration extends CreateRecord
         $data['unit_configuration_uuid'] = $configuration->uuid;
         $data['unit_uuid'] = $opening->unit->uuid;
         $this->form->fill($data);
+        $this->dispatch('spmb-draft-clean');
         Notification::make()->title('Draft dipulihkan')->success()->send();
     }
 
@@ -592,6 +594,7 @@ class CreateRegistration extends CreateRecord
         app(RegistrationFormDraftService::class)->discard(auth()->user(), $opening);
         $this->draftRevision = 0;
         $this->draftHasBeenResumed = false;
+        $this->dispatch('spmb-draft-clean');
         Notification::make()->title('Draft dihapus')->success()->send();
     }
 
@@ -606,13 +609,17 @@ class CreateRegistration extends CreateRecord
                 ->modalDescription('Simpan isian ke database tanpa mengirim pendaftaran. Berkas unggahan belum disertakan.')
                 ->action(function (): void {
                     $this->saveRegistrationDraft();
+                    $this->dispatch('spmb-draft-clean');
                     $this->redirect(RegistrationResource::getUrl('index'));
                 }),
             Action::make('exitRegistrationForm')
                 ->label('Keluar Tanpa Menyimpan')
                 ->color('gray')
                 ->requiresConfirmation()
-                ->action(fn () => $this->redirect(RegistrationResource::getUrl('index'))),
+                ->action(function (): void {
+                    $this->dispatch('spmb-draft-clean');
+                    $this->redirect(RegistrationResource::getUrl('index'));
+                }),
             Action::make('saveRegistrationDraft')
                 ->label('Simpan Draft')
                 ->icon('heroicon-o-document-check')
@@ -644,6 +651,7 @@ class CreateRegistration extends CreateRecord
             app(RegistrationFormDraftService::class)->discard(auth()->user(), $opening);
         }
         $this->dispatch('spmb-registration-created', key: $key);
+        $this->dispatch('spmb-draft-clean');
     }
 
     protected function onValidationError(ValidationException $exception): void
