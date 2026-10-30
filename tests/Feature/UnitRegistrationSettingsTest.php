@@ -16,6 +16,58 @@ class UnitRegistrationSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_autosave_stages_incomplete_configuration_without_publishing(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(UnitRegistrationSettings::class);
+        $uuid = $page->get('configurationUuid');
+        $page->set('data.fields', [[
+            'key' => 'custom_new_question',
+            'label' => 'Pertanyaan',
+            'type' => 'select',
+            'active' => true,
+            'required' => false,
+            'group_key' => 'group_additional',
+            'options' => [],
+        ]])->call('autosaveDraft')->assertHasNoErrors();
+
+        $this->assertSame([], UnitConfiguration::where('uuid', $uuid)->firstOrFail()->fields);
+        $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
+        $this->assertCount(1, \Illuminate\Support\Facades\Cache::get('spmb:unit-editor:'.$staff->id.':'.$uuid)['data']['fields']);
+
+        Livewire::test(UnitRegistrationSettings::class)->assertSet('data.fields.0.key', 'custom_new_question');
+    }
+
+    public function test_preview_opens_modal_without_publishing_or_saving_incomplete_draft(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(UnitRegistrationSettings::class)
+            ->set('data.fields', [[
+                'key' => 'custom_school_question',
+                'label' => 'Pertanyaan Sekolah',
+                'type' => 'select',
+                'active' => true,
+                'required' => false,
+                'group_key' => 'group_additional',
+                'options' => [],
+            ]])
+            ->call('showPreview')
+            ->assertHasNoErrors()
+            ->assertSet('preview', true);
+
+        $token = $page->get('previewToken');
+        $this->assertNotEmpty($token);
+        $this->assertSame($staff->id, \Illuminate\Support\Facades\Cache::get('spmb:form-preview:'.$token)['user_id']);
+        $this->assertSame(1, UnitConfiguration::where('unit_id', $unit->id)->where('status', 'published')->count());
+        $this->assertSame([], UnitConfiguration::where('unit_id', $unit->id)->where('status', 'draft')->firstOrFail()->fields);
+    }
+
     public function test_publish_confirms_the_activated_version_after_loading_the_next_draft(): void
     {
         [$unit, $staff] = $this->fixture();
