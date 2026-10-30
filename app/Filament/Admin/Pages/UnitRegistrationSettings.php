@@ -1050,8 +1050,6 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $unit = Unit::query()->where('uuid', $this->unitUuid)->firstOrFail();
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
         $previewValues = array_replace($configuration->toArray(), $this->previewConfigurationData());
-        $configuration->setRawAttributes($configuration->getRawOriginal());
-        $configuration->fill($previewValues);
         $this->previewToken = (string) Str::uuid();
         Cache::put('spmb:form-preview:'.$this->previewToken, ['user_id' => auth()->id(), 'unit_id' => $configuration->unit_id, 'configuration_uuid' => $configuration->uuid, 'data' => $previewValues], now()->addMinutes(30));
         $configuredPathwayUuid = collect([
@@ -1070,6 +1068,23 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'registrant_type' => 'parent',
         ]);
         $this->preview = true;
+    }
+
+    public function previewConfiguration(): ?UnitConfiguration
+    {
+        if (! $this->preview || ! $this->configurationUuid) {
+            return null;
+        }
+        $stored = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->first();
+        if (! $stored) {
+            return null;
+        }
+        app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $stored->unit_id);
+        $snapshot = new UnitConfiguration();
+        $snapshot->forceFill(array_replace($stored->toArray(), $this->previewConfigurationData()));
+        $snapshot->status = 'draft';
+        $snapshot->unit_id = $stored->unit_id;
+        return $snapshot;
     }
 
     private function previewConfigurationData(): array
