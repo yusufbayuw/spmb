@@ -5,7 +5,7 @@
     </div>
     @if($configurationUuid)
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-            <div class="text-sm" role="status" aria-live="polite">{{ $autosaveStatus }}</div>
+            <div class="text-sm" role="status" aria-live="polite">{{ $draftStatus }}</div>
             <x-filament::button type="button" color="gray" wire:click="showPreview">Pratinjau Form Pendaftar</x-filament::button>
         </div>
         <form wire:submit="save" class="space-y-6">
