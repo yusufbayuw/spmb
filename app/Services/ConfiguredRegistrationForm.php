@@ -175,7 +175,7 @@ class ConfiguredRegistrationForm
         return ['active' => null, 'required' => null, 'overridden' => false];
     }
 
-    public function apply(array $components, ?UnitConfiguration $configuration): array
+    public function apply(array $components, ?UnitConfiguration $configuration, bool $preview = false): array
     {
         if (! $configuration) {
             return array_values($components);
@@ -261,7 +261,7 @@ class ConfiguredRegistrationForm
                 ? (string) $field['group_key']
                 : $this->legacyGroupKey(($field['group'] ?? null) ?: 'Informasi Tambahan');
 
-            $customFieldsByGroup[$groupKey][] = $this->field($field, $configuration);
+            $customFieldsByGroup[$groupKey][] = $this->field($field, $configuration, $preview);
         }
 
         foreach ($formGroups as $group) {
@@ -382,7 +382,19 @@ class ConfiguredRegistrationForm
                         );
                     })
                     ->columnSpanFull();
-                $achievementFields[] = FileUpload::make('certificate_path')
+                if ($preview) {
+                    // Display the configured requirement, but never create a
+                    // Livewire temporary upload from an admin preview.
+                    $achievementFields[] = Placeholder::make('preview_certificate_path')
+                        ->label(new HtmlString('Sertifikat / Bukti Prestasi'.(
+                            $certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
+                                ? '<sup class="text-danger-600 dark:text-danger-400">*</sup>'
+                                : ''
+                        )))
+                        ->content('Unggah bukti hanya tersedia pada formulir pendaftar.')
+                        ->columnSpanFull();
+                } else {
+                    $achievementFields[] = FileUpload::make('certificate_path')
                     ->label('Sertifikat / Bukti Prestasi')
                     ->required(fn (?Registration $record, Get $get): bool =>
                         $certificateMode === UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_REQUIRED
@@ -407,6 +419,7 @@ class ConfiguredRegistrationForm
                             ->uploadedFile($file, $storedFileNames)
                     )
                     ->columnSpanFull();
+                }
             }
 
             $components['achievements'] = Section::make('Prestasi yang Pernah Diraih')
@@ -773,7 +786,7 @@ class ConfiguredRegistrationForm
         return $configuration;
     }
 
-    public function field(array $definition, UnitConfiguration $configuration): Field|Group|Placeholder
+    public function field(array $definition, UnitConfiguration $configuration, bool $preview = false): Field|Group|Placeholder
     {
         $name = 'custom_answers.'.$definition['key'];
 
@@ -795,6 +808,18 @@ class ConfiguredRegistrationForm
         }
 
         if (($definition['type'] ?? null) === 'file') {
+            if ($preview) {
+                $label = e((string) ($definition['label'] ?? 'Dokumen'));
+                $required = (bool) ($definition['required'] ?? false)
+                    ? '<sup class="text-danger-600 dark:text-danger-400">*</sup>'
+                    : '';
+
+                return Placeholder::make('preview_upload_'.$definition['key'])
+                    ->label(new HtmlString($label.$required))
+                    ->content('Unggah dokumen hanya tersedia pada formulir pendaftar.')
+                    ->columnSpanFull();
+            }
+
             $formats = array_values($definition['formats'] ?? ['pdf', 'jpg', 'png']);
             $mimes = array_map(fn (string $format): string => match ($format) {
                 'pdf' => 'application/pdf',
