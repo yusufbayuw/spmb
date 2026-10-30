@@ -57,11 +57,18 @@ class RegistrationFormDraftTest extends TestCase
         $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
         $user->assignRole('pendaftar');
         $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
-        $configuration = app(UnitConfigurationService::class)->initialize($unit);
-        $configuration->update(['fields' => [
-            ['key' => 'medical_declaration', 'label' => 'Keterangan', 'type' => 'boolean', 'active' => true, 'required' => false],
-            ['key' => 'medical_document', 'label' => 'Bukti', 'type' => 'file', 'active' => true, 'required' => false],
-        ]]);
+        $configuration = \App\Models\UnitConfiguration::create([
+            ...app(UnitConfigurationService::class)->defaults($unit),
+            'unit_id' => $unit->id,
+            'version' => 1,
+            'status' => 'published',
+            'legacy' => true,
+            'published_at' => now(),
+            'fields' => [
+                ['key' => 'medical_declaration', 'label' => 'Keterangan', 'type' => 'boolean', 'active' => true, 'required' => false],
+                ['key' => 'medical_document', 'label' => 'Bukti', 'type' => 'file', 'active' => true, 'required' => false],
+            ],
+        ]);
 
         $saved = app(RegistrationFormDraftService::class)->save($user, $opening, $configuration, [
             'custom_answers' => [
