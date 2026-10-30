@@ -256,7 +256,7 @@ class RegistrationFormDraftTest extends TestCase
             "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF",
         );
 
-        $page->fillForm(['custom_answers.signed_letter' => $filePath])
+        $page->fillForm(['custom_answers.signed_letter' => [$filePath]])
             ->call('create')
             ->assertHasNoFormErrors();
 
