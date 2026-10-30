@@ -791,9 +791,13 @@ class ConfiguredRegistrationForm
         $name = 'custom_answers.'.$definition['key'];
 
         if (($definition['type'] ?? null) === 'placeholder') {
-            $content = app(RegistrationConsentService::class)->sanitizeHtml(
-                (string) ($definition['placeholder_content'] ?? ''),
-            );
+            $raw = (string) ($definition['placeholder_content'] ?? '');
+            // Support historic plain text with intentional line breaks as
+            // well as genuine HTML from the Filament rich text editor.
+            if ($raw !== '' && ! preg_match('/<\/?[a-z][^>]*>/i', $raw)) {
+                $raw = '<p>'.nl2br(e($raw), false).'</p>';
+            }
+            $content = app(RegistrationConsentService::class)->sanitizeHtml($raw);
 
             return Placeholder::make('placeholder_'.$definition['key'])
                 ->label('')

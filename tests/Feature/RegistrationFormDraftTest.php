@@ -1,0 +1,306 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\RegistrationFormDraft;
+use App\Models\Unit;
+use App\Models\User;
+use App\Services\RegistrationFormDraftService;
+use App\Services\UnitConfigurationService;
+use Database\Seeders\ShieldSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
+
+class RegistrationFormDraftTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_manual_draft_is_encrypted_in_database_and_does_not_create_registration(): void
+    {
+        $this->seed(ShieldSeeder::class);
+
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $user->assignRole('pendaftar');
+        $this->actingAs($user);
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
+        $configuration = app(UnitConfigurationService::class)->initialize($unit);
+
+        $draft = app(RegistrationFormDraftService::class)->save(
+            $user, $opening, $configuration,
+            [
+                'full_name' => 'Nama Sensitif',
+                'nik' => '3273010101010001',
+                'unit_uuid' => 'forged-unit',
+                'privacyConsentUuid' => 'forged-token',
+                'custom_answers' => ['upload_field' => 'private/test.pdf'],
+                'parentInfo' => ['father_name' => 'Ayah', 'user_id' => 99],
+            ], 0,
+        );
+
+        $this->assertSame('Nama Sensitif', $draft->payload['full_name']);
+        $this->assertArrayNotHasKey('unit_uuid', $draft->payload);
+        $this->assertArrayNotHasKey('privacyConsentUuid', $draft->payload);
+        $this->assertArrayNotHasKey('user_id', $draft->payload['parentInfo']);
+        $this->assertSame(1, RegistrationFormDraft::query()->count());
+        $this->assertSame(0, \App\Models\Registration::query()->count());
+        $this->assertStringNotContainsString(
+            'Nama Sensitif',
+            \Illuminate\Support\Facades\DB::table('registration_form_drafts')->value('payload'),
+        );
+    }
+
+    public function test_boolean_details_are_preserved_and_document_paths_are_not_saved(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $user->assignRole('pendaftar');
+        $this->actingAs($user);
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
+        $configuration = \App\Models\UnitConfiguration::create([
+            ...app(UnitConfigurationService::class)->defaults($unit),
+            'unit_id' => $unit->id,
+            'version' => 1,
+            'status' => 'published',
+            'legacy' => true,
+            'published_at' => now(),
+            'fields' => [
+                ['key' => 'medical_declaration', 'label' => 'Keterangan', 'type' => 'boolean', 'active' => true, 'required' => false],
+                ['key' => 'medical_document', 'label' => 'Bukti', 'type' => 'file', 'active' => true, 'required' => false],
+            ],
+        ]);
+
+        $saved = app(RegistrationFormDraftService::class)->save($user, $opening, $configuration, [
+            'custom_answers' => [
+                'medical_declaration' => '1',
+                '_details' => ['medical_declaration' => 'Butuh pendampingan', 'unrelated' => 'rahasia'],
+                'medical_document' => 'pre-registration/1/medical.pdf',
+            ],
+        ], 0);
+
+        $this->assertSame('Butuh pendampingan', $saved->payload['custom_answers']['_details']['medical_declaration']);
+        $this->assertArrayNotHasKey('unrelated', $saved->payload['custom_answers']['_details']);
+        $this->assertArrayNotHasKey('medical_document', $saved->payload['custom_answers']);
+    }
+
+
+    public function test_applicant_can_save_resume_and_complete_registration_without_draft_surviving(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $user->assignRole('pendaftar');
+        $this->actingAs($user);
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
+        app(UnitConfigurationService::class)->initialize($unit);
+        $pathway = \App\Models\RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+        $this->actingAs($user);
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('pendaftar'));
+
+        $page = \Livewire\Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(\App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration::class)
+            ->setActionData(['accepted' => true])->callMountedAction()
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'self',
+                'full_name' => 'Draft Menjadi Final',
+                'nik' => '3273010101010018',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu'],
+            ])->call('saveRegistrationDraft')->assertHasNoErrors();
+
+        $this->assertDatabaseCount('registration_form_drafts', 1);
+        $this->assertDatabaseCount('registrations', 0);
+
+        $fresh = \Livewire\Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(\App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration::class)
+            ->setActionData(['accepted' => true])->callMountedAction()
+            ->call('resumeRegistrationDraft')->assertHasNoErrors();
+        $this->assertSame('Draft Menjadi Final', $fresh->get('data.full_name'));
+
+        $fresh->call('create')->assertHasNoFormErrors();
+        $this->assertDatabaseCount('registrations', 1);
+        $this->assertDatabaseCount('registration_form_drafts', 0);
+    }
+
+
+    public function test_other_account_cannot_read_overwrite_or_delete_owner_draft(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $opening = \App\Models\RegistrationOpening::create([
+            'unit_id' => $unit->id, 'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0,
+        ]);
+        $configuration = app(UnitConfigurationService::class)->initialize($unit);
+        $owner = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $owner->assignRole('pendaftar');
+        $other = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $other->assignRole('pendaftar');
+        $service = app(RegistrationFormDraftService::class);
+
+        $this->actingAs($owner);
+        $service->save($owner, $opening, $configuration, [
+            'full_name' => 'Data Rahasia Pendaftar A',
+            'nik' => '3273010101010088',
+        ], 0);
+
+        $this->actingAs($other);
+        $this->assertNull($service->find($other, $opening, $configuration));
+
+        foreach (['find', 'discard'] as $action) {
+            try {
+                if ($action === 'find') {
+                    $service->find($owner, $opening, $configuration);
+                } else {
+                    $service->discard($owner, $opening);
+                }
+                $this->fail('Akun B tidak boleh bertindak atas draft akun A.');
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+                $this->assertSame(403, $exception->getStatusCode());
+            }
+        }
+
+        $service->discard($other, $opening);
+        $this->assertDatabaseCount('registration_form_drafts', 1);
+        $service->save($other, $opening, $configuration, ['full_name' => 'Pendaftar B'], 0);
+        $this->assertDatabaseCount('registration_form_drafts', 2);
+
+        $this->actingAs($owner);
+        $this->assertSame(
+            'Data Rahasia Pendaftar A',
+            $service->find($owner, $opening, $configuration)->payload['full_name'],
+        );
+        $this->actingAs($other);
+        $this->assertSame(
+            'Pendaftar B',
+            $service->find($other, $opening, $configuration)->payload['full_name'],
+        );
+    }
+
+    public function test_resumed_draft_accepts_private_pdf_upload_and_submits_without_leaking_file_path_to_draft(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('applicant-private');
+        $this->seed(ShieldSeeder::class);
+
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $admin = User::factory()->create([
+            'role' => 'admin_unit', 'unit_id' => $unit->id, 'is_active' => true,
+        ]);
+        $admin->assignRole('admin_unit');
+        $owner = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $owner->assignRole('pendaftar');
+        $opening = \App\Models\RegistrationOpening::create([
+            'unit_id' => $unit->id, 'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0,
+        ]);
+        $pathway = \App\Models\RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+
+        $configurationService = app(UnitConfigurationService::class);
+        $configuredDraft = $configurationService->draft($unit, $admin);
+        $configData = $configuredDraft->toArray();
+        $configData['fields'] = [[
+            'key' => 'signed_letter',
+            'label' => 'Surat Pernyataan',
+            'type' => 'file',
+            'active' => true,
+            'required' => true,
+            'group_key' => 'group_additional',
+            'group' => 'Informasi Tambahan',
+            'help' => null,
+            'formats' => ['pdf'],
+            'options' => [],
+            'template_path' => null,
+        ]];
+        $configuration = $configurationService->save($configuredDraft, $admin, $configData, true);
+
+        $this->actingAs($owner);
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('pendaftar'));
+
+        \Livewire\Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(\App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration::class)
+            ->setActionData(['accepted' => true])->callMountedAction()
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'self',
+                'full_name' => 'Pendaftar Dokumen',
+                'nik' => '3273010101010090',
+                'gender' => 'L',
+                'birth_place' => 'Bandung',
+                'birth_date' => '2020-01-01',
+                'home_address' => 'Bandung',
+                'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu'],
+            ])->call('saveRegistrationDraft')->assertHasNoErrors();
+
+        $savedDraft = app(RegistrationFormDraftService::class)->find($owner, $opening, $configuration);
+        $this->assertArrayNotHasKey('signed_letter', $savedDraft->payload['custom_answers'] ?? []);
+        $this->assertDatabaseCount('registrations', 0);
+
+        $page = \Livewire\Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(\App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration::class)
+            ->setActionData(['accepted' => true])->callMountedAction()
+            ->call('resumeRegistrationDraft')->assertHasNoErrors();
+
+        $page->call('create')->assertHasFormErrors(['custom_answers.signed_letter' => 'required']);
+        $this->assertDatabaseCount('registration_form_drafts', 1);
+
+        // Pass a genuine upload through Livewire / Filament FileUpload.
+        $uploadedPdf = \Illuminate\Http\UploadedFile::fake()->createWithContent(
+            'signed-letter.pdf',
+            "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF",
+        );
+
+        $page->fillForm(['custom_answers.signed_letter' => [$uploadedPdf]])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $created = \App\Models\Registration::query()
+            ->where('user_id', $owner->id)
+            ->where('nik', '3273010101010090')
+            ->firstOrFail();
+
+        $filePath = data_get($created->custom_answers, 'signed_letter');
+        $this->assertIsString($filePath);
+        $this->assertStringStartsWith('pre-registration/'.$owner->id.'/', $filePath);
+        $this->assertTrue(\Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($filePath));
+        $this->assertDatabaseCount('registration_form_drafts', 0);
+
+        $downloadUrl = route('files.applicant.registration-custom-field', [
+            'registration' => $created,
+            'key' => 'signed_letter',
+            'download' => 1,
+        ]);
+        $this->get($downloadUrl)->assertDownload();
+
+        $otherApplicant = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $otherApplicant->assignRole('pendaftar');
+        $this->actingAs($otherApplicant)->get($downloadUrl)->assertForbidden();
+    }
+
+    public function test_revision_conflict_does_not_overwrite_a_newer_draft(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $user->assignRole('pendaftar');
+        $this->actingAs($user);
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
+        $configuration = app(UnitConfigurationService::class)->initialize($unit);
+        $service = app(RegistrationFormDraftService::class);
+        $service->save($user, $opening, $configuration, ['full_name' => 'Versi Awal'], 0);
+
+        try {
+            $service->save($user, $opening, $configuration, ['full_name' => 'Tab Lama'], 0);
+            $this->fail('Seharusnya menolak draft dari tab lama.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('draft', $exception->errors());
+        }
+
+        $this->assertSame('Versi Awal', $service->find($user, $opening, $configuration)->payload['full_name']);
+    }
+}

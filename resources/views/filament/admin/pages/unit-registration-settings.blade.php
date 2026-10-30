@@ -4,14 +4,15 @@
         <x-filament::button wire:click="loadUnit">Buka Pengaturan</x-filament::button>
     </div>
     @if($configurationUuid)
-        <div wire:poll.3s="autosaveDraft" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-            <div class="text-sm" role="status" aria-live="polite">{{ $autosaveStatus }}</div>
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <div class="text-sm" role="status" aria-live="polite">{{ $draftStatus }}</div>
             <x-filament::button type="button" color="gray" wire:click="showPreview">Pratinjau Form Pendaftar</x-filament::button>
         </div>
         <form wire:submit="save" class="space-y-6">
             {{ $this->form }}
             <div class="flex flex-wrap gap-3 pt-2 sm:gap-4">
                 <x-filament::button type="submit">Simpan Draft</x-filament::button>
+                <x-filament::button type="button" color="gray" wire:click="saveDraftAndExit" wire:confirm="Simpan perubahan sebagai draft lalu keluar dari pengaturan?">Simpan Draft &amp; Keluar</x-filament::button>
                 <x-filament::button type="button" wire:click="showPreview" color="gray">Pratinjau Form Pendaftar</x-filament::button>
                 <x-filament::button type="button" wire:click="publish" wire:confirm="Simpan draft terbaru lalu publikasikan konfigurasi untuk pendaftar baru? Pendaftar lama tetap memakai versi sebelumnya sampai Anda memilih menerapkan versi terpublikasi ke pendaftar aktif." color="success">Publikasikan</x-filament::button>
                 <x-filament::button

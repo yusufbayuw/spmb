@@ -10,6 +10,8 @@ use App\Models\User;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -17,7 +19,7 @@ class UnitRegistrationSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_autosave_stages_incomplete_configuration_without_publishing(): void
+    public function test_editor_discards_unsaved_changes_on_reload_and_only_persists_manual_save(): void
     {
         [$unit, $staff] = $this->fixture();
         $this->actingAs($staff);
@@ -28,19 +30,56 @@ class UnitRegistrationSettingsTest extends TestCase
         $page->set('data.fields', [[
             'key' => 'custom_new_question',
             'label' => 'Pertanyaan',
-            'type' => 'select',
+            'type' => 'text',
             'active' => true,
             'required' => false,
             'group_key' => 'group_additional',
             'options' => [],
-        ]])->call('autosaveDraft')->assertHasNoErrors();
+        ]])->assertHasNoErrors();
 
         $this->assertSame([], UnitConfiguration::where('uuid', $uuid)->firstOrFail()->fields);
-        $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
-        $this->assertCount(1, \Illuminate\Support\Facades\Cache::get('spmb:unit-editor:'.$staff->id.':'.$uuid)['data']['fields']);
+        $this->assertNull(\Illuminate\Support\Facades\Cache::get('spmb:unit-editor:'.$staff->id.':'.$uuid));
 
-        Livewire::test(UnitRegistrationSettings::class)->assertSet('data.fields', fn (array $fields): bool => collect($fields)
-            ->contains(fn (array $field): bool => ($field['key'] ?? null) === 'custom_new_question'));
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSet('data.fields', []);
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm(['builtin_field_policy' => 'all_required'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('all_required', UnitConfiguration::where('uuid', $uuid)->value('builtin_field_policy'));
+        $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
+    }
+
+    public function test_invalid_configuration_does_not_update_unit_logo(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        Storage::fake('public');
+        Storage::disk('public')->putFileAs('units/logos', UploadedFile::fake()->image('original.png'), 'original.png');
+        $unit->update(['logo_path' => 'units/logos/original.png']);
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm([
+                'unit_logo_path' => [UploadedFile::fake()->image('replacement.png')],
+                'registration_number_digits' => 2,
+            ])
+            ->call('save')
+            ->assertHasFormErrors();
+
+        $this->assertSame('units/logos/original.png', $unit->fresh()->logo_path);
+    }
+
+    public function test_admin_editor_no_longer_has_unsafe_autosave_method(): void
+    {
+        $this->assertFalse(method_exists(UnitRegistrationSettings::class, 'autosaveDraft'));
+        $this->assertStringNotContainsString(
+            'wire:poll',
+            file_get_contents(resource_path('views/filament/admin/pages/unit-registration-settings.blade.php')),
+        );
     }
 
     public function test_preview_opens_modal_without_publishing_or_saving_incomplete_draft(): void

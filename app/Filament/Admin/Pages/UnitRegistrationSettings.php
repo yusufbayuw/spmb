@@ -58,10 +58,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public bool $preview = false;
 
-    public string $autosaveStatus = 'Belum ada perubahan';
-
-    #[Locked]
-    public ?string $autosaveHash = null;
+    public string $draftStatus = 'Perubahan belum disimpan';
 
     #[Locked]
     public ?string $previewToken = null;
@@ -144,10 +141,8 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
         ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
-        $staged = Cache::get($this->editorDraftKey());
-        $this->form->fill(is_array($staged) && is_array($staged['data'] ?? null) ? $staged['data'] : $data);
-        $this->autosaveHash = $this->draftFingerprint($this->data);
-        $this->autosaveStatus = is_array($staged) ? 'Draft otomatis dipulihkan' : 'Draft siap diedit';
+        $this->form->fill($data);
+        $this->draftStatus = 'Gunakan Simpan Draft untuk menyimpan perubahan';
     }
 
     protected function getForms(): array
@@ -669,6 +664,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->directory(fn (): string => 'templates/'.$this->unitId())
                         ->visibility('private')
                         ->previewable(false)
+                        ->fetchFileInformation(false)
+                        ->getUploadedFileUsing(fn (string $file): ?array => \Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($file)
+                            ? ['name' => basename($file), 'size' => \Illuminate\Support\Facades\Storage::disk('applicant-private')->size($file), 'type' => 'application/octet-stream']
+                            : null)
                         ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(5120)
                         ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['file', 'placeholder'], true)),
@@ -828,7 +827,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Textarea::make('instructions')->label('Petunjuk'),
                     Forms\Components\TextInput::make('max_files')->label('Maksimum lampiran')->integer()->minValue(1)->maxValue(20)->default(1)->required(),
                     Forms\Components\Select::make('formats')->label('Format jawaban')->multiple()->options(['pdf' => 'PDF', 'docx' => 'DOCX', 'jpg' => 'JPG', 'png' => 'PNG'])->default(['pdf', 'jpg', 'png'])->required(),
-                    Forms\Components\FileUpload::make('template_path')->label('Template PDF/DOCX')->disk('applicant-private')->directory(fn (): string => 'templates/'.$this->unitId())->visibility('private')->previewable(false)->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120),
+                    Forms\Components\FileUpload::make('template_path')->label('Template PDF/DOCX')->disk('applicant-private')->directory(fn (): string => 'templates/'.$this->unitId())->visibility('private')->previewable(false)->fetchFileInformation(false)->getUploadedFileUsing(fn (string $file): ?array => \Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($file) ? ['name' => basename($file), 'size' => \Illuminate\Support\Facades\Storage::disk('applicant-private')->size($file), 'type' => 'application/octet-stream'] : null)->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
                 ])->columns(['default' => 1, 'md' => 2])->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Dokumen baru'),
@@ -918,9 +917,12 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->assertSensitiveOperation(auth()->user(), 'menyimpan konfigurasi pendaftaran unit');
 
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
-        $data = $this->configurationFormData($configuration);
+        [$data, $logoPath] = $this->configurationFormData($configuration);
 
-        app(UnitConfigurationService::class)->save($configuration, auth()->user(), $data);
+        DB::transaction(function () use ($configuration, $data, $logoPath): void {
+            app(UnitConfigurationService::class)->save($configuration, auth()->user(), $data);
+            Unit::query()->whereKey($configuration->unit_id)->update(['logo_path' => $logoPath]);
+        });
         Cache::forget($this->editorDraftKey());
         $this->loadUnit();
 
@@ -930,18 +932,30 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->send();
     }
 
+    public function saveDraftAndExit(): void
+    {
+        $this->save();
+
+        $this->redirect(\Filament\Facades\Filament::getPanel('admin')->getUrl());
+    }
+
     public function publish(): void
     {
         app(\App\Services\CertificationAccessService::class)
             ->assertSensitiveOperation(auth()->user(), 'mempublikasikan konfigurasi pendaftaran unit');
 
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
-        $data = $this->configurationFormData($configuration);
+        [$data, $logoPath] = $this->configurationFormData($configuration);
         $service = app(UnitConfigurationService::class);
 
         try {
-            $draft = $service->save($configuration, auth()->user(), $data);
-            $published = $service->save($draft->fresh(), auth()->user(), $data, true);
+            $published = DB::transaction(function () use ($service, $configuration, $data, $logoPath): UnitConfiguration {
+                $draft = $service->save($configuration, auth()->user(), $data);
+                $published = $service->save($draft->fresh(), auth()->user(), $data, true);
+                Unit::query()->whereKey($configuration->unit_id)->update(['logo_path' => $logoPath]);
+
+                return $published;
+            });
         } catch (ValidationException $exception) {
             foreach ($exception->errors() as $key => $messages) {
                 foreach ($messages as $message) {
@@ -970,6 +984,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->send();
     }
 
+    /** @return array{0: array<string, mixed>, 1: ?string} */
     private function configurationFormData(UnitConfiguration $configuration): array
     {
         $data = $this->form->getState();
@@ -981,8 +996,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $logoPath = is_array($logoState)
             ? (array_values($logoState)[0] ?? null)
             : (is_string($logoState) ? $logoState : null);
-
-        $unit->update(['logo_path' => $logoPath]);
+        $logoPath = is_string($logoPath) ? $logoPath : null;
         unset($data['unit_logo_path']);
 
         $data['test_definitions'] = collect($data['test_definitions'] ?? [])
@@ -997,7 +1011,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ])
             ->all();
 
-        return $data;
+        return [$data, $logoPath];
     }
 
     public function applyPublishedToActiveRegistrations(): void
@@ -1014,45 +1028,18 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->send();
     }
 
-    public function autosaveDraft(): void
-    {
-        if (! $this->configurationUuid) {
-            return;
-        }
-
-        $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
-        app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $configuration->unit_id);
-        app(\App\Services\CertificationAccessService::class)
-            ->assertSensitiveOperation(auth()->user(), 'menyimpan sementara konfigurasi pendaftaran unit');
-        if ($configuration->status !== 'draft') {
-            $this->autosaveStatus = 'Draft tidak aktif; muat ulang pengaturan';
-            return;
-        }
-        $hash = $this->draftFingerprint($this->data);
-        if ($hash === $this->autosaveHash) {
-            return;
-        }
-        Cache::put($this->editorDraftKey(), ['data' => $this->data, 'hash' => $hash], now()->addDay());
-        $this->autosaveHash = $hash;
-        $this->autosaveStatus = 'Tersimpan otomatis '.now()->format('H:i:s').' (belum dipublikasikan)';
-    }
-
+    // Legacy cache is never restored. Clear it only after explicit save/publish.
     private function editorDraftKey(): string
     {
         return 'spmb:unit-editor:'.auth()->id().':'.$this->configurationUuid;
     }
 
-    private function draftFingerprint(array $data): string
-    {
-        return hash('sha256', serialize($data));
-    }
-
     public function showPreview(): void
     {
-        $this->autosaveDraft();
-
         $unit = Unit::query()->where('uuid', $this->unitUuid)->firstOrFail();
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
+        abort_unless((int) $configuration->unit_id === (int) $unit->id, 403);
+        app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $unit->id);
         $previewValues = array_replace($configuration->toArray(), $this->previewConfigurationData());
         $this->previewToken = (string) Str::uuid();
         Cache::put('spmb:form-preview:'.$this->previewToken, ['user_id' => auth()->id(), 'unit_id' => $configuration->unit_id, 'configuration_uuid' => $configuration->uuid, 'data' => $previewValues], now()->addMinutes(30));
@@ -1094,14 +1081,34 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     private function previewConfigurationData(): array
     {
+        // Preview is not an upload operation. Never cache transient Livewire
+        // upload objects; serializing SplFileInfo can fail with HTTP 500.
         $data = $this->data;
-        $data['fields'] = collect($data['fields'] ?? [])->filter(fn ($f): bool => is_array($f) && filled($f['key'] ?? null) && filled($f['label'] ?? null))
-            ->map(function (array $f): array {
-                if (in_array($f['type'] ?? '', ['select', 'multiselect'], true) && empty($f['options'])) {
-                    $f['options'] = ['Contoh pilihan'];
+        $data['unit_logo_path'] = null;
+        $data['fields'] = collect($data['fields'] ?? [])
+            ->filter(fn ($field): bool => is_array($field) && filled($field['key'] ?? null) && filled($field['label'] ?? null))
+            ->map(function (array $field): array {
+                $field['template_path'] = is_string($field['template_path'] ?? null)
+                    ? $field['template_path']
+                    : null;
+
+                if (in_array($field['type'] ?? '', ['select', 'multiselect'], true) && empty($field['options'])) {
+                    $field['options'] = ['Contoh pilihan'];
                 }
-                return $f;
+
+                return $field;
             })->values()->all();
+
+        $data['document_requirements'] = collect($data['document_requirements'] ?? [])
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(function (array $item): array {
+                $item['template_path'] = is_string($item['template_path'] ?? null)
+                    ? $item['template_path']
+                    : null;
+
+                return $item;
+            })->values()->all();
+
         return app(UnitConfigurationService::class)->normalizeEditorData($data);
     }
 
