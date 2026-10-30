@@ -1060,6 +1060,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $pathwayUuid = $configuredPathwayUuid
             ?: $unit->registrationPathways()->where('is_active', true)->whereNull('archived_at')->value('uuid');
 
+        $this->preview = true;
         $this->previewForm->fill([
             'unit_uuid' => $unit->uuid,
             'unit_configuration_uuid' => $this->configurationUuid,
