@@ -28,6 +28,85 @@ class ConfiguredRegistrationForm
 {
     public const CORE_FIELDS = ['nik', 'full_name', 'gender', 'birth_place', 'birth_date', 'home_address', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'unit_configuration_id'];
 
+    public const CORE_PRESENTATION_FIELDS = [
+        'nik' => 'NIK',
+        'full_name' => 'Nama Lengkap',
+        'gender' => 'Jenis Kelamin',
+        'birth_place' => 'Tempat Lahir',
+        'home_address' => 'Alamat Rumah',
+    ];
+
+    public static function defaultCoreIdentityFields(): array
+    {
+        return collect(self::CORE_PRESENTATION_FIELDS)
+            ->map(fn (string $label, string $key): array => ['key' => $key, 'label' => null, 'help' => null, 'placeholder' => null])
+            ->values()->all();
+    }
+
+    public static function normalizeCoreIdentityFields(mixed $value): array
+    {
+        $byKey = [];
+        foreach (is_array($value) ? $value : [] as $entry) {
+            if (! is_array($entry) || ! array_key_exists($entry['key'] ?? '', self::CORE_PRESENTATION_FIELDS)) {
+                continue;
+            }
+            $key = $entry['key'];
+            if (isset($byKey[$key])) {
+                continue;
+            }
+            $byKey[$key] = [
+                'key' => $key,
+                'label' => is_string($entry['label'] ?? null) && trim($entry['label']) !== '' ? trim($entry['label']) : null,
+                'help' => is_string($entry['help'] ?? null) && trim($entry['help']) !== '' ? trim($entry['help']) : null,
+                'placeholder' => is_string($entry['placeholder'] ?? null) && trim($entry['placeholder']) !== '' ? trim($entry['placeholder']) : null,
+            ];
+        }
+        foreach (self::defaultCoreIdentityFields() as $entry) {
+            $byKey[$entry['key']] ??= $entry;
+        }
+
+        return array_values($byKey);
+    }
+
+    public function applyCoreIdentityPresentation(array $components, ?UnitConfiguration $configuration): array
+    {
+        if (! $configuration) {
+            return $components;
+        }
+        $entries = self::normalizeCoreIdentityFields($configuration->core_identity_fields);
+        $byKey = collect($entries)->keyBy('key');
+        foreach ($components as $index => $component) {
+            if (! $component instanceof Field || ! $byKey->has($component->getName())) {
+                continue;
+            }
+            $entry = $byKey->get($component->getName());
+            if (filled($entry['label'])) {
+                $component->label($entry['label']);
+            }
+            if (filled($entry['help'])) {
+                $component->helperText($entry['help']);
+            }
+            if (filled($entry['placeholder']) && method_exists($component, 'placeholder')) {
+                $component->placeholder($entry['placeholder']);
+            }
+            $components[$index] = $component;
+        }
+
+        // Reorder only the four independent identity controls; other controls retain
+        // their original placement and validation, including lookup NIK/birth date.
+        $movable = ['full_name', 'gender', 'birth_place', 'home_address'];
+        $slots = array_keys(array_filter($components, fn ($component): bool => $component instanceof Field
+            && in_array($component->getName(), $movable, true)));
+        $ordered = collect($entries)->filter(fn (array $entry): bool => in_array($entry['key'], $movable, true))
+            ->map(fn (array $entry) => collect($components)->first(fn ($component) => $component instanceof Field && $component->getName() === $entry['key']))->filter()->values()->all();
+        foreach ($slots as $position => $slot) {
+            if (isset($ordered[$position])) {
+                $components[$slot] = $ordered[$position];
+            }
+        }
+        return $components;
+    }
+
     public const REGION_FIELDS = ['province_code', 'city_code', 'district_code', 'village_code'];
 
     public const BUILTIN_FIELDS = ['nisn', 'nickname', 'religion', 'phone', 'email', 'rt', 'rw', 'province_code', 'city_code', 'district_code', 'village_code', 'previous_school', 'graduation_year', 'father_name', 'father_nik', 'father_birth_place', 'father_birth_date', 'father_education', 'father_occupation', 'father_workplace', 'father_phone', 'father_email', 'father_income', 'mother_name', 'mother_nik', 'mother_birth_place', 'mother_birth_date', 'mother_education', 'mother_occupation', 'mother_workplace', 'mother_phone', 'mother_email', 'mother_income'];
@@ -166,6 +245,10 @@ class ConfiguredRegistrationForm
         };
 
         $components = $walk($components);
+        if (isset($components['identity']) && $components['identity'] instanceof Section) {
+            $identity = $components['identity'];
+            $identity->schema($this->applyCoreIdentityPresentation($identity->getChildComponents(), $configuration));
+        }
         $formGroups = $this->formGroups($configuration);
         $customFieldsByGroup = [];
 
@@ -361,6 +444,9 @@ class ConfiguredRegistrationForm
         }
 
         if ($identityLookup) {
+            if ($identityLookup instanceof Section) {
+                $identityLookup->schema($this->applyCoreIdentityPresentation($identityLookup->getChildComponents(), $configuration));
+            }
             array_unshift($ordered, $identityLookup);
         }
 
@@ -504,6 +590,7 @@ class ConfiguredRegistrationForm
         }
 
         $definitions = collect($this->presentationFields($configuration))->keyBy('key');
+        $components = $this->applyCoreIdentityPresentation($components, $configuration);
 
         foreach ($components as $index => $item) {
             if ($item instanceof Field && in_array($item->getName(), self::BUILTIN_FIELDS, true)) {

@@ -517,6 +517,17 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->required()
                     ->native(false)
                     ->helperText('Pilih "Wajibkan semua isian bawaan" agar seluruh field bawaan aktif dan wajib tanpa mengatur satu per satu. Tambahkan field pada bagian pengecualian hanya bila perlu dibedakan.'),
+                Forms\Components\Repeater::make('core_identity_fields')
+                    ->label('Tampilan Identitas Inti')
+                    ->helperText('Ubah label, petunjuk, placeholder, dan urutan di dalam bagian Identitas. NIK dan Tanggal Lahir tetap pada tahap identifikasi awal; semua field inti tetap wajib dengan validasi sistem.')
+                    ->default(ConfiguredRegistrationForm::defaultCoreIdentityFields())
+                    ->schema([
+                        Forms\Components\Select::make('key')->label('Isian')->options(ConfiguredRegistrationForm::CORE_PRESENTATION_FIELDS)->disabled()->dehydrated()->required(),
+                        Forms\Components\TextInput::make('label')->label('Label pengganti')->placeholder('Kosong = label bawaan')->maxLength(150),
+                        Forms\Components\Textarea::make('help')->label('Petunjuk tambahan')->maxLength(1000),
+                        Forms\Components\TextInput::make('placeholder')->label('Placeholder')->maxLength(150),
+                    ])->reorderable()->addable(false)->deletable(false)->itemLabel(fn (array $state): string => ConfiguredRegistrationForm::CORE_PRESENTATION_FIELDS[$state['key'] ?? ''] ?? 'Identitas inti')
+                    ->columns(['default' => 1, 'md' => 2]),
                 Forms\Components\Repeater::make('fields')
                     ->label('Kustomisasi / Pengecualian Field')
                     ->helperText('Kosongkan bila semua field cukup mengikuti kebijakan di atas. Field yang ditambahkan di sini akan mengoverride status Aktif/Wajib, label, dan petunjuk untuk field tersebut.')
