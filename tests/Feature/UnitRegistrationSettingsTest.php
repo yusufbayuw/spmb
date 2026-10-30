@@ -69,6 +69,43 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame([], UnitConfiguration::where('unit_id', $unit->id)->where('status', 'draft')->firstOrFail()->fields);
     }
 
+    public function test_preview_fields_are_interactive_but_uploads_are_only_placeholders(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(UnitRegistrationSettings::class)
+            ->call('showPreview')
+            ->assertHasNoErrors();
+
+        $fields = $page->instance()->previewForm->getFlatFields();
+        $nik = collect($fields)->first(fn ($field): bool => $field->getName() === 'nik');
+        $this->assertNotNull($nik);
+        $this->assertFalse($nik->isDisabled());
+        $this->assertTrue($nik->isMarkedAsRequired());
+
+        $config = UnitConfiguration::query()->where('unit_id', $unit->id)->where('status', 'draft')->firstOrFail();
+        $definition = [
+            'key' => 'document_proof',
+            'label' => 'Bukti Dokumen',
+            'type' => 'file',
+            'active' => true,
+            'required' => true,
+            'formats' => ['pdf'],
+        ];
+
+        $configured = app(\App\Services\ConfiguredRegistrationForm::class);
+        $this->assertInstanceOf(
+            \Filament\Forms\Components\Placeholder::class,
+            $configured->field($definition, $config, true),
+        );
+        $this->assertInstanceOf(
+            \Filament\Forms\Components\Group::class,
+            $configured->field($definition, $config, false),
+        );
+    }
+
     public function test_publish_confirms_the_activated_version_after_loading_the_next_draft(): void
     {
         [$unit, $staff] = $this->fixture();
