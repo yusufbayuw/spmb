@@ -69,8 +69,9 @@ class RegistrationFormDraftService
                 ->first();
 
             if ($current && $current->unit_configuration_id !== $configuration->id) {
-                $current->delete();
-                $current = null;
+                throw ValidationException::withMessages([
+                    'draft' => 'Draft berasal dari konfigurasi lama. Pilih Hapus Draft sebelum membuat draft baru.',
+                ]);
             }
 
             if ((int) ($current?->revision ?? 0) !== $expectedRevision) {

@@ -573,6 +573,20 @@ class CreateRegistration extends CreateRecord
     {
         return [
             ...parent::getFormActions(),
+            Action::make('saveAndExitRegistrationDraft')
+                ->label('Simpan Draft & Keluar')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalDescription('Simpan isian ke database tanpa mengirim pendaftaran. Berkas unggahan belum disertakan.')
+                ->action(function (): void {
+                    $this->saveRegistrationDraft();
+                    $this->redirect(RegistrationResource::getUrl('index'));
+                }),
+            Action::make('exitRegistrationForm')
+                ->label('Keluar Tanpa Menyimpan')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->action(fn () => $this->redirect(RegistrationResource::getUrl('index'))),
             Action::make('saveRegistrationDraft')
                 ->label('Simpan Draft')
                 ->icon('heroicon-o-document-check')
