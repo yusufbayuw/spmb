@@ -928,6 +928,13 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->send();
     }
 
+    public function saveDraftAndExit(): void
+    {
+        $this->save();
+
+        $this->redirect(\Filament\Facades\Filament::getPanel('admin')->getUrl());
+    }
+
     public function publish(): void
     {
         app(\App\Services\CertificationAccessService::class)
