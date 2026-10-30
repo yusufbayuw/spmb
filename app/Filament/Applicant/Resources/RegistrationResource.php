@@ -104,8 +104,10 @@ class RegistrationResource extends Resource
                         ->searchable()
                         ->preload()
                         ->live()
-                        ->disabled(fn (Forms\Get $get, ?Registration $record): bool => filled($record)
-                            || count(static::pathwayOptions($get('registration_opening_uuid'), $record)) === 1)
+                        ->disabled(fn (Forms\Get $get, ?Registration $record): bool =>
+                            ! method_exists($form->getLivewire(), 'previewConfiguration')
+                            && (filled($record)
+                                || count(static::pathwayOptions($get('registration_opening_uuid'), $record)) === 1))
                         ->dehydrated()
                         ->required(),
                     Forms\Components\Select::make('registrant_type')
@@ -162,7 +164,7 @@ class RegistrationResource extends Resource
                     ->applicantParentDescription(static::openingIsHigherEducation($get('registration_opening_uuid'), $record)))
                 ->relationship('parentInfo')
                 ->schema(ParentInfoFields::schema()),
-        ], static::formConfiguration($form, $record)));
+        ], static::formConfiguration($form, $record), method_exists($form->getLivewire(), 'previewConfiguration')));
     }
 
     protected static function formConfiguration(Form $form, ?Registration $record): ?UnitConfiguration

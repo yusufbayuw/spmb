@@ -26,6 +26,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 
 class CreateRegistration extends CreateRecord
 {
@@ -42,6 +43,13 @@ class CreateRegistration extends CreateRecord
     public ?string $openingUuid = null;
 
     public ?string $configurationUuid = null;
+
+    #[Locked]
+    public int $draftOwnerId = 0;
+
+    /** @var list<string> */
+    #[Locked]
+    public array $draftFileKeys = [];
 
     public ?string $privacyConsentUuid = null;
 
@@ -75,6 +83,11 @@ class CreateRegistration extends CreateRecord
 
         $configuration = app(UnitConfigurationService::class)->initialize($opening->unit);
         $this->configurationUuid = $configuration->uuid;
+        $this->draftOwnerId = (int) auth()->id();
+        $this->draftFileKeys = collect($configuration->fields ?? [])
+            ->filter(fn (mixed $field): bool => is_array($field) && ($field['type'] ?? null) === 'file')
+            ->pluck('key')->filter(fn (mixed $key): bool => is_string($key) && $key !== '')
+            ->values()->all();
 
         parent::mount();
 
@@ -500,6 +513,14 @@ class CreateRegistration extends CreateRecord
 
             return $record;
         }, 5);
+    }
+
+    protected function afterCreate(): void
+    {
+        // Browser storage is cleared only after the registration transaction succeeds.
+        $key = 'spmb:registration-draft:v1:'.$this->draftOwnerId.':'.$this->openingUuid.':'.$this->configurationUuid;
+        session()->flash('spmb_registration_draft_completed', $key);
+        $this->dispatch('spmb-registration-created', key: $key);
     }
 
     protected function onValidationError(ValidationException $exception): void

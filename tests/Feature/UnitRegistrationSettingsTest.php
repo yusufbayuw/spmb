@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\UnitRegistrationSettings;
+use App\Filament\Admin\Pages\UnitRegistrationFormPreview;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
@@ -67,6 +68,65 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame($staff->id, \Illuminate\Support\Facades\Cache::get('spmb:form-preview:'.$token)['user_id']);
         $this->assertSame(1, UnitConfiguration::where('unit_id', $unit->id)->where('status', 'published')->count());
         $this->assertSame([], UnitConfiguration::where('unit_id', $unit->id)->where('status', 'draft')->firstOrFail()->fields);
+    }
+
+    public function test_preview_fields_are_interactive_but_uploads_are_only_placeholders(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(UnitRegistrationSettings::class)
+            ->call('showPreview')
+            ->assertHasNoErrors();
+
+        $fields = $page->instance()->previewForm->getFlatFields();
+        $nik = collect($fields)->first(fn ($field): bool => $field->getName() === 'nik');
+        $this->assertNotNull($nik);
+        $this->assertFalse($nik->isDisabled());
+        $this->assertTrue($nik->isMarkedAsRequired());
+
+        $config = UnitConfiguration::query()->where('unit_id', $unit->id)->where('status', 'draft')->firstOrFail();
+        $definition = [
+            'key' => 'document_proof',
+            'label' => 'Bukti Dokumen',
+            'type' => 'file',
+            'active' => true,
+            'required' => true,
+            'formats' => ['pdf'],
+        ];
+
+        $configured = app(\App\Services\ConfiguredRegistrationForm::class);
+        $this->assertInstanceOf(
+            \Filament\Forms\Components\Placeholder::class,
+            $configured->field($definition, $config, true),
+        );
+        $this->assertInstanceOf(
+            \Filament\Forms\Components\Group::class,
+            $configured->field($definition, $config, false),
+        );
+    }
+
+    public function test_new_tab_preview_registers_its_form_and_never_exposes_submission(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $editor = Livewire::test(UnitRegistrationSettings::class)
+            ->call('showPreview')->assertHasNoErrors();
+
+        $preview = Livewire::withQueryParams(['token' => $editor->get('previewToken')])
+            ->test(UnitRegistrationFormPreview::class)
+            ->assertSee('Mode pratinjau')
+            ->assertDontSee('Kirim Pendaftaran');
+
+        $nik = collect($preview->instance()->previewForm->getFlatFields())
+            ->first(fn ($field): bool => $field->getName() === 'nik');
+        $this->assertNotNull($nik);
+        $this->assertFalse($nik->isDisabled());
+        $this->assertTrue($nik->isMarkedAsRequired());
+        $this->assertDatabaseCount('registrations', 0);
     }
 
     public function test_publish_confirms_the_activated_version_after_loading_the_next_draft(): void

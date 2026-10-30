@@ -76,9 +76,14 @@ class UnitRegistrationFormPreview extends Page implements Forms\Contracts\HasFor
         return $preview;
     }
 
+    protected function getForms(): array
+    {
+        return ['previewForm'];
+    }
+
     public function previewForm(Form $form): Form
     {
         return RegistrationResource::form($form)
-            ->model(Registration::class)->statePath('previewData')->disabled();
+            ->model(Registration::class)->statePath('previewData');
     }
 }

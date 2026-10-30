@@ -158,7 +158,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public function previewForm(Form $form): Form
     {
         return RegistrationResource::form($form)
-            ->model(Registration::class)->statePath('previewData')->disabled();
+            ->model(Registration::class)->statePath('previewData');
     }
 
     public function form(Form $form): Form

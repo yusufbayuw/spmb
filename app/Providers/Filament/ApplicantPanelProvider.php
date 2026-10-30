@@ -68,7 +68,7 @@ class ApplicantPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('pwa.meta'))
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn () => view('components.panel-body-end'),
+                fn () => view('filament.applicant.partials.panel-body-end'),
             )
             ->middleware([
                 EncryptCookies::class,
