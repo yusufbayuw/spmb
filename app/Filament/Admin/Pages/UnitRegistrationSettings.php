@@ -665,6 +665,9 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->visibility('private')
                         ->previewable(false)
                         ->fetchFileInformation(false)
+                        ->getUploadedFileUsing(fn (string $file): ?array => \Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($file)
+                            ? ['name' => basename($file), 'size' => \Illuminate\Support\Facades\Storage::disk('applicant-private')->size($file), 'type' => 'application/octet-stream']
+                            : null)
                         ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(5120)
                         ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['file', 'placeholder'], true)),
@@ -824,7 +827,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     Forms\Components\Textarea::make('instructions')->label('Petunjuk'),
                     Forms\Components\TextInput::make('max_files')->label('Maksimum lampiran')->integer()->minValue(1)->maxValue(20)->default(1)->required(),
                     Forms\Components\Select::make('formats')->label('Format jawaban')->multiple()->options(['pdf' => 'PDF', 'docx' => 'DOCX', 'jpg' => 'JPG', 'png' => 'PNG'])->default(['pdf', 'jpg', 'png'])->required(),
-                    Forms\Components\FileUpload::make('template_path')->label('Template PDF/DOCX')->disk('applicant-private')->directory(fn (): string => 'templates/'.$this->unitId())->visibility('private')->previewable(false)->fetchFileInformation(false)->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120),
+                    Forms\Components\FileUpload::make('template_path')->label('Template PDF/DOCX')->disk('applicant-private')->directory(fn (): string => 'templates/'.$this->unitId())->visibility('private')->previewable(false)->fetchFileInformation(false)->getUploadedFileUsing(fn (string $file): ?array => \Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($file) ? ['name' => basename($file), 'size' => \Illuminate\Support\Facades\Storage::disk('applicant-private')->size($file), 'type' => 'application/octet-stream'] : null)->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(false),
                 ])->columns(['default' => 1, 'md' => 2])->collapsible()->itemLabel(fn (array $state): string => $state['label'] ?? 'Dokumen baru'),
