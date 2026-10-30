@@ -249,14 +249,13 @@ class RegistrationFormDraftTest extends TestCase
         $page->call('create')->assertHasFormErrors(['custom_answers.signed_letter' => 'required']);
         $this->assertDatabaseCount('registration_form_drafts', 1);
 
-        // Simulate the completed private-disk upload from Filament FileUpload.
-        $filePath = 'pre-registration/'.$owner->id.'/signed-letter.pdf';
-        \Illuminate\Support\Facades\Storage::disk('applicant-private')->put(
-            $filePath,
+        // Pass a genuine upload through Livewire / Filament FileUpload.
+        $uploadedPdf = \Illuminate\Http\UploadedFile::fake()->createWithContent(
+            'signed-letter.pdf',
             "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF",
         );
 
-        $page->fillForm(['custom_answers.signed_letter' => [$filePath]])
+        $page->fillForm(['custom_answers.signed_letter' => [$uploadedPdf]])
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -265,7 +264,9 @@ class RegistrationFormDraftTest extends TestCase
             ->where('nik', '3273010101010090')
             ->firstOrFail();
 
-        $this->assertSame($filePath, data_get($created->custom_answers, 'signed_letter'));
+        $filePath = data_get($created->custom_answers, 'signed_letter');
+        $this->assertIsString($filePath);
+        $this->assertStringStartsWith('pre-registration/'.$owner->id.'/', $filePath);
         $this->assertTrue(\Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($filePath));
         $this->assertDatabaseCount('registration_form_drafts', 0);
     }
