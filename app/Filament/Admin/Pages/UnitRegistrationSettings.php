@@ -1068,6 +1068,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'registrant_type' => 'parent',
         ]);
         $this->preview = true;
+        $this->dispatch('open-modal', id: 'registration-preview');
     }
 
     public function previewConfiguration(): ?UnitConfiguration
