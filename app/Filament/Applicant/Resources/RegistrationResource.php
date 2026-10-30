@@ -173,6 +173,13 @@ class RegistrationResource extends Resource
 
         $livewire = $form->getLivewire();
 
+        if (method_exists($livewire, 'previewConfiguration')) {
+            $preview = $livewire->previewConfiguration();
+            if ($preview instanceof UnitConfiguration) {
+                return $preview;
+            }
+        }
+
         $configurationUuid = data_get($livewire, 'configurationUuid')
             ?: data_get($livewire, $form->getStatePath().'.unit_configuration_uuid');
 

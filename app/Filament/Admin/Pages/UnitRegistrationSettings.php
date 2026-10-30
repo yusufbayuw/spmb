@@ -21,6 +21,7 @@ use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -56,6 +57,16 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
     public array $previewData = [];
 
     public bool $preview = false;
+
+    public string $autosaveStatus = 'Belum ada perubahan';
+
+    #[Locked]
+    public ?string $autosaveHash = null;
+
+    #[Locked]
+    public ?string $previewToken = null;
+
+    public string $previewDevice = 'desktop';
 
     public static function canAccess(): bool
     {
@@ -133,7 +144,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
         ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
-        $this->form->fill($data);
+        $staged = Cache::get($this->editorDraftKey());
+        $this->form->fill(is_array($staged) && is_array($staged['data'] ?? null) ? $staged['data'] : $data);
+        $this->autosaveHash = $this->draftFingerprint($this->data);
+        $this->autosaveStatus = is_array($staged) ? 'Draft otomatis dipulihkan' : 'Draft siap diedit';
     }
 
     protected function getForms(): array
@@ -907,6 +921,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $data = $this->configurationFormData($configuration);
 
         app(UnitConfigurationService::class)->save($configuration, auth()->user(), $data);
+        Cache::forget($this->editorDraftKey());
         $this->loadUnit();
 
         Notification::make()
@@ -945,6 +960,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         }
 
         $publishedVersion = $published->version;
+        Cache::forget($this->editorDraftKey());
         $this->loadUnit();
 
         Notification::make()
@@ -998,12 +1014,48 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->send();
     }
 
+    public function autosaveDraft(): void
+    {
+        if (! $this->configurationUuid) {
+            return;
+        }
+
+        $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
+        app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $configuration->unit_id);
+        app(\App\Services\CertificationAccessService::class)
+            ->assertSensitiveOperation(auth()->user(), 'menyimpan sementara konfigurasi pendaftaran unit');
+        if ($configuration->status !== 'draft') {
+            $this->autosaveStatus = 'Draft tidak aktif; muat ulang pengaturan';
+            return;
+        }
+        $hash = $this->draftFingerprint($this->data);
+        if ($hash === $this->autosaveHash) {
+            return;
+        }
+        Cache::put($this->editorDraftKey(), ['data' => $this->data, 'hash' => $hash], now()->addDay());
+        $this->autosaveHash = $hash;
+        $this->autosaveStatus = 'Tersimpan otomatis '.now()->format('H:i:s').' (belum dipublikasikan)';
+    }
+
+    private function editorDraftKey(): string
+    {
+        return 'spmb:unit-editor:'.auth()->id().':'.$this->configurationUuid;
+    }
+
+    private function draftFingerprint(array $data): string
+    {
+        return hash('sha256', serialize($data));
+    }
+
     public function showPreview(): void
     {
-        $this->save();
+        $this->autosaveDraft();
 
         $unit = Unit::query()->where('uuid', $this->unitUuid)->firstOrFail();
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
+        $previewValues = array_replace($configuration->toArray(), $this->previewConfigurationData());
+        $this->previewToken = (string) Str::uuid();
+        Cache::put('spmb:form-preview:'.$this->previewToken, ['user_id' => auth()->id(), 'unit_id' => $configuration->unit_id, 'configuration_uuid' => $configuration->uuid, 'data' => $previewValues], now()->addMinutes(30));
         $configuredPathwayUuid = collect([
             ...($configuration->academic_score_settings['pathway_uuids'] ?? []),
             ...($configuration->achievement_settings['pathway_uuids'] ?? []),
@@ -1012,6 +1064,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $pathwayUuid = $configuredPathwayUuid
             ?: $unit->registrationPathways()->where('is_active', true)->whereNull('archived_at')->value('uuid');
 
+        $this->preview = true;
         $this->previewForm->fill([
             'unit_uuid' => $unit->uuid,
             'unit_configuration_uuid' => $this->configurationUuid,
@@ -1019,7 +1072,37 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'registration_pathway_uuid' => $pathwayUuid,
             'registrant_type' => 'parent',
         ]);
-        $this->preview = true;
+        $this->dispatch('open-modal', id: 'registration-preview');
+    }
+
+    public function previewConfiguration(): ?UnitConfiguration
+    {
+        if (! $this->preview || ! $this->configurationUuid) {
+            return null;
+        }
+        $stored = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->first();
+        if (! $stored) {
+            return null;
+        }
+        app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $stored->unit_id);
+        $snapshot = new UnitConfiguration();
+        $snapshot->forceFill(array_replace($stored->toArray(), $this->previewConfigurationData()));
+        $snapshot->status = 'draft';
+        $snapshot->unit_id = $stored->unit_id;
+        return $snapshot;
+    }
+
+    private function previewConfigurationData(): array
+    {
+        $data = $this->data;
+        $data['fields'] = collect($data['fields'] ?? [])->filter(fn ($f): bool => is_array($f) && filled($f['key'] ?? null) && filled($f['label'] ?? null))
+            ->map(function (array $f): array {
+                if (in_array($f['type'] ?? '', ['select', 'multiselect'], true) && empty($f['options'])) {
+                    $f['options'] = ['Contoh pilihan'];
+                }
+                return $f;
+            })->values()->all();
+        return app(UnitConfigurationService::class)->normalizeEditorData($data);
     }
 
     /** @return list<array{uuid: string}> */
