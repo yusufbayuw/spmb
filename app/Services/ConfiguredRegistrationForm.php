@@ -29,6 +29,7 @@ class ConfiguredRegistrationForm
     public const CORE_FIELDS = ['nik', 'full_name', 'gender', 'birth_place', 'birth_date', 'home_address', 'unit_id', 'registration_opening_id', 'registration_pathway_id', 'registrant_type', 'registrant_relationship', 'unit_configuration_id'];
 
     public const CORE_PRESENTATION_FIELDS = [
+        'nik' => 'NIK',
         'full_name' => 'Nama Lengkap',
         'gender' => 'Jenis Kelamin',
         'birth_place' => 'Tempat Lahir',
@@ -93,9 +94,11 @@ class ConfiguredRegistrationForm
 
         // Reorder only the four independent identity controls; other controls retain
         // their original placement and validation, including lookup NIK/birth date.
+        $movable = ['full_name', 'gender', 'birth_place', 'home_address'];
         $slots = array_keys(array_filter($components, fn ($component): bool => $component instanceof Field
-            && array_key_exists($component->getName(), self::CORE_PRESENTATION_FIELDS)));
-        $ordered = collect($entries)->map(fn (array $entry) => collect($components)->first(fn ($component) => $component instanceof Field && $component->getName() === $entry['key']))->filter()->values()->all();
+            && in_array($component->getName(), $movable, true)));
+        $ordered = collect($entries)->filter(fn (array $entry): bool => in_array($entry['key'], $movable, true))
+            ->map(fn (array $entry) => collect($components)->first(fn ($component) => $component instanceof Field && $component->getName() === $entry['key']))->filter()->values()->all();
         foreach ($slots as $position => $slot) {
             if (isset($ordered[$position])) {
                 $components[$slot] = $ordered[$position];
@@ -441,6 +444,9 @@ class ConfiguredRegistrationForm
         }
 
         if ($identityLookup) {
+            if ($identityLookup instanceof Section) {
+                $identityLookup->schema($this->applyCoreIdentityPresentation($identityLookup->getChildComponents(), $configuration));
+            }
             array_unshift($ordered, $identityLookup);
         }
 
