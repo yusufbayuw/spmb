@@ -46,6 +46,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Test browser draft autosave
+        run: node --test tests/javascript/registration-draft.test.mjs
+
       - name: Prepare application
         env:
           CACHE_STORE: array
