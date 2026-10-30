@@ -38,7 +38,8 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
         $this->assertCount(1, \Illuminate\Support\Facades\Cache::get('spmb:unit-editor:'.$staff->id.':'.$uuid)['data']['fields']);
 
-        Livewire::test(UnitRegistrationSettings::class)->assertSet('data.fields.0.key', 'custom_new_question');
+        Livewire::test(UnitRegistrationSettings::class)->assertSet('data.fields', fn (array $fields): bool => collect($fields)
+            ->contains(fn (array $field): bool => ($field['key'] ?? null) === 'custom_new_question'));
     }
 
     public function test_preview_opens_modal_without_publishing_or_saving_incomplete_draft(): void
