@@ -269,6 +269,17 @@ class RegistrationFormDraftTest extends TestCase
         $this->assertStringStartsWith('pre-registration/'.$owner->id.'/', $filePath);
         $this->assertTrue(\Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($filePath));
         $this->assertDatabaseCount('registration_form_drafts', 0);
+
+        $downloadUrl = route('files.applicant.registration-custom-field', [
+            'registration' => $created,
+            'key' => 'signed_letter',
+            'download' => 1,
+        ]);
+        $this->get($downloadUrl)->assertDownload();
+
+        $otherApplicant = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $otherApplicant->assignRole('pendaftar');
+        $this->actingAs($otherApplicant)->get($downloadUrl)->assertForbidden();
     }
 
     public function test_revision_conflict_does_not_overwrite_a_newer_draft(): void
