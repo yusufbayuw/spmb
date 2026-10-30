@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Cache;
+use Livewire\Attributes\Locked;
 
 class UnitRegistrationFormPreview extends Page implements Forms\Contracts\HasForms
 {
@@ -23,8 +24,10 @@ class UnitRegistrationFormPreview extends Page implements Forms\Contracts\HasFor
 
     public array $previewData = [];
 
+    #[Locked]
     public ?string $token = null;
 
+    #[Locked]
     public array $snapshot = [];
 
     public static function canAccess(): bool
