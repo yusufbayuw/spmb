@@ -147,9 +147,24 @@ class RegistrationFormDraftService
         }
 
         if (is_array($data['custom_answers'] ?? null)) {
-            $payload['custom_answers'] = $this->cleanNested(
-                Arr::only($data['custom_answers'], $allowedCustom),
-            );
+            $answers = Arr::only($data['custom_answers'], $allowedCustom);
+
+            $booleanKeys = collect($configuration->fields ?? [])
+                ->filter(fn (mixed $field): bool => is_array($field)
+                    && ($field['active'] ?? false)
+                    && ($field['type'] ?? null) === 'boolean'
+                    && is_string($field['key'] ?? null))
+                ->pluck('key')
+                ->all();
+
+            if (is_array($data['custom_answers']['_details'] ?? null)) {
+                $details = Arr::only($data['custom_answers']['_details'], $booleanKeys);
+                if ($details !== []) {
+                    $answers['_details'] = $details;
+                }
+            }
+
+            $payload['custom_answers'] = $this->cleanNested($answers);
         }
 
         if ($configuration->academic_scores_enabled && is_array($data['academic_scores'] ?? null)) {

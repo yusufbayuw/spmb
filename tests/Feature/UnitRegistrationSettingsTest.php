@@ -17,7 +17,7 @@ class UnitRegistrationSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_autosave_stages_incomplete_configuration_without_publishing(): void
+    public function test_editor_discards_unsaved_changes_on_reload_and_only_persists_manual_save(): void
     {
         [$unit, $staff] = $this->fixture();
         $this->actingAs($staff);
@@ -28,19 +28,26 @@ class UnitRegistrationSettingsTest extends TestCase
         $page->set('data.fields', [[
             'key' => 'custom_new_question',
             'label' => 'Pertanyaan',
-            'type' => 'select',
+            'type' => 'text',
             'active' => true,
             'required' => false,
             'group_key' => 'group_additional',
             'options' => [],
-        ]])->call('autosaveDraft')->assertHasNoErrors();
+        ]])->assertHasNoErrors();
 
         $this->assertSame([], UnitConfiguration::where('uuid', $uuid)->firstOrFail()->fields);
-        $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
-        $this->assertCount(1, \Illuminate\Support\Facades\Cache::get('spmb:unit-editor:'.$staff->id.':'.$uuid)['data']['fields']);
+        $this->assertNull(\Illuminate\Support\Facades\Cache::get('spmb:unit-editor:'.$staff->id.':'.$uuid));
 
-        Livewire::test(UnitRegistrationSettings::class)->assertSet('data.fields', fn (array $fields): bool => collect($fields)
-            ->contains(fn (array $field): bool => ($field['key'] ?? null) === 'custom_new_question'));
+        Livewire::test(UnitRegistrationSettings::class)
+            ->assertSet('data.fields', []);
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm(['builtin_field_policy' => 'all_required'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('all_required', UnitConfiguration::where('uuid', $uuid)->value('builtin_field_policy'));
+        $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
     }
 
     public function test_preview_opens_modal_without_publishing_or_saving_incomplete_draft(): void

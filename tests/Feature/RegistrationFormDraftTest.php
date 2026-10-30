@@ -50,6 +50,32 @@ class RegistrationFormDraftTest extends TestCase
         );
     }
 
+    public function test_boolean_details_are_preserved_and_document_paths_are_not_saved(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $user->assignRole('pendaftar');
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
+        $configuration = app(UnitConfigurationService::class)->initialize($unit);
+        $configuration->update(['fields' => [
+            ['key' => 'medical_declaration', 'label' => 'Keterangan', 'type' => 'boolean', 'active' => true, 'required' => false],
+            ['key' => 'medical_document', 'label' => 'Bukti', 'type' => 'file', 'active' => true, 'required' => false],
+        ]]);
+
+        $saved = app(RegistrationFormDraftService::class)->save($user, $opening, $configuration, [
+            'custom_answers' => [
+                'medical_declaration' => '1',
+                '_details' => ['medical_declaration' => 'Butuh pendampingan', 'unrelated' => 'rahasia'],
+                'medical_document' => 'pre-registration/1/medical.pdf',
+            ],
+        ], 0);
+
+        $this->assertSame('Butuh pendampingan', $saved->payload['custom_answers']['_details']['medical_declaration']);
+        $this->assertArrayNotHasKey('unrelated', $saved->payload['custom_answers']['_details']);
+        $this->assertArrayNotHasKey('medical_document', $saved->payload['custom_answers']);
+    }
+
     public function test_revision_conflict_does_not_overwrite_a_newer_draft(): void
     {
         $this->seed(ShieldSeeder::class);

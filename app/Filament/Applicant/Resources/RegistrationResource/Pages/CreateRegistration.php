@@ -6,6 +6,7 @@ use App\Filament\Applicant\Resources\RegistrationResource;
 use App\Support\ApplicantAchievementValidationErrors;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Models\RegistrationFormDraft;
 use App\Services\RegistrationFormDraftService;
 use App\Models\RegistrationPathway;
 use App\Services\ConfiguredRegistrationForm;
@@ -520,8 +521,19 @@ class CreateRegistration extends CreateRecord
         }, 5);
     }
 
-
     public function hasRegistrationDraft(): bool
+    {
+        if (! $this->openingUuid || ! auth()->id()) {
+            return false;
+        }
+
+        return RegistrationFormDraft::query()
+            ->where('user_id', auth()->id())
+            ->whereHas('opening', fn ($query) => $query->where('uuid', $this->openingUuid))
+            ->exists();
+    }
+
+    public function hasCurrentRegistrationDraft(): bool
     {
         $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->first();
         $configuration = $opening ? app(UnitConfigurationService::class)->current((int) $opening->unit_id) : null;
@@ -597,7 +609,7 @@ class CreateRegistration extends CreateRecord
                 ->color('info')
                 ->requiresConfirmation()
                 ->modalDescription('Isian saat ini akan diganti dengan draft tersimpan. File perlu diunggah ulang.')
-                ->visible(fn (): bool => $this->hasRegistrationDraft())
+                ->visible(fn (): bool => $this->hasCurrentRegistrationDraft())
                 ->action('resumeRegistrationDraft'),
             Action::make('discardRegistrationDraft')
                 ->label('Hapus Draft')
