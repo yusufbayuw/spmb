@@ -44,7 +44,9 @@ class UnitResource extends Resource
                         ->label('Kode')
                         ->required()
                         ->maxLength(10)
-                        ->unique(ignoreRecord: true),
+                        ->unique(ignoreRecord: true)
+                        ->disabled(fn (): bool => ! (auth()->user()?->isAdmin() ?? false))
+                        ->dehydrated(fn (): bool => auth()->user()?->isAdmin() ?? false),
                     Forms\Components\Select::make('institution_type')
                         ->label('Jenis Institusi')
                         ->options(fn (): array => array_intersect_key(
@@ -52,8 +54,9 @@ class UnitResource extends Resource
                             array_flip(SpmbOperationalMode::allowedInstitutionTypes()),
                         ))
                         ->default(fn (): string => SpmbOperationalMode::isHigherEducation() ? 'university' : 'school')
-                        ->disabled(fn (): bool => SpmbOperationalMode::isHigherEducation())
-                        ->dehydrated()
+                        ->disabled(fn (): bool => SpmbOperationalMode::isHigherEducation()
+                            || ! (auth()->user()?->isAdmin() ?? false))
+                        ->dehydrated(fn (): bool => auth()->user()?->isAdmin() ?? false)
                         ->live()
                         ->required(),
                     Forms\Components\Select::make('education_level_id')
@@ -72,6 +75,8 @@ class UnitResource extends Resource
                         ->preload()
                         ->visible(fn ($get): bool => $get('institution_type') !== 'university')
                         ->required(fn ($get): bool => $get('institution_type') !== 'university')
+                        ->disabled(fn (): bool => ! (auth()->user()?->isAdmin() ?? false))
+                        ->dehydrated(fn (): bool => auth()->user()?->isAdmin() ?? false)
                         ->helperText('Jenjang menjadi sumber urutan dan filter portal publik.'),
                     Forms\Components\Toggle::make('is_active')
                         ->label('Aktif')
