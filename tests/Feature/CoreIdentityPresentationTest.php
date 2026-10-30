@@ -61,9 +61,9 @@ class CoreIdentityPresentationTest extends TestCase
             ['key' => 'full_name', 'label' => 'Nama Peserta'],
             ['key' => 'full_name', 'label' => 'Duplikat'],
         ]);
-        $this->assertCount(4, $normalized);
-        $this->assertSame('Nama Peserta', $normalized[0]['label']);
-        $this->assertNotContains('nik', array_column($normalized, 'key'));
+        $this->assertCount(5, $normalized);
+        $this->assertSame('Nama Peserta', collect($normalized)->firstWhere('key', 'full_name')['label']);
+        $this->assertContains('nik', array_column($normalized, 'key'));
     }
 
     public function test_lookup_fields_are_not_modified_by_core_identity_presentation(): void
