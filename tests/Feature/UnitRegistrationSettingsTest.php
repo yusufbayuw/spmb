@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\UnitRegistrationSettings;
+use App\Filament\Admin\Pages\UnitRegistrationFormPreview;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
@@ -104,6 +105,28 @@ class UnitRegistrationSettingsTest extends TestCase
             \Filament\Forms\Components\Group::class,
             $configured->field($definition, $config, false),
         );
+    }
+
+    public function test_new_tab_preview_registers_its_form_and_never_exposes_submission(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $editor = Livewire::test(UnitRegistrationSettings::class)
+            ->call('showPreview')->assertHasNoErrors();
+
+        $preview = Livewire::withQueryParams(['token' => $editor->get('previewToken')])
+            ->test(UnitRegistrationFormPreview::class)
+            ->assertSee('Mode pratinjau')
+            ->assertDontSee('Kirim Pendaftaran');
+
+        $nik = collect($preview->instance()->previewForm->getFlatFields())
+            ->first(fn ($field): bool => $field->getName() === 'nik');
+        $this->assertNotNull($nik);
+        $this->assertFalse($nik->isDisabled());
+        $this->assertTrue($nik->isMarkedAsRequired());
+        $this->assertDatabaseCount('registrations', 0);
     }
 
     public function test_publish_confirms_the_activated_version_after_loading_the_next_draft(): void
