@@ -109,6 +109,75 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame([], UnitConfiguration::where('unit_id', $unit->id)->where('status', 'draft')->firstOrFail()->fields);
     }
 
+    public function test_new_placeholder_template_is_named_but_not_downloadable_before_save(): void
+    {
+        Storage::fake('applicant-private');
+        [$unit, $staff] = $this->fixture();
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm(['fields' => [[
+                'key' => 'instruction_notice',
+                'label' => 'Panduan Berkas',
+                'type' => 'placeholder',
+                'active' => true,
+                'required' => false,
+                'group_key' => 'group_additional',
+                'placeholder_content' => '<p>Silakan baca panduan.</p>',
+                'template_path' => [UploadedFile::fake()->create('panduan-baru.pdf', 4, 'application/pdf')],
+            ]]])
+            ->call('showPreview')
+            ->assertHasNoErrors()
+            ->assertSee('Template baru belum disimpan')
+            ->assertSee('panduan-baru.pdf');
+
+        $snapshot = \Illuminate\Support\Facades\Cache::get('spmb:form-preview:'.$page->get('previewToken'));
+        $this->assertNull($snapshot['data']['fields'][0]['template_path']);
+        $this->assertSame('panduan-baru.pdf', $snapshot['data']['fields'][0]['preview_pending_template_name']);
+        $this->assertSame([], UnitConfiguration::query()
+            ->where('unit_id', $unit->id)->where('status', 'draft')->firstOrFail()->fields);
+    }
+
+    public function test_saved_placeholder_template_is_downloadable_in_preview(): void
+    {
+        Storage::fake('applicant-private');
+        [$unit, $staff] = $this->fixture();
+        $path = 'templates/'.$unit->id.'/panduan-berkas.pdf';
+        Storage::disk('applicant-private')->put($path, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF");
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $service = app(\App\Services\UnitConfigurationService::class);
+        $draft = $service->draft($unit, $staff);
+        $data = $draft->toArray();
+        $data['fields'] = [[
+            'key' => 'instruction_notice',
+            'label' => 'Panduan Berkas',
+            'type' => 'placeholder',
+            'active' => true,
+            'required' => false,
+            'group_key' => 'group_additional',
+            'placeholder_content' => '<p>Silakan baca panduan.</p>',
+            'template_path' => $path,
+        ]];
+        $service->save($draft, $staff, $data);
+
+        $page = Livewire::test(UnitRegistrationSettings::class)
+            ->call('showPreview')
+            ->assertHasNoErrors()
+            ->assertSee('Unduh Panduan Berkas');
+
+        $snapshot = \Illuminate\Support\Facades\Cache::get('spmb:form-preview:'.$page->get('previewToken'));
+        $this->assertSame($path, $snapshot['data']['fields'][0]['template_path']);
+        $this->assertArrayNotHasKey('preview_pending_template_name', $snapshot['data']['fields'][0]);
+
+        $this->get(route('registration.form-field-template', [$draft->fresh(), 'instruction_notice']))
+            ->assertDownload('panduan-berkas.pdf');
+    }
+
     public function test_preview_fields_are_interactive_but_uploads_are_only_placeholders(): void
     {
         [$unit, $staff] = $this->fixture();
