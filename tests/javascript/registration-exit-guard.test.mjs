@@ -20,6 +20,7 @@ function harness({ initialDrafts = {}, completed = null, approved = false } = {}
         const event = {
             type: name,
             detail,
+            target: detail?.target,
             defaultPrevented: false,
             preventDefault() { this.defaultPrevented = true; },
         };

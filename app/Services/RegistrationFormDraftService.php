@@ -101,7 +101,7 @@ class RegistrationFormDraftService
 
     public function discard(User $user, RegistrationOpening $opening): void
     {
-        abort_unless($user->is_active && $user->isUser() && $user->hasVerifiedEmail(), 403);
+        $this->authorizeAuthenticatedOwner($user);
 
         RegistrationFormDraft::query()
             ->where('user_id', $user->id)
@@ -216,9 +216,21 @@ class RegistrationFormDraftService
         return $clean;
     }
 
+    private function authorizeAuthenticatedOwner(User $user): void
+    {
+        abort_unless(
+            auth()->check()
+                && (int) auth()->id() === (int) $user->getKey()
+                && $user->is_active
+                && $user->isUser()
+                && $user->hasVerifiedEmail(),
+            403,
+        );
+    }
+
     private function authorize(User $user, RegistrationOpening $opening, UnitConfiguration $configuration): void
     {
-        abort_unless($user->is_active && $user->isUser() && $user->hasVerifiedEmail(), 403);
+        $this->authorizeAuthenticatedOwner($user);
         abort_unless($opening->isOpen() && $opening->unit_id === $configuration->unit_id, 403);
 
         $current = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
