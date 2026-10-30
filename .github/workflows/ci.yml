@@ -56,6 +56,9 @@ jobs:
           php artisan migrate --force
           php artisan db:seed --force
 
+      - name: Test manual registration drafts
+        run: php artisan test tests/Feature/RegistrationFormDraftTest.php
+
       - name: Run tests
         run: php artisan test
 

@@ -23,7 +23,7 @@ class RegistrationFormDraftTest extends TestCase
         $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
         $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
         $user->assignRole('pendaftar');
-        $opening = \App\Models\RegistrationOpening::factory()->create(['unit_id' => $unit->id, 'status' => 'open']);
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
         $configuration = app(UnitConfigurationService::class)->initialize($unit);
 
         $draft = app(RegistrationFormDraftService::class)->save(
@@ -56,7 +56,7 @@ class RegistrationFormDraftTest extends TestCase
         $unit = Unit::create(['name' => 'Unit Draft', 'code' => 'UD', 'institution_type' => 'school', 'is_active' => true]);
         $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
         $user->assignRole('pendaftar');
-        $opening = \App\Models\RegistrationOpening::factory()->create(['unit_id' => $unit->id, 'status' => 'open']);
+        $opening = \App\Models\RegistrationOpening::create(['unit_id' => $unit->id, 'academic_year' => '2026/2027', 'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0]);
         $configuration = app(UnitConfigurationService::class)->initialize($unit);
         $service = app(RegistrationFormDraftService::class);
         $service->save($user, $opening, $configuration, ['full_name' => 'Versi Awal'], 0);
