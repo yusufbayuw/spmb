@@ -807,6 +807,7 @@ class ConfiguredRegistrationForm
                         ? route('registration.form-field-template', [$this->templateConfiguration($definition, $configuration), $definition['key']])
                         : null,
                     'downloadLabel' => $definition['label'] ?? 'Dokumen',
+                    'pendingTemplateName' => $preview ? ($definition['preview_pending_template_name'] ?? null) : null,
                 ]))
                 ->columnSpanFull();
         }

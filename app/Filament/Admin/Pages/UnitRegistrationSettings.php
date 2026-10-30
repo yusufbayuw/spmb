@@ -19,6 +19,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -1040,7 +1041,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
         abort_unless((int) $configuration->unit_id === (int) $unit->id, 403);
         app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $unit->id);
-        $previewValues = array_replace($configuration->toArray(), $this->previewConfigurationData());
+        $previewValues = array_replace($configuration->toArray(), $this->previewConfigurationData($configuration));
         $this->previewToken = (string) Str::uuid();
         Cache::put('spmb:form-preview:'.$this->previewToken, ['user_id' => auth()->id(), 'unit_id' => $configuration->unit_id, 'configuration_uuid' => $configuration->uuid, 'data' => $previewValues], now()->addMinutes(30));
         $configuredPathwayUuid = collect([
@@ -1073,24 +1074,61 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         }
         app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $stored->unit_id);
         $snapshot = new UnitConfiguration();
-        $snapshot->forceFill(array_replace($stored->toArray(), $this->previewConfigurationData()));
+        $snapshot->forceFill(array_replace($stored->toArray(), $this->previewConfigurationData($stored)));
         $snapshot->status = 'draft';
         $snapshot->unit_id = $stored->unit_id;
         return $snapshot;
     }
 
-    private function previewConfigurationData(): array
+    private function previewConfigurationData(UnitConfiguration $configuration): array
     {
         // Preview is not an upload operation. Never cache transient Livewire
         // upload objects; serializing SplFileInfo can fail with HTTP 500.
         $data = $this->data;
         $data['unit_logo_path'] = null;
+        $savedFields = collect($configuration->fields ?? [])->keyBy('key');
         $data['fields'] = collect($data['fields'] ?? [])
             ->filter(fn ($field): bool => is_array($field) && filled($field['key'] ?? null) && filled($field['label'] ?? null))
-            ->map(function (array $field): array {
-                $field['template_path'] = is_string($field['template_path'] ?? null)
-                    ? $field['template_path']
-                    : null;
+            ->map(function (array $field) use ($savedFields): array {
+                if (($field['type'] ?? null) === 'placeholder') {
+                    // FileUpload keeps stored paths and temporary files in a
+                    // keyed array. Only a path already saved for THIS field
+                    // may become a working preview download link.
+                    unset($field['preview_pending_template_name']);
+                    $state = $field['template_path'] ?? null;
+                    $files = is_array($state) ? array_values($state) : [$state];
+                    $saved = $savedFields->get($field['key']);
+                    $savedPath = is_array($saved) && ($saved['type'] ?? null) === 'placeholder'
+                        && is_string($saved['template_path'] ?? null)
+                        ? $saved['template_path']
+                        : null;
+                    $pending = collect($files)->first(fn (mixed $file): bool =>
+                        $file instanceof UploadedFile
+                        || (is_string($file) && filled($file) && $file !== $savedPath)
+                    );
+
+                    $isSaved = $pending === null
+                        && filled($savedPath)
+                        && in_array($savedPath, $files, true)
+                        && \Illuminate\Support\Facades\Storage::disk('applicant-private')->exists($savedPath);
+
+                    $field['template_path'] = $isSaved ? $savedPath : null;
+
+                    if ($pending !== null) {
+                        $filename = $pending instanceof UploadedFile
+                            ? $pending->getClientOriginalName()
+                            : basename($pending);
+                        $filename = trim(basename(str_replace('\\', '/', $filename)));
+                        if ($filename !== '') {
+                            $field['preview_pending_template_name'] = Str::limit($filename, 200);
+                        }
+                    }
+                } else {
+                    // Preserve existing behavior for all other field types.
+                    $field['template_path'] = is_string($field['template_path'] ?? null)
+                        ? $field['template_path']
+                        : null;
+                }
 
                 if (in_array($field['type'] ?? '', ['select', 'multiselect'], true) && empty($field['options'])) {
                     $field['options'] = ['Contoh pilihan'];
