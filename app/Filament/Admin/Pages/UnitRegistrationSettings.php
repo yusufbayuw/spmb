@@ -144,10 +144,8 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'certificate_mode' => UnitConfiguration::ACHIEVEMENT_CERTIFICATE_MODE_OPTIONAL,
         ], is_array($data['achievement_settings'] ?? null) ? $data['achievement_settings'] : []);
 
-        $staged = Cache::get($this->editorDraftKey());
-        $this->form->fill(is_array($staged) && is_array($staged['data'] ?? null) ? $staged['data'] : $data);
-        $this->autosaveHash = $this->draftFingerprint($this->data);
-        $this->autosaveStatus = is_array($staged) ? 'Draft otomatis dipulihkan' : 'Draft siap diedit';
+        $this->form->fill($data);
+        $this->autosaveStatus = 'Gunakan Simpan Draft untuk menyimpan perubahan';
     }
 
     protected function getForms(): array
@@ -1049,8 +1047,6 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public function showPreview(): void
     {
-        $this->autosaveDraft();
-
         $unit = Unit::query()->where('uuid', $this->unitUuid)->firstOrFail();
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
         $previewValues = array_replace($configuration->toArray(), $this->previewConfigurationData());

@@ -6,6 +6,7 @@ use App\Filament\Applicant\Resources\RegistrationResource;
 use App\Support\ApplicantAchievementValidationErrors;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
+use App\Services\RegistrationFormDraftService;
 use App\Models\RegistrationPathway;
 use App\Services\ConfiguredRegistrationForm;
 use App\Services\PausedOpeningApplicantRedirect;
@@ -41,6 +42,9 @@ class CreateRegistration extends CreateRecord
     private ?int $validatedPrivacyConsentId = null;
 
     public ?string $openingUuid = null;
+
+    #[Locked]
+    public int $draftRevision = 0;
 
     public ?string $configurationUuid = null;
 
@@ -90,6 +94,7 @@ class CreateRegistration extends CreateRecord
             ->values()->all();
 
         parent::mount();
+        $this->draftRevision = app(RegistrationFormDraftService::class)->find(auth()->user(), $opening, $configuration)?->revision ?? 0;
 
         $prefill = $this->previousRegistrationPrefill($opening);
         $availablePathways = RegistrationPathway::query()
@@ -515,11 +520,89 @@ class CreateRegistration extends CreateRecord
         }, 5);
     }
 
+
+    public function hasRegistrationDraft(): bool
+    {
+        $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->first();
+        $configuration = $opening ? app(UnitConfigurationService::class)->current((int) $opening->unit_id) : null;
+
+        return $opening && $configuration && $configuration->uuid === $this->configurationUuid
+            && app(RegistrationFormDraftService::class)->find(auth()->user(), $opening, $configuration) !== null;
+    }
+
+    public function saveRegistrationDraft(): void
+    {
+        $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->firstOrFail();
+        $configuration = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
+        abort_unless($configuration && $configuration->uuid === $this->configurationUuid, 409);
+        $draft = app(RegistrationFormDraftService::class)->save(
+            auth()->user(), $opening, $configuration, $this->data, $this->draftRevision,
+        );
+        $this->draftRevision = $draft->revision;
+        Notification::make()->title('Draft tersimpan di server')->success()->send();
+    }
+
+    public function resumeRegistrationDraft(): void
+    {
+        $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->firstOrFail();
+        $configuration = app(UnitConfigurationService::class)->current((int) $opening->unit_id);
+        abort_unless($configuration && $configuration->uuid === $this->configurationUuid, 409);
+        $draft = app(RegistrationFormDraftService::class)->find(auth()->user(), $opening, $configuration);
+        if (! $draft) {
+            return;
+        }
+
+        $this->draftRevision = $draft->revision;
+        $data = array_replace_recursive($this->data, $draft->payload);
+        $data['registration_opening_uuid'] = $opening->uuid;
+        $data['unit_configuration_uuid'] = $configuration->uuid;
+        $data['unit_uuid'] = $opening->unit->uuid;
+        $this->form->fill($data);
+        Notification::make()->title('Draft dipulihkan')->success()->send();
+    }
+
+    public function discardRegistrationDraft(): void
+    {
+        $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->firstOrFail();
+        app(RegistrationFormDraftService::class)->discard(auth()->user(), $opening);
+        $this->draftRevision = 0;
+        Notification::make()->title('Draft dihapus')->success()->send();
+    }
+
+    protected function getFormActions(): array
+    {
+        return [
+            ...parent::getFormActions(),
+            Action::make('saveRegistrationDraft')
+                ->label('Simpan Draft')
+                ->icon('heroicon-o-document-check')
+                ->color('gray')
+                ->action('saveRegistrationDraft'),
+            Action::make('resumeRegistrationDraft')
+                ->label('Lanjutkan Draft')
+                ->color('info')
+                ->requiresConfirmation()
+                ->modalDescription('Isian saat ini akan diganti dengan draft tersimpan. File perlu diunggah ulang.')
+                ->visible(fn (): bool => $this->hasRegistrationDraft())
+                ->action('resumeRegistrationDraft'),
+            Action::make('discardRegistrationDraft')
+                ->label('Hapus Draft')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->visible(fn (): bool => $this->hasRegistrationDraft())
+                ->action('discardRegistrationDraft'),
+        ];
+    }
+
     protected function afterCreate(): void
     {
         // Browser storage is cleared only after the registration transaction succeeds.
         $key = 'spmb:registration-draft:v1:'.$this->draftOwnerId.':'.$this->openingUuid.':'.$this->configurationUuid;
         session()->flash('spmb_registration_draft_completed', $key);
+        $opening = RegistrationOpening::query()->where('uuid', $this->openingUuid)->first();
+        if ($opening) {
+            app(RegistrationFormDraftService::class)->discard(auth()->user(), $opening);
+        }
         $this->dispatch('spmb-registration-created', key: $key);
     }
 

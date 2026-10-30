@@ -4,7 +4,7 @@
         <x-filament::button wire:click="loadUnit">Buka Pengaturan</x-filament::button>
     </div>
     @if($configurationUuid)
-        <div wire:poll.3s="autosaveDraft" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
             <div class="text-sm" role="status" aria-live="polite">{{ $autosaveStatus }}</div>
             <x-filament::button type="button" color="gray" wire:click="showPreview">Pratinjau Form Pendaftar</x-filament::button>
         </div>
