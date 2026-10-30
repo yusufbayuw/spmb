@@ -60,8 +60,10 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
     public string $autosaveStatus = 'Belum ada perubahan';
 
+    #[Locked]
     public ?string $autosaveHash = null;
 
+    #[Locked]
     public ?string $previewToken = null;
 
     public string $previewDevice = 'desktop';
@@ -1020,6 +1022,8 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
 
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
         app(UnitConfigurationService::class)->authorize(auth()->user(), (int) $configuration->unit_id);
+        app(\App\Services\CertificationAccessService::class)
+            ->assertSensitiveOperation(auth()->user(), 'menyimpan sementara konfigurasi pendaftaran unit');
         if ($configuration->status !== 'draft') {
             $this->autosaveStatus = 'Draft tidak aktif; muat ulang pengaturan';
             return;
@@ -1068,7 +1072,6 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             'registration_pathway_uuid' => $pathwayUuid,
             'registrant_type' => 'parent',
         ]);
-        $this->preview = true;
         $this->dispatch('open-modal', id: 'registration-preview');
     }
 
@@ -1099,8 +1102,6 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                 }
                 return $f;
             })->values()->all();
-        $data['academic_scores_enabled'] = false;
-        $data['achievements_enabled'] = false;
         return app(UnitConfigurationService::class)->normalizeEditorData($data);
     }
 
