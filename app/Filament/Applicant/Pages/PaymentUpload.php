@@ -3,6 +3,8 @@
 namespace App\Filament\Applicant\Pages;
 
 use App\Models\Registration;
+use App\Models\UnitPaymentInstruction;
+use App\Services\RegistrationConsentService;
 use App\Services\ApplicantFileStorage;
 use App\Services\ApplicantUploadSecurity;
 use App\Services\RegistrationWorkflowService;
@@ -33,6 +35,8 @@ class PaymentUpload extends Page implements HasForms
 
     public ?array $data = [];
 
+    public ?string $paymentInstructions = null;
+
     public function mount(int|string $registration): void
     {
         abort_unless(Str::isUuid($registration), 404);
@@ -48,6 +52,14 @@ class PaymentUpload extends Page implements HasForms
             && in_array($this->registrationRecord->current_stage, ['payment', 'payment_verification'], true),
             403,
         );
+
+        // Read optional unit-specific informational content only; payment flow stays unchanged.
+        $instructions = UnitPaymentInstruction::query()
+            ->where('unit_id', $this->registrationRecord->unit_id)
+            ->value('content');
+        $this->paymentInstructions = filled($instructions)
+            ? app(RegistrationConsentService::class)->sanitizeHtml((string) $instructions)
+            : null;
 
         $this->form->fill([
             'payment_method' => $this->registrationRecord->latestPayment->payment_method,
