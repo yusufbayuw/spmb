@@ -176,10 +176,24 @@ class ConfiguredRegistrationForm
         return ['active' => null, 'required' => null, 'overridden' => false];
     }
 
+    /** @param array<int|string, mixed> $components */
+    private function applyGraduationYearRules(array $components): array
+    {
+        foreach ($components as $component) {
+            if ($component instanceof Field && $component->getName() === 'graduation_year') {
+                $component->rules([new GraduationYear()]);
+            } elseif (method_exists($component, 'getChildComponents')) {
+                $this->applyGraduationYearRules($component->getChildComponents());
+            }
+        }
+
+        return $components;
+    }
+
     public function apply(array $components, ?UnitConfiguration $configuration, bool $preview = false): array
     {
         if (! $configuration) {
-            return array_values($components);
+            return $this->applyGraduationYearRules(array_values($components));
         }
 
         $effectiveFields = $this->presentationFields($configuration);
@@ -249,7 +263,7 @@ class ConfiguredRegistrationForm
             return $ordered;
         };
 
-        $components = $walk($components);
+        $components = $this->applyGraduationYearRules($walk($components));
         if (isset($components['identity']) && $components['identity'] instanceof Section) {
             $identity = $components['identity'];
             $identity->schema($this->applyCoreIdentityPresentation($identity->getChildComponents(), $configuration));
