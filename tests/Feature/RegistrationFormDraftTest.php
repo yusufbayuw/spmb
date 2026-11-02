@@ -28,11 +28,11 @@ class RegistrationFormDraftTest extends TestCase
         ]);
         $configService = app(UnitConfigurationService::class);
         $config = $configService->initialize($unit);
-        $config->forceFill(['fields' => [[
+        \App\Models\UnitConfiguration::withoutEvents(fn () => $config->forceFill(['fields' => [[
             'key' => 'graduation_year', 'label' => 'Tahun Lulus',
             'type' => 'text', 'active' => true, 'required' => true,
             'help' => 'Tahun lulus berdasarkan ijazah SMP', 'options' => [],
-        ]]])->saveQuietly();
+        ]]])->saveQuietly());
         $pathway = \App\Models\RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
 
         $this->actingAs($user);
