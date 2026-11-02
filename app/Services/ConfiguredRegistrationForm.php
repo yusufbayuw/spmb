@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Rules\GraduationYear;
 use App\Models\Registration;
 use App\Models\UnitConfiguration;
 use Filament\Forms\Components\Actions;
@@ -192,6 +193,10 @@ class ConfiguredRegistrationForm
 
                     if ($definition) {
                         $item = $this->configuredBuiltinComponent($item, $definition);
+                    }
+
+                    if ($fieldName === 'graduation_year') {
+                        $item->rules([new GraduationYear()]);
                     }
 
                     if ($state['active'] !== null) {
