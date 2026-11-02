@@ -182,7 +182,7 @@ class ConfiguredRegistrationForm
         foreach ($components as $component) {
             if ($component instanceof Field && $component->getName() === 'graduation_year') {
                 $component->rules([new GraduationYear()]);
-            } elseif (method_exists($component, 'getChildComponents')) {
+            } elseif (is_object($component) && method_exists($component, 'getChildComponents')) {
                 $this->applyGraduationYearRules($component->getChildComponents());
             }
         }
