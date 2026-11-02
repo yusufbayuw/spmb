@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources;
 
+use App\Rules\GraduationYear;
 use App\Filament\Admin\Resources\RegistrationResource\Pages;
 use App\Filament\Forms\ParentInfoFields;
 use App\Filament\Forms\RegionFields;
@@ -204,7 +205,8 @@ class RegistrationResource extends Resource
                     Forms\Components\Textarea::make('home_address')->label('Alamat Rumah')->required()->columnSpanFull(),
                     ...RegionFields::schema(true),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->columnSpan(['default' => 1, 'md' => 2]),
-                    Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric(),
+                    Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->rules([new GraduationYear()])
+                        ->numeric(),
                 ], $record?->configuration)),
 
             Forms\Components\Section::make('Data Orang Tua')
