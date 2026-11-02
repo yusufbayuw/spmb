@@ -28,14 +28,11 @@ class RegistrationFormDraftTest extends TestCase
         ]);
         $configService = app(UnitConfigurationService::class);
         $config = $configService->initialize($unit);
-        $draftConfig = $configService->draft($unit, User::factory()->create(['role' => 'admin_unit', 'unit_id' => $unit->id]));
-        // A published text override must not bypass the YEAR column contract.
-        $draftConfig->forceFill(['fields' => [[
+        $config->forceFill(['fields' => [[
             'key' => 'graduation_year', 'label' => 'Tahun Lulus',
             'type' => 'text', 'active' => true, 'required' => true,
             'help' => 'Tahun lulus berdasarkan ijazah SMP', 'options' => [],
-        ]]])->save();
-        $config = $draftConfig;
+        ]]])->saveQuietly();
         $pathway = \App\Models\RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
 
         $this->actingAs($user);
