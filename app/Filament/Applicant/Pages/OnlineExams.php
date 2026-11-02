@@ -18,6 +18,23 @@ class OnlineExams extends Page
     protected static ?string $slug = 'ujian-online';
     protected static string $view = 'filament.applicant.pages.online-exams';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        $userId = auth()->id();
+
+        if (! $userId) {
+            return false;
+        }
+
+        // Match the assignments visible on this page. Navigation visibility must
+        // not change exam access, attempt history, or direct URL permissions.
+        return OnlineExamAssignment::query()
+            ->where('user_id', $userId)
+            ->where('is_active', true)
+            ->whereHas('exam.unit', fn (Builder $q) => $q->operational())
+            ->exists();
+    }
+
     protected function getViewData(): array
     {
         return [
