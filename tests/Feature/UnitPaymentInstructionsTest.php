@@ -12,6 +12,7 @@ use App\Models\UnitPaymentInstruction;
 use App\Models\User;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -44,15 +45,19 @@ class UnitPaymentInstructionsTest extends TestCase
         $this->assertStringNotContainsString('javascript:', $saved->content);
         $this->assertDatabaseMissing('unit_payment_instructions', ['unit_id' => $other->id]);
 
-        Livewire::test(UnitPaymentInstructions::class)
-            ->set('unitUuid', $other->uuid)
-            ->call('loadUnit')
-            ->assertNotFound();
+        // Livewire's direct test call propagates ModelNotFoundException.
+        // In an HTTP request Laravel renders the same exception as a 404.
+        foreach (['loadUnit', 'save'] as $action) {
+            try {
+                Livewire::test(UnitPaymentInstructions::class)
+                    ->set('unitUuid', $other->uuid)
+                    ->call($action);
 
-        Livewire::test(UnitPaymentInstructions::class)
-            ->set('unitUuid', $other->uuid)
-            ->call('save')
-            ->assertNotFound();
+                $this->fail("Cross-unit {$action} must be rejected.");
+            } catch (ModelNotFoundException $exception) {
+                $this->assertSame(Unit::class, $exception->getModel());
+            }
+        }
 
         $this->assertDatabaseMissing('unit_payment_instructions', ['unit_id' => $other->id]);
     }
