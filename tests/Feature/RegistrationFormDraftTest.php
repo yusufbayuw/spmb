@@ -16,6 +16,47 @@ class RegistrationFormDraftTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_text_graduation_year_validation_preserves_saved_draft(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Tahun Lulus', 'code' => 'UTL', 'institution_type' => 'school', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email_verified_at' => now()]);
+        $user->assignRole('pendaftar');
+        $opening = \App\Models\RegistrationOpening::create([
+            'unit_id' => $unit->id, 'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1', 'status' => 'open', 'registration_fee' => 0,
+        ]);
+        $configService = app(UnitConfigurationService::class);
+        $config = $configService->initialize($unit);
+        \App\Models\UnitConfiguration::withoutEvents(fn () => $config->forceFill(['fields' => [[
+            'key' => 'graduation_year', 'label' => 'Tahun Lulus',
+            'type' => 'text', 'active' => true, 'required' => true,
+            'help' => 'Tahun lulus berdasarkan ijazah SMP', 'options' => [],
+        ]]])->saveQuietly());
+        $pathway = \App\Models\RegistrationPathway::factory()->create(['unit_id' => $unit->id]);
+
+        $this->actingAs($user);
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('pendaftar'));
+
+        $page = \Livewire\Livewire::withQueryParams(['opening' => $opening->uuid])
+            ->test(\App\Filament\Applicant\Resources\RegistrationResource\Pages\CreateRegistration::class)
+            ->setActionData(['accepted' => true])->callMountedAction()
+            ->fillForm([
+                'registration_pathway_uuid' => $pathway->uuid,
+                'registrant_type' => 'self', 'full_name' => 'Pendaftar Tahun',
+                'nik' => '3273010101010061', 'gender' => 'L',
+                'birth_place' => 'Bandung', 'birth_date' => '2012-01-01',
+                'home_address' => 'Bandung', 'graduation_year' => '2026/2027',
+                'parentInfo' => ['father_name' => 'Ayah', 'mother_name' => 'Ibu'],
+            ])
+            ->call('saveRegistrationDraft')->assertHasNoErrors();
+
+        $page->call('create')->assertHasFormErrors(['graduation_year']);
+        $this->assertDatabaseCount('registrations', 0);
+        $this->assertDatabaseCount('registration_form_drafts', 1);
+        $this->assertSame('2026/2027', $page->get('data.graduation_year'));
+    }
+
     public function test_manual_draft_is_encrypted_in_database_and_does_not_create_registration(): void
     {
         $this->seed(ShieldSeeder::class);

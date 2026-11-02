@@ -2,6 +2,7 @@
 
 namespace App\Filament\Applicant\Resources;
 
+use App\Rules\GraduationYear;
 use App\Filament\Applicant\Pages\RegistrationOpenings;
 use App\Filament\Applicant\Pages\RegistrationStatus;
 use App\Filament\Applicant\Resources\RegistrationResource\Pages;
@@ -156,7 +157,8 @@ class RegistrationResource extends Resource
                         ->validationMessages(['regex' => 'RW harus berupa 1–3 digit angka.']),
                     ...RegionFields::schema(),
                     Forms\Components\TextInput::make('previous_school')->label('Sekolah Asal')->maxLength(150)->columnSpan(['default' => 1, 'md' => 2]),
-                    Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->numeric()->minValue(2000)->maxValue(now()->year + 2),
+                    Forms\Components\TextInput::make('graduation_year')->label('Tahun Lulus')->rules([new GraduationYear()])
+                        ->numeric()->minValue(2000)->maxValue(now()->year + 2),
                 ]),
 
             'parents' => Forms\Components\Section::make('Data Orang Tua')
