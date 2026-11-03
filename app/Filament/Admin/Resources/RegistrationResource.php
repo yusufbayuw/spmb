@@ -322,8 +322,7 @@ class RegistrationResource extends Resource
                 Tables\Filters\SelectFilter::make('current_stage')->label('Tahap')->options(Registration::STAGES),
                 Tables\Filters\SelectFilter::make('lifecycle_status')
                     ->label('Lifecycle')
-                    ->options(Registration::LIFECYCLE_STATUSES)
-                    ->default('active'),
+                    ->options(Registration::LIFECYCLE_STATUSES),
                 Tables\Filters\SelectFilter::make('registrant_type')->label('Pendaftar')->options(['parent' => 'Orang Tua/Wali', 'self' => 'Anak Langsung']),
                 Tables\Filters\TernaryFilter::make('alumni')->label('Alumni')
                     ->trueLabel('Alumni')->falseLabel('Non-Alumni')
