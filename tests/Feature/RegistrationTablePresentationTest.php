@@ -142,9 +142,10 @@ class RegistrationTablePresentationTest extends TestCase
         }
 
         // Hiding a column must not delete, mutate or hide the underlying records.
-        $list->set('toggledTableColumns.nik', true)
+        $list->set('toggledTableColumns.nik', false)
             ->assertSuccessful()
             ->assertCanSeeTableRecords($records);
+        $this->assertTrue($list->instance()->isTableColumnToggledHidden('nik'));
         $this->assertSame('Budi', $records[0]->fresh()->full_name);
         $this->assertSame('3273010101010001', $records[0]->fresh()->nik);
     }
