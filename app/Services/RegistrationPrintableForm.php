@@ -2,8 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\District;
+use App\Models\Province;
+use App\Models\Regency;
 use App\Models\Registration;
 use App\Models\UnitConfiguration;
+use App\Models\Village;
 use DateTimeInterface;
 use Illuminate\Support\Str;
 
@@ -62,6 +66,12 @@ class RegistrationPrintableForm
             $value = $parentField
                 ? $registration->parentInfo?->getAttribute($key)
                 : $registration->getAttribute($key);
+
+            // Region selects store codes; print the canonical names instead.
+            // Prefer the saved names, with a master-data fallback for older records.
+            if (in_array($key, ConfiguredRegistrationForm::REGION_FIELDS, true)) {
+                $value = $this->regionNameForPrint($registration, $key, $value);
+            }
 
             // Do not print absent optional built-in fields.
             if (blank($value) && $value !== 0 && $value !== false) {
@@ -193,6 +203,44 @@ class RegistrationPrintableForm
         }
 
         return array_values(array_filter($ordered, fn (array $section): bool => $section['rows'] !== []));
+    }
+
+    /**
+     * Translate only the four region fields in the printable presentation.
+     * Stored codes, text fields, validation and forms remain untouched.
+     */
+    private function regionNameForPrint(Registration $registration, string $key, mixed $code): mixed
+    {
+        $nameAttribute = match ($key) {
+            'province_code' => 'province',
+            'city_code' => 'city',
+            'district_code' => 'district',
+            'village_code' => 'village',
+            default => null,
+        };
+
+        if ($nameAttribute === null) {
+            return $code;
+        }
+
+        $savedName = $registration->getAttribute($nameAttribute);
+        if (filled($savedName) && (string) $savedName !== (string) $code) {
+            return $savedName;
+        }
+
+        if (blank($code)) {
+            return $code;
+        }
+
+        $resolvedName = match ($key) {
+            'province_code' => Province::query()->whereKey($code)->value('name'),
+            'city_code' => Regency::query()->whereKey($code)->value('name'),
+            'district_code' => District::query()->whereKey($code)->value('name'),
+            'village_code' => Village::query()->whereKey($code)->value('name'),
+        };
+
+        // Keep the original data visible if master data is incomplete.
+        return $resolvedName ?? (filled($savedName) ? $savedName : $code);
     }
 
     /** @param array<string, mixed> $definition */
