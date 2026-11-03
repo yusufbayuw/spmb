@@ -282,21 +282,36 @@ class RegistrationResource extends Resource
             ->persistSortInSession()
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
             ->columns([
-                // Keep the applicant's identity visible while staff scroll to validation actions.
-                Tables\Columns\TextColumn::make('full_name')->label('Calon Peserta')->searchable(['full_name', 'nik', 'nisn'])
-                    ->description(fn (Registration $record) => $record->nik)
+                // Keep the participant's name sticky; NIK is a separate, non-sticky column.
+                // The name remains visible so hiding other columns cannot remove the row's identity.
+                Tables\Columns\TextColumn::make('full_name')->label('Calon Peserta')
+                    ->searchable(['full_name', 'nisn'])
+                    ->sortable()
                     ->extraHeaderAttributes(['class' => 'spmb-registration-sticky-identity'])
                     ->extraCellAttributes(['class' => 'spmb-registration-sticky-identity']),
-                Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable()->placeholder('Belum diterbitkan'),
-                Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
-                Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
-                Tables\Columns\TextColumn::make('is_alumni')->label('Alumni')->badge()
+                Tables\Columns\TextColumn::make('nik')->label('NIK')
+                    ->searchable()->copyable()->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')
+                    ->searchable()->copyable()->placeholder('Belum diterbitkan')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('unit.name')->label('Unit')
+                    ->badge()->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')
+                    ->placeholder('-')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('is_alumni')->label('Alumni')
+                    ->badge()
                     ->formatStateUsing(fn ($state): string => $state ? 'Alumni' : 'Non-Alumni')
-                    ->color(fn ($state): string => $state ? 'success' : 'gray'),
-                Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')->placeholder('-'),
-                Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')->badge()->placeholder('-'),
-                Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')->money('IDR', locale: 'id')->placeholder('-'),
-                Tables\Columns\TextColumn::make('current_stage')->label('Tahap')->badge()->formatStateUsing(fn ($state, Registration $record): string => $record->stageLabel()),
+                    ->color(fn ($state): string => $state ? 'success' : 'gray')
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy('is_alumni', $direction))
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')
+                    ->placeholder('-')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')
+                    ->badge()->placeholder('-')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')
+                    ->money('IDR', locale: 'id')->placeholder('-')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('current_stage')->label('Tahap')
+                    ->badge()->formatStateUsing(fn ($state, Registration $record): string => $record->stageLabel())
+                    ->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('lifecycle_status')
                     ->label('Lifecycle')->badge()
                     ->formatStateUsing(fn ($state) => Registration::LIFECYCLE_STATUSES[$state] ?? $state)
@@ -305,8 +320,11 @@ class RegistrationResource extends Resource
                         'withdrawn' => 'warning',
                         'cancelled' => 'danger',
                         default => 'gray',
-                    }),
-                Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')->dateTime('d/m/Y H:i', timezone: config('app.timezone'))->sortable(),
+                    })
+                    ->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')
+                    ->dateTime('d/m/Y H:i', timezone: config('app.timezone'))
+                    ->sortable()->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
