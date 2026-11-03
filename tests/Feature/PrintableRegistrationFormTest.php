@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\District;
 use App\Models\ParentInfo;
+use App\Models\Province;
+use App\Models\Regency;
 use App\Models\Registration;
 use App\Models\RegistrationAcademicScore;
 use App\Models\RegistrationAchievement;
@@ -11,6 +14,7 @@ use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Models\User;
+use App\Models\Village;
 use App\Services\UnitConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -62,6 +66,70 @@ class PrintableRegistrationFormTest extends TestCase
         $this->assertStringContainsString('private', $cacheControl);
         $this->assertStringContainsString('no-store', $cacheControl);
         $this->assertStringContainsString('max-age=0', $cacheControl);
+    }
+
+    public function test_printable_form_shows_saved_region_names_instead_of_codes_without_changing_data(): void
+    {
+        [$registration, $staff] = $this->fixture();
+
+        $registration->forceFill([
+            'province_code' => '32',
+            'city_code' => '32.73',
+            'district_code' => '32.73.05',
+            'village_code' => '32.73.05.1002',
+            'province' => 'Jawa Barat',
+            'city' => 'Kota Bandung',
+            'district' => 'Bandung Wetan',
+            'village' => 'Cihapit',
+        ])->saveQuietly();
+
+        $this->actingAs($staff)
+            ->get(route('registration.printable-form', $registration))
+            ->assertOk()
+            ->assertSee('>Jawa Barat</td>', false)
+            ->assertSee('>Kota Bandung</td>', false)
+            ->assertSee('>Bandung Wetan</td>', false)
+            ->assertSee('>Cihapit</td>', false)
+            ->assertDontSee('>32</td>', false)
+            ->assertDontSee('>32.73</td>', false)
+            ->assertDontSee('>32.73.05</td>', false)
+            ->assertDontSee('>32.73.05.1002</td>', false);
+
+        $this->assertSame('32', $registration->fresh()->province_code);
+        $this->assertSame('32.73.05.1002', $registration->fresh()->village_code);
+        $this->assertSame('Jawa Barat', $registration->fresh()->province);
+    }
+
+    public function test_printable_form_resolves_region_names_from_master_for_code_only_records(): void
+    {
+        [$registration, $staff] = $this->fixture();
+
+        Province::create(['code' => '32', 'name' => 'Jawa Barat']);
+        Regency::create(['code' => '32.73', 'province_code' => '32', 'name' => 'Kota Bandung']);
+        District::create(['code' => '32.73.05', 'regency_code' => '32.73', 'name' => 'Bandung Wetan']);
+        Village::create(['code' => '32.73.05.1002', 'district_code' => '32.73.05', 'name' => 'Cihapit']);
+
+        // Legacy registration has only region codes; printing must not update it.
+        $registration->forceFill([
+            'province_code' => '32',
+            'city_code' => '32.73',
+            'district_code' => '32.73.05',
+            'village_code' => '32.73.05.1002',
+        ])->saveQuietly();
+
+        $this->actingAs($staff)
+            ->get(route('registration.printable-form', $registration))
+            ->assertOk()
+            ->assertSee('>Jawa Barat</td>', false)
+            ->assertSee('>Kota Bandung</td>', false)
+            ->assertSee('>Bandung Wetan</td>', false)
+            ->assertSee('>Cihapit</td>', false)
+            ->assertDontSee('>32.73.05.1002</td>', false)
+            ->assertSee('Peserta Cetak');
+
+        $this->assertNull($registration->fresh()->province);
+        $this->assertNull($registration->fresh()->village);
+        $this->assertSame('32.73.05.1002', $registration->fresh()->village_code);
     }
 
     public function test_applicant_and_other_unit_staff_cannot_open_printable_form(): void
