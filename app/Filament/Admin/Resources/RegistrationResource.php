@@ -282,8 +282,12 @@ class RegistrationResource extends Resource
             ->persistSortInSession()
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
             ->columns([
+                // Keep the applicant's identity visible while staff scroll to validation actions.
+                Tables\Columns\TextColumn::make('full_name')->label('Calon Peserta')->searchable(['full_name', 'nik', 'nisn'])
+                    ->description(fn (Registration $record) => $record->nik)
+                    ->extraHeaderAttributes(['class' => 'spmb-registration-sticky-identity'])
+                    ->extraCellAttributes(['class' => 'spmb-registration-sticky-identity']),
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable()->placeholder('Belum diterbitkan'),
-                Tables\Columns\TextColumn::make('full_name')->label('Calon Peserta')->searchable(['full_name', 'nik', 'nisn'])->description(fn (Registration $record) => $record->nik),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')->placeholder('-'),
                 Tables\Columns\TextColumn::make('is_alumni')->label('Alumni')->badge()
