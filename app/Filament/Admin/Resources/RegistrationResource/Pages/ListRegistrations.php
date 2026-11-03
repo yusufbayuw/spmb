@@ -18,11 +18,25 @@ class ListRegistrations extends ListRecords
     {
         return [
             'all' => Tab::make('Semua'),
-            'active' => Tab::make('Aktif')->query(fn (Builder $query): Builder => $query->where('lifecycle_status', 'active')),
-            'withdrawn' => Tab::make('Mengundurkan Diri')->query(fn (Builder $query): Builder => $query->where('lifecycle_status', 'withdrawn')),
-            'cancelled' => Tab::make('Dibatalkan')->query(fn (Builder $query): Builder => $query->where('lifecycle_status', 'cancelled')),
-            'archived' => Tab::make('Diarsipkan')->query(fn (Builder $query): Builder => $query->where('lifecycle_status', 'archived')),
+            'validated' => Tab::make('Sudah Validasi')
+                ->query(fn (Builder $query): Builder => $query->where('data_validation_status', 'valid')),
+            'pending_validation' => Tab::make('Belum Validasi')
+                ->query(fn (Builder $query): Builder => static::awaitingValidation($query))
+                ->badge(fn (): int => static::awaitingValidation(RegistrationResource::getEloquentQuery())->count())
+                ->badgeColor('warning'),
         ];
+    }
+
+    /**
+     * The actionable validation queue (including requests returned for revision).
+     * Keeping this scope shared ensures the tab and badge always agree.
+     */
+    private static function awaitingValidation(Builder $query): Builder
+    {
+        return $query
+            ->where('lifecycle_status', 'active')
+            ->where('current_stage', 'data_validation')
+            ->whereIn('data_validation_status', ['pending', 'revision']);
     }
 
     protected function getHeaderActions(): array
