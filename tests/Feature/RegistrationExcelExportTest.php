@@ -167,7 +167,7 @@ class RegistrationExcelExportTest extends TestCase
         $sheets = $this->readWorkbook($result['path']);
 
         $this->assertSame(
-            ['Data Pendaftaran', 'Nilai Akademik', 'Rekap Nilai', 'Prestasi', 'Info Export'],
+            ['Data Pendaftaran', 'Nilai Akademik', 'Rekap Nilai', 'Prestasi', 'rekap_sekolah', 'Info Export'],
             array_keys($sheets),
         );
 
@@ -205,6 +205,12 @@ class RegistrationExcelExportTest extends TestCase
 
         $this->assertContains('Juara Olimpiade', $sheets['Prestasi'][1]);
         $this->assertContains('Panitia Test', $sheets['Prestasi'][1]);
+
+        $this->assertSame('No', $sheets['rekap_sekolah'][2][0]);
+        $this->assertSame('Sekolah Asal (Terstandarisasi)', $sheets['rekap_sekolah'][2][1]);
+        $this->assertSame('SD CONTOH', $sheets['rekap_sekolah'][3][1]);
+        $this->assertSame(1, $sheets['rekap_sekolah'][3][2]);
+        $this->assertEqualsWithDelta(1.0, (float) $sheets['rekap_sekolah'][3][3], 0.0000001);
 
         $countRow = collect($sheets['Info Export'])
             ->first(fn (array $row): bool => ($row[0] ?? null) === 'Jumlah pendaftaran');
