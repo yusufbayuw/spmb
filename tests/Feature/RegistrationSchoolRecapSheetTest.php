@@ -54,11 +54,15 @@ class RegistrationSchoolRecapSheetTest extends TestCase
             'is_active' => true,
         ]);
 
+        config()->set('registration_school_recap.aliases', [
+            'MELATI JAYA' => 'SMP MELATI JAYA',
+        ]);
+
         $includedIds = [];
         foreach ([
-            ' SMP Taruna   Bakti ',
-            'SMP TARUNA BAKTI',
-            'Taruna Bakti',
+            ' SMP Melati   Jaya ',
+            'SMP MELATI JAYA',
+            'Melati Jaya',
             'SMPN 2 BANDUNG',
             'smp negeri 2 bandung',
             null,
@@ -116,7 +120,7 @@ class RegistrationSchoolRecapSheetTest extends TestCase
             $schoolRows = array_slice($recap, 3);
             $this->assertCount(5, $schoolRows);
             $this->assertSame(
-                ['SMP TARUNA BAKTI', 'SMP NEGERI 2 BANDUNG', 'SMP DARUL HIKAM', 'SMP DARUL HIKAM INTEGRATED SCHOOL', 'TIDAK DIISI'],
+                ['SMP MELATI JAYA', 'SMP NEGERI 2 BANDUNG', 'SMP DARUL HIKAM', 'SMP DARUL HIKAM INTEGRATED SCHOOL', 'TIDAK DIISI'],
                 array_column($schoolRows, 1),
             );
             $this->assertSame([3, 2, 1, 1, 1], array_map('intval', array_column($schoolRows, 2)));
@@ -128,8 +132,8 @@ class RegistrationSchoolRecapSheetTest extends TestCase
             $originalSchoolColumn = array_search('Sekolah Asal', $mainRows[0], true);
             $this->assertIsInt($originalSchoolColumn);
             $this->assertCount(9, $mainRows);
-            $this->assertSame(' SMP Taruna   Bakti ', $mainRows[1][$originalSchoolColumn]);
-            $this->assertSame(' SMP Taruna   Bakti ', Registration::findOrFail($includedIds[0])->previous_school);
+            $this->assertSame(' SMP Melati   Jaya ', $mainRows[1][$originalSchoolColumn]);
+            $this->assertSame(' SMP Melati   Jaya ', Registration::findOrFail($includedIds[0])->previous_school);
 
             // XLSX format: percent values are numeric with a 0.00% number format,
             // and the new recap is filterable without modifying existing sheets.
@@ -141,7 +145,7 @@ class RegistrationSchoolRecapSheetTest extends TestCase
                 $this->assertIsString($recapXml);
                 $this->assertIsString($stylesXml);
                 $this->assertStringContainsString('ref="A4:D9"', $recapXml);
-                $this->assertStringContainsString('0.00%', $stylesXml);
+                $this->assertStringContainsString('numFmtId="10"', $stylesXml);
             } finally {
                 $zip->close();
             }
