@@ -20,12 +20,14 @@ class RegistrationStickyIdentityTest extends TestCase
         $columns = $table->getColumns();
 
         $this->assertSame('full_name', array_key_first($columns));
-        $this->assertSame('registration_number', array_keys($columns)[1]);
+        $this->assertSame('nik', array_keys($columns)[1]);
+        $this->assertSame('registration_number', array_keys($columns)[2]);
 
         $identity = $columns['full_name'];
         $this->assertStringContainsString('spmb-registration-sticky-identity', $identity->getExtraHeaderAttributeBag()->get('class'));
         $this->assertStringContainsString('spmb-registration-sticky-identity', $identity->getExtraCellAttributeBag()->get('class'));
 
+        $this->assertArrayNotHasKey('class', $columns['nik']->getExtraCellAttributes());
         $this->assertArrayNotHasKey('class', $columns['registration_number']->getExtraCellAttributes());
     }
 
