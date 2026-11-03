@@ -430,7 +430,7 @@ class FilamentResourceBehaviorTest extends TestCase
             'payments' => [ListPayments::class, ['all', 'pending', 'paid', 'verified', 'rejected']],
             'registration openings' => [ListRegistrationOpenings::class, ['all', 'draft', 'scheduled', 'open', 'paused', 'closed', 'archived']],
             'registration pathways' => [ListRegistrationPathways::class, ['all', 'active', 'inactive', 'archived']],
-            'admin registrations' => [ListRegistrations::class, ['all', 'active', 'withdrawn', 'cancelled', 'archived']],
+            'admin registrations' => [ListRegistrations::class, ['all', 'validated', 'pending_validation']],
             'selections' => [ListSelections::class, ['all', 'pending', 'accepted', 'rejected', 'waiting_list']],
             'study programs' => [ListStudyPrograms::class, ['all', 'active', 'inactive']],
             'units' => [ListUnits::class, ['all', 'active', 'inactive']],
