@@ -41,7 +41,7 @@ final class SchoolNameNormalizer
         $normalized = preg_replace('/^SMP\s*N(?=\s*\d)/u', 'SMP NEGERI ', $normalized) ?? $normalized;
         $normalized = trim(preg_replace('/\s+/u', ' ', $normalized) ?? $normalized);
 
-        // Explicitly reviewed variants from the sample report. No fuzzy search:
+        // Optional deployment-specific exact aliases. No fuzzy search:
         // similar names can refer to separate schools or branches.
         $aliases = config('registration_school_recap.aliases', []);
         $canonical = is_array($aliases) ? ($aliases[$normalized] ?? null) : null;
