@@ -279,6 +279,7 @@ class RegistrationResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->persistSortInSession()
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
             ->columns([
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')->searchable()->copyable()->placeholder('Belum diterbitkan'),
