@@ -68,6 +68,13 @@ class RegistrationExcelExportService
         $this->writeAcademicScoresSheet($writer, $query, $configurations, $headerStyle);
         app(RegistrationAcademicRecapSheet::class)->write($writer, $query, $configurations, $headerStyle);
         $this->writeAchievementsSheet($writer, $query, $headerStyle);
+        app(RegistrationSchoolRecapSheet::class)->write(
+            $writer,
+            $query,
+            $headerStyle,
+            $titleStyle,
+            app(SchoolNameNormalizer::class),
+        );
         $this->writeInfoSheet($writer, $actor, $count, $titleStyle, $sectionStyle);
 
         $writer->close();
@@ -399,6 +406,7 @@ class RegistrationExcelExportService
         $writer->addRow(Row::fromValues(['Jumlah pendaftaran', $count]));
         $writer->addRow(Row::fromValues(['Cakupan data', 'Mengikuti filter, pencarian, dan tab yang aktif pada tabel Pendaftaran saat export dijalankan.']));
         $writer->addRow(Row::fromValues(['Catatan', 'Nilai akademik dan prestasi ditempatkan pada sheet terpisah agar satu baris pada sheet utama tetap mewakili satu pendaftaran.']));
+        $writer->addRow(Row::fromValues(['Rekap sekolah', 'Sheet rekap_sekolah menggunakan filter yang sama, menggabungkan variasi nama sekolah yang telah dinormalisasi, dan tetap mempertahankan teks asli pada Data Pendaftaran. Sekolah kosong dikelompokkan sebagai TIDAK DIISI.']));
     }
 
     private function customAnswerValue(mixed $value, array $definition): string|int|float
