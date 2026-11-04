@@ -86,7 +86,11 @@ class ListDocuments extends ListRecords
         // a crafted ID for another unit cannot be used to open or send email.
         $document = DocumentResource::getEloquentQuery()
             ->where('registration_id', $registrationId)
-            ->firstOrFail();
+            ->first();
+
+        // Use an HTTP response rather than allowing an uncaught Eloquent
+        // exception to bubble out of a Livewire action on crafted IDs.
+        abort_unless($document !== null, 404);
 
         $registration = $document->registration;
         abort_unless(
@@ -99,7 +103,7 @@ class ListDocuments extends ListRecords
         return $registration;
     }
 
-    private function composeApplicantEmailAction(): Actions\Action
+    protected function composeApplicantEmailAction(): Actions\Action
     {
         return Actions\Action::make('composeApplicantEmail')
             ->label('Kirim Pesan')
