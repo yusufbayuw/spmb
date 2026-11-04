@@ -5,11 +5,8 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\DocumentResource\Pages;
 use App\Models\Document;
 use App\Services\ApplicantUploadSecurity;
-use App\Services\RegistrationManualEmailService;
 use App\Services\RegistrationWorkflowService;
 use App\Services\SpmbNotificationService;
-use Filament\Forms\Components\RichEditor;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -17,6 +14,7 @@ use Filament\Tables;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class DocumentResource extends Resource
 {
@@ -49,6 +47,16 @@ class DocumentResource extends Resource
                             .' · '
                             .($registration->full_name ?: 'Tanpa nama calon siswa')
                         );
+                    })
+                    ->getDescriptionFromRecordUsing(function (Document $record, string $title): HtmlString {
+                        // Filament's group header is rendered once per applicant,
+                        // unlike record actions which repeat for each attachment.
+                        // Keep the plain title untouched because Alpine uses it
+                        // as the stable accordion collapse identifier.
+                        return new HtmlString(view('filament.admin.document-group-actions', [
+                            'registration' => $record->registration,
+                            'title' => $title,
+                        ])->render());
                     })
                     ->collapsible(),
             ])
@@ -89,39 +97,6 @@ class DocumentResource extends Resource
                 Tables\Columns\TextColumn::make('rejection_reason')->label('Alasan Penolakan')->wrap(),
             ])
             ->actions([
-                // This action remains inside the applicant's document accordion, while
-                // dispatching through exactly the same service as RegistrationResource.
-                Tables\Actions\Action::make('composeApplicantEmail')
-                    ->label('Kirim Pesan')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('primary')
-                    ->visible(fn (Document $record): bool => auth()->user() !== null
-                        && $record->registration !== null
-                        && app(RegistrationManualEmailService::class)->canCompose(auth()->user(), $record->registration))
-                    ->modalHeading(fn (Document $record): string => 'Kirim email kepada '.$record->registration->full_name)
-                    ->modalDescription('Email informasi satu arah. Tidak mengubah status, tahapan pendaftaran, ataupun data seleksi. Pengiriman menggunakan antrean.')
-                    ->form([
-                        TextInput::make('subject')->label('Subjek')->required()->maxLength(150),
-                        RichEditor::make('body')
-                            ->label('Isi pesan')
-                            ->toolbarButtons(['bold', 'italic', 'underline', 'strike', 'link', 'h2', 'h3', 'blockquote', 'bulletList', 'orderedList', 'undo', 'redo'])
-                            ->required()->maxLength(15000)->columnSpanFull(),
-                        Textarea::make('reason')->label('Alasan administrasi')->required()->maxLength(300),
-                    ])
-                    ->modalSubmitActionLabel('Antrekan Email')
-                    ->requiresConfirmation()
-                    ->action(function (Document $record, array $data): void {
-                        app(RegistrationManualEmailService::class)->send(
-                            $record->registration,
-                            auth()->user(),
-                            $data['subject'],
-                            $data['body'],
-                            $data['reason'],
-                        );
-                        Notification::make()->title('Pesan masuk antrean email')
-                            ->body('Pantau status pengiriman pada Riwayat Email.')
-                            ->success()->send();
-                    }),
                 Tables\Actions\Action::make('verify')
                     ->label('Verifikasi')
                     ->color('success')
