@@ -55,13 +55,19 @@ class DocumentResource extends Resource
             ->defaultGroup('registration_id')
             ->groupingSettingsHidden()
             ->columns([
-                Tables\Columns\TextColumn::make('registration.full_name')->searchable()->hidden(),
-                Tables\Columns\TextColumn::make('registration.registration_number')->searchable()->hidden(),
+                // Filament does not include hidden columns in global search.
+                // Bind search to the visible File column below, without ever
+                // matching original_name or the parent account's name.
                 Tables\Columns\TextColumn::make('registration.unit.name')->label('Unit')->badge(),
                 Tables\Columns\TextColumn::make('type')->label('Jenis')->badge()
                     ->formatStateUsing(fn (Document $record): string => collect($record->registration->documentRequirements())->firstWhere('key', $record->requirement_key ?? $record->type)['label'] ?? $record->type),
                 Tables\Columns\TextColumn::make('original_name')
                     ->label('File')
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query
+                        ->whereHas('registration', fn (Builder $registration): Builder => $registration
+                            ->where(fn (Builder $identity): Builder => $identity
+                                ->where('full_name', 'like', '%'.$search.'%')
+                                ->orWhere('registration_number', 'like', '%'.$search.'%'))))
                     ->formatStateUsing(fn (Document $record): string => $record->displayFileName())
                     ->url(fn (Document $record): string => route('files.applicant.documents.show', $record)),
                 Tables\Columns\TextColumn::make('malware_scan_status')
