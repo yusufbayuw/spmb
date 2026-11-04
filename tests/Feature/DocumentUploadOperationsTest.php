@@ -136,14 +136,8 @@ class DocumentUploadOperationsTest extends TestCase
         );
         $page->assertSee('Kirim Pesan')->assertSeeHtml('data-spmb-group-title=');
 
-        // The grouped action uses Filament's native modal and the same mail
-        // service; it must not appear as a top-level page header action.
-        $this->assertArrayNotHasKey(
-            'composeApplicantEmail',
-            collect($page->instance()->getHeaderActions())
-                ->mapWithKeys(fn ($action): array => [$action->getName() => true])
-                ->all(),
-        );
+        // Page-level Filament action, rather than a document table action.
+        $this->assertNotNull($page->instance()->getAction('composeApplicantEmail'));
 
         $page->call('openApplicantEmail', $registration->id)
             ->assertSuccessful()
