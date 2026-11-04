@@ -114,6 +114,99 @@ class DocumentUploadOperationsTest extends TestCase
         $this->assertSame(1, app(DocumentUploadOverview::class)->count());
     }
 
+    public function test_applicant_email_button_is_in_group_header_not_document_rows(): void
+    {
+        [$unit, $staff] = $this->staffFixture();
+        $registration = $this->registration($unit, 31, 'Pendaftar Header', ['family_card', 'photo']);
+        $registration->user->assignRole('pendaftar');
+        $this->document($registration, 'family_card', 'kk.pdf');
+        $this->document($registration, 'photo', 'foto.pdf');
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(ListDocuments::class)->assertSuccessful();
+        $this->assertNull($page->instance()->getTable()->getAction('composeApplicantEmail'));
+
+        // The group header is rendered once per applicant regardless of how
+        // many physical document rows belong to that applicant.
+        $this->assertSame(
+            1,
+            substr_count($page->html(), 'wire:click.stop="openApplicantEmail('.$registration->id.')"'),
+        );
+        $page->assertSee('Kirim Pesan')->assertSeeHtml('data-spmb-group-title=');
+
+        // The grouped action uses Filament's native modal and the same mail
+        // service; it must not appear as a top-level page header action.
+        $this->assertArrayNotHasKey(
+            'composeApplicantEmail',
+            collect($page->instance()->getHeaderActions())
+                ->mapWithKeys(fn ($action): array => [$action->getName() => true])
+                ->all(),
+        );
+
+        $page->call('openApplicantEmail', $registration->id)
+            ->assertSuccessful()
+            ->assertSet('mountedActions.0', 'composeApplicantEmail')
+            ->assertSee('Kirim email kepada Pendaftar Header');
+
+        $this->assertDatabaseCount('mail_delivery_attempts', 0);
+    }
+
+    public function test_default_accordion_preference_persists_only_in_staff_session(): void
+    {
+        [$unit, $staff] = $this->staffFixture();
+        $registration = $this->registration($unit, 32, 'Pendaftar Toggle', ['family_card']);
+        $this->document($registration, 'family_card', 'kk.pdf');
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(ListDocuments::class)->assertSuccessful()
+            ->assertSet('defaultGroupCollapsed', false)
+            ->assertSee('Tutup Semua')
+            ->assertSee('Buka Semua');
+
+        $page->call('setDefaultGroupCollapsed', true)
+            ->assertSuccessful()
+            ->assertSet('defaultGroupCollapsed', true);
+
+        $key = 'spmb.documents.default-group-collapsed.'.$staff->id;
+        $this->assertTrue((bool) session()->get($key));
+
+        Livewire::test(ListDocuments::class)
+            ->assertSuccessful()
+            ->assertSet('defaultGroupCollapsed', true)
+            ->assertSeeHtml('data-spmb-group-title=');
+
+        $page->call('setDefaultGroupCollapsed', false)
+            ->assertSuccessful()
+            ->assertSet('defaultGroupCollapsed', false);
+        $this->assertFalse((bool) session()->get($key));
+
+        // Neither preference operation may edit applicant or document data.
+        $this->assertSame('document_verification', $registration->fresh()->current_stage);
+        $this->assertSame(1, $registration->documents()->count());
+    }
+
+    public function test_group_email_cannot_be_opened_for_a_different_tu_unit(): void
+    {
+        [$unit, $staff] = $this->staffFixture();
+        $otherUnit = Unit::create(['name' => 'Unit Terlarang', 'code' => 'DOC-SEC', 'institution_type' => 'school', 'is_active' => true]);
+        $foreign = $this->registration($otherUnit, 33, 'Peserta Lain', ['family_card']);
+        $foreign->user->assignRole('pendaftar');
+        $this->document($foreign, 'family_card', 'foreign.pdf');
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(ListDocuments::class)
+            ->call('openApplicantEmail', $foreign->id)
+            ->assertNotFound();
+
+        $this->assertDatabaseCount('mail_delivery_attempts', 0);
+    }
+
     private function staffFixture(): array
     {
         $this->seed(ShieldSeeder::class);
