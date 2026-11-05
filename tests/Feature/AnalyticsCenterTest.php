@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\Analytics\Overview;
+use App\Filament\Admin\Pages\Analytics\Schools;
 use App\Filament\Admin\Support\AnalyticsBreakdownChart;
 use App\Filament\Admin\Pages\Analytics\Registration as RegistrationAnalytics;
 use App\Models\Document;
@@ -145,6 +146,41 @@ class AnalyticsCenterTest extends TestCase
         ])
             ->assertSuccessful()
             ->assertDontSee('wire:poll', false);
+    }
+
+    public function test_school_analytics_page_and_chart_render_with_real_aggregations(): void
+    {
+        $this->seed(ShieldSeeder::class);
+
+        $own = $this->unit('SD Analitik', 'AN-SCH-PAGE');
+        $other = $this->unit('SMP Lain', 'AN-SCH-OTHER');
+
+        $one = $this->registration($own, 91, ' SD NUSANTARA ');
+        $two = $this->registration($own, 92, 'sd nusantara');
+        $this->registration($own, 93, 'SD HARAPAN');
+        $this->registration($other, 94, 'SEKOLAH RAHASIA');
+
+        $one->update(['city' => 'Bandung']);
+        $two->update(['city' => 'Bandung']);
+
+        $staff = $this->staff('tu', $own);
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(Schools::class)
+            ->assertSuccessful()
+            ->assertSee('Asal sekolah terbanyak')
+            ->assertSee('SD NUSANTARA')
+            ->assertDontSee('SEKOLAH RAHASIA');
+
+        Livewire::test(AnalyticsBreakdownChart::class, [
+            'filters' => ['unit_id' => $own->id, 'lifecycle' => 'active'],
+            'section' => 'schools',
+        ])->assertSuccessful();
+
+        $report = app(AnalyticsCenterService::class)->report($staff, [], 'schools');
+        $this->assertSame('3', $report['stats'][0]['value']);
+        $this->assertSame(2, $report['groups'][0]['rows'][0]['count']);
     }
 
     public function test_pages_require_staff_role_active_status_and_operational_unit(): void
