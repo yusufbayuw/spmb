@@ -150,6 +150,12 @@ $bookedSession = $registration->testBookings->firstWhere('admission_test_id', $r
     @case('payment')
 <x-filament::section collapsible>
                     <x-slot name="heading">Pembayaran</x-slot>
+                    @if (filled($this->paymentInstructionsForSummary))
+                        <div data-payment-instructions-placement="payment_summary" class="mb-4 rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Petunjuk Pembayaran dari Unit</p>
+                            @include('filament.applicant.partials.payment-instructions-content', ['content' => $this->paymentInstructionsForSummary])
+                        </div>
+                    @endif
                     @foreach($registration->receipts as $receipt)
                         <x-filament::button tag="a" :href="route('registration.receipt', [$registration, $receipt])" target="_blank">Cetak Kuitansi</x-filament::button>
                     @endforeach
