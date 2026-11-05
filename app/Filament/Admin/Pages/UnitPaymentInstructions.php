@@ -61,18 +61,21 @@ class UnitPaymentInstructions extends Page implements Forms\Contracts\HasForms
     public function loadUnit(): void
     {
         $unit = $this->accessibleUnit();
+        $instruction = UnitPaymentInstruction::query()->where('unit_id', $unit->id)->first();
 
         $this->form->fill([
-            'content' => UnitPaymentInstruction::query()
-                ->where('unit_id', $unit->id)->value('content'),
+            'content' => $instruction?->content,
+            'show_on_payment_page' => $instruction?->show_on_payment_page ?? true,
+            'show_on_next_action' => $instruction?->show_on_next_action ?? false,
+            'show_on_payment_summary' => $instruction?->show_on_payment_summary ?? false,
         ]);
     }
 
     public function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Petunjuk untuk Unggah Bukti Pembayaran')
-                ->description('Opsional. Isi tampil di atas formulir unggah bukti pembayaran milik unit ini. Tidak mengubah nomor VA, metode pembayaran, atau proses verifikasi.')
+            Forms\Components\Section::make('Isi Petunjuk Pembayaran')
+                ->description('Satu isi petunjuk per unit. Lokasi tampil dapat diatur di bawah; tidak mengubah VA, nominal, atau verifikasi.')
                 ->schema([
                     Forms\Components\RichEditor::make('content')
                         ->label('Petunjuk Pembayaran')
@@ -80,6 +83,22 @@ class UnitPaymentInstructions extends Page implements Forms\Contracts\HasForms
                         ->toolbarButtons(['h2', 'h3', 'bold', 'italic', 'bulletList', 'orderedList', 'link', 'undo', 'redo'])
                         ->maxLength(20000)
                         ->columnSpanFull(),
+                ]),
+            Forms\Components\Section::make('Lokasi Kemunculan')
+                ->description('Toggle hanya mengatur petunjuk, bukan menyembunyikan VA, status, atau tombol unggah. Petunjuk tidak tampil setelah pembayaran terverifikasi.')
+                ->schema([
+                    Forms\Components\Toggle::make('show_on_payment_page')
+                        ->label('Halaman Pembayaran')
+                        ->helperText('Tampil di atas informasi Virtual Account pada halaman unggah bukti pembayaran.')
+                        ->default(true),
+                    Forms\Components\Toggle::make('show_on_next_action')
+                        ->label('Aksi Selanjutnya')
+                        ->helperText('Tampil saat tahap pembayaran di halaman progres.')
+                        ->default(false),
+                    Forms\Components\Toggle::make('show_on_payment_summary')
+                        ->label('Ringkasan Pembayaran')
+                        ->helperText('Tampil dalam kartu Pembayaran di halaman progres. Mengaktifkan juga Aksi Selanjutnya menyebabkan konten muncul di dua lokasi.')
+                        ->default(false),
                 ]),
         ])->statePath('data');
     }
@@ -91,16 +110,19 @@ class UnitPaymentInstructions extends Page implements Forms\Contracts\HasForms
         $content = app(RegistrationConsentService::class)
             ->sanitizeHtml((string) ($data['content'] ?? ''));
 
-        UnitPaymentInstruction::query()->updateOrCreate(
-            ['unit_id' => $unit->id],
-            ['content' => $content !== '' ? $content : null],
-        );
+        $attributes = [
+            'content' => $content !== '' ? $content : null,
+            'show_on_payment_page' => (bool) ($data['show_on_payment_page'] ?? true),
+            'show_on_next_action' => (bool) ($data['show_on_next_action'] ?? false),
+            'show_on_payment_summary' => (bool) ($data['show_on_payment_summary'] ?? false),
+        ];
 
-        $this->form->fill(['content' => $content]);
+        UnitPaymentInstruction::query()->updateOrCreate(['unit_id' => $unit->id], $attributes);
+        $this->form->fill($attributes);
 
         Notification::make()
             ->title('Petunjuk pembayaran tersimpan')
-            ->body('Informasi langsung ditampilkan kepada pendaftar unit ini pada halaman unggah bukti pembayaran.')
+            ->body('Petunjuk dan pengaturan lokasinya tersimpan untuk unit ini.')
             ->success()->send();
     }
 
