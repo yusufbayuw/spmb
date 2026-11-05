@@ -57,8 +57,10 @@ abstract class AnalyticsPage extends Page implements HasForms
                 ->schema([
                     Forms\Components\Select::make('unit_id')
                         ->label('Unit / institusi')
-                        ->options(fn (): array => Unit::query()->operational()->orderBy('name')
-                            ->pluck('name', 'id')->all())
+                        ->options(fn (): array => Unit::query()->operational()
+                            ->when(auth()->user()?->isTU(), fn (Builder $q): Builder => $q
+                                ->whereKey(auth()->user()->unit_id))
+                            ->orderBy('name')->pluck('name', 'id')->all())
                         ->default(fn () => auth()->user()?->isTU() ? auth()->user()?->unit_id : null)
                         ->disabled(fn (): bool => (bool) auth()->user()?->isTU())
                         ->dehydrated()

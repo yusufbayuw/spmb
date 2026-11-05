@@ -203,7 +203,7 @@ class AnalyticsCenterService
             $this->metric('Memiliki data orang tua', (clone $parents)->count()),
             $this->metric('Tanpa relasi orang tua', (clone $base)->whereDoesntHave('parentInfo')->count(),
                 'Belum tentu wajib pada setiap konfigurasi'),
-            $this->metric('Wilayah asal terisi', (clone $base)->whereNotNull('registrations.province_code')->count()),
+            $this->metric('Kode provinsi terisi', (clone $base)->whereNotNull('registrations.province_code')->count()),
         ], [
             $this->group('Jenis kelamin', $this->distribution($base, 'registrations.gender', [
                 'L' => 'Laki-laki', 'P' => 'Perempuan',
@@ -281,7 +281,7 @@ class AnalyticsCenterService
             $this->metric('Transaksi ditolak', (clone $payments)->where('status', 'rejected')->count()),
         ], $groups, [
             'Nominal terverifikasi bukan bukti settlement rekening bank.',
-            $showPool ? 'Pool VA mengikuti unit dan tahun ajaran, tidak dikurangi oleh filter lifecycle/pendaftar.'
+            $showPool ? 'Pool VA mengikuti unit, tetapi tidak mengikuti filter tahun ajaran atau lifecycle pendaftar.'
                 : 'Pool VA tidak ditampilkan karena filter pembukaan, prodi, atau jalur tidak berlaku untuk seluruh stok VA.',
         ]);
     }
