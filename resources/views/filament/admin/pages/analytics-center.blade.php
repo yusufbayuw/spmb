@@ -21,7 +21,7 @@
             </div>
         </form>
 
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             @foreach ($report['stats'] as $stat)
                 <x-filament::section compact>
                     <div class="space-y-2">
