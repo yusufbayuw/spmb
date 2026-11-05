@@ -63,7 +63,7 @@ class PaymentResource extends Resource
                 Tables\Columns\TextColumn::make('registration.registration_number')->label('No. Registrasi')->searchable()->placeholder('Diterbitkan setelah verifikasi'),
                 Tables\Columns\TextColumn::make('registration.full_name')->label('Calon Siswa')->searchable(),
                 Tables\Columns\TextColumn::make('registration.unit.name')->label('Unit')->badge(),
-                Tables\Columns\TextColumn::make('va_number')->label('VA')->copyable(),
+                Tables\Columns\TextColumn::make('va_number')->label('VA')->searchable()->copyable(),
                 Tables\Columns\TextColumn::make('amount')->label('Nominal')->money('IDR', locale: 'id'),
                 Tables\Columns\TextColumn::make('status')->badge(),
                 Tables\Columns\TextColumn::make('proof_malware_scan_status')
