@@ -66,6 +66,7 @@ class ApplicantPanelProvider extends PanelProvider
             ])
             ->sidebarCollapsibleOnDesktop()
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('pwa.meta'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.applicant.partials.payment-instruction-styles'))
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => view('filament.applicant.partials.panel-body-end'),

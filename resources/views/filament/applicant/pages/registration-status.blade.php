@@ -104,6 +104,13 @@
                     <x-slot name="heading">Aksi Selanjutnya</x-slot>
                     <x-slot name="description">Aksi yang tersedia menyesuaikan tahap pendaftaran saat ini.</x-slot>
 
+                    @if (filled($this->paymentInstructionsForNextAction))
+                        <div data-payment-instructions-placement="next_action" class="mb-4 rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Petunjuk Pembayaran dari Unit</p>
+                            @include('filament.applicant.partials.payment-instructions-content', ['content' => $this->paymentInstructionsForNextAction])
+                        </div>
+                    @endif
+
                     @if ($this->nextAction)
                         <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
                             {{ $this->nextAction['message'] }}

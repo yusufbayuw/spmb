@@ -4,6 +4,7 @@ namespace App\Filament\Applicant\Pages;
 
 use App\Models\Registration;
 use App\Services\ApplicantNextActionService;
+use App\Services\UnitPaymentInstructionDisplayService;
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Str;
@@ -22,6 +23,10 @@ class RegistrationStatus extends Page
 
     /** @var array<string, mixed>|null */
     public ?array $nextAction = null;
+
+    public ?string $paymentInstructionsForNextAction = null;
+
+    public ?string $paymentInstructionsForSummary = null;
 
     public function mount(int|string $registration): void
     {
@@ -47,6 +52,9 @@ class RegistrationStatus extends Page
             ->where('uuid', $registration)->firstOrFail();
 
         $this->nextAction = app(ApplicantNextActionService::class)->resolve($this->registrationRecord);
+        $instructions = app(UnitPaymentInstructionDisplayService::class)->forRegistration($this->registrationRecord);
+        $this->paymentInstructionsForNextAction = $instructions['next_action'];
+        $this->paymentInstructionsForSummary = $instructions['payment_summary'];
     }
 
     public function getTitle(): string
