@@ -3,16 +3,16 @@
 
     <div class="space-y-6">
         @if (filled($this->paymentInstructions))
-            <x-filament::section icon="heroicon-o-information-circle" icon-color="primary">
-                <x-slot name="heading">Petunjuk Pembayaran dari Unit</x-slot>
-                <div class="text-sm leading-6 text-gray-700 dark:text-gray-200 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_a]:text-primary-600 [&_a]:underline dark:[&_a]:text-primary-400 [&_blockquote]:border-l-4 [&_blockquote]:pl-3">
-                    {!! $this->paymentInstructions !!}
-                </div>
-            </x-filament::section>
+            <div data-payment-instructions-placement="payment_page">
+                <x-filament::section icon="heroicon-o-information-circle" icon-color="primary">
+                    <x-slot name="heading">Petunjuk Pembayaran dari Unit</x-slot>
+                    @include('filament.applicant.partials.payment-instructions-content', ['content' => $this->paymentInstructions])
+                </x-filament::section>
+            </div>
         @endif
         <x-filament::section>
             <x-slot name="heading">Virtual Account</x-slot>
-            <x-slot name="description">Gunakan nomor dan nominal berikut saat melakukan pembayaran.</x-slot>
+            <x-slot name="description">Informasi Virtual Account dan nominal yang tercatat untuk pendaftaran ini.</x-slot>
 
             <div class="grid gap-4 md:grid-cols-2">
                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
