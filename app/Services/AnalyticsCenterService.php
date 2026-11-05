@@ -221,9 +221,6 @@ class AnalyticsCenterService
     private function schoolReport(Builder $base): array
     {
         $total = (clone $base)->count();
-        $school = "COALESCE(NULLIF(UPPER(TRIM(registrations.previous_school)), ''), 'Tidak diisi')";
-        $schoolCounts = (clone $base)->selectRaw($school.' as bucket, COUNT(*) as aggregate')
-            ->groupByRaw($school)->orderByDesc('aggregate')->limit(20)->get();
         $linked = ContinuationRegistrationLink::query()
             ->whereIn('registration_id', $this->ids($base))
             ->distinct()->count('registration_id');
@@ -237,7 +234,7 @@ class AnalyticsCenterService
                 'Peserta unik yang punya hubungan terusan/alumni'),
             $this->metric('Persentase terusan', $this->rate($linked, $total)),
         ], [
-            $this->group('Asal sekolah terbanyak', $this->rows($schoolCounts, $total),
+            $this->group('Asal sekolah terbanyak', $this->schoolRows($base),
                 'Pengelompokan nama menggunakan uppercase dan trim; variasi ejaan mungkin masih berbeda.'),
             $this->group('Wilayah kabupaten/kota', $this->distribution($base, 'registrations.city', [], 20)),
             $this->group('Jalur pendaftaran', $this->byPathway($base)),
@@ -555,11 +552,31 @@ class AnalyticsCenterService
     private function schoolRows(Builder $base, int $limit = 20): array
     {
         $total = (clone $base)->count();
-        $normal = "COALESCE(NULLIF(UPPER(TRIM(registrations.previous_school)), ''), 'Tidak diisi')";
-        $records = (clone $base)->selectRaw($normal.' as bucket, COUNT(*) as aggregate')
-            ->groupByRaw($normal)->orderByDesc('aggregate')->limit($limit)->get();
 
-        return $this->rows($records, $total);
+        // Group by the actual column so MariaDB with ONLY_FULL_GROUP_BY does
+        // not reject a selected UPPER/TRIM/COALESCE expression (SQLSTATE 1055).
+        // Only grouped school names and counts are returned, never student rows.
+        $rawCounts = (clone $base)
+            ->selectRaw('registrations.previous_school as bucket, COUNT(*) as aggregate')
+            ->groupBy('registrations.previous_school')
+            ->get();
+
+        // Merge spellings that differ in case / surrounding whitespace after
+        // grouping, without altering stored data or changing unit scoping.
+        $counts = [];
+        foreach ($rawCounts as $row) {
+            $value = trim((string) ($row->bucket ?? ''));
+            $name = $value === '' ? 'Tidak diisi' : mb_strtoupper($value, 'UTF-8');
+            $counts[$name] = ($counts[$name] ?? 0) + (int) $row->aggregate;
+        }
+
+        arsort($counts, SORT_NUMERIC);
+
+        return collect($counts)
+            ->take($limit)
+            ->map(fn (int $count, string $name): array => $this->row($name, $count, $total))
+            ->values()
+            ->all();
     }
 
     private function distribution(Builder $query, string $column, array $labels = [], int $limit = 15): array
