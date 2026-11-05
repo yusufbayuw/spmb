@@ -166,6 +166,27 @@ class AnalyticsCenterTest extends TestCase
         $one->update(['city' => 'Bandung']);
         $two->update(['city' => 'Bandung']);
 
+        Document::create([
+            'registration_id' => $one->id,
+            'requirement_key' => null,
+            'type' => 'report_card',
+            'file_path' => 'analytics/report-91.pdf',
+            'original_name' => 'report-91.pdf',
+            'file_type' => 'pdf',
+            'file_size' => 100,
+            'is_verified' => true,
+        ]);
+        Document::create([
+            'registration_id' => $two->id,
+            'requirement_key' => '',
+            'type' => 'report_card',
+            'file_path' => 'analytics/report-92.pdf',
+            'original_name' => 'report-92.pdf',
+            'file_type' => 'pdf',
+            'file_size' => 100,
+            'is_verified' => true,
+        ]);
+
         $staff = $this->staff('tu', $own);
         $this->actingAs($staff);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
@@ -201,6 +222,13 @@ class AnalyticsCenterTest extends TestCase
         $explorer = $analytics->report($staff, ['dimension' => 'school'], 'explorer');
         $this->assertSame(2, collect($explorer['groups'][0]['rows'])
             ->keyBy('label')['SD NUSANTARA']['count']);
+
+        // Other expression-based analytics must also render under strict SQL.
+        $this->assertSame('5', $analytics->report($staff, [], 'registration')['stats'][0]['value']);
+        $documents = $analytics->report($staff, [], 'documents');
+        $this->assertSame('2', $documents['stats'][0]['value']);
+        $this->assertSame(2, collect($documents['groups'][1]['rows'])
+            ->keyBy('label')['report_card']['count']);
     }
 
     public function test_pages_require_staff_role_active_status_and_operational_unit(): void
