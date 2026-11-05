@@ -3,8 +3,7 @@
 namespace App\Filament\Applicant\Pages;
 
 use App\Models\Registration;
-use App\Models\UnitPaymentInstruction;
-use App\Services\RegistrationConsentService;
+use App\Services\UnitPaymentInstructionDisplayService;
 use App\Services\ApplicantFileStorage;
 use App\Services\ApplicantUploadSecurity;
 use App\Services\RegistrationWorkflowService;
@@ -53,13 +52,9 @@ class PaymentUpload extends Page implements HasForms
             403,
         );
 
-        // Read optional unit-specific informational content only; payment flow stays unchanged.
-        $instructions = UnitPaymentInstruction::query()
-            ->where('unit_id', $this->registrationRecord->unit_id)
-            ->value('content');
-        $this->paymentInstructions = filled($instructions)
-            ? app(RegistrationConsentService::class)->sanitizeHtml((string) $instructions)
-            : null;
+        // Payment flow remains unchanged; only the instructions are configurable.
+        $this->paymentInstructions = app(UnitPaymentInstructionDisplayService::class)
+            ->forRegistration($this->registrationRecord)['payment_page'];
 
         $this->form->fill([
             'payment_method' => $this->registrationRecord->latestPayment->payment_method,
