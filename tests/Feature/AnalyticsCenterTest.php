@@ -17,6 +17,7 @@ use App\Services\AnalyticsCenterService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -158,6 +159,8 @@ class AnalyticsCenterTest extends TestCase
         $one = $this->registration($own, 91, ' SD NUSANTARA ');
         $two = $this->registration($own, 92, 'sd nusantara');
         $this->registration($own, 93, 'SD HARAPAN');
+        $this->registration($own, 95, '');
+        $this->registration($own, 96, '   ')->update(['previous_school' => null]);
         $this->registration($other, 94, 'SEKOLAH RAHASIA');
 
         $one->update(['city' => 'Bandung']);
@@ -167,10 +170,17 @@ class AnalyticsCenterTest extends TestCase
         $this->actingAs($staff);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
+        // Replicate the strict SQL mode that produced HTTP 500 on a MariaDB
+        // development server, while leaving SQLite test runs unchanged.
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',ONLY_FULL_GROUP_BY')");
+        }
+
         Livewire::test(Schools::class)
             ->assertSuccessful()
             ->assertSee('Asal sekolah terbanyak')
             ->assertSee('SD NUSANTARA')
+            ->assertSee('Tidak diisi')
             ->assertDontSee('SEKOLAH RAHASIA');
 
         Livewire::test(AnalyticsBreakdownChart::class, [
@@ -178,9 +188,19 @@ class AnalyticsCenterTest extends TestCase
             'section' => 'schools',
         ])->assertSuccessful();
 
-        $report = app(AnalyticsCenterService::class)->report($staff, [], 'schools');
-        $this->assertSame('3', $report['stats'][0]['value']);
-        $this->assertSame(2, $report['groups'][0]['rows'][0]['count']);
+        $analytics = app(AnalyticsCenterService::class);
+        $report = $analytics->report($staff, [], 'schools');
+        $this->assertSame('5', $report['stats'][0]['value']);
+
+        $schools = collect($report['groups'][0]['rows'])->keyBy('label');
+        $this->assertSame(2, $schools['SD NUSANTARA']['count']);
+        $this->assertSame(2, $schools['Tidak diisi']['count']);
+        $this->assertSame(1, $schools['SD HARAPAN']['count']);
+
+        // The explorer uses a second school aggregation entry point.
+        $explorer = $analytics->report($staff, ['dimension' => 'school'], 'explorer');
+        $this->assertSame(2, collect($explorer['groups'][0]['rows'])
+            ->keyBy('label')['SD NUSANTARA']['count']);
     }
 
     public function test_pages_require_staff_role_active_status_and_operational_unit(): void
