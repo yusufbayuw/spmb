@@ -175,8 +175,11 @@ class AnalyticsCenterService
             ->groupBy('analytics_openings.academic_year')->orderByDesc('aggregate')->limit(20)->get();
 
         $trend = (clone $base)->where('registrations.created_at', '>=', now()->subDays(29)->startOfDay())
-            ->selectRaw('DATE(registrations.created_at) as bucket, COUNT(*) as aggregate')
+            // MIN() is aggregated; selecting DATE(created_at) beside COUNT()
+            // can trigger 1055 on strict MariaDB even with the same GROUP BY.
+            ->selectRaw('MIN(registrations.created_at) as bucket, COUNT(*) as aggregate')
             ->groupByRaw('DATE(registrations.created_at)')->orderBy('bucket')->limit(30)->get();
+        $trend->each(fn ($row) => $row->bucket = substr((string) $row->bucket, 0, 10));
 
         return $this->pack([
             $this->metric('Pendaftaran', $total),
@@ -287,9 +290,21 @@ class AnalyticsCenterService
     {
         $documents = $this->documents($base);
         $total = (clone $documents)->count();
-        $types = "COALESCE(NULLIF(documents.requirement_key, ''), documents.type)";
-        $grouped = (clone $documents)->selectRaw($types.' as bucket, COUNT(*) as aggregate')
-            ->groupByRaw($types)->orderByDesc('aggregate')->limit(20)->get();
+        // MariaDB strict mode requires grouped columns rather than a
+        // selected COALESCE expression; merge fallback labels afterwards.
+        $grouped = (clone $documents)
+            ->selectRaw('documents.requirement_key, documents.type, COUNT(*) as aggregate')
+            ->groupBy('documents.requirement_key', 'documents.type')->get();
+        $types = [];
+        foreach ($grouped as $row) {
+            $key = trim((string) ($row->requirement_key ?? ''));
+            $name = $key !== '' ? $key : (string) $row->type;
+            $types[$name] = ($types[$name] ?? 0) + (int) $row->aggregate;
+        }
+        arsort($types, SORT_NUMERIC);
+        $categoryRows = collect($types)->take(20)
+            ->map(fn (int $count, string $name): array => $this->row($name, $count, $total))
+            ->values()->all();
 
         return $this->pack([
             $this->metric('Berkas terunggah', $total, 'Record terbaru, berkas lama yang diganti dikecualikan'),
@@ -306,7 +321,7 @@ class AnalyticsCenterService
                 $this->row('Menunggu', (clone $documents)->where('is_verified', false)
                     ->whereNull('rejection_reason')->count(), $total),
             ]),
-            $this->group('Kategori berkas terunggah', $this->rows($grouped, $total)),
+            $this->group('Kategori berkas terunggah', $categoryRows),
         ], [
             'Jumlah berkas tidak sama dengan jumlah pendaftar. Syarat berkas dapat berbeda menurut versi konfigurasi setiap pendaftar.',
             'Berkas yang digantikan dikecualikan agar tidak menggandakan hasil.',
