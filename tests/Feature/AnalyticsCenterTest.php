@@ -152,8 +152,8 @@ class AnalyticsCenterTest extends TestCase
     {
         $this->seed(ShieldSeeder::class);
 
-        $own = $this->unit('SD Analitik', 'AN-SCH-PAGE');
-        $other = $this->unit('SMP Lain', 'AN-SCH-OTHER');
+        $own = $this->unit('SD Analitik', 'AN-SCH-P');
+        $other = $this->unit('SMP Lain', 'AN-SCH-O');
 
         $one = $this->registration($own, 91, ' SD NUSANTARA ');
         $two = $this->registration($own, 92, 'sd nusantara');
