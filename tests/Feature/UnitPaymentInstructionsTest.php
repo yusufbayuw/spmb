@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\UnitPaymentInstructions;
 use App\Filament\Applicant\Pages\PaymentUpload;
+use App\Filament\Applicant\Pages\RegistrationStatus;
 use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\Unit;
 use App\Models\UnitPaymentInstruction;
 use App\Models\User;
+use App\Services\UnitPaymentInstructionDisplayService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -143,6 +145,134 @@ class UnitPaymentInstructionsTest extends TestCase
             ->call('save')->assertHasNoFormErrors();
 
         $this->assertNull(UnitPaymentInstruction::where('unit_id', $unit->id)->value('content'));
+    }
+
+    public function test_toggles_default_and_persist_independently_per_unit(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Toggle', 'code' => 'PAY-TOGGLE', 'is_active' => true]);
+        $this->actingAs($this->user('tu', $unit));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(UnitPaymentInstructions::class)
+            ->assertFormSet([
+                'show_on_payment_page' => true,
+                'show_on_next_action' => false,
+                'show_on_payment_summary' => false,
+            ])
+            ->fillForm([
+                'content' => '<p><strong>Transfer manual.</strong></p>',
+                'show_on_payment_page' => false,
+                'show_on_next_action' => true,
+                'show_on_payment_summary' => true,
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = UnitPaymentInstruction::where('unit_id', $unit->id)->firstOrFail();
+        $this->assertFalse($saved->show_on_payment_page);
+        $this->assertTrue($saved->show_on_next_action);
+        $this->assertTrue($saved->show_on_payment_summary);
+
+        Livewire::test(UnitPaymentInstructions::class)
+            ->assertFormSet([
+                'show_on_payment_page' => false,
+                'show_on_next_action' => true,
+                'show_on_payment_summary' => true,
+            ]);
+    }
+
+    public function test_three_placements_follow_toggles_and_payment_status(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create(['name' => 'Unit Visibilitas', 'code' => 'PAY-VISIBLE', 'is_active' => true]);
+        $applicant = $this->user('pendaftar');
+        $opening = RegistrationOpening::create([
+            'unit_id' => $unit->id,
+            'academic_year' => '2026/2027',
+            'wave' => 'Gelombang 1',
+            'registration_fee' => 350000,
+            'status' => 'open',
+        ]);
+        $registration = Registration::create([
+            'user_id' => $applicant->id,
+            'unit_id' => $unit->id,
+            'registration_opening_id' => $opening->id,
+            'full_name' => 'Peserta Toggle',
+            'nik' => '3273010101010977',
+            'gender' => 'L',
+            'birth_place' => 'Bandung',
+            'birth_date' => '2015-01-01',
+            'home_address' => 'Bandung',
+            'status' => 'payment_pending',
+            'current_stage' => 'payment',
+            'lifecycle_status' => 'active',
+        ]);
+        $payment = Payment::create([
+            'registration_id' => $registration->id,
+            'amount' => 350000,
+            'va_number' => '1234509876',
+            'status' => 'pending',
+        ]);
+        $instruction = UnitPaymentInstruction::create([
+            'unit_id' => $unit->id,
+            'content' => '<h2>Petunjuk Toggle</h2><ol><li>Transfer lalu unggah bukti.</li></ol>',
+            'show_on_payment_page' => true,
+            'show_on_next_action' => true,
+            'show_on_payment_summary' => true,
+        ]);
+
+        $this->actingAs($applicant);
+        Filament::setCurrentPanel(Filament::getPanel('pendaftar'));
+
+        Livewire::test(PaymentUpload::class, ['registration' => $registration->uuid])
+            ->assertSuccessful()
+            ->assertSee('data-payment-instructions-placement="payment_page"', escape: false)
+            ->assertSee('<ol>', escape: false);
+        Livewire::test(RegistrationStatus::class, ['registration' => $registration->uuid])
+            ->assertSuccessful()
+            ->assertSee('data-payment-instructions-placement="next_action"', escape: false)
+            ->assertSee('data-payment-instructions-placement="payment_summary"', escape: false)
+            ->assertSee('<h2>Petunjuk Toggle</h2>', escape: false);
+
+        $instruction->update(['show_on_payment_page' => false, 'show_on_next_action' => false]);
+        Livewire::test(PaymentUpload::class, ['registration' => $registration->uuid])
+            ->assertDontSee('Petunjuk Toggle')
+            ->assertSee('1234509876');
+        Livewire::test(RegistrationStatus::class, ['registration' => $registration->uuid])
+            ->assertDontSee('data-payment-instructions-placement="next_action"', escape: false)
+            ->assertSee('data-payment-instructions-placement="payment_summary"', escape: false);
+
+        $payment->update(['status' => 'paid']);
+        $registration->update(['current_stage' => 'payment_verification']);
+        Livewire::test(RegistrationStatus::class, ['registration' => $registration->uuid])
+            ->assertSee('Petunjuk Toggle');
+
+        $payment->update(['status' => 'rejected', 'verified_at' => now()]);
+        $registration->update(['current_stage' => 'payment']);
+        Livewire::test(RegistrationStatus::class, ['registration' => $registration->uuid])
+            ->assertSee('Petunjuk Toggle');
+
+        $instruction->update(['show_on_payment_page' => true, 'show_on_next_action' => true]);
+        $payment->update(['status' => 'verified']);
+        $hidden = ['payment_page' => null, 'next_action' => null, 'payment_summary' => null];
+        $this->assertSame($hidden, app(UnitPaymentInstructionDisplayService::class)->forRegistration($registration->fresh()));
+        Livewire::test(RegistrationStatus::class, ['registration' => $registration->uuid])
+            ->assertDontSee('Petunjuk Toggle');
+
+        $payment->update(['status' => 'pending']);
+        $registration->update(['current_stage' => 'documents']);
+        $this->assertSame($hidden, app(UnitPaymentInstructionDisplayService::class)->forRegistration($registration->fresh()));
+    }
+
+    public function test_payment_instruction_css_is_loaded_in_applicant_panel_and_has_list_markers(): void
+    {
+        $styles = file_get_contents(resource_path('views/filament/applicant/partials/payment-instruction-styles.blade.php'));
+        $panel = file_get_contents(app_path('Providers/Filament/ApplicantPanelProvider.php'));
+
+        $this->assertStringContainsString('list-style-type: decimal !important', $styles);
+        $this->assertStringContainsString('list-style-type: disc !important', $styles);
+        $this->assertStringContainsString('payment-instruction-styles', $panel);
     }
 
     public function test_registration_admin_table_persists_sort_in_session_without_changing_default_order(): void
