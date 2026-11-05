@@ -11,6 +11,10 @@ class AnalyticsBreakdownChart extends ChartWidget
 
     protected static ?string $maxHeight = '330px';
 
+    // The dashboard updates when filters are applied; background polling
+    // creates unnecessary Livewire requests and repeated 419s after session expiry.
+    protected static ?string $pollingInterval = null;
+
     public array $filters = [];
 
     public string $section = 'overview';
