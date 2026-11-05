@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\Analytics\Overview;
+use App\Filament\Admin\Support\AnalyticsBreakdownChart;
 use App\Filament\Admin\Pages\Analytics\Registration as RegistrationAnalytics;
 use App\Models\Document;
 use App\Models\Payment;
@@ -126,6 +127,24 @@ class AnalyticsCenterTest extends TestCase
         $this->assertSame(1, $analytics->registrations($staff, [
             'unit_id' => 999999, 'date_from' => 'garbage', 'lifecycle' => 'active',
         ])->count());
+    }
+
+    public function test_analytics_chart_has_no_background_polling_after_render(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = $this->unit('Unit Tanpa Polling', 'AN-NOPOLL');
+        $this->registration($unit, 8, 'SD Asal');
+        $staff = $this->staff('tu', $unit);
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(AnalyticsBreakdownChart::class, [
+            'filters' => ['unit_id' => $unit->id, 'lifecycle' => 'active'],
+            'section' => 'overview',
+        ])
+            ->assertSuccessful()
+            ->assertDontSee('wire:poll', false);
     }
 
     public function test_pages_require_staff_role_active_status_and_operational_unit(): void
