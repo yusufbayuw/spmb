@@ -61,6 +61,7 @@ class ReRegistrationItemResource extends Resource
             Tables\Columns\TextColumn::make('registration.full_name')->label('Pendaftar')->searchable(),
             Tables\Columns\TextColumn::make('registration.unit.name')->label('Unit')->badge(),
             Tables\Columns\TextColumn::make('label')->label('Persyaratan'),
+            Tables\Columns\TextColumn::make('value')->label('Jawaban')->formatStateUsing(fn ($state): string => is_array($state) ? (string) ($state['value'] ?? '-') : '-')->limit(120)->placeholder('-'),
             Tables\Columns\TextColumn::make('original_name')->label('Berkas')->url(fn (ReRegistrationItem $record): ?string => $record->file_path ? route('files.applicant.re-registration.show', $record) : null)->openUrlInNewTab()->placeholder('-'),
             Tables\Columns\TextColumn::make('type')->badge(),
             Tables\Columns\TextColumn::make('status')->badge(),
@@ -68,7 +69,7 @@ class ReRegistrationItemResource extends Resource
         ])->actions([
             Tables\Actions\Action::make('verify')
                 ->label('Verifikasi')
-                ->visible(fn (ReRegistrationItem $record): bool => in_array($record->status, ['pending', 'submitted', 'rejected'], true))
+                ->visible(fn (ReRegistrationItem $record): bool => $record->status === 'submitted')
                 ->form([
                     Forms\Components\Toggle::make('approved')->label('Disetujui')->default(true),
                     Forms\Components\Textarea::make('reason')->label('Alasan penolakan')->required(fn (Forms\Get $get): bool => ! $get('approved')),

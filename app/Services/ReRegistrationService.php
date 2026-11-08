@@ -45,6 +45,9 @@ class ReRegistrationService
             $registration = Registration::query()->lockForUpdate()->findOrFail($lockedItem->registration_id);
             abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
             $registration->assertCurrentStage('re_registration');
+            if ($lockedItem->status !== 'submitted') {
+                throw ValidationException::withMessages(['re_registration' => 'Hanya persyaratan yang sudah dikirim dapat diverifikasi.']);
+            }
             $lockedItem->update([
                 'status' => $approved ? 'verified' : 'rejected',
                 'verified_by' => $staff->id,
