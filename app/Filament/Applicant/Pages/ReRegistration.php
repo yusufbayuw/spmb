@@ -50,7 +50,7 @@ class ReRegistration extends Page implements HasForms
         );
 
         $this->form->fill($this->registrationRecord->reRegistrationItems->mapWithKeys(
-            fn (ReRegistrationItem $item): array => [$item->requirement_key => $item->type === 'document' ? $item->file_path : ($item->value['value'] ?? null)],
+            fn (ReRegistrationItem $item): array => [$item->requirement_key => in_array($item->type, ['document', 'manual_payment'], true) ? $item->file_path : ($item->value['value'] ?? null)],
         )->all());
     }
 
@@ -76,7 +76,7 @@ class ReRegistration extends Page implements HasForms
                 ->filter(fn (?string $text): bool => filled($text))
                 ->implode(' • ');
             $field = match ($item->type) {
-                'document' => Forms\Components\FileUpload::make($item->requirement_key)
+                'document', 'manual_payment' => Forms\Components\FileUpload::make($item->requirement_key)
                     ->disk(ApplicantFileStorage::PRIVATE_DISK)
                     ->directory('re-registration/'.$this->registrationRecord->id)
                     ->visibility('private')
@@ -120,7 +120,7 @@ class ReRegistration extends Page implements HasForms
                 }
 
                 $attributes = ['status' => 'submitted', 'rejection_reason' => null, 'verified_at' => null, 'verified_by' => null];
-                if ($item->type === 'document') {
+                if (in_array($item->type, ['document', 'manual_payment'], true)) {
                     if (! str_starts_with((string) $value, 're-registration/'.$registration->id.'/')) {
                         throw ValidationException::withMessages(['data.'.$item->requirement_key => 'Lokasi berkas tidak sesuai pendaftaran.']);
                     }

@@ -341,7 +341,13 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                     ->required(),
                 Forms\Components\Toggle::make('post_announcement_enabled')
                     ->label('Proses Pasca-Pengumuman')
-                    ->helperText('Aktifkan workflow lanjutan setelah pengumuman. Untuk perguruan tinggi, nama dan urutan progres dapat diatur per Program Studi, misalnya Pembayaran Registrasi, Daftar Ulang, lalu Perwalian. Jika nonaktif, setelah pengumuman proses langsung selesai.'),
+                    ->helperText('Aktifkan workflow lanjutan setelah pengumuman. Berlaku untuk sekolah dan perguruan tinggi; label dan urutan progres perguruan tinggi tetap dapat diatur per Program Studi.'),
+                Forms\Components\Toggle::make('seat_confirmation_enabled')
+                    ->label('Minta Konfirmasi Kursi')
+                    ->default(true)
+                    ->helperText('Jika nonaktif, siswa yang diterima langsung masuk Daftar Ulang. Pengaturan lama tetap menggunakan konfirmasi kursi.')
+                    ->visible(fn (Forms\Get $get): bool => (bool) $get('post_announcement_enabled')),
+
             ])->columns(['default' => 1, 'md' => 2, 'lg' => 3, 'xl' => 5]),
             Forms\Components\Section::make('Urutan Proses Pra-Seleksi')
                 ->description('Atur urutan operasional Kartu Pendaftar dan Berkas. Pembayaran tetap menjadi gate sebelum keduanya, sedangkan Tes dan Seleksi tetap mengikuti seluruh prasyarat. Perubahan hanya berlaku pada versi konfigurasi baru.')
@@ -899,11 +905,33 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ])
                         ->collapsible(),
                 ])->collapsible(),
-            Forms\Components\Section::make('Daftar Ulang')->description('Persyaratan ini tersimpan pada versi konfigurasi dan hanya berlaku ketika Proses Pasca-Pengumuman diaktifkan.')->schema([
+            Forms\Components\Section::make('Daftar Ulang')->description('Persyaratan ini tersimpan pada versi konfigurasi, untuk K12 dan Perguruan Tinggi. Pengaturan baru hanya berlaku pada versi yang diterbitkan.')->schema([
+                Forms\Components\Toggle::make('allow_enrollment_with_deferred_payment')
+                    ->label('Izinkan Penetapan Resmi dengan Pembayaran Ditunda')
+                    ->default(false)
+                    ->helperText('Nonaktif secara bawaan. Jika aktif, penundaan yang disetujui petugas berwenang dapat mengizinkan enrollment tanpa menganggap pembayaran lunas.'),
+                Forms\Components\Select::make('re_registration_deadline_policy')
+                    ->label('Tindakan setelah Tenggat Daftar Ulang')
+                    ->options(['manual' => 'Tinjau Manual (bawaan)', 'automatic' => 'Evaluasi Pembatalan Otomatis'])
+                    ->default('manual')
+                    ->helperText('Pembatalan otomatis hanya untuk pendaftar tanpa bukti atau pengecualian yang perlu diperiksa.'),
+                Forms\Components\TextInput::make('re_registration_grace_days')
+                    ->label('Masa Toleransi (hari)')
+                    ->integer()->minValue(0)->maxValue(60)->default(3)
+                    ->helperText('Berlaku setelah tanggal target daftar ulang pada menu Daya Tampung.'),
+                Forms\Components\TextInput::make('re_registration_bank_name')
+                    ->label('Bank Tujuan Daftar Ulang')
+                    ->maxLength(120),
+                Forms\Components\TextInput::make('re_registration_bank_number')
+                    ->label('Nomor Rekening Daftar Ulang')
+                    ->maxLength(100),
+                Forms\Components\TextInput::make('re_registration_bank_holder')
+                    ->label('Nama Pemilik Rekening')
+                    ->maxLength(180),
                 Forms\Components\Repeater::make('re_registration_requirements')->label('Persyaratan daftar ulang')->default([])->schema([
                     Forms\Components\Hidden::make('key')->default(fn (): string => 'reregistration_'.strtolower(Str::random(10)))->required(),
                     Forms\Components\TextInput::make('label')->label('Nama persyaratan')->required(),
-                    Forms\Components\Select::make('type')->label('Jenis')->options(['checklist' => 'Konfirmasi', 'document' => 'Dokumen', 'payment' => 'Pembayaran', 'information' => 'Informasi'])->default('checklist')->required(),
+                    Forms\Components\Select::make('type')->label('Jenis')->options(['checklist' => 'Konfirmasi', 'document' => 'Dokumen', 'payment' => 'Pembayaran (isian teks lama)', 'manual_payment' => 'Pembayaran Manual (unggah bukti)', 'information' => 'Informasi'])->default('checklist')->required(),
                     Forms\Components\Textarea::make('instructions')->label('Petunjuk'),
                     Forms\Components\Toggle::make('active')->label('Aktif')->default(true),
                     Forms\Components\Toggle::make('required')->label('Wajib')->default(true),

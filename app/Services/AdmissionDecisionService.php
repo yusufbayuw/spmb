@@ -171,8 +171,9 @@ class AdmissionDecisionService
             $offer = AdmissionOffer::create([
                 'registration_id' => $lockedRegistration->id,
                 'admission_quota_id' => $quota?->id,
-                'status' => 'offered',
+                'status' => $lockedRegistration->requiresSeatConfirmation() ? 'offered' : 'accepted',
                 'offered_at' => now(),
+                'accepted_at' => $lockedRegistration->requiresSeatConfirmation() ? null : now(),
                 'expires_at' => now()->addHours($quota?->offer_expires_in_hours ?? 72),
             ]);
             $created = true;
@@ -180,7 +181,14 @@ class AdmissionDecisionService
                 'status' => 'accepted',
                 'accepted_at' => $lockedRegistration->accepted_at ?: now(),
             ]);
-            app(AuditTrail::class)->record('admission.offer_created', $offer, unitId: $lockedRegistration->unit_id, registrationId: $lockedRegistration->id, description: 'Penawaran penerimaan dibuat');
+            if (! $lockedRegistration->requiresSeatConfirmation()) {
+                $lockedRegistration->transitionTo('re_registration', ['status' => 'accepted']);
+                app(ReRegistrationService::class)->initialize($lockedRegistration);
+                if ($lockedRegistration->reRegistrationComplete()) {
+                    $lockedRegistration->transitionTo('enrollment', ['re_registration_completed_at' => now()]);
+                }
+            }
+            app(AuditTrail::class)->record($lockedRegistration->requiresSeatConfirmation() ? 'admission.offer_created' : 'admission.seat_allocated', $offer, unitId: $lockedRegistration->unit_id, registrationId: $lockedRegistration->id, description: $lockedRegistration->requiresSeatConfirmation() ? 'Penawaran penerimaan dibuat' : 'Kursi dialokasikan tanpa konfirmasi terpisah');
 
             return $offer->fresh('registration.user');
         }, 5);
@@ -390,11 +398,19 @@ class AdmissionDecisionService
             $offer = AdmissionOffer::create([
                 'registration_id' => $registration->id,
                 'admission_quota_id' => $lockedQuota->id,
-                'status' => 'offered',
+                'status' => $registration->requiresSeatConfirmation() ? 'offered' : 'accepted',
                 'offered_at' => now(),
+                'accepted_at' => $registration->requiresSeatConfirmation() ? null : now(),
                 'expires_at' => now()->addHours($lockedQuota->offer_expires_in_hours),
             ]);
             $registration->transitionTo('admission_offer', ['status' => 'accepted']);
+            if (! $registration->requiresSeatConfirmation()) {
+                $registration->transitionTo('re_registration', ['status' => 'accepted']);
+                app(ReRegistrationService::class)->initialize($registration);
+                if ($registration->reRegistrationComplete()) {
+                    $registration->transitionTo('enrollment', ['re_registration_completed_at' => now()]);
+                }
+            }
             app(AuditTrail::class)->record('waitlist.promoted', $offer, newValues: ['waitlist_rank' => $selection->waitlist_rank], unitId: $registration->unit_id, registrationId: $registration->id, description: 'Pendaftar dipromosikan dari daftar tunggu');
 
             return $offer->fresh('registration.user');
