@@ -52,12 +52,60 @@ class ListDocuments extends ListRecords
         // Keep the resource's operational and tenant scopes. Narrow only the
         // selected registration, never fetch it through an unscoped query.
         return parent::table($table)
+            // Count applicants per page; never split their attachments across pages.
+            // Avoid rendering every attachment at once via Filament's 'all' option.
+            ->paginated([10, 25, 50])
+            ->defaultPaginationPageOption(10)
             ->header(fn () => view('filament.admin.document-group-controls', [
                 'collapsed' => $this->defaultGroupCollapsed,
             ]))
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->when($this->registrationId, fn (Builder $query): Builder => $query
                     ->where('registration_id', $this->registrationId)));
+    }
+
+    /**
+     * Page through registration identities, then fetch every matching document
+     * for those registrations. Filament's existing table query already contains
+     * the operational/TU scopes, registration focus, active tab, and search.
+     *
+     * Group only a clone of that query: document verification and rejection
+     * must continue to receive real, unmodified Document records.
+     */
+    protected function paginateTableQuery(Builder $query): LengthAwarePaginator
+    {
+        $perPage = max(1, (int) ($this->getTableRecordsPerPage() ?? 10));
+
+        $applicants = (clone $query)
+            ->reorder()
+            ->setEagerLoads([])
+            ->select('documents.registration_id')
+            ->groupBy('documents.registration_id')
+            ->orderBy('documents.registration_id')
+            ->paginate(
+                perPage: $perPage,
+                columns: ['documents.registration_id'],
+                pageName: $this->getTablePaginationPageName(),
+                page: $this->getTablePage(),
+            );
+
+        $registrationIds = $applicants->getCollection()
+            ->pluck('registration_id')
+            ->all();
+
+        $documents = $registrationIds === []
+            ? $query->getModel()->newCollection()
+            : $query->whereIn('documents.registration_id', $registrationIds)->get();
+
+        // Filament's footer now reports applicants while each accordion still
+        // contains its complete set of documents (within the selected tab).
+        return (new LengthAwarePaginator(
+            $documents,
+            $applicants->total(),
+            $perPage,
+            $applicants->currentPage(),
+            $applicants->getOptions(),
+        ))->onEachSide(0);
     }
 
     public function setDefaultGroupCollapsed(bool $collapsed): void

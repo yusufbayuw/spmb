@@ -29,6 +29,6 @@
     </x-filament::button>
 
     <span class="text-xs text-gray-500 dark:text-gray-400">
-        Pilihan diingat selama sesi petugas ini.
+        Pilihan accordion diingat selama sesi. Pagination dihitung per pendaftar, bukan per berkas; tab status dan badge tetap menghitung berkas.
     </span>
 </div>
