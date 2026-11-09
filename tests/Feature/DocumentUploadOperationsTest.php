@@ -90,6 +90,103 @@ class DocumentUploadOperationsTest extends TestCase
             ->assertCanNotSeeTableRecords([$verified, $rejected, $pending]);
     }
 
+    public function test_document_pagination_counts_applicants_without_splitting_their_attachments(): void
+    {
+        [$unit, $staff] = $this->staffFixture();
+
+        $registrations = [];
+        $documentsByRegistration = [];
+        $keys = ['family_card', 'photo', 'certificates', 'report_card', 'birth_certificate', 'statement'];
+
+        for ($number = 1; $number <= 11; $number++) {
+            $registration = $this->registration($unit, $number, 'Anak Kelompok '.$number, $keys);
+            $registrations[] = $registration;
+            $documentsByRegistration[$registration->id] = [];
+
+            foreach ($keys as $key) {
+                $documentsByRegistration[$registration->id][] = $this->document(
+                    $registration,
+                    $key,
+                    $key.'-'.$number.'.pdf',
+                );
+            }
+        }
+
+        // A category may have more than one attachment; it must not change
+        // the applicant count or push half of their files onto another page.
+        $documentsByRegistration[$registrations[0]->id][] = $this->document(
+            $registrations[0],
+            'certificates',
+            'Sertifikat B.jpg',
+        );
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(ListDocuments::class)->assertSuccessful();
+        $this->assertSame([10, 25, 50], $page->instance()->getTable()->getPaginationPageOptions());
+
+        $firstPage = $page->instance()->getTableRecords();
+        $this->assertSame(11, $firstPage->total());
+        $this->assertSame(10, $firstPage->perPage());
+        $this->assertCount(61, $firstPage->items());
+        $this->assertSame(
+            array_map(fn (Registration $registration): int => $registration->id, array_slice($registrations, 0, 10)),
+            $firstPage->getCollection()->pluck('registration_id')->unique()->values()->all(),
+        );
+
+        $page->call('setPage', 2, $page->instance()->getTablePaginationPageName())
+            ->assertSuccessful();
+
+        $secondPage = $page->instance()->getTableRecords();
+        $this->assertSame(11, $secondPage->total());
+        $this->assertCount(6, $secondPage->items());
+        $this->assertSame(
+            [$registrations[10]->id],
+            $secondPage->getCollection()->pluck('registration_id')->unique()->values()->all(),
+        );
+
+        $page->set('tableRecordsPerPage', 25)->assertSuccessful();
+        $allEleven = $page->instance()->getTableRecords();
+        $this->assertSame(11, $allEleven->total());
+        $this->assertCount(67, $allEleven->items());
+    }
+
+    public function test_applicant_pagination_keeps_document_status_filters_and_search(): void
+    {
+        [$unit, $staff] = $this->staffFixture();
+        $first = $this->registration($unit, 40, 'Anak Status Satu', ['family_card', 'photo']);
+        $second = $this->registration($unit, 41, 'Anak Status Dua', ['family_card', 'photo']);
+
+        $verifiedFirst = $this->document($first, 'family_card', 'verified-first.pdf', verified: true);
+        $pendingFirst = $this->document($first, 'photo', 'pending-first.pdf');
+        $verifiedSecond = $this->document($second, 'family_card', 'verified-second.pdf', verified: true);
+        $rejectedSecond = $this->document($second, 'photo', 'rejected-second.pdf', rejected: true);
+
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(ListDocuments::class)->assertSuccessful();
+        $this->assertSame(2, $page->instance()->getTableRecords()->total());
+        $this->assertCount(4, $page->instance()->getTableRecords()->items());
+
+        $page->set('activeTab', 'verified')
+            ->assertCanSeeTableRecords([$verifiedFirst, $verifiedSecond])
+            ->assertCanNotSeeTableRecords([$pendingFirst, $rejectedSecond]);
+        $this->assertSame(2, $page->instance()->getTableRecords()->total());
+        $this->assertCount(2, $page->instance()->getTableRecords()->items());
+
+        $page->searchTable('Anak Status Satu')
+            ->assertCanSeeTableRecords([$verifiedFirst])
+            ->assertCanNotSeeTableRecords([$verifiedSecond, $pendingFirst]);
+        $this->assertSame(1, $page->instance()->getTableRecords()->total());
+
+        $page->set('activeTab', 'all')
+            ->assertCanSeeTableRecords([$verifiedFirst, $pendingFirst])
+            ->assertCanNotSeeTableRecords([$verifiedSecond, $rejectedSecond]);
+        $this->assertSame(1, $page->instance()->getTableRecords()->total());
+    }
+
     public function test_focus_link_cannot_bypass_tu_unit_scope(): void
     {
         [$unit, $staff] = $this->staffFixture();
