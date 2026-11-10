@@ -12,6 +12,14 @@ class ReRegistrationService
 {
     public function initialize(Registration $registration): void
     {
+        // Snapshot the initial deadline only at first entry; legacy configurations remain manual.
+        if (! $registration->re_registration_due_at) {
+            $quota = $registration->admissionOffer?->quota;
+            if ($quota) {
+                $registration->forceFill(['re_registration_due_at' => now()->addDays($quota->re_registration_due_in_days)])->save();
+            }
+        }
+
         foreach ($registration->reRegistrationRequirements() as $requirement) {
             ReRegistrationItem::firstOrCreate(
                 ['registration_id' => $registration->id, 'requirement_key' => $requirement['key']],
@@ -37,6 +45,9 @@ class ReRegistrationService
             $registration = Registration::query()->lockForUpdate()->findOrFail($lockedItem->registration_id);
             abort_if($staff->isTU() && $staff->unit_id !== $registration->unit_id, 403);
             $registration->assertCurrentStage('re_registration');
+            if ($lockedItem->status !== 'submitted') {
+                throw ValidationException::withMessages(['re_registration' => 'Hanya persyaratan yang sudah dikirim dapat diverifikasi.']);
+            }
             $lockedItem->update([
                 'status' => $approved ? 'verified' : 'rejected',
                 'verified_by' => $staff->id,
