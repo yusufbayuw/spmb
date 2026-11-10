@@ -159,7 +159,9 @@ class RegistrationPrintController extends Controller
 
             return [
                 'name' => Str::limit((string) ($configuredTest['name'] ?? $booking->admissionTest?->name ?? 'Tes'), 46),
-                'time' => $startsAt->format('d/m/Y H:i').'–'.$endsAt->format('H:i'),
+                // Keep each calendar date: a session can finish on the next day.
+                'startsAt' => $startsAt->format('d/m/Y H:i'),
+                'endsAt' => $endsAt->format('d/m/Y H:i'),
                 'location' => Str::limit((string) ($session->location ?: 'Lokasi belum ditentukan'), 40),
             ];
         });

@@ -288,6 +288,122 @@ class TestBookingTest extends TestCase
         }
     }
 
+    public function test_test_card_shows_both_full_dates_for_an_overnight_session(): void
+    {
+        [$registration, $parent, $session] = $this->fixture();
+        $startsAt = now()->addDays(3)->setTime(7, 30);
+        $endsAt = $startsAt->copy()->addDay()->setTime(15, 0);
+        $session->update(['starts_at' => $startsAt, 'ends_at' => $endsAt]);
+
+        app(TestBookingService::class)->book($registration, $session, $parent);
+        app(TestScheduleConfirmationService::class)->confirm($registration);
+
+        $response = $this->actingAs($parent)
+            ->get(route('registration.test-card', $registration))
+            ->assertOk()
+            ->assertSeeText('Waktu mulai: '.$startsAt->format('d/m/Y H:i'))
+            ->assertSeeText('Waktu selesai: '.$endsAt->format('d/m/Y H:i'))
+            ->assertSeeText('Lokasi: Ruang 1');
+
+        $this->assertSame(1, substr_count($response->getContent(), 'class="card-svg test-card-svg"'));
+    }
+
+    public function test_two_and_three_selection_tests_fit_on_one_card_with_full_timestamps(): void
+    {
+        [$registration, $parent, $firstSession] = $this->fixture();
+        $service = app(TestBookingService::class);
+        $sessions = [$firstSession];
+
+        $service->book($registration, $firstSession, $parent);
+
+        foreach ([2, 3] as $number) {
+            $test = AdmissionTest::create([
+                'unit_id' => $registration->unit_id,
+                'name' => 'Tes Lanjutan '.$number,
+                'is_active' => true,
+                'is_required' => true,
+            ]);
+            $startsAt = now()->addDays($number + 3)->setTime(8, 15);
+            $session = TestSession::create([
+                'admission_test_id' => $test->id,
+                'starts_at' => $startsAt,
+                'ends_at' => $startsAt->copy()->addHours(2),
+                'booking_closes_at' => $startsAt->copy()->subDay(),
+                'location' => 'Ruang '.$number,
+                'capacity' => 1,
+                'status' => 'active',
+            ]);
+            $sessions[] = $session;
+            $service->book($registration, $session, $parent);
+            app(TestScheduleConfirmationService::class)->confirm($registration);
+
+            $response = $this->actingAs($parent)
+                ->get(route('registration.test-card', $registration))
+                ->assertOk();
+            $html = $response->getContent();
+
+            $this->assertSame(1, substr_count($html, 'class="card-svg test-card-svg"'));
+
+            foreach ($sessions as $scheduled) {
+                $response->assertSeeText('Waktu mulai: '.$scheduled->starts_at->format('d/m/Y H:i'))
+                    ->assertSeeText('Waktu selesai: '.$scheduled->ends_at->format('d/m/Y H:i'));
+            }
+            $response->assertSeeText('Lokasi: Ruang '.$number);
+        }
+    }
+
+    public function test_more_than_three_tests_print_on_continuation_cards_without_omitting_times(): void
+    {
+        [$registration, $parent, $firstSession] = $this->fixture();
+        $service = app(TestBookingService::class);
+        $sessions = [$firstSession];
+
+        $service->book($registration, $firstSession, $parent);
+
+        for ($number = 2; $number <= 4; $number++) {
+            $test = AdmissionTest::create([
+                'unit_id' => $registration->unit_id,
+                'name' => 'Tes Tambahan '.$number,
+                'is_active' => true,
+                'is_required' => true,
+            ]);
+            $startsAt = now()->addDays($number + 3)->setTime(9, 0);
+            $session = TestSession::create([
+                'admission_test_id' => $test->id,
+                'starts_at' => $startsAt,
+                'ends_at' => $startsAt->copy()->addHour(),
+                'booking_closes_at' => $startsAt->copy()->subDay(),
+                'location' => 'Ruang '.$number,
+                'capacity' => 1,
+                'status' => 'active',
+            ]);
+            $sessions[] = $session;
+            $service->book($registration, $session, $parent);
+        }
+        app(TestScheduleConfirmationService::class)->confirm($registration);
+
+        $response = $this->actingAs($parent)
+            ->get(route('registration.test-card', $registration))
+            ->assertOk()
+            ->assertSeeText('Jadwal 1/2')
+            ->assertSeeText('Jadwal 2/2')
+            ->assertSeeText('Jadwal lanjutan dicetak pada halaman A4 berikutnya.');
+
+        $html = $response->getContent();
+        $this->assertSame(2, substr_count($html, 'class="card-svg test-card-svg"'));
+        $this->assertSame(2, substr_count($html, 'Scan untuk verifikasi'));
+        // The first test on a continuation card must restart at the first row.
+        $this->assertMatchesRegularExpression(
+            '/<text x="62" y="370"[^>]*>Tes Tambahan 4<\\/text>/',
+            $html,
+        );
+
+        foreach ($sessions as $session) {
+            $response->assertSeeText('Waktu mulai: '.$session->starts_at->format('d/m/Y H:i'))
+                ->assertSeeText('Waktu selesai: '.$session->ends_at->format('d/m/Y H:i'));
+        }
+    }
+
     private function capturePage(string $name, string $html): void
     {
         $directory = getenv('SPMB_UI_CAPTURE_DIR');

@@ -53,6 +53,7 @@
             height: auto;
             filter: drop-shadow(0 12px 26px rgba(15, 39, 77, .16));
         }
+        .a4-page:last-of-type { margin-bottom: 24px; }
         .hint {
             max-width: 760px;
             margin: -8px auto 28px;
@@ -71,7 +72,12 @@
                 min-height: 297mm;
                 margin: 0;
                 box-shadow: none;
-                page-break-after: avoid;
+                break-after: page;
+                page-break-after: always;
+            }
+            .a4-page:last-of-type {
+                break-after: auto;
+                page-break-after: auto;
             }
             .card-svg {
                 width: 85.6mm;
@@ -100,44 +106,52 @@
     <button type="button" class="secondary" onclick="downloadCard('jpeg')">Unduh JPG</button>
 </div>
 
+@php
+    // A physical card has limited space. Keep at most three complete tests per card.
+    // Additional tests receive continuation cards instead of unreadably small text.
+    // Collection::chunk() may preserve source keys; reset them so each new
+    // card starts its schedule rows at y=370 rather than continuing off-card.
+    $schedulePages = $schedules->chunk(3)->map(fn ($page) => $page->values());
+@endphp
+@foreach($schedulePages as $pageIndex => $pageSchedules)
 <main class="a4-page">
 <svg
-    id="test-card-svg"
-    class="card-svg"
+    id="test-card-svg-{{ $pageIndex + 1 }}"
+    class="card-svg test-card-svg"
     viewBox="0 0 1011 638"
     xmlns="http://www.w3.org/2000/svg"
     role="img"
-    aria-labelledby="card-title card-desc"
+    aria-labelledby="card-title-{{ $pageIndex + 1 }} card-desc-{{ $pageIndex + 1 }}"
 >
-    <title id="card-title">Kartu Tes {{ $registration->full_name }}</title>
-    <desc id="card-desc">Kartu tes resmi {{ $card['unitName'] }} yang memuat jadwal tes peserta.</desc>
+    <title id="card-title-{{ $pageIndex + 1 }}">Kartu Tes {{ $registration->full_name }} · {{ $pageIndex + 1 }}/{{ $schedulePages->count() }}</title>
+    <desc id="card-desc-{{ $pageIndex + 1 }}">Kartu tes resmi {{ $card['unitName'] }} yang memuat jadwal tes peserta, bagian {{ $pageIndex + 1 }} dari {{ $schedulePages->count() }}.</desc>
 
     <defs>
-        <clipPath id="card-clip">
+        <clipPath id="card-clip-{{ $pageIndex + 1 }}">
             <rect x="8" y="8" width="995" height="622" rx="30" />
         </clipPath>
-        <linearGradient id="header-gradient" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="header-gradient-{{ $pageIndex + 1 }}" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stop-color="#06346f"/>
             <stop offset="58%" stop-color="#0b4f9d"/>
             <stop offset="100%" stop-color="#1970c9"/>
         </linearGradient>
-        <linearGradient id="footer-gradient" x1="0" y1="0" x2="1" y2="0">
+        <linearGradient id="footer-gradient-{{ $pageIndex + 1 }}" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stop-color="#06346f"/>
             <stop offset="100%" stop-color="#0d5bae"/>
         </linearGradient>
-        <pattern id="security-pattern" width="56" height="56" patternUnits="userSpaceOnUse">
+        <pattern id="security-pattern-{{ $pageIndex + 1 }}" width="56" height="56" patternUnits="userSpaceOnUse">
             <path d="M0 28 C14 8 42 8 56 28 C42 48 14 48 0 28Z" fill="none" stroke="#4c91d0" stroke-width="1" opacity=".13"/>
         </pattern>
     </defs>
 
-    <g clip-path="url(#card-clip)">
+    <g clip-path="url(#card-clip-{{ $pageIndex + 1 }})">
         <rect width="1011" height="638" fill="#f8fbff"/>
-        <rect width="1011" height="190" fill="url(#header-gradient)"/>
+        <rect width="1011" height="190" fill="url(#header-gradient-{{ $pageIndex + 1 }})"/>
         <rect y="190" width="1011" height="330" fill="#f8fbff"/>
-        <rect y="190" width="1011" height="330" fill="url(#security-pattern)"/>
+        <rect y="190" width="1011" height="330" fill="url(#security-pattern-{{ $pageIndex + 1 }})"/>
         <path d="M620 190 C760 260 800 390 1011 430 L1011 190Z" fill="#dfefff" opacity=".55"/>
         <path d="M570 520 C720 450 835 475 1011 520 L1011 638 L570 638Z" fill="#e7f3ff"/>
-        <rect y="520" width="650" height="118" fill="url(#footer-gradient)"/>
+        <rect y="520" width="650" height="118" fill="url(#footer-gradient-{{ $pageIndex + 1 }})"/>
 
         @if($card['logoDataUri'])
             <rect x="42" y="32" width="118" height="118" rx="16" fill="#fff" opacity=".10"/>
@@ -150,6 +164,9 @@
 
         <line x1="178" y1="40" x2="178" y2="150" stroke="#fff" stroke-width="2" opacity=".72"/>
         <text x="202" y="64" fill="#d9ebff" font-size="22" font-weight="700" letter-spacing="2">{{ mb_strtoupper($card['headerLabel']) }}</text>
+        @if($schedulePages->count() > 1)
+            <text x="730" y="64" text-anchor="end" fill="#d9ebff" font-size="16" font-weight="700">Jadwal {{ $pageIndex + 1 }}/{{ $schedulePages->count() }}</text>
+        @endif
 
         @foreach($card['headerTitleLines'] as $index => $line)
             <text x="202" y="{{ 106 + ($index * 34) }}" fill="#fff" font-size="{{ $card['headerTitleFontSize'] }}" font-weight="800">{{ $line }}</text>
@@ -158,16 +175,11 @@
         <text x="202" y="{{ $academicYearY }}" fill="#dcecff" font-size="22" font-weight="700">{{ $card['academicYearText'] }}</text>
 
         @php
-            $scheduleCount = max(1, $schedules->count());
-            $scheduleRowHeight = match (true) {
-                $scheduleCount <= 2 => 78,
-                $scheduleCount === 3 => 62,
-                $scheduleCount <= 5 => 38,
-                default => max(24, intdiv(126, max(1, $scheduleCount - 1))),
-            };
-            $scheduleLineOffset = $scheduleCount <= 2 ? 25 : ($scheduleCount === 3 ? 21 : ($scheduleCount <= 5 ? 17 : 14));
-            $scheduleNameFontSize = $scheduleCount <= 2 ? 22 : ($scheduleCount === 3 ? 18 : ($scheduleCount <= 5 ? 15 : 12));
-            $scheduleMetaFontSize = $scheduleCount <= 2 ? 17 : ($scheduleCount === 3 ? 14 : ($scheduleCount <= 5 ? 12 : 10));
+            $compactSchedule = $pageSchedules->count() === 3;
+            // Schedule area: x=62..730, y=352..519 (photo starts at x=772).
+            // 1-2 tests use stacked timestamps; 3 use two labeled columns.
+            $scheduleRowHeight = $compactSchedule ? 50 : 77;
+            $scheduleNameFontSize = $compactSchedule ? 16 : 19;
         @endphp
 
         <g font-family="Arial, Helvetica, sans-serif">
@@ -182,12 +194,20 @@
             <line x1="62" y1="320" x2="730" y2="320" stroke="#b7d3ed" stroke-width="1.5"/>
             <text x="62" y="346" fill="#45637f" font-size="18" font-weight="800" letter-spacing="1.2">JADWAL TES</text>
 
-            @foreach($schedules as $index => $schedule)
+            @foreach($pageSchedules as $index => $schedule)
                 @php
-                    $rowY = 374 + ($index * $scheduleRowHeight);
+                    $rowY = ($compactSchedule ? 368 : 370) + ($index * $scheduleRowHeight);
                 @endphp
                 <text x="62" y="{{ $rowY }}" fill="#0f274d" font-size="{{ $scheduleNameFontSize }}" font-weight="800">{{ $schedule['name'] }}</text>
-                <text x="62" y="{{ $rowY + $scheduleLineOffset }}" fill="#45637f" font-size="{{ $scheduleMetaFontSize }}" font-weight="700">{{ $schedule['time'] }} · {{ $schedule['location'] }}</text>
+                @if($compactSchedule)
+                    <text x="62" y="{{ $rowY + 13 }}" fill="#45637f" font-size="12" font-weight="600">Lokasi: {{ $schedule['location'] }}</text>
+                    <text x="62" y="{{ $rowY + 30 }}" fill="#0f274d" font-size="13" font-weight="700">Waktu mulai: {{ $schedule['startsAt'] }}</text>
+                    <text x="393" y="{{ $rowY + 30 }}" fill="#0f274d" font-size="13" font-weight="700">Waktu selesai: {{ $schedule['endsAt'] }}</text>
+                @else
+                    <text x="62" y="{{ $rowY + 19 }}" fill="#0f274d" font-size="16" font-weight="700">Waktu mulai: {{ $schedule['startsAt'] }}</text>
+                    <text x="62" y="{{ $rowY + 36 }}" fill="#0f274d" font-size="16" font-weight="700">Waktu selesai: {{ $schedule['endsAt'] }}</text>
+                    <text x="62" y="{{ $rowY + 52 }}" fill="#45637f" font-size="13" font-weight="600">Lokasi: {{ $schedule['location'] }}</text>
+                @endif
             @endforeach
         </g>
 
@@ -216,55 +236,67 @@
     <rect x="8" y="8" width="995" height="622" rx="30" fill="none" stroke="#2b79bd" stroke-width="3"/>
 </svg>
 </main>
+@endforeach
 
 <p class="hint">
-    Saat mencetak, gunakan skala 100% / Actual Size agar ukuran kartu tetap 85,6 × 53,98 mm pada kertas A4.
+    Saat mencetak, gunakan skala 100% / Actual Size agar ukuran setiap kartu tetap 85,6 × 53,98 mm pada kertas A4.
+    @if($schedulePages->count() > 1)
+        Jadwal lanjutan dicetak pada halaman A4 berikutnya. Unduhan PNG/JPG memuat seluruh kartu secara berurutan dalam satu gambar.
+    @endif
 </p>
 
 <script>
 async function downloadCard(format) {
-    const svg = document.getElementById('test-card-svg');
+    const svgs = [...document.querySelectorAll('svg.test-card-svg')];
+    if (!svgs.length) return;
+
+    // All continuation cards belong to the same image. This avoids browsers
+    // blocking automatic multiple downloads and keeps existing PNG/JPG actions.
+    const canvas = document.createElement('canvas');
+    canvas.width = 1011;
+    canvas.height = 638 * svgs.length;
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    if (format === 'jpeg') {
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
     const serializer = new XMLSerializer();
-    const source = serializer.serializeToString(svg);
-    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
-    const blobUrl = URL.createObjectURL(blob);
-    const image = new Image();
-
-    image.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 1011;
-        canvas.height = 638;
-
-        const context = canvas.getContext('2d');
-
-        if (format === 'jpeg') {
-            context.fillStyle = '#ffffff';
-            context.fillRect(0, 0, canvas.width, canvas.height);
+    for (const [index, svg] of svgs.entries()) {
+        const source = serializer.serializeToString(svg);
+        const blobUrl = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }));
+        try {
+            await new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => {
+                    context.drawImage(image, 0, index * 638, 1011, 638);
+                    resolve();
+                };
+                image.onerror = reject;
+                image.src = blobUrl;
+            });
+        } finally {
+            URL.revokeObjectURL(blobUrl);
         }
+    }
 
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(blobUrl);
+    const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const extension = format === 'jpeg' ? 'jpg' : 'png';
+    canvas.toBlob((output) => {
+        if (!output) return;
 
-        const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-        const extension = format === 'jpeg' ? 'jpg' : 'png';
-
-        canvas.toBlob((output) => {
-            if (!output) {
-                return;
-            }
-
-            const url = URL.createObjectURL(output);
-            const anchor = document.createElement('a');
-            anchor.href = url;
-            anchor.download = @json($card['filenameStem']) + '.' + extension;
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
-            URL.revokeObjectURL(url);
-        }, mime, format === 'jpeg' ? 0.94 : undefined);
-    };
-
-    image.src = blobUrl;
+        const url = URL.createObjectURL(output);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = @json($card['filenameStem']) + '.' + extension;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+    }, mime, format === 'jpeg' ? 0.94 : undefined);
 }
 </script>
 </body>
