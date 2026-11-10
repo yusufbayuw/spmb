@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\Analytics\Overview;
+use App\Filament\Admin\Pages\Analytics\Schools;
 use App\Filament\Admin\Support\AnalyticsBreakdownChart;
 use App\Filament\Admin\Pages\Analytics\Registration as RegistrationAnalytics;
 use App\Models\Document;
@@ -16,6 +17,7 @@ use App\Services\AnalyticsCenterService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -145,6 +147,88 @@ class AnalyticsCenterTest extends TestCase
         ])
             ->assertSuccessful()
             ->assertDontSee('wire:poll', false);
+    }
+
+    public function test_school_analytics_page_and_chart_render_with_real_aggregations(): void
+    {
+        $this->seed(ShieldSeeder::class);
+
+        $own = $this->unit('SD Analitik', 'AN-SCH-P');
+        $other = $this->unit('SMP Lain', 'AN-SCH-O');
+
+        $one = $this->registration($own, 91, ' SD NUSANTARA ');
+        $two = $this->registration($own, 92, 'sd nusantara');
+        $this->registration($own, 93, 'SD HARAPAN');
+        $this->registration($own, 95, '');
+        $this->registration($own, 96, '   ')->update(['previous_school' => null]);
+        $this->registration($other, 94, 'SEKOLAH RAHASIA');
+
+        $one->update(['city' => 'Bandung']);
+        $two->update(['city' => 'Bandung']);
+
+        Document::create([
+            'registration_id' => $one->id,
+            'requirement_key' => null,
+            'type' => 'report_card',
+            'file_path' => 'analytics/report-91.pdf',
+            'original_name' => 'report-91.pdf',
+            'file_type' => 'pdf',
+            'file_size' => 100,
+            'is_verified' => true,
+        ]);
+        Document::create([
+            'registration_id' => $two->id,
+            'requirement_key' => '',
+            'type' => 'report_card',
+            'file_path' => 'analytics/report-92.pdf',
+            'original_name' => 'report-92.pdf',
+            'file_type' => 'pdf',
+            'file_size' => 100,
+            'is_verified' => true,
+        ]);
+
+        $staff = $this->staff('tu', $own);
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        // Replicate the strict SQL mode that produced HTTP 500 on a MariaDB
+        // development server, while leaving SQLite test runs unchanged.
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',ONLY_FULL_GROUP_BY')");
+        }
+
+        Livewire::test(Schools::class)
+            ->assertSuccessful()
+            ->assertSee('Asal sekolah terbanyak')
+            ->assertSee('SD NUSANTARA')
+            ->assertSee('Tidak diisi')
+            ->assertDontSee('SEKOLAH RAHASIA');
+
+        Livewire::test(AnalyticsBreakdownChart::class, [
+            'filters' => ['unit_id' => $own->id, 'lifecycle' => 'active'],
+            'section' => 'schools',
+        ])->assertSuccessful();
+
+        $analytics = app(AnalyticsCenterService::class);
+        $report = $analytics->report($staff, [], 'schools');
+        $this->assertSame('5', $report['stats'][0]['value']);
+
+        $schools = collect($report['groups'][0]['rows'])->keyBy('label');
+        $this->assertSame(2, $schools['SD NUSANTARA']['count']);
+        $this->assertSame(2, $schools['Tidak diisi']['count']);
+        $this->assertSame(1, $schools['SD HARAPAN']['count']);
+
+        // The explorer uses a second school aggregation entry point.
+        $explorer = $analytics->report($staff, ['dimension' => 'school'], 'explorer');
+        $this->assertSame(2, collect($explorer['groups'][0]['rows'])
+            ->keyBy('label')['SD NUSANTARA']['count']);
+
+        // Other expression-based analytics must also render under strict SQL.
+        $this->assertSame('5', $analytics->report($staff, [], 'registration')['stats'][0]['value']);
+        $documents = $analytics->report($staff, [], 'documents');
+        $this->assertSame('2', $documents['stats'][0]['value']);
+        $this->assertSame(2, collect($documents['groups'][1]['rows'])
+            ->keyBy('label')['report_card']['count']);
     }
 
     public function test_pages_require_staff_role_active_status_and_operational_unit(): void
