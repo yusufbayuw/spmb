@@ -155,8 +155,9 @@ class TestScheduleTest extends TestCase
             ->assertSee('Unduh PNG')
             ->assertSee('Unduh JPG')
             ->assertSee('85,6 × 53,98 mm')
-            ->assertSeeText('20/09/2026 08:00–09:30')
-            ->assertSeeText('Ruang Ujian A')
+            ->assertSeeText('Waktu mulai: 20/09/2026 08:00')
+            ->assertSeeText('Waktu selesai: 20/09/2026 09:30')
+            ->assertSeeText('Lokasi: Ruang Ujian A')
             ->assertDontSeeText('Bawa alat tulis.')
             ->assertDontSee('<table', false);
 
