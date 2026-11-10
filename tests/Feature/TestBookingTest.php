@@ -392,6 +392,11 @@ class TestBookingTest extends TestCase
         $html = $response->getContent();
         $this->assertSame(2, substr_count($html, 'class="card-svg test-card-svg"'));
         $this->assertSame(2, substr_count($html, 'Scan untuk verifikasi'));
+        // The first test on a continuation card must restart at the first row.
+        $this->assertMatchesRegularExpression(
+            '/<text x="62" y="370"[^>]*>Tes Tambahan 4<\\/text>/',
+            $html,
+        );
 
         foreach ($sessions as $session) {
             $response->assertSeeText('Waktu mulai: '.$session->starts_at->format('d/m/Y H:i'))

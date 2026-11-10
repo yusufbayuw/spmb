@@ -109,7 +109,9 @@
 @php
     // A physical card has limited space. Keep at most three complete tests per card.
     // Additional tests receive continuation cards instead of unreadably small text.
-    $schedulePages = $schedules->chunk(3);
+    // Collection::chunk() may preserve source keys; reset them so each new
+    // card starts its schedule rows at y=370 rather than continuing off-card.
+    $schedulePages = $schedules->chunk(3)->map(fn ($page) => $page->values());
 @endphp
 @foreach($schedulePages as $pageIndex => $pageSchedules)
 <main class="a4-page">
