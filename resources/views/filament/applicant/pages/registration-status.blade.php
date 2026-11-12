@@ -44,7 +44,14 @@
                         </x-filament::badge>
                     </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        @if ($registration->current_stage === 'completed')
+                        @if ($registration->opening && ($registration->opening->show_total_applicants || $registration->opening->show_verified_applicants))
+            <x-filament::section>
+                <x-slot name="heading">Statistik {{ $registration->opening->wave }}</x-slot>
+                @include('filament.applicant.components.opening-statistics', ['opening' => $registration->opening])
+            </x-filament::section>
+        @endif
+
+        @if ($registration->current_stage === 'completed')
                             Proses pendaftaran telah mencapai 100%.
                         @else
                             Proses pendaftaran telah mencapai {{ $progress }}%. Ikuti aksi yang tersedia agar proses dapat berlanjut.

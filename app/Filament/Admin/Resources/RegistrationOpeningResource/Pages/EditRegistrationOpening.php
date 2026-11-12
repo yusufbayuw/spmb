@@ -18,6 +18,11 @@ class EditRegistrationOpening extends EditRecord
             $data['unit_id'] = auth()->user()->unit_id;
         }
 
+        // TU can operate openings but cannot change applicant-facing statistics.
+        if (! (auth()->user()?->isAdmin() || auth()->user()?->isAdminUnit())) {
+            unset($data['show_total_applicants'], $data['show_verified_applicants']);
+        }
+
         $status = $data['status'] ?? $this->record->status;
 
         if ($status === 'open' && $this->record->status !== 'open') {

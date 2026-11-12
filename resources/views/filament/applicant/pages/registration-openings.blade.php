@@ -157,6 +157,8 @@
                                     <p class="text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $opening->description }}</p>
                                 @endif
 
+                                @include('filament.applicant.components.opening-statistics', ['opening' => $opening])
+
                                 <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10">
                                     <a href="{{ route('admissions.show', $opening) }}" class="text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
                                         Lihat detail
