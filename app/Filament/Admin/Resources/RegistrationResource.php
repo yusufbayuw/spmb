@@ -21,6 +21,7 @@ use App\Services\RegistrationManualEmailService;
 use App\Services\ApplicantEmailCorrectionService;
 use App\Models\MailDeliveryAttempt;
 use App\Services\UnitConfigurationService;
+use App\Services\RegistrationTableColumnService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -281,7 +282,11 @@ class RegistrationResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->persistSortInSession()
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
-            ->columns([
+            ->columns(function () use ($table): array {
+                $visibility = app(RegistrationTableColumnService::class);
+                $displayUnit = $visibility->activeUnit($table);
+
+                $coreColumns = [
                 // Keep the participant's name sticky; NIK is a separate, non-sticky column.
                 // The name remains visible so hiding other columns cannot remove the row's identity.
                 Tables\Columns\TextColumn::make('full_name')->label('Calon Peserta')
@@ -290,28 +295,28 @@ class RegistrationResource extends Resource
                     ->extraHeaderAttributes(['class' => 'spmb-registration-sticky-identity'])
                     ->extraCellAttributes(['class' => 'spmb-registration-sticky-identity']),
                 Tables\Columns\TextColumn::make('nik')->label('NIK')
-                    ->searchable()->copyable()->sortable()->toggleable(),
+                    ->searchable()->copyable()->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'nik')),
                 Tables\Columns\TextColumn::make('registration_number')->label('No. Registrasi')
-                    ->searchable()->copyable()->placeholder('Belum diterbitkan')->sortable()->toggleable(),
+                    ->searchable()->copyable()->placeholder('Belum diterbitkan')->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'registration_number')),
                 Tables\Columns\TextColumn::make('unit.name')->label('Unit')
-                    ->badge()->sortable()->toggleable(),
+                    ->badge()->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'unit.name')),
                 Tables\Columns\TextColumn::make('opening.academic_year')->label('Tahun Ajaran')
-                    ->placeholder('-')->sortable()->toggleable(),
+                    ->placeholder('-')->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'opening.academic_year')),
                 Tables\Columns\TextColumn::make('is_alumni')->label('Alumni')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => $state ? 'Alumni' : 'Non-Alumni')
                     ->color(fn ($state): string => $state ? 'success' : 'gray')
                     ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy('is_alumni', $direction))
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'is_alumni')),
                 Tables\Columns\TextColumn::make('opening.wave')->label('Gelombang')
-                    ->placeholder('-')->sortable()->toggleable(),
+                    ->placeholder('-')->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'opening.wave')),
                 Tables\Columns\TextColumn::make('pathway.name')->label('Jalur')
-                    ->badge()->placeholder('-')->sortable()->toggleable(),
+                    ->badge()->placeholder('-')->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'pathway.name')),
                 Tables\Columns\TextColumn::make('opening.registration_fee')->label('Biaya Formulir')
-                    ->money('IDR', locale: 'id')->placeholder('-')->sortable()->toggleable(),
+                    ->money('IDR', locale: 'id')->placeholder('-')->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'opening.registration_fee')),
                 Tables\Columns\TextColumn::make('current_stage')->label('Tahap')
                     ->badge()->formatStateUsing(fn ($state, Registration $record): string => $record->stageLabel())
-                    ->sortable()->toggleable(),
+                    ->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'current_stage')),
                 Tables\Columns\TextColumn::make('lifecycle_status')
                     ->label('Lifecycle')->badge()
                     ->formatStateUsing(fn ($state) => Registration::LIFECYCLE_STATUSES[$state] ?? $state)
@@ -321,11 +326,86 @@ class RegistrationResource extends Resource
                         'cancelled' => 'danger',
                         default => 'gray',
                     })
-                    ->sortable()->toggleable(),
+                    ->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'lifecycle_status')),
                 Tables\Columns\TextColumn::make('created_at')->label('Tanggal Daftar')
                     ->dateTime('d/m/Y H:i', timezone: config('app.timezone'))
-                    ->sortable()->toggleable(),
-            ])
+                    ->sortable()->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'created_at')),
+                ];
+
+                $extraColumns = [];
+                $options = $displayUnit ? $visibility->options($displayUnit) : RegistrationTableColumnService::LABELS;
+
+                if (array_key_exists('study_program', $options)) {
+                    $extraColumns[] = Tables\Columns\TextColumn::make('study_program')
+                        ->label('Program Studi')
+                        ->getStateUsing(fn (Registration $record): string => $record->unit?->isHigherEducation()
+                            ? ($record->opening?->studyProgram?->label() ?? '-')
+                            : '-')
+                        ->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'study_program'));
+                }
+
+                foreach (RegistrationTableColumnService::LABELS as $key => $label) {
+                    if (in_array($key, [...RegistrationTableColumnService::DEFAULT_COLUMNS, 'study_program'], true)
+                        || ! array_key_exists($key, $options)) {
+                        continue;
+                    }
+
+                    $column = Tables\Columns\TextColumn::make($key)
+                        ->label($label)
+                        ->placeholder('-')
+                        ->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, $key))
+                        ->sortable();
+
+                    if (in_array($key, ['nisn', 'nickname', 'phone', 'email', 'previous_school'], true)) {
+                        $column->searchable();
+                    }
+
+                    if ($key === 'birth_date') {
+                        $column->date('d/m/Y');
+                    }
+
+                    $extraColumns[] = $column;
+                }
+
+                if ($displayUnit) {
+                    $configuration = app(UnitConfigurationService::class)->current((int) $displayUnit->id);
+                    foreach ($configuration?->fields ?? [] as $definition) {
+                        if (! is_array($definition) || ! array_key_exists('custom:'.($definition['key'] ?? ''), $options)) {
+                            continue;
+                        }
+
+                        $fieldKey = (string) $definition['key'];
+                        $fieldType = (string) ($definition['type'] ?? 'text');
+                        $extraColumns[] = Tables\Columns\TextColumn::make('custom:'.$fieldKey)
+                            ->label((string) ($definition['label'] ?? $fieldKey))
+                            ->getStateUsing(function (Registration $record) use ($fieldKey, $fieldType): string {
+                                $value = data_get($record->custom_answers, $fieldKey);
+
+                                if ($value === null || $value === '' || $value === []) {
+                                    return '-';
+                                }
+
+                                if ($fieldType === 'file') {
+                                    return 'Sudah diunggah';
+                                }
+
+                                if ($fieldType === 'boolean') {
+                                    return (string) $value === '1' ? 'Ya' : 'Tidak';
+                                }
+
+                                if (is_array($value)) {
+                                    return implode(', ', array_map('strval', array_filter($value, 'is_scalar')));
+                                }
+
+                                return is_scalar($value) ? (string) $value : '-';
+                            })
+                            ->limit(65)
+                            ->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'custom:'.$fieldKey));
+                    }
+                }
+
+                return [...$coreColumns, ...$extraColumns];
+            })
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
                 Tables\Filters\SelectFilter::make('registration_opening_id')
