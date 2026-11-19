@@ -38,7 +38,7 @@
     <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
         <nav class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8" aria-label="Navigasi utama">
             <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-4">
-                @if ($logoUrl)
+                @if ($logoUrl && (! request()->routeIs('home') || ($homepageBlocks['header_logo'] ?? true)))
                     <img src="{{ $logoUrl }}" alt="Logo {{ $portal['foundation_name'] ?? app(\App\Services\AdmissionTerminology::class)->portalName() }}" class="h-11 w-auto shrink-0 object-contain">
                 @endif
                 <span class="min-w-0">

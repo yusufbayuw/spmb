@@ -13,6 +13,7 @@ class BrandMediaService
     private const ALLOWED_PREFIXES = [
         'units/logos/',
         'branding/',
+        'admissions/banners/',
     ];
 
     public function disk(): FilesystemAdapter

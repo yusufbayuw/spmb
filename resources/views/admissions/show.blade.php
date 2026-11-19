@@ -23,6 +23,7 @@
     $shareUrl = route('admissions.show', $opening);
     $qrUrl = route('admissions.qr', $opening);
     $unitUrl = route('admissions.unit', ['unit' => $opening->unit?->code]);
+    $banner = filled($opening->banner_path) ? app(\App\Services\BrandMediaService::class)->fileMetadata($opening->banner_path) : null;
 @endphp
 
 @section('title'){{ $metaTitle }}@endsection
@@ -33,6 +34,9 @@
     <meta property="og:description" content="{{ $metaDescription }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ $shareUrl }}">
+    @if ($banner)
+        <meta property="og:image" content="{{ url($banner['url']) }}">
+    @endif
 @endpush
 
 @section('content')
@@ -49,6 +53,12 @@
             @if (session('admission_notice'))
                 <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900" role="status">
                     {{ session('admission_notice') }}
+                </div>
+            @endif
+
+            @if ($banner)
+                <div class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                    <img src="{{ $banner['url'] }}" alt="Banner penerimaan {{ $title }} {{ $opening->wave }}" class="h-auto max-h-96 w-full object-cover" loading="eager" fetchpriority="high">
                 </div>
             @endif
 

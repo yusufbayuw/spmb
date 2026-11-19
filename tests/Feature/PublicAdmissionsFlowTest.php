@@ -9,6 +9,9 @@ use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -55,6 +58,33 @@ class PublicAdmissionsFlowTest extends TestCase
 
         $this->get(route('admissions.show', $archived))->assertNotFound();
         $this->get(route('admissions.qr', $archived))->assertNotFound();
+    }
+
+    public function test_opening_banner_is_optional_public_and_is_scoped_to_its_unit(): void
+    {
+        Storage::fake('public');
+        $unit = $this->schoolUnit();
+        $opening = $this->opening($unit);
+        $path = Storage::disk('public')->putFile(
+            'admissions/banners/'.$unit->id,
+            UploadedFile::fake()->image('promo.jpg', 1600, 500),
+        );
+        $opening->update(['banner_path' => $path]);
+        $url = route('branding.media', ['path' => $path], false);
+
+        $this->get(route('admissions.show', $opening))
+            ->assertOk()
+            ->assertSee('src="'.$url.'"', false)
+            ->assertSee('Banner penerimaan');
+        $this->get($url)->assertOk();
+
+        $another = $this->opening($unit, ['wave' => 'Gelombang Tanpa Banner']);
+        $this->get(route('admissions.show', $another))
+            ->assertOk()
+            ->assertDontSee('Banner penerimaan');
+
+        $this->expectException(ValidationException::class);
+        $opening->update(['banner_path' => 'admissions/banners/999/other.jpg']);
     }
 
     public function test_unit_admissions_page_is_evergreen_and_surfaces_open_and_upcoming_openings(): void
