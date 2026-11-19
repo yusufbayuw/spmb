@@ -11,6 +11,7 @@ use App\Models\Unit;
 use App\Models\UnitConfiguration;
 use App\Services\BrandMediaService;
 use App\Services\ConfiguredRegistrationForm;
+use App\Services\RegistrationTableColumnService;
 use App\Services\TestBookingService;
 use App\Services\UnitConfigurationService;
 use Filament\Forms;
@@ -103,6 +104,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $this->preview = false;
         $data = app(UnitConfigurationService::class)->normalizeEditorData($draft->toArray(), $unit);
         $data['unit_logo_path'] = filled($unit->logo_path) ? $unit->logo_path : null;
+        $data['registration_table_columns'] = app(RegistrationTableColumnService::class)->visibleColumns($unit);
         $data['workflow_stage_labels'] = array_replace(
             Registration::STAGES,
             is_array($data['workflow_stage_labels'] ?? null) ? $data['workflow_stage_labels'] : [],
@@ -463,6 +465,18 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
                         ->all(),
                 )
                 ->columns(['default' => 1, 'md' => 2])
+                ->collapsible(),
+            Forms\Components\Section::make('Kolom Tabel Pendaftaran')
+                ->description('Kolom tabel adalah pengaturan tampilan, tidak mengubah data atau formulir pendaftar. Semua kolom lama aktif secara default; kolom tambahan tidak aktif.')
+                ->schema([
+                    Forms\Components\CheckboxList::make('registration_table_columns')
+                        ->label('Kolom yang ditampilkan secara default')
+                        ->options(fn (): array => ($unit = Unit::query()->where('uuid', $this->unitUuid)->first())
+                            ? app(RegistrationTableColumnService::class)->options($unit)
+                            : [])
+                        ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
+                        ->helperText('Nama peserta selalu ditampilkan. Petugas masih dapat menggunakan Hide/Show untuk kolom yang tersedia.')
+                ])
                 ->collapsible(),
             Forms\Components\Section::make('Formulir Unit')
                 ->description('Tentukan kebijakan umum untuk isian bawaan. Repeater di bawah cukup digunakan untuk field yang perlu menjadi pengecualian atau dikustomisasi. Identitas inti tetap wajib.')
@@ -918,11 +932,11 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->assertSensitiveOperation(auth()->user(), 'menyimpan konfigurasi pendaftaran unit');
 
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
-        [$data, $logoPath] = $this->configurationFormData($configuration);
+        [$data, $logoPath, $tableColumns] = $this->configurationFormData($configuration);
 
-        DB::transaction(function () use ($configuration, $data, $logoPath): void {
+        DB::transaction(function () use ($configuration, $data, $logoPath, $tableColumns): void {
             app(UnitConfigurationService::class)->save($configuration, auth()->user(), $data);
-            Unit::query()->whereKey($configuration->unit_id)->update(['logo_path' => $logoPath]);
+            Unit::query()->whereKey($configuration->unit_id)->update(['logo_path' => $logoPath, 'registration_table_columns' => $tableColumns]);
         });
         Cache::forget($this->editorDraftKey());
         $this->loadUnit();
@@ -946,14 +960,14 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->assertSensitiveOperation(auth()->user(), 'mempublikasikan konfigurasi pendaftaran unit');
 
         $configuration = UnitConfiguration::query()->where('uuid', $this->configurationUuid)->firstOrFail();
-        [$data, $logoPath] = $this->configurationFormData($configuration);
+        [$data, $logoPath, $tableColumns] = $this->configurationFormData($configuration);
         $service = app(UnitConfigurationService::class);
 
         try {
-            $published = DB::transaction(function () use ($service, $configuration, $data, $logoPath): UnitConfiguration {
+            $published = DB::transaction(function () use ($service, $configuration, $data, $logoPath, $tableColumns): UnitConfiguration {
                 $draft = $service->save($configuration, auth()->user(), $data);
                 $published = $service->save($draft->fresh(), auth()->user(), $data, true);
-                Unit::query()->whereKey($configuration->unit_id)->update(['logo_path' => $logoPath]);
+                Unit::query()->whereKey($configuration->unit_id)->update(['logo_path' => $logoPath, 'registration_table_columns' => $tableColumns]);
 
                 return $published;
             });
@@ -985,7 +999,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ->send();
     }
 
-    /** @return array{0: array<string, mixed>, 1: ?string} */
+    /** @return array{0: array<string, mixed>, 1: ?string, 2: list<string>} */
     private function configurationFormData(UnitConfiguration $configuration): array
     {
         $data = $this->form->getState();
@@ -1000,6 +1014,12 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
         $logoPath = is_string($logoPath) ? $logoPath : null;
         unset($data['unit_logo_path']);
 
+        $tableColumns = app(RegistrationTableColumnService::class)->validateColumns(
+            $unit,
+            array_values($data['registration_table_columns'] ?? []),
+        );
+        unset($data['registration_table_columns']);
+
         $data['test_definitions'] = collect($data['test_definitions'] ?? [])
             ->map(fn (array $definition): array => [
                 'id' => AdmissionTest::query()
@@ -1012,7 +1032,7 @@ class UnitRegistrationSettings extends Page implements Forms\Contracts\HasForms
             ])
             ->all();
 
-        return [$data, $logoPath];
+        return [$data, $logoPath, $tableColumns];
     }
 
     public function applyPublishedToActiveRegistrations(): void
