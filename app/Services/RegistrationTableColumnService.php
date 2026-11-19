@@ -121,8 +121,16 @@ class RegistrationTableColumnService
             return in_array($key, $this->visibleColumns($unit), true);
         }
 
-        return $key === 'study_program'
-            ? Unit::query()->operational()->where('institution_type', 'university')->exists()
-            : in_array($key, self::DEFAULT_COLUMNS, true);
+        if ($key === 'study_program') {
+            if (\App\Support\SpmbOperationalMode::isHigherEducation()) {
+                return true;
+            }
+
+            return \App\Support\SpmbOperationalMode::isMixed()
+                && \Illuminate\Support\Facades\Schema::hasTable('units')
+                && Unit::query()->operational()->where('institution_type', 'university')->exists();
+        }
+
+        return in_array($key, self::DEFAULT_COLUMNS, true);
     }
 }
