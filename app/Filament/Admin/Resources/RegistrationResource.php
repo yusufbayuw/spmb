@@ -709,7 +709,7 @@ class RegistrationResource extends Resource
     {
         $query = parent::getEloquentQuery()
             ->whereHas('unit', fn (Builder $unitQuery): Builder => $unitQuery->operational())
-            ->with(['unit', 'user', 'parentInfo', 'opening.unit', 'pathway', 'configuration', 'academicScores', 'achievements', 'consent.configuration']);
+            ->with(['unit', 'user', 'parentInfo', 'opening.unit', 'opening.studyProgram', 'pathway', 'configuration', 'academicScores', 'achievements', 'consent.configuration']);
         if (auth()->user()?->isTU() && auth()->user()->unit_id) {
             $query->where('unit_id', auth()->user()->unit_id);
         }

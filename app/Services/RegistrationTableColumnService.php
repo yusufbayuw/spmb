@@ -53,7 +53,7 @@ class RegistrationTableColumnService
         $configuration = app(UnitConfigurationService::class)->current((int) $unit->id);
 
         foreach ($configuration?->fields ?? [] as $field) {
-            if (! is_array($field) || ! str_starts_with((string) ($field['key'] ?? ''), 'custom_')
+            if (! is_array($field) || in_array((string) ($field['key'] ?? ''), \App\Services\ConfiguredRegistrationForm::BUILTIN_FIELDS, true) || blank($field['key'] ?? null)
                 || ! ($field['active'] ?? false) || ($field['type'] ?? '') === 'placeholder') {
                 continue;
             }
