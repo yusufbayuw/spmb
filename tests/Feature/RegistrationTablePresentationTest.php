@@ -28,7 +28,7 @@ class RegistrationTablePresentationTest extends TestCase
         $table = RegistrationResource::table(Table::make(app(ListRegistrations::class)));
         $columns = $table->getColumns();
 
-        $this->assertSame([
+        $expected = [
             'full_name',
             'nik',
             'registration_number',
@@ -41,10 +41,15 @@ class RegistrationTablePresentationTest extends TestCase
             'current_stage',
             'lifecycle_status',
             'created_at',
-            'study_program',
+        ];
+        if (\App\Support\SpmbOperationalMode::allowsHigherEducation()) {
+            $expected[] = 'study_program';
+        }
+        $expected = array_merge($expected, [
             'nisn', 'nickname', 'gender', 'birth_place', 'birth_date',
             'phone', 'email', 'previous_school', 'graduation_year', 'data_validation_status',
-        ], array_keys($columns));
+        ]);
+        $this->assertSame($expected, array_keys($columns));
 
         // NIK is no longer printed under the sticky participant name.
         $this->assertNull($columns['full_name']->getDescriptionBelow());
@@ -77,6 +82,7 @@ class RegistrationTablePresentationTest extends TestCase
 
     public function test_unit_column_defaults_and_overrides_preserve_existing_table_columns(): void
     {
+        config()->set('spmb.operations.mode', 'MIXED');
         $school = Unit::create([
             'name' => 'SD Kolom', 'code' => 'SDC',
             'institution_type' => 'school', 'is_active' => true,

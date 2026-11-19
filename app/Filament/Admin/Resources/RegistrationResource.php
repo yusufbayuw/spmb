@@ -335,6 +335,10 @@ class RegistrationResource extends Resource
                 $extraColumns = [];
                 $options = $displayUnit ? $visibility->options($displayUnit) : RegistrationTableColumnService::LABELS;
 
+                if (! $displayUnit && ! \App\Support\SpmbOperationalMode::allowsHigherEducation()) {
+                    unset($options['study_program']);
+                }
+
                 if (array_key_exists('study_program', $options)) {
                     $extraColumns[] = Tables\Columns\TextColumn::make('study_program')
                         ->label('Program Studi')
