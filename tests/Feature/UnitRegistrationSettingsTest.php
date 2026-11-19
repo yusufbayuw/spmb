@@ -58,8 +58,7 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->actingAs($staff);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
-        $published = UnitConfiguration::query()
-            ->where('unit_id', $unit->id)->where('status', 'published')->first();
+        $published = app(\App\Services\UnitConfigurationService::class)->initialize($unit);
 
         Livewire::test(UnitRegistrationSettings::class)
             ->fillForm(['registration_table_columns' => ['full_name', 'nik', 'nisn']])
