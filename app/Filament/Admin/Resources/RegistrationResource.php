@@ -282,7 +282,7 @@ class RegistrationResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->persistSortInSession()
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withExists(['continuationLink as is_alumni']))
-            ->columns(function () use ($table): array {
+            ->columns((function () use ($table): array {
                 $visibility = app(RegistrationTableColumnService::class);
                 $displayUnit = $visibility->activeUnit($table);
 
@@ -409,7 +409,7 @@ class RegistrationResource extends Resource
                 }
 
                 return [...$coreColumns, ...$extraColumns];
-            })
+            })())
             ->filters([
                 Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
                 Tables\Filters\SelectFilter::make('registration_opening_id')
