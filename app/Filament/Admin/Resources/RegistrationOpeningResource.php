@@ -7,6 +7,7 @@ use App\Models\RegistrationOpening;
 use App\Services\RegistrationNumberService;
 use App\Models\StudyProgram;
 use App\Models\Unit;
+use App\Services\BrandMediaService;
 use App\Support\SpmbOperationalMode;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -114,6 +115,24 @@ class RegistrationOpeningResource extends Resource
                         ->rows(3)
                         ->columnSpanFull(),
                 ]),
+            Forms\Components\Section::make('Tampilan Publik')
+                ->description('Banner opsional untuk halaman detail pembukaan. Jika kosong, tampilan lama tetap digunakan.')
+                ->schema([
+                    Forms\Components\FileUpload::make('banner_path')
+                        ->label('Gambar Banner / Hero')
+                        ->helperText('Pilih unit terlebih dahulu. JPG/PNG/WebP, maksimum 3 MB. Disarankan 1600 × 500 piksel, tanpa teks penting pada tepi gambar.')
+                        ->disk('public')
+                        ->directory(fn (Forms\Get $get): string => 'admissions/banners/'.(int) $get('unit_id'))
+                        ->visibility('public')
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(3072)
+                        ->image()
+                        ->imagePreviewHeight('180')
+                        ->disabled(fn (Forms\Get $get): bool => blank($get('unit_id')))
+                        ->getUploadedFileUsing(fn (string $file): ?array => app(BrandMediaService::class)->fileMetadata($file))
+                        ->openable(),
+                ])
+                ->collapsible(),
         ]);
     }
 

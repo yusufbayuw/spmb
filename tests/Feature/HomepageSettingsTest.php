@@ -96,7 +96,29 @@ class HomepageSettingsTest extends TestCase
         $this->assertFalse($blocks['tutorials']);
         $this->assertTrue($blocks['registration']);
         $this->assertTrue($blocks['helpdesk']);
-        $this->assertCount(8, $blocks);
+        $this->assertCount(9, $blocks);
+    }
+
+    public function test_logo_toggle_only_hides_logo_on_homepage(): void
+    {
+        $unit = \App\Models\Unit::create([
+            'name' => 'Sekolah Contoh',
+            'code' => 'SCH',
+            'institution_type' => 'school',
+            'is_active' => true,
+        ]);
+        AppSetting::query()->create([
+            'portal_name' => 'SPMB',
+            'organization_name' => 'Institusi Contoh',
+            'logo_path' => 'branding/logo.png',
+            'homepage_blocks' => ['header_logo' => false],
+        ]);
+        app(\App\Services\AppBrandingService::class)->refresh();
+        $logoUrl = route('branding.media', ['path' => 'branding/logo.png'], false);
+
+        $this->get('/')->assertOk()->assertDontSee('src="'.$logoUrl.'"', false);
+        $this->get(route('admissions.unit', ['unit' => $unit->code]))
+            ->assertOk()->assertSee('src="'.$logoUrl.'"', false);
     }
 
     public function test_only_active_super_admin_has_cms_access(): void

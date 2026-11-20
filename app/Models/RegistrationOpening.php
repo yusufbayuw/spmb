@@ -34,6 +34,7 @@ class RegistrationOpening extends Model
         'wave',
         'registration_fee',
         'description',
+        'banner_path',
         'status',
         'opened_at',
         'closed_at',
@@ -59,6 +60,15 @@ class RegistrationOpening extends Model
 
         static::saving(function (RegistrationOpening $opening): void {
             $opening->setAttribute('pathway', $opening->getAttribute('pathway') ?? '');
+
+            if (filled($opening->banner_path)
+                && (! is_string($opening->banner_path)
+                    || ! str_starts_with($opening->banner_path, 'admissions/banners/'.$opening->unit_id.'/')
+                    || str_contains($opening->banner_path, '..'))) {
+                throw ValidationException::withMessages([
+                    'banner_path' => 'Banner harus berasal dari folder pembukaan milik unit yang dipilih.',
+                ]);
+            }
 
             $unit = Unit::query()->find($opening->unit_id);
 

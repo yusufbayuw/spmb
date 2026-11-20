@@ -50,6 +50,7 @@ class Unit extends Model
         'registration_tutorial_url',
         'public_address',
         'logo_path',
+        'registration_table_columns',
         'is_active',
         'allow_admin_unit_registration_deletion',
         'allow_admin_unit_va_deletion',
@@ -62,6 +63,7 @@ class Unit extends Model
         'allow_admin_unit_va_deletion' => 'boolean',
         'allow_admin_unit_opening_deletion' => 'boolean',
         'pre_registration_items' => 'array',
+        'registration_table_columns' => 'array',
     ];
 
     protected static function booted(): void

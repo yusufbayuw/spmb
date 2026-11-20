@@ -9,6 +9,7 @@ use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\RegistrationTableColumnService;
 use Database\Seeders\ShieldSeeder;
 use Filament\Facades\Filament;
 use Filament\Tables\Table;
@@ -27,7 +28,7 @@ class RegistrationTablePresentationTest extends TestCase
         $table = RegistrationResource::table(Table::make(app(ListRegistrations::class)));
         $columns = $table->getColumns();
 
-        $this->assertSame([
+        $expected = [
             'full_name',
             'nik',
             'registration_number',
@@ -40,7 +41,15 @@ class RegistrationTablePresentationTest extends TestCase
             'current_stage',
             'lifecycle_status',
             'created_at',
-        ], array_keys($columns));
+        ];
+        if (\App\Support\SpmbOperationalMode::allowsHigherEducation()) {
+            $expected[] = 'study_program';
+        }
+        $expected = array_merge($expected, [
+            'nisn', 'nickname', 'gender', 'birth_place', 'birth_date',
+            'phone', 'email', 'previous_school', 'graduation_year', 'data_validation_status',
+        ]);
+        $this->assertSame($expected, array_keys($columns));
 
         // NIK is no longer printed under the sticky participant name.
         $this->assertNull($columns['full_name']->getDescriptionBelow());
@@ -52,17 +61,47 @@ class RegistrationTablePresentationTest extends TestCase
         $this->assertArrayNotHasKey('class', $columns['nik']->getExtraCellAttributes());
 
         foreach ($columns as $name => $column) {
-            $this->assertTrue($column->isSortable(), "{$name} should support sorting");
+            if ($name !== 'study_program') {
+                $this->assertTrue($column->isSortable(), "{$name} should support sorting");
+            }
             if ($name === 'full_name') {
                 $this->assertFalse($column->isToggleable(), 'Sticky participant identity must remain visible');
             } else {
                 $this->assertTrue($column->isToggleable(), "{$name} should support Hide/Show");
-                $this->assertFalse($column->isToggledHiddenByDefault(), "{$name} stays visible by default");
+                $this->assertSame(
+                    ! in_array($name, RegistrationTableColumnService::DEFAULT_COLUMNS, true),
+                    $column->isToggledHiddenByDefault(),
+                    "{$name} should respect the legacy visible-column baseline",
+                );
             }
         }
 
         // Lifecycle is an optional table filter, not an automatic restriction.
         $this->assertNull($table->getFilter('lifecycle_status')->getDefaultState());
+    }
+
+    public function test_unit_column_defaults_and_overrides_preserve_existing_table_columns(): void
+    {
+        config()->set('spmb.operations.mode', 'MIXED');
+        $school = Unit::create([
+            'name' => 'SD Kolom', 'code' => 'SDC',
+            'institution_type' => 'school', 'is_active' => true,
+        ]);
+        $higher = Unit::create([
+            'name' => 'Universitas Kolom', 'code' => 'UNIK',
+            'institution_type' => 'university', 'is_active' => true,
+        ]);
+        $service = app(RegistrationTableColumnService::class);
+
+        $this->assertSame(RegistrationTableColumnService::DEFAULT_COLUMNS, $service->visibleColumns($school));
+        $this->assertContains('study_program', $service->visibleColumns($higher));
+        $this->assertArrayNotHasKey('study_program', $service->options($school));
+
+        $school->update(['registration_table_columns' => ['nik', 'nisn']]);
+        $this->assertSame(['full_name', 'nik', 'nisn'], $service->visibleColumns($school->fresh()));
+        $this->assertFalse($service->showByDefault($school->fresh(), 'registration_number'));
+        $this->assertTrue($service->showByDefault($school->fresh(), 'nisn'));
+        $this->assertSame(['full_name', 'nisn'], $service->validateColumns($school, ['nisn']));
     }
 
     public function test_every_column_sort_executes_without_changing_registration_visibility(): void

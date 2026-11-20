@@ -8,6 +8,7 @@ use Throwable;
 class HomepageSectionService
 {
     public const LABELS = [
+        'header_logo' => 'Tampilkan Logo pada Header Halaman Utama',
         'registration' => 'Pendaftaran yang Dibuka',
         'my_registrations' => 'Pendaftaran Saya',
         'upcoming' => 'Jadwal Mendatang',
@@ -19,6 +20,7 @@ class HomepageSectionService
     ];
 
     public const DESCRIPTIONS = [
+        'header_logo' => 'Hanya menyembunyikan logo di header /; nama portal dan logo pada halaman lain tetap terlihat.',
         'registration' => 'Daftar pembukaan aktif dan filter jenjang. Sembunyikan hanya bila memang diperlukan.',
         'my_registrations' => 'Ringkasan pendaftaran bagi pengguna yang sedang masuk.',
         'upcoming' => 'Pembukaan pendaftaran yang akan datang.',

@@ -52,6 +52,24 @@ class UnitRegistrationSettingsTest extends TestCase
         $this->assertSame('draft', UnitConfiguration::where('uuid', $uuid)->value('status'));
     }
 
+    public function test_table_column_settings_save_without_changing_published_form(): void
+    {
+        [$unit, $staff] = $this->fixture();
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $published = app(\App\Services\UnitConfigurationService::class)->initialize($unit);
+
+        Livewire::test(UnitRegistrationSettings::class)
+            ->fillForm(['registration_table_columns' => ['full_name', 'nik', 'nisn']])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(['full_name', 'nik', 'nisn'], $unit->fresh()->registration_table_columns);
+        $this->assertSame($published?->id, UnitConfiguration::query()
+            ->where('unit_id', $unit->id)->where('status', 'published')->value('id'));
+    }
+
     public function test_invalid_configuration_does_not_update_unit_logo(): void
     {
         [$unit, $staff] = $this->fixture();
