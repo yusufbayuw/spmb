@@ -46,6 +46,14 @@ class UnitConfigurationService
             'tests_enabled' => count($tests) > 0,
             'selection_mode' => 'flexible',
             'post_announcement_enabled' => $unit->isHigherEducation(),
+            // Backwards compatible: all existing post-announcement flows keep explicit seat confirmation.
+            'seat_confirmation_enabled' => true,
+            'allow_enrollment_with_deferred_payment' => false,
+            're_registration_deadline_policy' => 'manual',
+            're_registration_grace_days' => 3,
+            're_registration_bank_name' => null,
+            're_registration_bank_number' => null,
+            're_registration_bank_holder' => null,
             'workflow_stage_labels' => Registration::STAGES,
             'applicant_visible_stages' => array_keys(Registration::STAGES),
             'applicant_portal_blocks' => UnitConfiguration::defaultApplicantPortalBlocks(),
@@ -128,7 +136,7 @@ class UnitConfigurationService
             }
             $current = $this->initialize($unit);
 
-            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'core_identity_fields', 'registrant_relationship_options', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
+            return UnitConfiguration::create($current->only(['payment_enabled', 'documents_enabled', 'tests_enabled', 'selection_mode', 'post_announcement_enabled', 'seat_confirmation_enabled', 'allow_enrollment_with_deferred_payment', 're_registration_deadline_policy', 're_registration_grace_days', 're_registration_bank_name', 're_registration_bank_number', 're_registration_bank_holder', 'workflow_stage_labels', 'applicant_visible_stages', 'applicant_portal_blocks', 'applicant_progress_description', 'completion_after_stage', 'completion_title', 'completion_message', 'registration_number_prefix', 'registration_number_digits', 'participant_card_mode', 'applicant_card_header_label', 'applicant_card_header_title', 'pre_form_consent', 'workflow_blocks', 'builtin_field_policy', 'core_identity_fields', 'registrant_relationship_options', 'academic_scores_enabled', 'academic_score_settings', 'achievements_enabled', 'achievement_settings', 'fields', 'form_groups', 'form_layout', 'document_requirements', 'test_definitions', 're_registration_requirements']) + ['unit_id' => $unit->id, 'version' => $current->version + 1, 'status' => 'draft']);
         });
     }
 
@@ -304,6 +312,14 @@ class UnitConfigurationService
      */
     public function normalizeEditorData(array $data, ?Unit $unit = null): array
     {
+        $data['seat_confirmation_enabled'] ??= true;
+        $data['allow_enrollment_with_deferred_payment'] ??= false;
+        $data['re_registration_deadline_policy'] ??= 'manual';
+        $data['re_registration_grace_days'] ??= 3;
+        $data['re_registration_bank_name'] ??= null;
+        $data['re_registration_bank_number'] ??= null;
+        $data['re_registration_bank_holder'] ??= null;
+
         $data['pre_form_consent'] = app(RegistrationConsentService::class)->normalizeConfiguration(
             $data['pre_form_consent'] ?? null,
             $unit,
@@ -642,6 +658,13 @@ class UnitConfigurationService
 
             $validated = Validator::make($data, [
                 'payment_enabled' => ['required', 'boolean'], 'documents_enabled' => ['required', 'boolean'], 'tests_enabled' => ['required', 'boolean'], 'selection_mode' => ['required', Rule::in(['manual', 'batch', 'flexible'])], 'post_announcement_enabled' => ['required', 'boolean'],
+                'seat_confirmation_enabled' => ['required', 'boolean'],
+                'allow_enrollment_with_deferred_payment' => ['required', 'boolean'],
+                're_registration_deadline_policy' => ['required', Rule::in(['manual', 'automatic'])],
+                're_registration_grace_days' => ['required', 'integer', 'min:0', 'max:60'],
+                're_registration_bank_name' => ['nullable', 'string', 'max:120'],
+                're_registration_bank_number' => ['nullable', 'string', 'max:100'],
+                're_registration_bank_holder' => ['nullable', 'string', 'max:180'],
                 'workflow_stage_labels' => ['present', 'array'], 'workflow_stage_labels.*' => ['required', 'string', 'max:120'],
                 'applicant_visible_stages' => ['present', 'array', 'min:1'],
                 'applicant_visible_stages.*' => ['required', Rule::in(array_keys(Registration::STAGES)), 'distinct'],
@@ -733,7 +756,7 @@ class UnitConfigurationService
                 're_registration_requirements' => ['present', 'array', 'max:100'],
                 're_registration_requirements.*.key' => ['required', 'regex:/^[a-z][a-z0-9_]*$/', 'max:60', 'distinct'],
                 're_registration_requirements.*.label' => ['required', 'string', 'max:150'],
-                're_registration_requirements.*.type' => ['required', Rule::in(['checklist', 'document', 'payment', 'information'])],
+                're_registration_requirements.*.type' => ['required', Rule::in(['checklist', 'document', 'payment', 'manual_payment', 'information'])],
                 're_registration_requirements.*.active' => ['required', 'boolean'],
                 're_registration_requirements.*.required' => ['required', 'boolean'],
                 're_registration_requirements.*.instructions' => ['nullable', 'string', 'max:2000'],

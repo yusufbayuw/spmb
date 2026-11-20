@@ -518,6 +518,38 @@ class AdmissionDecisionManagementTest extends TestCase
         );
     }
 
+
+    public function test_optional_seat_confirmation_directly_starts_re_registration_without_expiring_the_seat(): void
+    {
+        Queue::fake();
+        [$unit, $opening, $staff] = $this->openingFixture();
+        UnitConfiguration::query()->where('unit_id', $unit->id)->where('status', 'published')->update(['seat_confirmation_enabled' => false]);
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 1]);
+        $registration = $this->selectionRegistration($opening, '3273010101010048', 90);
+        app(RegistrationWorkflowService::class)->decide($registration, $staff, 'accepted', 90, 'Keputusan final');
+        app(RegistrationWorkflowService::class)->publish($registration, $staff);
+
+        $offer = $registration->fresh()->admissionOffer;
+        $this->assertSame('accepted', $offer->status);
+        $this->assertSame('enrollment', $registration->fresh()->current_stage);
+        $offer->update(['expires_at' => now()->subDay()]);
+        $this->assertFalse(app(AdmissionDecisionService::class)->expireOffer($offer->fresh()));
+        $this->assertSame('accepted', $offer->fresh()->status);
+    }
+
+    public function test_legacy_published_configuration_keeps_seat_confirmation_enabled(): void
+    {
+        Queue::fake();
+        [, $opening, $staff] = $this->openingFixture();
+        AdmissionQuota::create(['registration_opening_id' => $opening->id, 'capacity' => 1]);
+        $registration = $this->selectionRegistration($opening, '3273010101010049', 90);
+        app(RegistrationWorkflowService::class)->decide($registration, $staff, 'accepted', 90, 'Keputusan final');
+        app(RegistrationWorkflowService::class)->publish($registration, $staff);
+
+        $this->assertSame('offered', $registration->fresh()->admissionOffer->status);
+        $this->assertSame('admission_offer', $registration->fresh()->current_stage);
+    }
+
     private function openingFixture(): array
     {
         $unit = Unit::create(['name' => 'SMA Contoh', 'code' => 'SMA', 'is_active' => true]);
