@@ -8,6 +8,8 @@ use App\Models\Registration;
 use App\Models\RegistrationOpening;
 use App\Models\RegistrationPathway;
 use App\Models\Unit;
+use App\Models\UnitConfiguration;
+use App\Services\UnitConfigurationService;
 use App\Models\User;
 use App\Services\RegistrationTableColumnService;
 use Database\Seeders\ShieldSeeder;
@@ -102,6 +104,120 @@ class RegistrationTablePresentationTest extends TestCase
         $this->assertFalse($service->showByDefault($school->fresh(), 'registration_number'));
         $this->assertTrue($service->showByDefault($school->fresh(), 'nisn'));
         $this->assertSame(['full_name', 'nisn'], $service->validateColumns($school, ['nisn']));
+    }
+
+    public function test_super_admin_sees_enabled_custom_columns_from_all_units_without_a_filter(): void
+    {
+        config()->set('spmb.operations.mode', 'MIXED');
+        $this->seed(ShieldSeeder::class);
+
+        $first = Unit::create([
+            'name' => 'Universitas Satu',
+            'code' => 'UONE',
+            'institution_type' => 'university',
+            'is_active' => true,
+        ]);
+        $second = Unit::create([
+            'name' => 'Universitas Dua',
+            'code' => 'UTWO',
+            'institution_type' => 'university',
+            'is_active' => true,
+        ]);
+
+        foreach ([$first, $second] as $unit) {
+            UnitConfiguration::create([
+                ...app(UnitConfigurationService::class)->defaults($unit),
+                'unit_id' => $unit->id,
+                'version' => 1,
+                'status' => 'published',
+                'fields' => [
+                    [
+                        'key' => 'custom_referal',
+                        'label' => 'Referal',
+                        'type' => 'text',
+                        'active' => true,
+                        'required' => false,
+                        'group_key' => 'group_additional',
+                    ],
+                    [
+                        'key' => 'custom_inactive',
+                        'label' => 'Tidak Aktif',
+                        'type' => 'text',
+                        'active' => false,
+                        'required' => false,
+                    ],
+                ],
+            ]);
+        }
+
+        $first->update(['registration_table_columns' => [
+            'full_name', 'nik', 'custom:custom_referal',
+        ]]);
+        $second->update(['registration_table_columns' => [
+            'full_name', 'nik',
+        ]]);
+
+        $admin = User::factory()->create(['role' => 'super_admin', 'is_active' => true]);
+        $admin->assignRole('super_admin');
+        $this->actingAs($admin);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $table = RegistrationResource::table(Table::make(app(ListRegistrations::class)));
+        $columns = $table->getColumns();
+
+        $name = 'custom:'.$first->id.':custom_referal';
+        $this->assertArrayHasKey($name, $columns);
+        $this->assertSame('Referal (Universitas Satu)', $columns[$name]->getLabel());
+        $this->assertFalse($columns[$name]->isToggledHiddenByDefault());
+        $this->assertArrayNotHasKey('custom:'.$second->id.':custom_referal', $columns);
+        $this->assertArrayNotHasKey('custom:'.$first->id.':custom_inactive', $columns);
+    }
+
+    public function test_unit_staff_can_see_own_custom_column_without_filter(): void
+    {
+        $this->seed(ShieldSeeder::class);
+        $unit = Unit::create([
+            'name' => 'Sekolah Referal',
+            'code' => 'SREF',
+            'institution_type' => 'school',
+            'is_active' => true,
+        ]);
+        UnitConfiguration::create([
+            ...app(UnitConfigurationService::class)->defaults($unit),
+            'unit_id' => $unit->id,
+            'version' => 1,
+            'status' => 'published',
+            'fields' => [[
+                'key' => 'custom_referal',
+                'label' => 'Referal',
+                'type' => 'text',
+                'active' => true,
+                'required' => false,
+                'group_key' => 'group_additional',
+            ]],
+        ]);
+        $unit->update(['registration_table_columns' => [
+            'full_name', 'nik', 'custom:custom_referal',
+        ]]);
+
+        $staff = User::factory()->create([
+            'role' => 'admin_unit',
+            'unit_id' => $unit->id,
+            'is_active' => true,
+        ]);
+        $staff->assignRole('admin_unit');
+        $this->actingAs($staff);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $table = RegistrationResource::table(Table::make(app(ListRegistrations::class)));
+        $columns = $table->getColumns();
+        $this->assertArrayHasKey('custom:custom_referal', $columns);
+        $this->assertSame('Referal', $columns['custom:custom_referal']->getLabel());
+        $this->assertFalse($columns['custom:custom_referal']->isToggledHiddenByDefault());
+
+        $unit->update(['registration_table_columns' => ['full_name']]);
+        $table = RegistrationResource::table(Table::make(app(ListRegistrations::class)));
+        $this->assertTrue($table->getColumns()['custom:custom_referal']->isToggledHiddenByDefault());
     }
 
     public function test_every_column_sort_executes_without_changing_registration_visibility(): void

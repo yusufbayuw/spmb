@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Unit;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class RegistrationTableColumnService
@@ -53,8 +54,7 @@ class RegistrationTableColumnService
         $configuration = app(UnitConfigurationService::class)->current((int) $unit->id);
 
         foreach ($configuration?->fields ?? [] as $field) {
-            if (! is_array($field) || in_array((string) ($field['key'] ?? ''), \App\Services\ConfiguredRegistrationForm::BUILTIN_FIELDS, true) || blank($field['key'] ?? null)
-                || ! ($field['active'] ?? false) || ($field['type'] ?? '') === 'placeholder') {
+            if (! $this->isCustomField($field)) {
                 continue;
             }
 
@@ -63,6 +63,89 @@ class RegistrationTableColumnService
         }
 
         return $options;
+    }
+
+    /**
+     * Build custom columns from the unit's PUBLISHED form only.
+     *
+     * When a super admin views all units, include custom columns enabled by
+     * any operational unit. Give them unit-scoped names to avoid collisions
+     * between unrelated field keys/labels on different units.
+     *
+     * @return list<array{name:string,label:string,key:string,type:string,unit_id:int,default_visible:bool}>
+     */
+    public function customColumns(?Unit $unit): array
+    {
+        if ($unit) {
+            return $this->unitCustomColumns($unit);
+        }
+
+        // No unit scope is only available to the super admin. No database
+        // access is needed when rendering the table in isolated UI tests.
+        if (! auth()->user()?->isAdmin()
+            || ! Schema::hasTable('units')
+            || ! Schema::hasTable('unit_configurations')) {
+            return [];
+        }
+
+        $units = Unit::query()->operational()->orderBy('name')->get();
+        $hasMultipleUnits = $units->count() > 1;
+        $columns = [];
+
+        foreach ($units as $candidate) {
+            foreach ($this->unitCustomColumns($candidate) as $column) {
+                // In the aggregate view show only fields the unit explicitly
+                // enabled, so disabled/new fields cannot clutter every table.
+                if (! $column['default_visible']) {
+                    continue;
+                }
+
+                $column['name'] = 'custom:'.$candidate->id.':'.$column['key'];
+                $column['label'] .= $hasMultipleUnits ? ' ('.$candidate->name.')' : '';
+                $columns[] = $column;
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @return list<array{name:string,label:string,key:string,type:string,unit_id:int,default_visible:bool}>
+     */
+    private function unitCustomColumns(Unit $unit): array
+    {
+        $configuration = app(UnitConfigurationService::class)->current((int) $unit->id);
+        $selected = is_array($unit->registration_table_columns)
+            ? $unit->registration_table_columns
+            : $this->defaults($unit);
+        $columns = [];
+
+        foreach ($configuration?->fields ?? [] as $field) {
+            if (! $this->isCustomField($field)) {
+                continue;
+            }
+
+            $key = (string) $field['key'];
+            $columns[] = [
+                'name' => 'custom:'.$key,
+                'label' => (string) ($field['label'] ?? $key),
+                'key' => $key,
+                'type' => (string) ($field['type'] ?? 'text'),
+                'unit_id' => (int) $unit->id,
+                'default_visible' => in_array('custom:'.$key, $selected, true),
+            ];
+        }
+
+        return $columns;
+    }
+
+    private function isCustomField(mixed $field): bool
+    {
+        return is_array($field)
+            && filled($field['key'] ?? null)
+            && ! in_array((string) $field['key'], ConfiguredRegistrationForm::BUILTIN_FIELDS, true)
+            && (bool) ($field['active'] ?? false)
+            && ($field['type'] ?? '') !== 'placeholder';
     }
 
     /** @return list<string> */

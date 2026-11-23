@@ -371,41 +371,41 @@ class RegistrationResource extends Resource
                     $extraColumns[] = $column;
                 }
 
-                if ($displayUnit) {
-                    $configuration = app(UnitConfigurationService::class)->current((int) $displayUnit->id);
-                    foreach ($configuration?->fields ?? [] as $definition) {
-                        if (! is_array($definition) || ! array_key_exists('custom:'.($definition['key'] ?? ''), $options)) {
-                            continue;
-                        }
+                foreach ($visibility->customColumns($displayUnit) as $definition) {
+                    $fieldKey = $definition['key'];
+                    $fieldType = $definition['type'];
+                    $fieldUnitId = $definition['unit_id'];
 
-                        $fieldKey = (string) $definition['key'];
-                        $fieldType = (string) ($definition['type'] ?? 'text');
-                        $extraColumns[] = Tables\Columns\TextColumn::make('custom:'.$fieldKey)
-                            ->label((string) ($definition['label'] ?? $fieldKey))
-                            ->getStateUsing(function (Registration $record) use ($fieldKey, $fieldType): string {
-                                $value = data_get($record->custom_answers, $fieldKey);
+                    $extraColumns[] = Tables\Columns\TextColumn::make($definition['name'])
+                        ->label($definition['label'])
+                        ->getStateUsing(function (Registration $record) use ($fieldKey, $fieldType, $fieldUnitId): string {
+                            // The same field key may be used differently by another unit.
+                            if ((int) $record->unit_id !== $fieldUnitId) {
+                                return '-';
+                            }
 
-                                if ($value === null || $value === '' || $value === []) {
-                                    return '-';
-                                }
+                            $value = data_get($record->custom_answers, $fieldKey);
 
-                                if ($fieldType === 'file') {
-                                    return 'Sudah diunggah';
-                                }
+                            if ($value === null || $value === '' || $value === []) {
+                                return '-';
+                            }
 
-                                if ($fieldType === 'boolean') {
-                                    return (string) $value === '1' ? 'Ya' : 'Tidak';
-                                }
+                            if ($fieldType === 'file') {
+                                return 'Sudah diunggah';
+                            }
 
-                                if (is_array($value)) {
-                                    return implode(', ', array_map('strval', array_filter($value, 'is_scalar')));
-                                }
+                            if ($fieldType === 'boolean') {
+                                return (string) $value === '1' ? 'Ya' : 'Tidak';
+                            }
 
-                                return is_scalar($value) ? (string) $value : '-';
-                            })
-                            ->limit(65)
-                            ->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'custom:'.$fieldKey));
-                    }
+                            if (is_array($value)) {
+                                return implode(', ', array_map('strval', array_filter($value, 'is_scalar')));
+                            }
+
+                            return is_scalar($value) ? (string) $value : '-';
+                        })
+                        ->limit(65)
+                        ->toggleable(isToggledHiddenByDefault: ! $definition['default_visible']);
                 }
 
                 return [...$coreColumns, ...$extraColumns];
