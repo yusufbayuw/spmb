@@ -136,6 +136,9 @@ jobs:
             tests/Feature/OnlineExamExportPruneTest.php \
             tests/Feature/OnlineExamReportUiTest.php
 
+      - name: Higher education registration table MySQL regression
+        run: php artisan test tests/Feature/HigherEducationRegistrationTableFiltersTest.php
+
       - name: Synthetic CBT XLSX report load drill (isolated MySQL)
         env:
           SPMB_CBT_LOAD_TEST: '1'
