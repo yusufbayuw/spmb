@@ -103,6 +103,10 @@ class RegistrationTableColumnService
 
     public function activeUnit(Table $table): ?Unit
     {
+        if (\App\Support\SpmbOperationalMode::isHigherEducation()) {
+            return app(HigherEducationRegistrationTableService::class)->activeUnitForTable($table);
+        }
+
         $user = auth()->user();
 
         if ($user?->unit_id && ($user->isTU() || $user->isAdminUnit())) {

@@ -13,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -31,15 +32,27 @@ class HigherEducationRegistrationTableService
         $actor = auth()->user();
 
         return Unit::query()->operational()->where('institution_type', 'university')
-            ->when(! $actor, fn (Builder $query) => $query->whereRaw('1 = 0'))
+            ->when(! $actor?->is_active || ! ($actor?->isAdmin() || $actor?->isTU()), fn (Builder $query) => $query->whereRaw('1 = 0'))
             ->when($actor?->isTU(), fn (Builder $query) => $query->whereKey($actor->unit_id));
     }
 
-    public function activeUnit(?Unit $selected): ?Unit
+    public function activeUnitForTable(Table $table): ?Unit
     {
         $query = $this->accessibleUnits();
-        if ($selected) {
-            return $query->whereKey($selected->id)->first();
+        $actor = auth()->user();
+
+        if ($actor?->isTU()) {
+            return $query->first();
+        }
+
+        $selected = data_get($table->getLivewire()->tableFilters, 'unit_id.value');
+        if ($selected !== null && $selected !== '') {
+            if ((! is_string($selected) && ! is_int($selected))
+                || ! preg_match('/^[1-9][0-9]*$/D', (string) $selected)) {
+                return null;
+            }
+
+            return $query->whereKey($selected)->first();
         }
 
         $units = $query->limit(2)->get();

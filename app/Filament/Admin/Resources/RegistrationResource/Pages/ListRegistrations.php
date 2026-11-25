@@ -14,46 +14,57 @@ class ListRegistrations extends ListRecords
 {
     protected static string $resource = RegistrationResource::class;
 
-    public function updatedTableFilters(): void
+    /**
+     * Request-local snapshot of the unit used to build the current table.
+     * Compare actual unit identity rather than filter names: even two units
+     * without custom fields may have different programs and pathways.
+     */
+    protected ?int $tableDefinitionUnitId = null;
+
+    public function table(\Filament\Tables\Table $table): \Filament\Tables\Table
     {
         if (\App\Support\SpmbOperationalMode::isHigherEducation()) {
-            $oldNames = array_keys($this->getTable()->getFilters());
-            $oldCustom = array_values(array_filter($oldNames, fn (string $name): bool => str_starts_with($name, 'custom_')));
-            // Filament builds table definitions before Livewire applies updates.
-            // Rebuild after a unit change, dropping incompatible filter state.
-            $service = app(\App\Services\HigherEducationRegistrationTableService::class);
-            $unit = $service->activeUnit(app(\App\Services\RegistrationTableColumnService::class)->activeUnit($this->getTable()));
-            $newCustom = array_map(fn ($filter) => $filter->getName(), $service->customFilters($unit));
+            $this->tableDefinitionUnitId = app(\App\Services\HigherEducationRegistrationTableService::class)
+                ->activeUnitForTable($table)?->id;
+        }
 
-            if ($oldCustom !== $newCustom) {
+        return parent::table($table);
+    }
+
+    protected function handleTableFilterUpdates(): void
+    {
+        if (\App\Support\SpmbOperationalMode::isHigherEducation()) {
+            $unitId = app(\App\Services\HigherEducationRegistrationTableService::class)
+                ->activeUnitForTable($this->getTable())?->id;
+
+            if ($this->tableDefinitionUnitId !== $unitId) {
+                // Discard choices tied to the previous unit, while preserving
+                // generic filters such as name, validation status and dates.
                 foreach (array_keys($this->tableFilters ?? []) as $name) {
-                    if (str_starts_with($name, 'custom_') && ! in_array($name, $newCustom, true)) {
+                    if (str_starts_with($name, 'custom_') || in_array($name, [
+                        'registration_opening_id', 'study_program', 'pathway_id', 'academic_year', 'wave',
+                    ], true)) {
                         unset($this->tableFilters[$name]);
                     }
                 }
                 if (str_starts_with($this->tableSortColumn ?? '', 'custom:')) {
                     $this->tableSortColumn = null;
                     $this->tableSortDirection = null;
-                    $this->updatedTableSortColumn();
-                }
-                foreach (array_keys($this->toggledTableColumns) as $name) {
-                    if (str_starts_with($name, 'custom:')) {
-                        unset($this->toggledTableColumns[$name]);
-                    }
                 }
 
-                $this->isCachingForms = true;
                 $this->bootedInteractsWithTable();
-                $this->cacheForms();
-                $this->isCachingForms = false;
-                $this->getTableColumnToggleForm()->fill(array_replace_recursive(
-                    $this->getDefaultTableColumnToggleState(), $this->toggledTableColumns
-                ));
+                // Resolve forms inside cacheForm's callback, where caching
+                // mode is active, instead of reusing the old cached schema.
+                $this->cacheForm('toggleTableColumnForm', fn () => $this->getTableColumnToggleForm());
+                $this->cacheForm('tableFiltersForm', fn () => $this->getTableFiltersForm());
+                $this->getTableColumnToggleForm()->fill($this->getDefaultTableColumnToggleState());
                 $this->getTableFiltersForm()->fill($this->tableFilters);
+                $this->updatedToggledTableColumns();
+                $this->updatedTableSortColumn();
             }
         }
 
-        parent::updatedTableFilters();
+        parent::handleTableFilterUpdates();
         $this->flushCachedTableRecords();
     }
 
