@@ -14,6 +14,60 @@ class ListRegistrations extends ListRecords
 {
     protected static string $resource = RegistrationResource::class;
 
+    /**
+     * Request-local snapshot of the unit used to build the current table.
+     * Compare actual unit identity rather than filter names: even two units
+     * without custom fields may have different programs and pathways.
+     */
+    protected ?int $tableDefinitionUnitId = null;
+
+    public function table(\Filament\Tables\Table $table): \Filament\Tables\Table
+    {
+        if (\App\Support\SpmbOperationalMode::isHigherEducation()) {
+            $this->tableDefinitionUnitId = app(\App\Services\HigherEducationRegistrationTableService::class)
+                ->activeUnitForTable($table)?->id;
+        }
+
+        return parent::table($table);
+    }
+
+    protected function handleTableFilterUpdates(): void
+    {
+        if (\App\Support\SpmbOperationalMode::isHigherEducation()) {
+            $unitId = app(\App\Services\HigherEducationRegistrationTableService::class)
+                ->activeUnitForTable($this->getTable())?->id;
+
+            if ($this->tableDefinitionUnitId !== $unitId) {
+                // Discard choices tied to the previous unit, while preserving
+                // generic filters such as name, validation status and dates.
+                foreach (array_keys($this->tableFilters ?? []) as $name) {
+                    if (str_starts_with($name, 'custom_') || in_array($name, [
+                        'registration_opening_id', 'study_program', 'pathway_id', 'academic_year', 'wave',
+                    ], true)) {
+                        unset($this->tableFilters[$name]);
+                    }
+                }
+                if (str_starts_with($this->tableSortColumn ?? '', 'custom:')) {
+                    $this->tableSortColumn = null;
+                    $this->tableSortDirection = null;
+                }
+
+                $this->bootedInteractsWithTable();
+                // Resolve forms inside cacheForm's callback, where caching
+                // mode is active, instead of reusing the old cached schema.
+                $this->cacheForm('toggleTableColumnForm', fn () => $this->getTableColumnToggleForm());
+                $this->cacheForm('tableFiltersForm', fn () => $this->getTableFiltersForm());
+                $this->getTableColumnToggleForm()->fill($this->getDefaultTableColumnToggleState());
+                $this->getTableFiltersForm()->fill($this->tableFilters);
+                $this->updatedToggledTableColumns();
+                $this->updatedTableSortColumn();
+            }
+        }
+
+        parent::handleTableFilterUpdates();
+        $this->flushCachedTableRecords();
+    }
+
     public function getTabs(): array
     {
         return [

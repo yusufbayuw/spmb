@@ -22,6 +22,8 @@ use App\Services\ApplicantEmailCorrectionService;
 use App\Models\MailDeliveryAttempt;
 use App\Services\UnitConfigurationService;
 use App\Services\RegistrationTableColumnService;
+use App\Services\HigherEducationRegistrationTableService;
+use App\Support\SpmbOperationalMode;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -285,6 +287,7 @@ class RegistrationResource extends Resource
             ->columns((function () use ($table): array {
                 $visibility = app(RegistrationTableColumnService::class);
                 $displayUnit = $visibility->activeUnit($table);
+                $higher = SpmbOperationalMode::isHigherEducation() ? app(HigherEducationRegistrationTableService::class) : null;
 
                 $coreColumns = [
                 // Keep the participant's name sticky; NIK is a separate, non-sticky column.
@@ -380,9 +383,15 @@ class RegistrationResource extends Resource
 
                         $fieldKey = (string) $definition['key'];
                         $fieldType = (string) ($definition['type'] ?? 'text');
-                        $extraColumns[] = Tables\Columns\TextColumn::make('custom:'.$fieldKey)
+                        if ($higher && ! $higher->validCustomDefinition($definition)) {
+                            continue;
+                        }
+                        $customColumn = Tables\Columns\TextColumn::make('custom:'.$fieldKey)
                             ->label((string) ($definition['label'] ?? $fieldKey))
-                            ->getStateUsing(function (Registration $record) use ($fieldKey, $fieldType): string {
+                            ->getStateUsing(function (Registration $record) use ($fieldKey, $fieldType, $displayUnit, $higher): string {
+                                if ($higher && (int) $record->unit_id !== (int) $displayUnit->id) {
+                                    return '-';
+                                }
                                 $value = data_get($record->custom_answers, $fieldKey);
 
                                 if ($value === null || $value === '' || $value === []) {
@@ -394,6 +403,15 @@ class RegistrationResource extends Resource
                                 }
 
                                 if ($fieldType === 'boolean') {
+                                    if ($higher) {
+                                        return match (is_scalar($value) ? strtolower((string) $value) : null) {
+                                            '1', 'true' => 'Ya',
+                                            '0', 'false' => 'Tidak',
+                                            '' => $value === false ? 'Tidak' : '-',
+                                            default => '-',
+                                        };
+                                    }
+
                                     return (string) $value === '1' ? 'Ya' : 'Tidak';
                                 }
 
@@ -405,13 +423,22 @@ class RegistrationResource extends Resource
                             })
                             ->limit(65)
                             ->toggleable(isToggledHiddenByDefault: ! $visibility->showByDefault($displayUnit, 'custom:'.$fieldKey));
+                        if ($higher) {
+                            $customColumn->sortable(query: fn (Builder $query, string $direction): Builder => $higher->sortCustom($query, (int) $displayUnit->id, $fieldKey, $fieldType, $direction));
+                        }
+                        $extraColumns[] = $customColumn;
                     }
                 }
 
-                return [...$coreColumns, ...$extraColumns];
+                $columns = [...$coreColumns, ...$extraColumns];
+                return $higher ? array_map(fn ($column) => $higher->configureBuiltinSort($column), $columns) : $columns;
             })())
-            ->filters([
-                Tables\Filters\SelectFilter::make('unit_id')->label('Unit')->relationship('unit', 'name'),
+            ->filters((function () use ($table): array {
+                $filters = [
+                Tables\Filters\SelectFilter::make('unit_id')->label('Unit')
+                    ->relationship('unit', 'name', fn (Builder $query): Builder => SpmbOperationalMode::isHigherEducation()
+                        ? $query->whereIn('units.id', app(HigherEducationRegistrationTableService::class)->accessibleUnits()->select('units.id'))
+                        : $query),
                 Tables\Filters\SelectFilter::make('registration_opening_id')
                     ->label('Pembukaan')
                     ->options(fn (): array => RegistrationOpening::query()
@@ -432,7 +459,15 @@ class RegistrationResource extends Resource
                         true: fn (Builder $query): Builder => $query->whereHas('continuationLink'),
                         false: fn (Builder $query): Builder => $query->whereDoesntHave('continuationLink'),
                     ),
-            ])
+                ];
+                if (! SpmbOperationalMode::isHigherEducation()) {
+                    return $filters;
+                }
+                $higher = app(HigherEducationRegistrationTableService::class);
+                $unit = $higher->activeUnitForTable($table);
+                return [...$filters, ...$higher->builtinFilters($unit), ...$higher->customFilters($unit)];
+            })())
+            ->filtersFormColumns(SpmbOperationalMode::isHigherEducation() ? 2 : 1)
             ->actions([
                 Tables\Actions\Action::make('printRegistrationForm')
                     ->label('Cetak Formulir')
