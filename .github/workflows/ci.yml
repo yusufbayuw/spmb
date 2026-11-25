@@ -139,6 +139,19 @@ jobs:
       - name: Higher education registration table MySQL regression
         run: php artisan test tests/Feature/HigherEducationRegistrationTableFiltersTest.php
 
+      - name: Synthetic registration table query load drill (isolated MySQL)
+        env:
+          SPMB_REGISTRATION_TABLE_LOAD_TEST: '1'
+        run: php artisan test tests/Feature/HigherEducationRegistrationTableLoadTest.php
+
+      - name: Upload synthetic registration table query metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-table-load-synthetic
+          path: registration-table-load-synthetic.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Synthetic CBT XLSX report load drill (isolated MySQL)
         env:
           SPMB_CBT_LOAD_TEST: '1'
