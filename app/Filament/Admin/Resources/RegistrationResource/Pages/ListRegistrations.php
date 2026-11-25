@@ -14,6 +14,49 @@ class ListRegistrations extends ListRecords
 {
     protected static string $resource = RegistrationResource::class;
 
+    public function updatedTableFilters(): void
+    {
+        if (\App\Support\SpmbOperationalMode::isHigherEducation()) {
+            $oldNames = array_keys($this->getTable()->getFilters());
+            $oldCustom = array_values(array_filter($oldNames, fn (string $name): bool => str_starts_with($name, 'custom_')));
+            // Filament builds table definitions before Livewire applies updates.
+            // Rebuild after a unit change, dropping incompatible filter state.
+            $service = app(\App\Services\HigherEducationRegistrationTableService::class);
+            $unit = $service->activeUnit(app(\App\Services\RegistrationTableColumnService::class)->activeUnit($this->getTable()));
+            $newCustom = array_map(fn ($filter) => $filter->getName(), $service->customFilters($unit));
+
+            if ($oldCustom !== $newCustom) {
+                foreach (array_keys($this->tableFilters ?? []) as $name) {
+                    if (str_starts_with($name, 'custom_') && ! in_array($name, $newCustom, true)) {
+                        unset($this->tableFilters[$name]);
+                    }
+                }
+                if (str_starts_with($this->tableSortColumn ?? '', 'custom:')) {
+                    $this->tableSortColumn = null;
+                    $this->tableSortDirection = null;
+                    $this->updatedTableSortColumn();
+                }
+                foreach (array_keys($this->toggledTableColumns) as $name) {
+                    if (str_starts_with($name, 'custom:')) {
+                        unset($this->toggledTableColumns[$name]);
+                    }
+                }
+
+                $this->isCachingForms = true;
+                $this->bootedInteractsWithTable();
+                $this->cacheForms();
+                $this->isCachingForms = false;
+                $this->getTableColumnToggleForm()->fill(array_replace_recursive(
+                    $this->getDefaultTableColumnToggleState(), $this->toggledTableColumns
+                ));
+                $this->getTableFiltersForm()->fill($this->tableFilters);
+            }
+        }
+
+        parent::updatedTableFilters();
+        $this->flushCachedTableRecords();
+    }
+
     public function getTabs(): array
     {
         return [
